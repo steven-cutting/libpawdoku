@@ -42,10 +42,11 @@ What moves if it moves: the five jobs become `B/.github/workflows/rust-ci.yml` u
 composite action becomes `B/actions/setup-rust-toolchain/action.yml` with inputs for
 the cargo-binstall and just versions defaulting to CONVENTIONS.md §2's pins and the uv
 steps behind a `python` input (D01 option A). Triggers, `permissions` and `concurrency`
-stay in the caller (B README lines 31-34). The caller becomes G's 28-line shape; the
-required checks become `ci / rust`, `ci / coverage`, `ci / wasm`, `ci / deny`,
-`ci / documents`, and T's `scripts/bootstrap_repo.sh` splits `--checks` on commas alone
-so the spaces survive (lines 36-39 at `2283589c`). B's versioning (README lines
+stay in the caller (B README lines 31-34). The caller becomes G's 28-line shape plus the
+`check` aggregate job, which now needs the one call job instead of five local ones
+(CONVENTIONS.md §10): the called jobs report as `ci / rust`, `ci / coverage`,
+`ci / wasm`, `ci / deny`, `ci / documents`, but `check` stays the only required context,
+so branch protection is not touched. B's versioning (README lines
 250-291): a new workflow and action no existing caller must change is MINOR; the next
 tag after `v0.3.0` is `v0.4.0` unless C02 ships first. B's `check` job runs the action
 from its checkout as a smoke test (B `ci.yml` line 30); B has no Rust code, so a Rust
@@ -88,7 +89,7 @@ anyway, the Steps are the work.
 | `B/actions/setup-rust-toolchain/action.yml` | other repository, new | the composite action with version inputs; authorisation required |
 | `B/README.md`, `B/CHANGELOG.md` | other repository | a "What it hosts" row, a Rust "Calling it" block, the MINOR entry; authorisation required |
 | `.github/workflows/ci.yml`, `.github/actions/setup/action.yml` | T04's files | the thin caller; the action deleted; one pull request here once B has tagged |
-| repository settings | settings | required checks renamed to the `ci / <job>` form through T's script; authorisation required |
+| repository settings | settings | none: `check` stays the one required context; the caller's aggregate job keeps reporting it |
 | `docs/reference/quality-gates.md`, `docs/explanation/security-model.md` | T08's pages | the check names and where the jobs live; the same pull request |
 
 ## Steps
@@ -123,25 +124,33 @@ anyway, the Steps are the work.
 5. **Authorisation required.** Here, on this branch: `ci.yml` becomes the thin caller
    at the tagged SHA (`gh api repos/steven-cutting/biscuit_games_tooling/commits/vX.Y.Z --jq .sha`,
    B README line 261); `.github/actions/setup/` is deleted; the two T08 pages updated.
-   The pull request's run shows five checks named `ci / rust` and so on.
+   The caller keeps T04's `check` job with `needs: [ci]` (the call job's id), the same
+   `if: always()` and the same result test, so the pull request's run shows five checks
+   named `ci / rust` and so on plus `check`, and `check` is green only when the five are.
 
-6. **Authorisation required.** Branch protection round three: T's script with
-   `--checks 'ci / rust,ci / coverage,ci / wasm,ci / deny,ci / documents'` (one
-   argument), dry run, `--apply`, then `changed: 0` on a repeat. Merge the pull
-   request only after the protection names the new checks, or five checks that no
-   longer exist block it.
+6. Protection, read-only. Confirm before merging that `check` is still the one required
+   context and that the pull request's run reports it:
+
+   ```sh
+   gh api repos/steven-cutting/libpawdoku/branches/main/protection --jq '[.required_status_checks.checks[].context] | sort | join(",")'
+   gh api repos/steven-cutting/libpawdoku/commits/<head sha>/check-runs --jq '.check_runs[].name'
+   ```
+
+   `check` on the first line; `check` and the five `ci / <job>` names on the second. No
+   protection change: the aggregate job is what makes the rename invisible to `main`.
 
 7. Set `status: done` and commit on the ticket branch. Stop before pushing.
 
 ## Acceptance criteria
 
 - The trigger is answered and the verdict follows it.
-- The hand-back notes hold the full `rust-ci.yml`, the action with its inputs, the
-  caller and the protection command, applied or not.
+- The hand-back notes hold the full `rust-ci.yml`, the action with its inputs and the
+  caller with its `check` aggregate, applied or not.
 - If applied: B has a MINOR tag whose commit holds both files; this repository's
   `ci.yml` is the thin caller at that SHA; `.github/actions/setup/` is gone; `main`
-  requires the five `ci / <job>` checks; `just check` is green here and B's `check`
-  is green there.
+  still requires `check` alone and the pull request's run reported it green alongside
+  the five `ci / <job>` checks; `just check` is green here and B's `check` is green
+  there.
 - Every action on B and on repository settings was authorised before it was taken.
 - `git status --porcelain` on this branch lists only the files in Files touched.
 
@@ -156,7 +165,8 @@ gh api repos/steven-cutting/libpawdoku/branches/main/protection --jq '[.required
 
 Expected: the two commits of the pin dance (`73df4e2` then `be41556`); B's "Changing
 the action" section; the local action and five jobs (filed) or one `uses:` naming B
-(applied); `coverage,deny,documents,rust,wasm` (filed) or the five `ci / <job>` names
+(applied); `check` on the protection line either way, and the check-runs list naming
+`check` with the five plain job names (filed) or with the five `ci / <job>` names
 (applied).
 
 ## Hand-back notes

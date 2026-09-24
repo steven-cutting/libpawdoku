@@ -280,7 +280,9 @@ no lane touches it again; `stub` means the named lane replaces it.
    G's header (triggers, permissions `contents: read`, concurrency) and one job named
    `check`, `timeout-minutes: 45`, checkout with `persist-credentials: false`, the setup
    action, `just install-allium`, `just check`. `actionlint` must pass on it (`just lint`
-   runs it). T04 replaces the single job with five.
+   runs it). The name `check` is permanent: T01 makes it the one required status, and
+   T04 replaces the single job with five gate jobs plus a `check` aggregate that needs
+   them, so protection never changes (CONVENTIONS.md §10).
 
 9. `docs/manifest.yml` and `docs/README.md`, final and frozen. The manifest is strict
    JSON in G's layout; every page below must exist by the end of this ticket. Carried

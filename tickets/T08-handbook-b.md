@@ -360,13 +360,16 @@ counterpart 109-113; In continuous integration 115-146; On `main` 148-170; Relat
   line, so there is no embedded shell to miss today.
 - 111-113: `cargo fmt`, `taplo fmt`, `cargo shear --fix`, the whitespace fixers and
   `markdownlint --fix`; `cargo clippy --fix` stays in the recipe body (§5).
-- CI (117-127): the five jobs of §10 in a table with their recipes, the `audit` job, and
-  that the mapping is not one-to-one: `rust` runs `test` where the gate runs `test-doc`
+- CI (117-127): the five gate jobs of §10 in a table with their recipes, the `check`
+  aggregate that needs them and runs nothing (why protection names a job with no
+  recipe), the `audit` job, and that the mapping is not one-to-one: `rust` runs `test`
+  where the gate runs `test-doc`
   and `coverage`, `lint` runs in `documents`, and past the composite setup action nothing
   in CI runs a command the `Justfile` lacks.
-- On `main` (150-155): the required checks are `rust`, `coverage`, `wasm`, `deny` and
-  `documents` after T11 and `check` alone between T01 and T11; `audit` is never required
-  (§10). Then 157-161. There is no deployment.
+- On `main` (150-155): the one required check is `check`, the job that needs `rust`,
+  `coverage`, `wasm`, `deny` and `documents` and fails when any of them did not succeed,
+  so a gate job is added by joining its `needs` and protection never changes; `audit` is
+  never required (§10). Then 157-161. There is no deployment.
 - Related: 172-177 plus `../decisions/0009-rust-quality-gate.md`.
 
 ### `reference/documentation-contract.md`

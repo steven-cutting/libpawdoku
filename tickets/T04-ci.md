@@ -17,9 +17,11 @@ T00 step 8 left two stubs: `.github/actions/setup/action.yml`, a composite actio
 G's header over one job named `check` that runs `just install-allium` then `just check`
 under a 45-minute timeout. T01 pushed that stub to the remote and made `check` the one
 required status. This ticket replaces the stub with the final shape: the composite action
-finished, five plain jobs whose names are the required checks T11 will set (`rust`,
-`coverage`, `wasm`, `deny`, `documents`), and a separate `audit.yml` for the one recipe
-that needs the network.
+finished, five plain gate jobs (`rust`, `coverage`, `wasm`, `deny`, `documents`), a
+`check` job that needs the five and stays the one required check (CONVENTIONS.md §10),
+and a separate `audit.yml` for the one recipe that needs the network. Keeping `check`
+reporting is what lets this ticket's pull request, and every lane pull request pushed
+after it merges, pass T01's protection without an administrator bypass.
 
 Read first: `CONVENTIONS.md` in full (§2 for the pins, §4 for what each recipe does, §10
 for the design this ticket embeds, §11 for the lane rules, §12 for the two claims assigned
@@ -87,18 +89,19 @@ Action pins, resolved read-only with `gh api repos/<owner>/<repo>/releases/lates
 Three files on `ticket/t04-ci`: the finished composite action and `ci.yml` (replacing
 T00's stubs) and a new `audit.yml`; `just lint` green (actionlint over the workflows,
 `check-yaml` over all three); one `workflow_dispatch` run of `ci.yml` on the ticket branch
-with all five jobs green and their durations quoted; the two CONVENTIONS.md §12 claims
-assigned to this ticket checked and their outcomes recorded; and the five required-check
-names written down for T11.
+with all six jobs green and their durations quoted, `check` among the names the checks
+API reports for the commit; and the two CONVENTIONS.md §12 claims assigned to this ticket
+checked and their outcomes recorded.
 
 ## Non-goals
 
 - No change to `Justfile`, `tools.txt`, `rust-toolchain.toml` or any other frozen file. A
   recipe this ticket finds wrong in CI (say, `install-toolchain` needing `rustup show`) is
   handed back as a `main` follow-up, not fixed here (CONVENTIONS.md §11).
-- No branch-protection change. T11 sets the five required checks; T01's single `check`
-  stays required until then, so a pull request from this branch shows `check` as
-  missing and cannot merge on its own. Say so in the hand-back notes.
+- No branch-protection change, now or later. T01's single required check is `check`,
+  and this workflow keeps reporting it through the aggregate job, so a pull request from
+  this branch merges under T01's protection like any other. T11 only reruns the
+  protection script to prove it reads back unchanged.
 - No `release.yml`, no Windows or macOS runner, no matrix (CONVENTIONS.md §10, S02).
 - No Codecov, no coverage badge, no comment bot: nothing external.
 - No reusable workflow: C01 lifts this shape into B later, after T11.
@@ -244,8 +247,8 @@ Nothing else. Every other change is handed back.
    # .gitattributes and rustfmt, so a second operating system would prove
    # nothing the first does not. windows-latest joins `rust` the day
    # crates/pawdoku-cli exists; wheels get maturin's own matrix in the release
-   # workflow S02 designs. Each job's `name` is the required check T11 sets, so
-   # no name carries a slash or a space.
+   # workflow S02 designs. `check`, last, is the one required check; the five
+   # gate jobs are its `needs`, so no name carries a slash or a space.
    jobs:
      rust:
        name: rust
@@ -349,6 +352,23 @@ Nothing else. Every other change is handed back.
          # reason.
          - run: just check-specs
          - run: just analyse-specs
+
+     # The one required check (CONVENTIONS.md §10). It needs every gate job and
+     # fails if any of them failed, was cancelled or was skipped, so protection
+     # names `check` alone and never changes when a job is added, renamed or
+     # moved into a reusable workflow: a new gate job joins `needs` here.
+     # `if: always()` is what makes it report on a failure instead of being
+     # skipped, which is why the step reads `needs.*.result` itself. No checkout,
+     # no setup action, and no `${{ }}` inside a shell line.
+     check:
+       name: check
+       needs: [rust, coverage, wasm, deny, documents]
+       if: always()
+       runs-on: ubuntu-latest
+       timeout-minutes: 5
+       steps:
+         - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}
+           run: exit 1
    ```
 
 5. Write `.github/workflows/audit.yml`:
@@ -414,7 +434,8 @@ Nothing else. Every other change is handed back.
    ```
 
    `ci.yml` exists on `main` from T00 and T01, so the dispatch is accepted and runs the
-   branch's copy. `audit.yml` does not exist on `main` yet: try
+   branch's copy. The job list has six lines, `check` last and `success` only once the
+   five before it are. `audit.yml` does not exist on `main` yet: try
    `gh workflow run audit.yml --ref ticket/t04-ci`; if GitHub refuses it, the proof is
    the `pull_request` trigger when the pull request is opened (also separately
    authorised). Record which happened. Quote the job list, each job's duration and the
@@ -446,10 +467,14 @@ Nothing else. Every other change is handed back.
      `active-toolchain` line (`1.98.1-x86_64-unknown-linux-gnu`) and the `wasm` job's two
      green steps.
 
-9. Write the required-check names for T11 in the hand-back notes, exactly as the checks
-   API reports them: `rust`, `coverage`, `wasm`, `deny`, `documents`. Confirm from
+9. Confirm from
    `gh api repos/steven-cutting/libpawdoku/commits/<sha>/check-runs --jq '.check_runs[].name'`
-   on the dispatched commit that no name carries a slash or a prefix.
+   on the dispatched commit that the checks API reports `check` alongside `rust`,
+   `coverage`, `wasm`, `deny` and `documents`, spelled exactly so, with no slash or
+   prefix: `check` is the context T01's protection names, and this is the proof the new
+   workflow still satisfies it. If any dispatch in this ticket had a gate job fail,
+   quote `check`'s conclusion on that run (`failure`); otherwise record that the failing
+   path was not exercised.
 
 10. Set `status: done`, commit on the ticket branch with short imperative subjects, and
     stop before opening the pull request.
@@ -463,14 +488,18 @@ Nothing else. Every other change is handed back.
 - Every `uses:` is `owner/repo@<40-hex-sha> # vX.Y.Z`, with the commit for annotated
   tags; `grep -rn 'uses:' .github | grep -v -E '@[0-9a-f]{40} # ' | grep -v './.github/actions/setup'`
   prints nothing.
-- No job name contains a slash, a space or a prefix; the five names are `rust`,
-  `coverage`, `wasm`, `deny`, `documents`, and `audit.yml`'s is `audit`.
+- No job name contains a slash, a space or a prefix; the six names are `rust`,
+  `coverage`, `wasm`, `deny`, `documents`, `check`, and `audit.yml`'s is `audit`.
+- `check` has `needs: [rust, coverage, wasm, deny, documents]`, `if: always()`, no
+  checkout and no setup action, and its one step exits 1 when any `needs.*.result` is
+  `failure`, `cancelled` or `skipped`.
 - The `documents` job runs `just install-allium` before `just lint` and therefore before
   `check-specs` and `analyse-specs`.
 - The `GITHUB_TOKEN` environment variable appears on the `install-tools` step and nowhere
   else; `permissions` is `contents: read` in both workflows.
-- All five jobs of `ci.yml` are green on the dispatch run on `ticket/t04-ci`; the job
-  list, per-job durations and the total minutes are quoted in the hand-back notes.
+- All six jobs of `ci.yml` are green on the dispatch run on `ticket/t04-ci`; the job
+  list, per-job durations and the total minutes are quoted in the hand-back notes; the
+  check-runs API lists `check` for the dispatched commit.
 - On the second dispatch, the `.tools` cache line reports a hit; the rust-cache line is
   quoted as observed and explained.
 - The `lcov` artifact exists on the run with a 7-day retention.
@@ -493,9 +522,9 @@ gh api repos/steven-cutting/libpawdoku/actions/runs/<run-id>/artifacts --jq '.ar
 Expected: `just lint` and `just check` exit 0 and the worktree is clean; the pin grep
 prints `every remote action pinned`; `GITHUB_TOKEN:` matches one line, the `env` key of
 the action's `install-tools` step; the `name:` grep, anchored at job depth, prints the
-five job names and nothing else (the artifact's `name: lcov` sits deeper); every
-job's conclusion is `success`; the artifact is `lcov` with an expiry seven days after the
-run. Quote each in the hand-back notes, with the run's URL.
+six job names, `check` last, and nothing else (the artifact's `name: lcov` sits deeper);
+every job's conclusion is `success`; the artifact is `lcov` with an expiry seven days
+after the run. Quote each in the hand-back notes, with the run's URL.
 
 ## Hand-back notes
 

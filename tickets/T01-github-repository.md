@@ -1,6 +1,6 @@
 ---
 id: T01
-title: "GitHub repository: create, first push, settings, branch protection round one"
+title: "GitHub repository: create, first push, settings, branch protection"
 status: open
 depends_on: [T00]
 parallel_with: [T02, T03, T04, T05, T06, T07, T08, T09]
@@ -8,7 +8,7 @@ branch: ticket/t01-github-repository
 estimated_size: M
 ---
 
-# T01: GitHub repository: create, first push, settings, branch protection round one
+# T01: GitHub repository: create, first push, settings, branch protection
 
 ## Context
 
@@ -54,10 +54,13 @@ What it does, by line, at that commit:
   commit and rebase with GitHub's default title and message settings (read with
   `gh api repos/steven-cutting/<name>` on 2026-09-23). This ticket leaves that alone.
 
-The required check is `check`, the one job of T00's `ci.yml` stub (T00 step 8;
-CONVENTIONS.md §10 last paragraph). T11 reruns the same script with
-`--checks rust,coverage,wasm,deny,documents` once T04's five jobs are green. A required
-context may be set before any workflow has reported it (C03's hand-back, lines 760-762).
+The required check is `check`, and it is the only one this repository ever requires
+(CONVENTIONS.md §10 last paragraph). Today it is the one job of T00's `ci.yml` stub (T00
+step 8); once T04 merges it is the aggregate job that needs the five gate jobs, so the
+name every pull request must satisfy never changes and no lane's merge waits on a
+protection edit. T11 reruns the same script with the same `--checks check` only to prove
+it reads back `already` and `changed: 0`. A required context may be set before any
+workflow has reported it (C03's hand-back, lines 760-762).
 
 One trap, verified in gh's source (`cli/cli`, `pkg/cmd/repo/create/create.go`, the
 `Push(... "HEAD")` call): `gh repo create --source . --push` pushes `HEAD`, which in this
@@ -85,7 +88,8 @@ is public; and the visibility decision recorded with its reasons.
   the stub run the first push triggers.
 - No merge-method change, topics, social preview, Pages, secrets, rulesets, Dependabot
   (S01) or release settings (S02). No tag, no GitHub issue, no pull request beyond this
-  ticket's own. Round two of protection (the five job names) is T11's.
+  ticket's own. There is no second round of protection: T11 only reruns the script to
+  show nothing changed.
 
 ## Files touched
 
@@ -285,3 +289,12 @@ conclusion; `git status --porcelain` names only this file.
 - **Merge methods.** Left at GitHub's defaults (all three allowed), matching every
   sibling. Whether to restrict to squash with the pull-request title is S02's question,
   when release tooling starts reading history.
+- **Administrators not bound.** `enforce_admins: false` is the house setting (Poodl,
+  pawdoku, C03) and the script hardcodes it: its step 2 compares the whole protection
+  line against a `false` there and re-PUTs the body on any mismatch, so binding
+  administrators by a separate call would be undone by T11's rerun and would break the
+  `changed: 0` idempotency check. Binding them is a reasonable hardening for a
+  single-maintainer repository, since the aggregate `check` means no planned merge needs
+  a bypass, but it starts with an `--enforce-admins` flag in T's script, a change to
+  another repository. Decided 2026-09-24: leave unbound; reopen as a T hand-back if a
+  bypass is ever used.

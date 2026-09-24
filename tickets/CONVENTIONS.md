@@ -690,9 +690,10 @@ engine (the wasm package shipping `specs/`) is S04's.
 comment), `workflow_dispatch`; `permissions: contents: read`; concurrency group
 `ci-${{ github.workflow }}-${{ github.ref }}` with `cancel-in-progress: true`; `env:`
 `CARGO_TERM_COLOR: always`, `CARGO_INCREMENTAL: '0'`, `CARGO_NET_RETRY: '10'`,
-`RUST_BACKTRACE: '1'`. Five plain jobs on `ubuntu-latest`, each with an explicit `name:`
-that is the required check, each beginning with `actions/checkout` (`persist-credentials:
-false`) and the composite setup action, then one `just` recipe per `run:` line:
+`RUST_BACKTRACE: '1'`. Five plain gate jobs on `ubuntu-latest`, each with an explicit
+`name:`, each beginning with `actions/checkout` (`persist-credentials: false`) and the
+composite setup action, then one `just` recipe per `run:` line; and a sixth job, `check`,
+the one required check, which needs the five and runs nothing of its own:
 
 | Job | Timeout | Recipes |
 | --- | --- | --- |
@@ -701,6 +702,7 @@ false`) and the composite setup action, then one `just` recipe per `run:` line:
 | `wasm` | 10 | `wasm-check` |
 | `deny` | 10 | `deny` |
 | `documents` | 15 | `lint`, `check-docs`, `check-agents`, `check-specs`, `analyse-specs` (needs `install-allium` in setup) |
+| `check` | 5 | none; `needs` the five above, `if: always()`, one step that exits 1 when any `needs.*.result` is `failure`, `cancelled` or `skipped` |
 
 `.github/workflows/audit.yml`: `pull_request`, a weekly `schedule`, `workflow_dispatch`;
 one job `audit` running `just audit`; never a required check, because the RustSec fetch
@@ -726,8 +728,14 @@ Ubuntu only: the crate is pure computation with `eol=lf` forced by `.gitattribut
 rustfmt; `windows-latest` joins `rust` the day `crates/pawdoku-cli` exists, and wheels get
 maturin's own matrix in the release workflow S02 designs (which needs `contents: write`
 and `id-token: write` for crates.io trusted publishing, so it never shares `ci.yml`).
-Required checks after T11: `rust`, `coverage`, `wasm`, `deny`, `documents`; after T01,
-only the one-job stub's `check`.
+The required check is `check`, from T01 onward and never anything else. T00's stub reports
+it as the one job that runs `just check`; T04's workflow reports it as the aggregate job
+above, which needs every gate job and fails when any of them did not succeed. Protection
+therefore never changes when a job is added, renamed or moved into a reusable workflow
+(C01): a new gate job joins `check`'s `needs` and nothing else moves. `audit` is never in
+`needs`. Without this, T04's pull request and every lane pull request pushed after it
+would report five checks and not the one `main` requires, and could merge only by an
+administrator bypassing the gate.
 
 ## 11. Rules for tickets and lanes
 
@@ -827,6 +835,11 @@ is a design change that goes back through this document.
   2026-09-23). Not a fallback: `dtolnay/rust-toolchain` requires its `toolchain` input
   (verified 2026-09-23 by reading its `action.yml`), so it would restate the pin. **T04.**
 - `Swatinem/rust-cache` with `cache-bin: false` leaves `.tools/` to `actions/cache`. **T04.**
+- The `check` aggregate job under `if: always()` reports `success` when its five `needs`
+  succeed and `failure` when any of them failed, was cancelled or was skipped, and the
+  checks API lists it under the name `check` (§10). The green half is proved by T04's
+  dispatch; the red half only if a gate job fails during T04, otherwise recorded as not
+  exercised. **T04.**
 - allium 3.6.1 reports empty `diagnostics` and `findings` for the seven migrated modules
   after the §9 edits. **T06.**
 - `T/scripts/bootstrap_repo.sh` applies cleanly to a repository with no Pages and one

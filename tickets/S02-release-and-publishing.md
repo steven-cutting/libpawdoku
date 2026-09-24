@@ -35,7 +35,8 @@ cargo-semver-checks 0.50.0):
   wrote and a bump it cannot justify; git-cliff alone has the same dependency.
 - cargo-semver-checks compares the public API against the last tagged or published
   version, so it has nothing to compare until the first tag; before 1.0 a breaking
-  change is a minor bump, so it is a non-required job first and required at 1.0.
+  change is a minor bump, so it runs outside `check`'s `needs` first and joins them at
+  1.0 (CONVENTIONS.md §10).
 - Trusted publishing: crates.io accepts a GitHub Actions OIDC token for a crate whose
   owner has named the repository and workflow as a trusted publisher; verify whether
   that can be configured before the first version exists, or whether the first publish
@@ -125,7 +126,7 @@ repository. The starting recommendation: **cargo-release**, with
 
 5. Verify cargo-semver-checks' baseline requirement (a tag or a published version),
    whether 0.50 needs a nightly for rustdoc JSON, and the job shape
-   (`cargo semver-checks --baseline-rev <last tag>`, non-required until 1.0).
+   (`cargo semver-checks --baseline-rev <last tag>`, outside `check`'s `needs` until 1.0).
 
 6. Decide lockstep versus independent versions for the four crates, with S04's crate
    list in view: G will pin an npm version of `pawdoku-wasm`, and a core-only change
