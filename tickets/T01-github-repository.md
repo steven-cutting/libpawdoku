@@ -1,7 +1,7 @@
 ---
 id: T01
 title: "GitHub repository: create, first push, settings, branch protection"
-status: open
+status: done
 depends_on: [T00]
 parallel_with: [T02, T03, T04, T05, T06, T07, T08, T09]
 branch: ticket/t01-github-repository
@@ -260,13 +260,259 @@ conclusion; `git status --porcelain` names only this file.
 
 ## Hand-back notes
 
+**Done on 2026-09-25.** One session with gh 2.100.0 as `steven-cutting`. The repository
+is public at <https://github.com/steven-cutting/libpawdoku>. `main` is pushed at
+`9eb968a` and protected behind `check`, and the stub run of `check` on `main` is green.
+Transcripts are in `ai_tmp/` (`t01-dry-run.txt`, `t01-apply-1.txt`, `t01-apply-2.txt`,
+`t01-verify-pre.txt`); Git ignores them.
+
+### Authorised actions, and what each printed
+
+The maintainer answered in this session, before each action ran. Visibility: "Public
+(Recommended)". Steps 3 and 4: "Authorise both", given against the three commands
+quoted verbatim in the question. Step 7: "Authorise apply", given after the step 6 dry
+run below had been shown in full.
+
+- Step 3, run once:
+
+  ```sh
+  gh repo create steven-cutting/libpawdoku --public \
+    --description "Classic-sudoku engine for Biscuit Games: solver, technique catalogue, difficulty rating, hints."
+  ```
+
+  It printed `https://github.com/steven-cutting/libpawdoku` and exited 0.
+- Step 4: `git remote add origin git@github.com:steven-cutting/libpawdoku.git` exited 0
+  and printed nothing. `git push -u origin main` printed:
+
+  ```text
+  To github.com:steven-cutting/libpawdoku.git
+   * [new branch]      main -> main
+  branch 'main' set up to track 'origin/main'.
+  ```
+
+  Read back: `gh repo view … --jq .defaultBranchRef.name` printed `main`, and
+  `git ls-remote origin main` printed
+  `9eb968a5a9ca22696257e2999c2e19e41fc1e79e  refs/heads/main`. So `gh repo edit
+  --default-branch` was not needed and was not run.
+- Step 7, first `--apply`: the dry-run output below, with `+` in place of each `would:`,
+  `mode: apply` and `changed: 3`. The three `+` lines:
+
+  ```text
+     + gh api -X PUT repos/steven-cutting/libpawdoku/branches/main/protection --input -
+     + gh api -X PUT repos/steven-cutting/libpawdoku/private-vulnerability-reporting
+     + gh repo edit steven-cutting/libpawdoku --delete-branch-on-merge --enable-wiki=false --enable-projects=false
+  ```
+
+- Step 7, second `--apply`: no line beginning `+` (`grep -c '^ *+'` printed `0`):
+
+  ```text
+  repository: steven-cutting/libpawdoku
+  mode: apply
+
+  2. Protection on main requiring check
+     state: false check false false false false false
+     already
+
+  3. CHROMATIC_PROJECT_TOKEN
+     state: not set
+     skipped: no token supplied; chromatic.yml notes the absence and skips the publish
+
+  4. Private vulnerability reporting
+     state: true
+     already
+
+  5. Package read access for @steven-cutting/biscuit-games
+     state: cannot be read: no REST endpoint, and the package needs a read:packages scope
+     [four explanatory lines, identical to the dry run's]
+
+  6. Hygiene
+     state: true false false
+     already
+
+  changed: 0
+  ```
+
+Nothing else changed outside this worktree. `origin` and `main`'s upstream
+(`branch.main.remote origin`, `branch.main.merge refs/heads/main`) are in the shared
+`.git/config`, so every worktree of this repository, and the primary checkout, now sees
+`origin`.
+
 ### What was verified, and how
+
+Step 1, before any mutation: `git remote -v` printed nothing. `git log --oneline main`
+began `9eb968a Correct the hook hand-off order in the T00 hand-back`, which is T00's
+closing commit; T00 reached `main` by fast-forward, so its tip is not a merge commit.
+`gh auth status` reported `steven-cutting`, protocol ssh, and scopes `admin:public_key`,
+`gist`, `read:org`, `repo`, `workflow`. `gh repo view` reported `Could not resolve to a
+Repository with the name 'steven-cutting/libpawdoku'`. The pinned script was copied with
+the step's `git show 2283589c:scripts/bootstrap_repo.sh`. The copy is 382 lines with
+SHA-256 `62cec7df09935f2350936c36f0891f29c9d0243e21859a83d37e47050bdb6ace`, and every
+line reference in Context matched it.
+
+Before the push, a read-only check found that every commit on `main` has
+`tech@scutting.com` as author and committer. The latest three commits of `pawdoku`,
+`biscuit_games_template` and `biscuit_games_tooling` already show that address
+publicly, so making this repository public exposed nothing new. The shared
+`pre-commit` shim names `/Users/scutting/projects/libpawdoku/.pixi/envs/default/bin/prek`,
+which exists, and there is no `pre-push` hook, so the push ran no hook.
+
+Step 5: run `36201752678` (`CI`, event `push`, on `main` at `9eb968a`) was **green**.
+Job `check` (ID `108289700703`) passed in 1m48s, including every step:
+checkout, `./.github/actions/setup`, `just install-allium` and `just check`. The run
+carried one annotation: "The ubuntu-latest label will migrate to Ubuntu 26 beginning
+October 19, 2026."
+
+Step 6, the dry run, matched the expected output exactly. It printed no step 1; step 2
+`not protected (HTTP 404)` with the one-context body; step 3 `not set` and skipped; step
+4 `false` and the PUT (the account does not turn reporting on by default for new public
+repositories); step 5 printed only; step 6 `false true true` with
+`wanted: true false false`; and `changed: 0 (dry run; 3 would change)`. The full output:
+
+```text
+repository: steven-cutting/libpawdoku
+mode: dry run (nothing is changed)
+
+2. Protection on main requiring check
+   state: not protected (HTTP 404)
+   wanted: false check false false false false false
+   would: gh api -X PUT repos/steven-cutting/libpawdoku/branches/main/protection --input -
+     {
+       "required_status_checks": {
+         "strict": false,
+         "checks": [
+           { "context": "check" }
+         ]
+       },
+       "enforce_admins": false,
+       "required_pull_request_reviews": null,
+       "restrictions": null,
+       "allow_force_pushes": false,
+       "allow_deletions": false
+     }
+
+3. CHROMATIC_PROJECT_TOKEN
+   state: not set
+   skipped: no token supplied; chromatic.yml notes the absence and skips the publish
+
+4. Private vulnerability reporting
+   state: false
+   would: gh api -X PUT repos/steven-cutting/libpawdoku/private-vulnerability-reporting
+
+5. Package read access for @steven-cutting/biscuit-games
+   state: cannot be read: no REST endpoint, and the package needs a read:packages scope
+   The package is public, so any repository installs it with the run's own
+   token and no grant is needed. Were it made private, the grant is by hand:
+   open the package page, Package settings, Manage Actions access, Add
+   repository, search for steven-cutting/libpawdoku, and set its Role to Read.
+
+6. Hygiene
+   state: false true true
+   wanted: true false false
+   would: gh repo edit steven-cutting/libpawdoku --delete-branch-on-merge --enable-wiki=false --enable-projects=false
+
+changed: 0 (dry run; 3 would change)
+```
+
+CONVENTIONS.md §12 claim: "`T/scripts/bootstrap_repo.sh` applies cleanly to a
+repository with no Pages and one required check". **Holds.** `--no-pages` skipped step
+1 without renumbering. `--checks check` produced one context. The first apply changed
+exactly the three steps the dry run named, and the second changed nothing. The script
+never exited non-zero.
+
+Step 9, the Verification block, run after step 7 (`git status --porcelain` was run
+again after this file was edited). The tabs in gh's and git's output are shown as two
+spaces here and in step 4 above, because markdownlint refuses hard tabs:
+
+```text
+$ gh repo view steven-cutting/libpawdoku --json visibility,defaultBranchRef,hasIssuesEnabled,hasWikiEnabled,hasProjectsEnabled,deleteBranchOnMerge,description,homepageUrl
+{"defaultBranchRef":{"name":"main"},"deleteBranchOnMerge":true,"description":"Classic-sudoku engine for Biscuit Games: solver, technique catalogue, difficulty rating, hints.","hasIssuesEnabled":true,"hasProjectsEnabled":false,"hasWikiEnabled":false,"homepageUrl":"","visibility":"PUBLIC"}
+$ gh api repos/steven-cutting/libpawdoku --jq '[.allow_squash_merge, …]'
+true true true
+$ gh api repos/steven-cutting/libpawdoku/branches/main/protection --jq '…'
+false check false false false false false
+$ gh api repos/steven-cutting/libpawdoku/rulesets
+[]
+$ gh api repos/steven-cutting/libpawdoku/private-vulnerability-reporting
+{"enabled":true}
+$ git remote -v
+origin  git@github.com:steven-cutting/libpawdoku.git (fetch)
+origin  git@github.com:steven-cutting/libpawdoku.git (push)
+$ git ls-remote origin main
+9eb968a5a9ca22696257e2999c2e19e41fc1e79e  refs/heads/main
+$ git rev-parse main
+9eb968a5a9ca22696257e2999c2e19e41fc1e79e
+$ gh run list -R steven-cutting/libpawdoku --branch main --limit 3
+completed  success  Correct the hook hand-off order in the T00 hand-back  CI  main  push  36201752678  1m53s  2026-09-25T23:37:45Z
+$ git status --porcelain
+ M tickets/T01-github-repository.md
+```
+
+Every acceptance criterion holds as read back above.
+
+The local gate also ran on this branch before the commit. `pixi install --locked`,
+`just install-tools` and `just install-allium` ran first, all inside the worktree,
+because Supacode's secondary worktree had no environment. These fetched from the
+network, as `just initialize` does: conda packages missing from pixi's cache, cargo-hack
+through binstall, and the allium 3.6.1 release tarball from GitHub. They were treated
+as routine setup, not asked for separately, and everything they wrote is gitignored
+(`.pixi/`, `.tools/`, `target/`). `prek run --files` on this
+file passed every hook that applies (markdownlint, typos, lychee, EditorConfig,
+ripsecrets and the builtins). `just check` exited 0, ending `All checks passed and the
+worktree is unchanged.`
 
 ### Deviations, and why
 
+- **Branch name.** The Supacode worktree's branch is `T01-github-repository`, not the
+  `ticket/t01-github-repository` in this file's `branch:` field. The maintainer chose to
+  keep that name and record the difference rather than rename, as T00 did. The question
+  noted that Supacode's bookkeeping might not follow a rename. The `branch:` field is left
+  as written.
+  Step 1's worktree already existed, created by Supacode from `main` at `9eb968a`.
+- **One aborted invocation.** The first attempt at step 7 was a compound shell command
+  that printed the watch log, then a separator line (`echo ======`), then ran both
+  `--apply` runs. zsh read the `=` as filename expansion and stopped with `(eval):1:
+  ===== not found` before either `--apply` ran. The first real apply then read the same
+  states as the dry run (404, `false`, `false true true`), which confirms that nothing
+  had changed. Both runs were then made as separate commands under the same
+  authorisation.
+- `gh run watch` ran with `--interval 30`, in the background.
+
 ### Handed back
 
+- **T10 and T11 (`SECURITY.md`).** The repository is **public** and private
+  vulnerability reporting reads `{"enabled":true}`. `SECURITY.md` can therefore name
+  GitHub's private vulnerability reporting form as the route; it does not need the
+  fallback.
+- **T11 (the protection rerun).** The arguments were
+  `steven-cutting/libpawdoku --no-pages --checks check --hygiene`, and `--hygiene` was
+  passed. The pinned copy lives in this worktree's `ai_tmp/`, which Git ignores and so
+  does not reach T11's worktree. Re-extract it with
+  `git -C /Users/scutting/projects/biscuit_games_template show 2283589c:scripts/bootstrap_repo.sh`
+  and confirm SHA-256
+  `62cec7df09935f2350936c36f0891f29c9d0243e21859a83d37e47050bdb6ace` before the dry run.
+- **T04.** The stub `check` is green on `main` (run `36201752678`), so every lane's pull
+  request starts from a passing required check. The runner reported that `ubuntu-latest`
+  moves to Ubuntu 26 from 2026-10-19. T04 owns the `runs-on` lines and decides whether
+  to pin an image before then.
+- **Maintainer.** Protection is live, so landing a lane on `main` now goes through a
+  pull request that `check` gates. Administrators are not bound, so the owner can still
+  push to `main` directly, but that bypasses the check. `origin` is configured for every
+  worktree through the shared `.git/config`.
+
 ### Open points settled
+
+- **Visibility: public.** The maintainer decided on 2026-09-25, before step 3, for the
+  reasons recorded under Open points.
+- **`--hygiene`: applied cleanly.** It read `false true true`, applied
+  `gh repo edit … --delete-branch-on-merge --enable-wiki=false --enable-projects=false`,
+  and read back `true false false` (`already`) on the second run. Nothing differed from
+  the ticket's description.
+- **Rulesets or classic protection: classic.** The protection line reads
+  `false check false false false false false`, and `rulesets` is `[]`.
+- **Merge methods: GitHub's defaults, untouched.** They read `true true true`. S02 owns
+  any restriction.
+- **Administrators not bound.** `enforce_admins.enabled` reads `false`, as decided on
+  2026-09-24.
 
 ## Open points
 
