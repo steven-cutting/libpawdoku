@@ -136,9 +136,11 @@ wasm-check:
 
 # Runs every nextest test under instrumentation and enforces the floor. Doctests
 # are not measured (nightly-only in llvm-cov); test-doc runs them uncovered.
+# llvm-cov does not create the lcov file's directory, so the recipe does.
 coverage:
     cargo llvm-cov nextest --workspace --all-features --locked --no-report
     cargo llvm-cov report --fail-under-lines {{coverage_floor}}
+    mkdir -p target/llvm-cov
     cargo llvm-cov report --lcov --output-path target/llvm-cov/lcov.info
 
 doc:

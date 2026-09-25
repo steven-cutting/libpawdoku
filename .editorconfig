@@ -30,3 +30,8 @@ trim_trailing_whitespace = false
 [Makefile]
 indent_style = tab
 indent_size = unset
+
+# The Apache-2.0 text is verbatim from apache.org and indents by its own
+# amounts; it is not this repository's prose to reflow.
+[LICENSE]
+indent_size = unset
