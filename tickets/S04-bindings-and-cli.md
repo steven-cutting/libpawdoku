@@ -43,10 +43,12 @@ GitHub Packages for the `@steven-cutting` scope (G's `.npmrc`, one line), where 
 Facts to start from, each verified at execution: pyo3 with `abi3-py311` builds one
 wheel per platform rather than per Python; maturin reads a `pyproject.toml` beside the
 crate and can generate its own workflow (`maturin generate-ci github`), whose wheel
-matrix belongs in S02's `release.yml`; a root `pyproject.toml` already exists as a
-virtual project (decision 0004), so uv sees two projects, and the bindings crates live in
-this workspace (settled with the maintainer in D01, as decision 0001 assumed), so that is
-a real question for step 3 (b), not a hypothetical. wasm-bindgen with
+matrix belongs in S02's `release.yml`; maturin is a pixi dependency in the root
+`pyproject.toml` when the crate lands (decision 0011), and that root file is already the
+pixi manifest, so how pixi treats a second `pyproject.toml` under `crates/pawdoku-py/`
+(pixi-build, or a separate manifest pixi never reads) is a real question for step 3
+(b), not a hypothetical, because the bindings crates live in this workspace (settled
+with the maintainer in D01, as decision 0001 assumed). wasm-bindgen with
 `serde-wasm-bindgen` behind the core's `serde` feature turns public types into plain
 JavaScript objects; `console_error_panic_hook` routes a panic to the console;
 wasm-pack writes the `package.json` it publishes, so shipping `specs/` is a step after
@@ -73,7 +75,7 @@ tool for running the solver on a grid string; Python last, when a consumer exist
 | --- | --- | --- | --- | --- | --- |
 | `pawdoku-wasm` | wasm-bindgen, wasm-pack `--target web`, serde-wasm-bindgen behind `serde` | GitHub Packages npm, `@steven-cutting/pawdoku-wasm`, `specs/` inside | JavaScript supplies a seed or the stream; the library's generator, named by `random_version`, is the default | likely, for generated code | a `wasm-pack build` step in `wasm`; publish in `release.yml` |
 | `pawdoku-cli` | clap, cargo-dist | GitHub Releases binaries; crates.io optional | the one crate allowed `getrandom`: `--seed`, else OS entropy printed with the result | no | `windows-latest` in `rust`; cargo-dist's workflow |
-| `pawdoku-py` | pyo3 `abi3-py311`, maturin, uv | PyPI, trusted publishing | Python supplies a seed; the fake is exposed for tests | likely, for pyo3's macros | maturin's wheel matrix in `release.yml`; uv in CI regardless of D01 |
+| `pawdoku-py` | pyo3 `abi3-py311`, maturin through pixi | PyPI, trusted publishing | Python supplies a seed; the fake is exposed for tests | likely, for pyo3's macros | maturin's wheel matrix in `release.yml`; pixi and maturin in CI regardless of D01 |
 
 ## Non-goals
 
@@ -112,8 +114,9 @@ tool for running the solver on a grid string; Python last, when a consumer exist
 
 3. Verify, read-only, against current documentation and record with sources: (a) pyo3
    and maturin versions, `abi3-py311`, and what `maturin generate-ci github` emits;
-   (b) how uv treats a second `pyproject.toml` under `crates/pawdoku-py/` beside the
-   root virtual project (a `[tool.uv.workspace]` member, or excluded); (c) wasm-bindgen
+   (b) how pixi treats a second `pyproject.toml` under `crates/pawdoku-py/` beside the
+   root manifest (a pixi-build package, a workspace member, or a file pixi never reads
+   and only maturin does); (c) wasm-bindgen
    and wasm-pack versions, whether `--target web` output is what SvelteKit's static
    adapter imports, and how `pkg/package.json`'s `files` is extended after the build;
    (d) whether GitHub Packages accepts an npm package with provenance from

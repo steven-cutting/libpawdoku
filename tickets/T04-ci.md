@@ -24,9 +24,10 @@ reporting is what lets this ticket's pull request, and every lane pull request p
 after it merges, pass T01's protection without an administrator bypass.
 
 Read first: `CONVENTIONS.md` in full (§2 for the pins, §4 for what each recipe does, §10
-for the design this ticket embeds, §11 for the lane rules, §12 for the two claims assigned
+for the design this ticket embeds, §11 for the lane rules, §12 for the claims assigned
 here, §13 for the action-pin risk), then `README.md` in this directory, then T00's hand-back
-notes for the stub as it landed.
+notes for the stub as it landed and D02's hand-back notes ("Files T00, T03 and T04
+create", the composite action).
 
 Sources, read-only, at the commits CONVENTIONS.md §0 pins:
 
@@ -39,8 +40,9 @@ Sources, read-only, at the commits CONVENTIONS.md §0 pins:
   lines 14-16 are the checkout with `persist-credentials: false`; lines 19-23 the comment on
   why a token sits on one step and never on the job; lines 49-52 why `install-allium` is a
   workflow step and is not cached; lines 56-60 why a gate already inside `lint` is repeated
-  as its own step. The action's lines 46-50 are the setup-uv step (version, cache on
-  `uv.lock`) and lines 51-56 the rule that an input reaches a shell line through `env`.
+  as its own step. The action's lines 46-50 are B's setup-uv step, which this action
+  does not carry (D02), and lines 51-56 the rule that an input reaches a shell line
+  through `env`.
 - S = `/Users/scutting/projects/workato/street_meats` at its one `init` commit:
   `.github/workflows/ci.yml`, a plain multi-job workflow with SHA pins; the closest shape
   to what this ticket writes. Lines 40-42 are the checkout; lines 176-181 the
@@ -63,24 +65,27 @@ Facts verified on 2026-09-23 that shape this ticket; each is re-verified on the 
   the action cannot read `rust-toolchain.toml` for free, which CONVENTIONS.md §10 and
   §12 already record: the only fallback restates the pin in YAML (`toolchain: "1.98.1"`),
   a second copy of a frozen value, which is why it is not used. Step 8 confirms.
-- `taiki-e/install-action` takes `tool:` as a whitespace or comma separated list, and its
-  manifests at v2.87.19 contain `just` 1.51.0 and `cargo-binstall` 1.23.0. It passes the
-  run's token to itself as `DEFAULT_GITHUB_TOKEN` whenever `fallback` is `cargo-binstall`,
-  its default.
+- `prefix-dev/setup-pixi` v0.10.2 (2026-08-28) installs the pixi named by
+  `pixi-version`, installs the environment from `manifest-path` (`locked: true` refuses
+  a lockfile that disagrees with the manifest), caches `.pixi/envs` and the package cache
+  keyed on the `pixi.lock` hash with `cache-write` gating the save, and with
+  `activate-environment: true` puts the environment's `bin` on every later step's `PATH`
+  (D02, 2026-09-24). Because `just` is in that environment, no other action installs it.
 - `Swatinem/rust-cache` v2.9.2 declares `cache-bin` and `save-if`, both defaulting to
-  `true`. `cache-bin` governs `~/.cargo/bin` only; the action never touches `.tools/`.
+  `true`. `cache-bin` governs `~/.cargo/bin` only; the action never touches `.tools/` or
+  `.pixi/`.
 
 Action pins, resolved read-only with `gh api repos/<owner>/<repo>/releases/latest` and
-`git/ref/tags/<tag>` on 2026-09-23; re-verified on the day, a moved tag recorded:
+`git/ref/tags/<tag>` on 2026-09-23 (`setup-pixi`'s commit is resolved the same way in
+step 2); re-verified on the day, a moved tag recorded:
 
 | Action | Tag | Commit | Note |
 | --- | --- | --- | --- |
 | `actions/checkout` | v7.0.1 | `3d3c42e5aac5ba805825da76410c181273ba90b1` | as B and S |
 | `actions/cache` | v6.1.0 | `55cc8345863c7cc4c66a329aec7e433d2d1c52a9` | B carries v4.3.0; same inputs |
 | `actions/upload-artifact` | v7.0.1 | `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a` | S carries v5.0.0 |
-| `taiki-e/install-action` | v2.87.19 | `7623a79cdfecb99d681017af368ca353d9f49bb5` | |
+| `prefix-dev/setup-pixi` | v0.10.2 | step 2 | D02; `pixi-version` must satisfy the manifest's `requires-pixi` |
 | `Swatinem/rust-cache` | v2.9.2 | `6323deb102c322ba6fcbdcafc7e3dddab59af2b6` | annotated tag `63fed3e2` dereferenced; pin the commit, never the tag object |
-| `astral-sh/setup-uv` | v10.2.0 | `c18668ad3cf93ea998bef934396af7bb5c839dc7` | B and S carry v9.0.0 |
 | `dtolnay/rust-toolchain` | `v1` = `master` | `02cb101ec7c40f2c49e1d9714d64511d8e1b74de` | fallback only, not used; `stable` head `6bed0761d98439e5a578e2877258200ad565ba87` |
 
 ## Goal
@@ -89,7 +94,7 @@ Three files on `ticket/t04-ci`: the finished composite action and `ci.yml` (repl
 T00's stubs) and a new `audit.yml`; `just lint` green (actionlint over the workflows,
 `check-yaml` over all three); one `workflow_dispatch` run of `ci.yml` on the ticket branch
 with all six jobs green and their durations quoted, `check` among the names the checks
-API reports for the commit; and the two CONVENTIONS.md §12 claims assigned to this ticket
+API reports for the commit; and the CONVENTIONS.md §12 claims assigned to this ticket
 checked and their outcomes recorded.
 
 ## Non-goals
@@ -125,7 +130,7 @@ Nothing else. Every other change is handed back.
 2. Re-verify every pin in the table above:
 
    ```sh
-   for r in actions/checkout actions/cache actions/upload-artifact taiki-e/install-action Swatinem/rust-cache astral-sh/setup-uv; do
+   for r in actions/checkout actions/cache actions/upload-artifact prefix-dev/setup-pixi Swatinem/rust-cache; do
      tag=$(gh api "repos/$r/releases/latest" --jq .tag_name)
      gh api "repos/$r/git/ref/tags/$tag" --jq "\"$r $tag \" + .object.type + \" \" + .object.sha"
    done
@@ -135,17 +140,20 @@ Nothing else. Every other change is handed back.
    `gh api repos/<owner>/<repo>/git/tags/<sha> --jq .object.sha` and pin the commit it
    names. A tag that has moved past the table is used at its new commit with the new
    version in the comment, and the change is noted in the hand-back notes. Quote the
-   `?ref=` paths in double quotes: zsh treats `?` as a glob.
+   `?ref=` paths in double quotes: zsh treats `?` as a glob. `prefix-dev/setup-pixi` has
+   no commit in the table: write the one this step resolves into the action in place of
+   `<setup-pixi-sha>` below, and into the table with the hand-back notes.
 
-3. Write `.github/actions/setup/action.yml`:
+3. Write `.github/actions/setup/action.yml`, the steps D02 orders:
 
    ```yaml
    name: Set up the libpawdoku toolchain
    description: >-
-     just and cargo-binstall from their release archives, the toolchain
-     rust-toolchain.toml pins through the runner's rustup, the cargo caches, the
-     pinned binaries in .tools/bin, uv with its cache, and the lockfile sync. Runs
-     after the checkout. The allium binary is the documents job's own step.
+     pixi and the environment pixi.lock pins (every tool binary, Python, prek and
+     the tooling package's checkers), the toolchain rust-toolchain.toml pins
+     through the runner's rustup, the cargo caches, the binaries in .tools/bin
+     that conda-forge lacks, and the lockfile sync. Runs after the checkout. The
+     allium binary is the documents job's own step.
 
    inputs:
      cache-key:
@@ -157,12 +165,23 @@ Nothing else. Every other change is handed back.
    runs:
      using: composite
      steps:
-       # The only two version pins in YAML, and both are bootstrap: just runs
-       # every recipe, and cargo-binstall installs everything tools.txt names.
-       # Neither can install itself. Restated from tools.txt's header comment.
-       - uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2.87.19
+       # The one version pin in YAML is pixi itself, which nothing else can
+       # install. It must satisfy the `requires-pixi` floor in pyproject.toml,
+       # so the version appears twice, exact here and as a floor there, rather
+       # than pretend one owner. `locked` refuses a lockfile that disagrees with
+       # the manifest, which makes this step the CI lockfile check. Activation
+       # puts .pixi/envs/default/bin, and so `just`, on every later step's PATH.
+       # The environment holds no rust, so cargo stays the runner's rustup
+       # proxy. The cache is keyed on pixi.lock's hash and written from main
+       # only, for the reason rust-cache's save-if gives below.
+       - uses: prefix-dev/setup-pixi@<setup-pixi-sha> # v0.10.2
          with:
-           tool: just@1.51.0,cargo-binstall@1.23.0
+           pixi-version: v0.81.0
+           manifest-path: pyproject.toml
+           locked: true
+           cache: true
+           cache-write: ${{ github.ref == 'refs/heads/main' }}
+           activate-environment: true
        # The runner image ships rustup, and rustup 1.28 or later reads
        # rust-toolchain.toml when given no toolchain, so the pin stays in one
        # file. dtolnay/rust-toolchain is not used: at a SHA it requires a
@@ -172,39 +191,52 @@ Nothing else. Every other change is handed back.
        # After the toolchain, because the key hashes the rustc version. Saved
        # from main only: a pull request restores main's cache and never writes
        # its own, so one branch's target/ cannot evict another's. cache-bin
-       # governs ~/.cargo/bin, which the install step above refills in seconds
-       # every run; caching it would only resurrect a stale bootstrap binary
-       # after a pin bump. The tools in .tools/bin are actions/cache's below.
+       # governs ~/.cargo/bin, which holds nothing this gate installs: every
+       # tool is in the pixi environment setup-pixi restored above, or in
+       # .tools/bin, which actions/cache restores below.
        - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
          with:
            shared-key: ${{ inputs.cache-key }}
            save-if: ${{ github.ref == 'refs/heads/main' }}
            cache-bin: false
-       # The pinned binaries, keyed on the pin list: a bumped line is a new key,
-       # and cargo-binstall skips a matching version already present on a hit.
+       # .tools holds what pixi cannot: cargo-hack from tools.txt, and allium as
+       # a side effect of the documents job (bg-install-allium version-checks,
+       # so a stale one is replaced). Keyed on the pin list: a bumped line is a
+       # new key, and cargo-binstall skips a matching version already present
+       # on a hit.
        - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
          with:
            path: .tools
            key: ${{ runner.os }}-${{ runner.arch }}-tools-${{ hashFiles('tools.txt') }}
-       # On the step that installs, never on the job: cargo-binstall reads
-       # GITHUB_TOKEN to raise the GitHub API rate limit while it resolves
-       # release archives, and no other step has a use for it. It is the run's
-       # own token, minted and discarded with the run, so nothing is stored here.
+       # On the step that installs, never on the job: cargo-binstall (the
+       # environment's) reads GITHUB_TOKEN to raise the GitHub API rate limit
+       # while it resolves the release archive, and no other step has a use for
+       # it. It is the run's own token, minted and discarded with the run, so
+       # nothing is stored here.
        - run: just install-tools
          shell: bash
          env:
            GITHUB_TOKEN: ${{ github.token }}
-       # The hook runner and the tooling package's checkers are Python
-       # programs (decision 0004); uv runs them from uv.lock.
-       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-         with:
-           version: 0.11.18
-           enable-cache: true
-           cache-dependency-glob: uv.lock
-       - run: uv python install 3.14
-         shell: bash
-       # Exactly what the lockfiles say, nothing a lockfile cannot name.
+       # Exactly what the lockfiles say: Cargo.lock fetched, pixi.lock
+       # installed, neither rewritten.
        - run: just sync
+         shell: bash
+       # prek's cache outside the workspace, so check-clean's snapshot never
+       # sees it. PREK_HOME is the variable T03 confirms on prek 0.5.3.
+       - run: echo "PREK_HOME=${{ runner.temp }}/prek" >> "$GITHUB_ENV"
+         shell: bash
+       # The seven hook clones, the Go, Node and rustup toolchains and the
+       # ripsecrets build, which every gate job would otherwise fetch again.
+       # Keyed on both hook configs and on pixi.lock, which pins prek; saved on
+       # any branch, like .tools.
+       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+         with:
+           path: ${{ runner.temp }}/prek
+           key: ${{ runner.os }}-${{ runner.arch }}-prek-${{ hashFiles('.pre-commit-config.yaml', '.pre-commit-fix.yaml', 'pixi.lock') }}
+       # The prepare and the lychee warm are the point; the shim it writes into
+       # the runner's .git is harmless. After this step no step reaches the
+       # network.
+       - run: just install-hooks
          shell: bash
    ```
 
@@ -332,11 +364,12 @@ Nothing else. Every other change is handed back.
          - uses: ./.github/actions/setup
            with:
              cache-key: documents
-         # Over the network, into the gitignored .tools/bin. No lockfile can name
-         # a binary, so `just sync` deliberately does not install it and this
-         # does. Before `lint`, because the hook gate runs the specification
-         # checks. It is not cached: the download is faster than a cache round
-         # trip.
+         # Over the network, into the gitignored .tools/bin. The checker is
+         # pinned by the tooling package, not by pixi.lock, so `just sync`
+         # deliberately does not install it and this does. Before `lint`,
+         # because the hook gate runs the specification checks. It lands in the
+         # .tools cache as a side effect; bg-install-allium version-checks and
+         # downloads only when the binary is missing or stale.
          - run: just install-allium
          - run: just lint
          - run: just check-docs
@@ -437,30 +470,47 @@ Nothing else. Every other change is handed back.
    run's total minutes in the hand-back notes.
 
    Then dispatch `ci.yml` a second time and quote, from the `rust` job's setup log, the
-   rust-cache restore line and the `actions/cache` line for `.tools`. The `.tools` cache
-   hits, because `actions/cache` saves on any branch. rust-cache does not: `save-if` is
-   `main` only, and the one entry `main` holds was saved by T00's stub job `check`, whose
-   id rust-cache put in the key (`add-job-id-key` defaults to `true`), so `rust` on the
+   `setup-pixi` cache line, the rust-cache restore line and the `actions/cache` lines
+   for `.tools` and for prek's cache. Both `actions/cache` entries hit, because
+   `actions/cache` saves on any branch, and the `install-hooks` step then prints no
+   clone, download or build line. The
+   `setup-pixi` cache is keyed on the `pixi.lock` hash and written from `main` only, so
+   it hits only if `main`'s stub run saved an entry for the same lockfile; quote the line
+   as observed and say which it was. rust-cache does not hit: `save-if` is `main` only,
+   and the one entry `main` holds was saved by T00's stub job `check`, whose id
+   rust-cache put in the key (`add-job-id-key` defaults to `true`), so `rust` on the
    branch cannot match it. Expect "no cache found" and say so; the first rust-cache hit
    is T11's to quote after merge.
 
-8. CONVENTIONS.md §12, the two claims assigned to T04, plus the runner facts. Record each
+8. CONVENTIONS.md §12, the claims assigned to T04, plus the runner facts. Record each
    outcome in the hand-back notes:
 
-   - `taiki-e/install-action` accepts `tool: just@1.51.0,cargo-binstall@1.23.0`: verified
-     by manifest on 2026-09-23; confirm from the install step's log, which names each tool
-     and version it installed.
+   - The activation variables `setup-pixi` exports (`CONDA_PREFIX`, `PIXI_*`) are inert
+     for cargo: the `rust` job's build log shows no build script reacting to them and
+     `check-toolchain`'s `active-toolchain` line is rustup's. Quote `env | grep -E
+     '^(CONDA_PREFIX|PIXI_)'` from a temporary step after the setup action on the
+     branch, removed before the final commit. If a build script ever
+     reacts to them, the fallback is `activate-environment: false` and a step that
+     appends `.pixi/envs/default/bin` to `$GITHUB_PATH`; record which was needed.
+   - `setup-pixi` restores `.pixi/envs` and the package cache keyed on the `pixi.lock`
+     hash, and `cache-write` gated to `main` behaves like rust-cache's `save-if`: from
+     the first dispatch's log, quote the cache key it computed and whether it saved (it
+     must not, on the branch); from the second, the restore line of step 7.
    - `dtolnay/rust-toolchain` at a SHA with no `toolchain` input reads
      `rust-toolchain.toml`: false by source reading, as CONVENTIONS.md §10 and §12 now
      say. Re-read `action.yml` at `02cb101e` on the day and quote lines 9-11 and 36-39
      to confirm nothing changed; if the no-argument `rustup toolchain install` fails on
      the runner, hand back `rustup show` for the frozen `install-toolchain` recipe.
    - `Swatinem/rust-cache` with `cache-bin: false` leaves `.tools/` to `actions/cache`:
-     confirm from rust-cache's log, which prints the paths it caches; neither `.tools` nor
-     `~/.cargo/bin` may be among them.
+     confirm from rust-cache's log, which prints the paths it caches; none of `.tools`,
+     `.pixi` and `~/.cargo/bin` may be among them.
    - The no-argument `rustup toolchain install` on the runner: quote `check-toolchain`'s
      `active-toolchain` line (`1.98.1-x86_64-unknown-linux-gnu`) and the `wasm` job's two
      green steps.
+   - The prek cache under `${{ runner.temp }}/prek` restores on the second dispatch, and
+     `just lint`'s log then shows no clone, download or build line: quote the cache
+     restore line and the `install-hooks` step's output from the second dispatch, and
+     the first dispatch's `install-hooks` duration against the second's.
 
 9. Confirm from
    `gh api repos/steven-cutting/libpawdoku/commits/<sha>/check-runs --jq '.check_runs[].name'`
@@ -495,10 +545,10 @@ Nothing else. Every other change is handed back.
 - All six jobs of `ci.yml` are green on the dispatch run on `ticket/t04-ci`; the job
   list, per-job durations and the total minutes are quoted in the hand-back notes; the
   check-runs API lists `check` for the dispatched commit.
-- On the second dispatch, the `.tools` cache line reports a hit; the rust-cache line is
-  quoted as observed and explained.
+- On the second dispatch, the `.tools` and prek cache lines report a hit; the
+  `setup-pixi` and rust-cache lines are quoted as observed and explained.
 - The `lcov` artifact exists on the run with a 7-day retention.
-- The three §12 outcomes and the runner facts of step 8 are recorded in "What was
+- The six §12 outcomes and the runner facts of step 8 are recorded in "What was
   verified, and how".
 
 ## Verification

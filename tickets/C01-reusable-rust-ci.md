@@ -39,10 +39,10 @@ into B buys a second repository to release for every CI fix and nothing else.
 What moves if it moves: the five jobs become `B/.github/workflows/rust-ci.yml` under
 `on: workflow_call` (the allium install for `documents` behind a `with:` boolean; the
 `cache-key` per job internal; the coverage floor is the caller's `Justfile`'s); the
-composite action becomes `B/actions/setup-rust-toolchain/action.yml` with inputs for
-the cargo-binstall and just versions defaulting to CONVENTIONS.md §2's pins and the uv
-steps behind a `python` input (this repository keeps the Python toolchain, decision 0004;
-a consumer without one sets it false). Triggers, `permissions` and `concurrency`
+composite action becomes `B/actions/setup-rust-toolchain/action.yml` with inputs
+`pixi-version` and `manifest-path` defaulting to CONVENTIONS.md §2's pins (decision
+0011: pixi owns the tools and the Python side alike, so there is no separate `python`
+input; a consumer supplies its own manifest). Triggers, `permissions` and `concurrency`
 stay in the caller (B README lines 31-34). The caller becomes G's 28-line shape plus the
 `check` aggregate job, which now needs the one call job instead of five local ones
 (CONVENTIONS.md §10): the called jobs report as `ci / rust`, `ci / coverage`,
@@ -107,9 +107,11 @@ anyway, the Steps are the work.
    cat .github/actions/setup/action.yml
    ```
 
-   Record the inputs (`cache-key`, and the pins that become inputs with defaults), the
-   step that stays with the caller's job or behind a boolean (`just install-allium`),
-   and every `uses:` SHA with its comment.
+   Record the inputs (`cache-key`, and the pixi version and manifest path that become
+   inputs with defaults), the `setup-pixi` step (this repository's one version pin in
+   YAML) and what B's action has where it stands, the step that stays with the caller's
+   job or behind a boolean (`just install-allium`), and every `uses:` SHA with its
+   comment.
 
 3. Write in the hand-back notes the exact `rust-ci.yml` (the five jobs from `ci.yml`
    with the action's `uses:` changed to
@@ -187,4 +189,4 @@ the action" section; the local action and five jobs (filed) or one `uses:` namin
   run as the test. The recommendation is the second.
 - Whether the composite action stays local even when the workflow moves, because a
   called workflow cannot use a relative action path (B README lines 135-137) and the
-  action holds the pins S01 may want an updater to move.
+  action holds the pixi version pin S01 may want an updater to move.

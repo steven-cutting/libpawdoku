@@ -80,8 +80,9 @@ hand-back notes.
   where T00 put it (Open points).
 - No `rand`, `getrandom`, `libm` or any crate other than the three named. A later ticket
   that needs one hands it back here with the decision-0007 note.
-- No edit to `Justfile`, `tools.txt`, `rust-toolchain.toml`, `_typos.toml` (T03),
-  `.gitignore` (T03), CI (T04), any handbook page (T07, T08) or decision record (T09).
+- No edit to `Justfile`, `tools.txt`, `rust-toolchain.toml`, `pyproject.toml` (the tool
+  pins; T03), `_typos.toml` (T03), `.gitignore` (T03), CI (T04), any handbook page (T07,
+  T08) or decision record (T09).
   Decision 0008 and 0009 are T09's to write from this ticket's hand-back notes.
 - No `.cargo/config.toml` (CONVENTIONS.md §4): `RUSTFLAGS` there changes fingerprints and
   thrashes `target/` against rust-analyzer; `RUSTDOCFLAGS` is set on the `doc` recipe only.
@@ -113,9 +114,11 @@ elsewhere is a hand-back.
 
 1. Create the worktree on `ticket/t02-rust-gate` from `main` (README.md "How to pick up a
    ticket"). Confirm the preconditions T00 relied on: `just check-toolchain` prints
-   `1.98.1-<host>`, and `ls .tools/bin` shows cargo-nextest, cargo-llvm-cov, cargo-deny,
-   cargo-hack, cargo-shear and taplo (run `just install-tools` if the worktree is fresh;
-   it is idempotent). Then, before touching anything, run `just check` on T00's stubs and
+   `1.98.1-<host>`; `ls .pixi/envs/default/bin` shows cargo-nextest, cargo-llvm-cov,
+   cargo-deny, cargo-shear, taplo, prek, just and the `bg-*` scripts (run
+   `pixi install --frozen` if the worktree is fresh; it is idempotent); and `ls .tools/bin`
+   shows cargo-hack and allium (`just install-tools` and `just install-allium` if not).
+   Then, before touching anything, run `just check` on T00's stubs and
    quote its last lines in the hand-back notes: this is the baseline every later step is
    measured against.
 
@@ -268,7 +271,7 @@ elsewhere is a hand-back.
    targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
    ```
 
-   Then `cargo update --workspace` (the `lock` recipe's first line; do not run `uv lock`)
+   Then `cargo update --workspace` (the `lock` recipe's first line; do not run `pixi lock`)
    to grow `Cargo.lock`, and `cargo fetch --locked` so every later recipe is offline.
    `cargo tree -p pawdoku --all-features -e normal --depth 1` must list `thiserror` and
    `serde` as the only direct dependencies (the full tree also shows their proc-macro
@@ -311,11 +314,13 @@ elsewhere is a hand-back.
    quiet run is the pass (§12).
 
    `taplo.toml`. The `[[rule]]` sorts only dependency tables; everything else keeps the
-   author's order:
+   author's order. The `exclude` list is load-bearing: `toml-check` runs taplo over
+   `**/*.toml`, and the pixi environment's `site-packages` contain TOML that is not this
+   repository's to format (D02):
 
    ```toml
    include = ["**/*.toml"]
-   exclude = ["target/**", ".tools/**", "ai_tmp/**", ".venv/**"]
+   exclude = ["target/**", ".tools/**", ".pixi/**", "ai_tmp/**"]
 
    [formatting]
    column_width = 100
@@ -337,7 +342,8 @@ elsewhere is a hand-back.
    `.config/*.toml` to `include`.
 
    `.config/nextest.toml`. `nextest-version` must equal the `cargo-nextest` pin in
-   `tools.txt`; if the two disagree, `tools.txt` wins and the mismatch is a hand-back. The
+   `pyproject.toml` (`[tool.pixi.dependencies]`); if the two disagree, the manifest wins
+   and the mismatch is a hand-back. The
    `ci` profile is for T04, which selects it with `--profile ci`:
 
    ```toml
@@ -594,8 +600,9 @@ elsewhere is a hand-back.
    notes, in this order: `just fmt-check`, `just toml-check`, `just clippy`,
    `just features`, `just wasm-check`, `just test`, `just coverage`, `just doc`,
    `just deny`, `just deps-unused`, `just lock-check`. Fix what fails in this lane's
-   files. A failure that can only be fixed by a `Justfile` or `tools.txt` change is not
-   fixed: write it up under "Handed back" with the exact flag and the evidence, and
+   files. A failure that can only be fixed by a `Justfile`, `tools.txt` or
+   `pyproject.toml` pin change is not fixed: write it up under "Handed back" with the
+   exact flag and the evidence, and
    continue with the remaining recipes. Then `just check`, and record its wall-clock time
    beside T00's.
 
@@ -663,8 +670,9 @@ elsewhere is a hand-back.
 - `just test` reports every test in `tests/api_bounds.rs`, `tests/random.rs` and the
   in-module test modules passing, and the doctest count is at least the number of public
   items in `random.rs` plus T00's one.
-- The seven §12 claims are recorded with commands and outcomes; each `Justfile` or
-  `tools.txt` change they force is under "Handed back", and none was made here.
+- The seven §12 claims are recorded with commands and outcomes; each `Justfile`,
+  `tools.txt` or `pyproject.toml` pin change they force is under "Handed back", and none
+  was made here.
 - `git status --porcelain` is empty after `just check`, and nothing outside this lane's
   Files touched changed (`git diff --stat main` lists only those paths).
 - Nothing was pushed.
@@ -733,3 +741,8 @@ sources ok`. Quote each in the hand-back notes.
 - Whether `wrappers = ["pawdoku-cli"]` naming a crate not yet in the workspace makes
   cargo-deny 0.20.2 warn. A warning is quoted and kept; an error means the two wrappers
   entries are dropped until S04 adds the crate, and that is recorded.
+- cargo-shear is pinned at 1.13.4, the newest conda-forge carried on 2026-09-24; the pin
+  follows conda-forge, not crates.io (D02). Nothing this repository uses changed between
+  1.13.4 and 1.14.0 as far as the release notes say; the `deps-unused` recipe run and
+  the cargo-shear claim of step 10 are what confirm `cargo shear` behaves as this ticket
+  expects at 1.13.4, and a difference is recorded in the hand-back notes.

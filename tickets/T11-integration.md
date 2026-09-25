@@ -24,7 +24,7 @@ and C01 wait for it too.
 
 Why a fresh clone rather than the worktree the lanes used (CONVENTIONS.md §13, "The
 network at first run, none in `check`"): every lane ran `just check` on a tree already
-initialised, with `.tools/bin`, the uv environment, prek's cache and `target/` in
+initialised, with the pixi environment, `.tools/bin`, prek's cache and `target/` in
 place. Nothing has yet proved that `scripts/initialize.sh` alone, on a machine with
 only the prerequisites of CONVENTIONS.md §2, reaches a green gate, which is where a new
 contributor and every CI runner start.
@@ -89,20 +89,22 @@ A scratch clone lives in the session's scratch directory and is deleted at the e
    merged (README.md "How to pick up a ticket"). Confirm the machine and the remote:
 
    ```sh
-   command -v rustup cargo cargo-binstall just gh
+   command -v rustup cargo pixi just gh
    just check-toolchain
    git fetch origin main && git log --oneline -1 origin/main
    gh repo view steven-cutting/libpawdoku --json visibility,defaultBranchRef --jq '[.visibility, .defaultBranchRef.name] | join(" ")'
    ```
 
-   `cargo` resolves under `~/.cargo/bin`; the toolchain line names `1.98.1`. Record the
+   `cargo` resolves under `~/.cargo/bin`, not `~/.pixi/bin`; the toolchain line names
+   `1.98.1`. Record the
    visibility: it decides step 5's vulnerability-reporting outcome and T10's wording.
 
 2. Reconcile the follow-ups. For each item the "Handed back" sections of T00 to T09
    address to `main`, find the pull request that carried it or record that none did.
    **Authorisation required** for any still open: stop and list them. Do not proceed
-   while one that changes `Justfile`, `tools.txt`, `rust-toolchain.toml` or either
-   prek config is open, because the clone would prove the wrong tree.
+   while one that changes `Justfile`, `tools.txt`, `rust-toolchain.toml`,
+   `pyproject.toml`'s pixi tables or either prek config is open, because the clone would
+   prove the wrong tree.
 
 3. Fresh clone, from the GitHub remote and not from the worktree, so nothing the lanes
    left behind is inherited:
@@ -162,14 +164,15 @@ A scratch clone lives in the session's scratch directory and is deleted at the e
    Prints `check`, and the run in step 4 shows that context reported by T04's aggregate
    job on `main`.
 
-6. The §12 table. One row per claim in CONVENTIONS.md §12: claim, ticket, outcome,
-   source (the hand-back section that records it). S02's crates.io row and any claim a
-   lane could not reach are marked `pending` with the ticket that will settle them.
+6. The §12 table. One row per claim in CONVENTIONS.md §12, whichever ticket added it:
+   claim, ticket, outcome, source (the hand-back section that records it). S02's
+   crates.io row and any claim a lane could not reach are marked `pending` with the
+   ticket that will settle them.
 
 7. Placeholders and cleanliness, on `main` at the SHA step 3 cloned:
 
    ```sh
-   grep -rn -E 'TODO|TBD|FIXME' --exclude-dir=.git --exclude-dir=target --exclude-dir=.tools --exclude-dir=.venv --exclude-dir=ai_tmp --exclude-dir=tickets --exclude-dir=specs --exclude-dir=allium-skill-reference . || echo "no placeholders"
+   grep -rn -E 'TODO|TBD|FIXME' --exclude-dir=.git --exclude-dir=target --exclude-dir=.tools --exclude-dir=.pixi --exclude-dir=ai_tmp --exclude-dir=tickets --exclude-dir=specs --exclude-dir=allium-skill-reference . || echo "no placeholders"
    ```
 
 8. Delete the scratch clone. Set `status: done` and commit on the ticket branch. Stop
@@ -214,8 +217,9 @@ each in the hand-back notes.
 ## Open points
 
 - Whether the first `just initialize` on a clean machine hits GitHub's anonymous API
-  rate limit through cargo-binstall's release lookups (CI sets a `GITHUB_TOKEN` on that
-  step; the local script does not). If so, the answer is a note in
-  `docs/how-to/develop-locally.md`, handed back to T07.
+  rate limit through cargo-binstall's release lookup (CI sets a `GITHUB_TOKEN` on that
+  step; the local script does not). Only cargo-hack is binstalled (decision 0011), one
+  lookup rather than six, so this is much less likely; if it happens, the answer is a
+  note in `docs/how-to/develop-locally.md`, handed back to T07.
 - Whether `coverage` on the merged tree clears the 90% floor with T02's `random.rs` but
   no engine code; if not, the fix is a T02 test, never a lower floor (CONVENTIONS.md §4).

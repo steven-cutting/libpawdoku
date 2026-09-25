@@ -80,7 +80,7 @@ from `biscuit-games-tooling.toml` at the repository root.
 | `B/src/biscuit_games_tooling/validate_agents.py` | other repository | the tuple becomes the default; the check reads `agent_guidance(root)`; authorisation required |
 | `B/tests/test_project.py` | other repository | cases for both keys and the fallback file; authorisation required |
 | `B/README.md`, `B/CHANGELOG.md`, `B/pyproject.toml` | other repository | two configuration rows, the fallback paragraph, the MINOR entry and version; authorisation required |
-| `pyproject.toml`, `uv.lock`, `AGENTS.md`, `docs/reference/agent-contract.md`, `tickets/T05-agent-contract.md` | follow-up here, after T05 | the pin to the new tag, the relock, the sentence removed, `agent_guidance_drop = ["runes"]` added; the reference page's phrase list goes from six entries to five and T05's third verification block expects no `runes` line |
+| `pyproject.toml`, `pixi.lock`, `AGENTS.md`, `docs/reference/agent-contract.md`, `tickets/T05-agent-contract.md` | follow-up here, after T05 | the pin to the new tag, the relock, the sentence removed, `agent_guidance_drop = ["runes"]` added; the reference page's phrase list goes from six entries to five and T05's third verification block expects no `runes` line |
 
 ## Steps
 
@@ -114,9 +114,11 @@ from `biscuit-games-tooling.toml` at the repository root.
    `BG_GOLDEN_RECORD`). Pull request, merge, annotated tag.
 
 5. **Authorisation required, after T05 has merged.** A follow-up pull request on
-   `main` here (not this branch): the B tag in `pyproject.toml` moved to the new tag
-   and `agent_guidance_drop = ["runes"]` added under `[tool.biscuit-games-tooling]`;
-   `uv lock --upgrade-package biscuit-games-tooling`; the interim sentence removed
+   `main` here (not this branch): the tag in `pyproject.toml`'s
+   `[tool.pixi.pypi-dependencies]` moved to the new tag and
+   `agent_guidance_drop = ["runes"]` added under `[tool.biscuit-games-tooling]`;
+   `pixi update biscuit-games-tooling` and the committed `pixi.lock`; the interim
+   sentence removed
    from `AGENTS.md`'s Provenance; `just check-agents` printing
    `Validated AGENTS.md, 2 adapters, and 14 skills.` and `just check` green. Draft
    that pull request's description in the hand-back notes.
@@ -131,7 +133,7 @@ from `biscuit-games-tooling.toml` at the repository root.
   `runes` when `agent_guidance_drop = ["runes"]` is set and still rejects one under
   the default; B's golden tests pass without re-recording.
 - If applied here: `AGENTS.md` contains no `runes`, `pyproject.toml` names the new
-  tag, `uv.lock` records its commit, `just check-agents` prints the fourteen-skill line.
+  tag, `pixi.lock` records its commit, `just check-agents` prints the fourteen-skill line.
 - Every action on B was authorised before it was taken; the follow-up waited for T05.
 
 ## Verification
@@ -140,7 +142,7 @@ from `biscuit-games-tooling.toml` at the repository root.
 git -C /Users/scutting/projects/biscuit_games_tooling show 6c5c07f6:src/biscuit_games_tooling/validate_agents.py | sed -n 47,54p
 git -C /Users/scutting/projects/biscuit_games_tooling show 6c5c07f6:README.md | sed -n 278,282p
 grep -n 'runes' AGENTS.md || echo "no runes"
-grep -n 'biscuit_games_tooling@' pyproject.toml
+grep -n 'tag = ' pyproject.toml
 git status --porcelain
 ```
 

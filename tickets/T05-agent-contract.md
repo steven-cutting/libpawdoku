@@ -31,9 +31,9 @@ adds the two paths T00 left out: `skills-lock.json` and `allium-skill-reference/
 **C02 is a dependency of this ticket's final state.** D01 kept the Python checkers
 (decision 0004), so `AGENTS.md` carries the honest `runes` sentence CONVENTIONS.md §7
 quotes until C02 ships a `biscuit-games-tooling` release whose `REQUIRED_GUIDANCE` is
-configurable. The follow-up pull request that bumps the pin in `pyproject.toml` and adds
-`agent_guidance_drop = ["runes"]` removes the sentence and changes this ticket's third
-verification block with it, after this ticket has merged.
+configurable. The follow-up pull request that bumps the pin in `pyproject.toml`, relocks
+`pixi.lock` and adds `agent_guidance_drop = ["runes"]` removes the sentence and changes
+this ticket's third verification block with it, after this ticket has merged.
 
 **The trap this ticket must not walk into.** A bridge repeats its skill's frontmatter
 verbatim (`validate_agents.py` line 223 compares the two dictionaries whole), and every
@@ -237,7 +237,9 @@ targets a page T00 stubbed, and stays.
    is decision 0009's departure from the games' "never colocated" rule at G lines
    73-75); fakes come through the randomness boundary, never a global; **Just** is the
    task runner and the only supported interface to the checks, with G's sentence on the
-   read-only and fix prek configs (lines 81-84) carried, "under `uv`" kept. Drop G's
+   read-only and fix prek configs (lines 81-84) carried and its "under `uv`" replaced:
+   pixi owns the tools and the Python environment (`pyproject.toml` is the manifest,
+   `pixi.lock` the pin) and rustup owns the compiler (decision 0011). Drop G's
    platform bullet (lines 69-72) and its stories
    bullet (76-80). Keep lines 86-88 (the four owning-page links).
 4. **Change workflow** (G lines 90-105). Keep the seven steps; step 6 becomes "Run the
@@ -273,9 +275,9 @@ targets a page T00 stubbed, and stays.
    - Specifications in Allium as the source of truth for behaviour, checked by a
      project-managed binary the `biscuit-games-tooling` package pins and installs.
    - Effects behind a boundary the library owns, with a fake beside it.
-   - A small Python toolchain (`uv`, `prek` and the `biscuit-games-tooling`
-     package) for the hook gate and the two validators; Markdown formatted by
-     `markdownlint-cli2` alone.
+   - A small Python toolchain (`prek` and the `biscuit-games-tooling` package,
+     installed by pixi) for the hook gate and the two validators; Markdown
+     formatted by `markdownlint-cli2` alone.
 
    Deliberate deviations from the games' conventions, each recorded in
    the decision records (in the real file, a relative Markdown link to
@@ -336,7 +338,7 @@ line, including the single long line per step, stays G's.
 4. `project-check`: step 2 (G line 9) becomes:
 
    ```markdown
-   2. Check the prerequisites exist: rustup's cargo first on `PATH` (`just check-toolchain` says so), the pinned binaries in `.tools/bin` (nextest, llvm-cov, deny, hack, shear, taplo), the pinned checker at `.tools/bin/allium`, `Cargo.lock`, and `uv.lock`. If any is missing, run `just initialize` — it creates them, normalises formatting and installs the hook, and it never stages, commits, tags or pushes. The checker alone is `just install-allium`; it is gitignored and per-worktree, so a fresh worktree needs it before gates 3, 16 and 17 can pass.
+   2. Check the prerequisites exist: rustup's cargo first on `PATH` (`just check-toolchain` says so), the pixi environment at `.pixi/envs/default/bin` (nextest, llvm-cov, deny, shear, taplo, prek, just, the `bg-*` scripts), `.tools/bin/cargo-hack`, the pinned checker at `.tools/bin/allium`, `Cargo.lock` and `pixi.lock`. If any is missing, run `just initialize` — it creates them, normalises formatting and installs the hook, and it never stages, commits, tags or pushes. The checker alone is `just install-allium`; it is gitignored and per-worktree, so a fresh worktree needs it before gates 3, 16 and 17 can pass.
    ```
 
    Gates 3, 16 and 17 are `lint`, `check-specs` and `analyse-specs` in

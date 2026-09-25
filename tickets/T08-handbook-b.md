@@ -32,8 +32,9 @@ Read first: CONVENTIONS.md in full, with §2, §4, §5, §6 (this ticket's page 
 §10, §11 and §13 a second time; `tickets/T00-foundation.md` steps 4, 9, 10 and 13 (the
 workspace manifest and `lib.rs`, the manifest rows that are the frontmatter authority,
 what a stub is, the skill descriptions); `tickets/T02-rust-gate.md` (the tool configs
-the configuration page describes, which land in parallel); D01's hand-back notes; and
-G's thirteen source pages, each with
+the configuration page describes, which land in parallel); D01's and D02's hand-back
+notes (decision 0004, then the `pyproject.toml`, `tools.txt` and recipe texts D02
+holds); and G's thirteen source pages, each with
 `git -C /Users/scutting/projects/pawdoku show 78d03cdf:docs/<path>`. Line numbers below
 are of those files at `78d03cdf`, verified on 2026-09-23; re-verify every cited range
 with `sed -n 'a,bp'` before splicing it.
@@ -110,8 +111,9 @@ as a code span. Tier is §6's: a tier B page is the first to cut if the ticket r
      `0005-project-managed-allium-cli.md`. G's 0005, 0006 and 0008 (maintenance 25,
      quality-gates 140 and 69) have no counterpart.
    - No version number copied from a pin file. A page names `rust-toolchain.toml`,
-     `tools.txt`, `Cargo.lock`, the hook revs and the action SHAs as where a pin lives,
-     never the number, so a bump never touches the handbook (§13, last risk).
+     `pyproject.toml`, `pixi.lock`, `tools.txt`, `Cargo.lock`, the hook revs and the
+     action SHAs as where a pin lives, never the number, so a bump never touches the
+     handbook (§13, last risk).
    - No word that is true of the game only: "this game", Svelte, Vitest, Storybook,
      Chromatic, npm, Playwright, jsdom, ESLint, `platformSpecs`, "randomness port". Say
      "this library" or "the engine", and "the randomness boundary" (§9).
@@ -265,9 +267,13 @@ Justfile's banners group them: **Setup** (`initialize`, `check-toolchain`,
 `wasm-check`, `coverage`, `doc`, `deny`, `audit`, `deps-unused`); **Documents**
 (`check-docs`, `check-agents`, `check-specs`, `analyse-specs`, `check-links-online`);
 **Aggregate** (`check-clean`, `check`). Thirty-three rows. Each purpose is the recipe's
-§4 comment made a sentence, and says which recipes reach the network (`install-tools`,
-`install-allium`, `sync`, the lock recipes, `audit`, `check-links-online`, `lint` the
-first time) and that `build`, `test`, `audit` and `check-links-online` are outside
+§4 comment made a sentence (`sync` installs `Cargo.lock` and `pixi.lock` exactly as
+committed, `lock` relocks both, `lock-upgrade` runs `cargo update` and `pixi update`,
+`lock-check` proves both, `install-tools` installs `tools.txt` through the
+environment's cargo-binstall; decision 0011), and says which recipes reach the network
+(`install-tools`, `install-allium`, `install-hooks`, `sync`, `lock`, `lock-upgrade`,
+`audit`, `check-links-online`; `lock-check` and `lint` never, because `install-hooks`
+prepares every hook environment and `lock-check` is offline) and that `build`, `test`, `audit` and `check-links-online` are outside
 `check`. `fix` is the recipe that repairs, not the only one that writes (G 47, kept).
 
 ### `reference/configuration.md`
@@ -298,10 +304,12 @@ configs in parallel: describe what `tickets/T02-rust-gate.md` steps 3, 5 and 6 s
   `HashMap` and `HashSet`, whose iteration order is not deterministic); `rustfmt.toml`;
   `taplo.toml`; `deny.toml` by section (`graph`, `advisories` for `audit` only,
   `licenses`, `bans` with the three denies and their reasons, `sources`);
-  `.config/nextest.toml`; `tools.txt` (the one pin list for binaries no lockfile names);
-  the `coverage_floor` variable in the `Justfile`; the two prek configs;
+  `.config/nextest.toml`; `pyproject.toml` (the pixi manifest: every tool, Python, prek
+  and the tooling package under `[tool.pixi.*]`, and B's own table; `pixi.lock` is the
+  pin) and `tools.txt` (the one-line exception for what conda-forge lacks); the
+  `coverage_floor` variable in the `Justfile`; the two prek configs;
   `.markdownlint-cli2.jsonc`; `lychee.toml`; `_typos.toml` (the only typos
-  configuration); `.editorconfig`; `pyproject.toml`.
+  configuration); `.editorconfig`.
 - Values the specifications decide: `pawdoku::SIDE` mirrors `sudoku.allium`'s
   `config.side`; a constant with no `config` entry to name is drift the other way.
 - Version pins: where each lives, never the number (step 3).
@@ -351,8 +359,10 @@ counterpart 109-113; In continuous integration 115-146; On `main` 148-170; Relat
   row 18, "The run changed nothing", as G's row 12 has it. One sentence that `fmt-check`
   and `toml-check` also run inside `lint` and why (§4).
 - The hook table (81-94) from §5: the local `fmt-check`, `toml-check` and `deps-unused`
-  and why they route through `just`; the four contract and spec hooks; the seven remote
-  hooks; the builtin set. One sentence that clippy is deliberately not a hook and why.
+  and why they route through `just`; the four contract and spec hooks, which run
+  through `pixi run --frozen` because a git hook does not inherit the `Justfile`'s
+  `PATH` and a bare `pixi run` could rewrite `pixi.lock` (§5); the seven remote hooks;
+  the builtin set. One sentence that clippy is deliberately not a hook and why.
 - 98-107, the actionlint gap: kept as a gap, ending: every `run:` here is one `just`
   line, so there is no embedded shell to miss today.
 - 111-113: `cargo fmt`, `taplo fmt`, `cargo shear --fix`, the whitespace fixers and
@@ -432,8 +442,9 @@ Tier B. G: opening 11-13; Routine 15-32; Deploying 34-49; Rolling back 51-60; Se
 - Routine. **Weekly**: read the `audit` workflow's run; it runs `just audit` on a
   schedule and is never a required check (replacing 17-18, which says nothing is
   scheduled). **Monthly**: `just lock-upgrade` within the manifests' ranges, `just check`,
-  commit `Cargo.lock`; bump a `tools.txt` line and re-run `just install-tools`; move a
-  hook rev or an action SHA by hand with its version comment; 27-28. **Per toolchain
+  commit `Cargo.lock`; move a pin in `pyproject.toml`, `pixi update <name>`, commit
+  `pixi.lock`; a `tools.txt` line still re-runs `just install-tools`; move a hook rev or
+  an action SHA by hand with its version comment; 27-28. **Per toolchain
   release**: bump `rust-toolchain.toml` and `rust-version` together and re-run
   `just clippy`, because the lint set moves (§13). **Per allium release**: the pin and
   checksums live in B's package; a
@@ -448,17 +459,27 @@ Tier B. G: opening 11-13; Routine 15-32; Deploying 34-49; Rolling back 51-60; Se
 
 G: 11; check-clean 13-17; docs validation 19-31; agent validation 33-46; coverage 48-56;
 site-only sections 58-132; Related 134-138. Verbatim: 11, 13-17 (plus one sentence
-naming `target/`, `.tools/` and a rewritten `Cargo.lock` as the usual paths), 19-46,
+naming `target/`, `.tools/`, `.pixi/` and a rewritten `Cargo.lock` or `pixi.lock` as the
+usual paths), 19-46,
 48-52. Drop 54-56, 58-132. New sections, symptoms as headings, in the voice of 13-17:
 
 - `cargo resolves to <path>, not rustup's proxy` and `rustup is not installed`: the
   `check-toolchain` recipe's own messages (§4). A pixi, Homebrew or distribution cargo
   ignores `rust-toolchain.toml`; put `~/.cargo/bin` ahead on `PATH` or
   `pixi global uninstall rust`, until `command -v cargo` prints the proxy (§2).
-- `just check-specs` cannot find `allium`: `.tools/bin` is a per-worktree install; run
-  `just install-allium`, or `just initialize` on a fresh worktree.
-- The first `just lint` reaches the network: prek clones each hook's repository into its
-  cache once; `just initialize` has the network, `just check` must not (§13).
+- `just check-specs` cannot find `allium`, or a recipe cannot find `prek` or a `bg-*`
+  script: the pixi environment and `.tools/bin` are per-worktree installs;
+  `pixi install --frozen`, `just install-tools` or `just install-allium` restores the
+  missing one, and `just initialize` does all three on a fresh worktree. A renamed or
+  moved worktree needs `pixi install --frozen` again, because the `bg-*` shebangs name
+  the worktree's absolute Python (§13).
+- `just lock-check` or `pixi install --locked` fails on `pixi.lock`: the lockfile is
+  stale against `pyproject.toml`; run `just lock`, read the diff and commit it. A first
+  run never rewrites it silently.
+- `just lint` clones or downloads: prek's cache was cleared, or this is a secondary
+  worktree whose primary checkout never ran `just initialize`. Run `just install-hooks`,
+  which prepares every hook environment; `just initialize` has the network,
+  `just check` must not (§13).
 - `cargo` reports that `Cargo.lock` needs to be updated: every gate passes `--locked`, so
   an edited `Cargo.toml` fails until `just lock` rewrites the lockfile and it is
   committed. A dependency added by any lane but T02 is handed back (§11).
@@ -466,8 +487,9 @@ naming `target/`, `.tools/` and a rewritten `Cargo.lock` as the usual paths), 19
   while the denominator is tiny; test it or delete it, never lower the number (48-52).
 - The `wasm32v1-none` target is missing: `just install-toolchain` installs what
   `rust-toolchain.toml` names; a cargo that is not rustup's cannot.
-- `just install-tools` refuses to build from source: `--disable-strategies compile` is
-  deliberate; choose a pin with a release binary for this host (§2).
+- `just install-tools` refuses to build from source (cargo-hack, the one `tools.txt`
+  line): `--disable-strategies compile` is deliberate; choose a pin with a release
+  binary for this host (§2).
 - prek behaves as if a pin had not moved: clear its cache and re-run (Open points).
 - Related: `../how-to/test-and-debug.md`, `../reference/quality-gates.md`,
   `maintenance.md`.

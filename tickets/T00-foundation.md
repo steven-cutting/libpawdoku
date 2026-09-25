@@ -2,7 +2,7 @@
 id: T00
 title: "Foundation: workspace, toolchain, licence, Justfile, hooks, manifest, stubs for every path"
 status: open
-depends_on: [D01]
+depends_on: [D01, D02]
 parallel_with: []
 branch: ticket/t00-foundation
 estimated_size: XL
@@ -15,9 +15,11 @@ estimated_size: XL
 This repository (`steven-cutting/libpawdoku`, branch `main`, one commit holding a stub
 `README.md` and this `tickets/` directory) becomes the Cargo workspace CONVENTIONS.md §0
 describes. `CONVENTIONS.md` is the design; read it in full before anything else, then
-`README.md` in this directory for the worktree rules, then D01's hand-back notes, which
-give the `pyproject.toml` content this ticket writes and the manifest row for record
-0004. This is the first build ticket: nothing else
+`README.md` in this directory for the worktree rules, then D01's and D02's hand-back
+notes: D01 decided the hook runner and checkers (record 0004), and D02 decided who
+installs them and every other tool (record 0011); D02 holds the `pyproject.toml`
+content this ticket writes, the one-line `tools.txt`, the `Justfile` changes, the hook
+entries and the composite action. This is the first build ticket: nothing else
 can start until it has merged to `main`, because the nine lane tickets T01 to T09 each
 replace stubs this ticket creates, and every lane's definition of done is `just check`
 green in this repository, which only this ticket can make true.
@@ -27,7 +29,8 @@ contract (B's `bg-validate-docs` and `bg-validate-agents`) walk every
 registered page and every skill, and the ordered gate snapshots the worktree between
 recipes. They can only be green if every path in CONVENTIONS.md §3 exists from the first
 commit in a valid shape. So this ticket ships the whole shape: the workspace and a crate
-with one documented, tested item; the toolchain pin and the tool pin list; the complete
+with one documented, tested item; the toolchain pin, the pixi manifest with its lockfile
+and the one-line tool list; the complete
 `Justfile` and both prek configs (which no lane may touch, CONVENTIONS.md §11); the
 complete `docs/manifest.yml` and `docs/README.md` (frozen too); the licence; and a stub
 for everything else. Lanes replace stubs; they never add, rename or reclassify a path.
@@ -53,8 +56,9 @@ Check `git -C /Users/scutting/projects/pawdoku rev-parse --short=8 HEAD` prints
 
 Preconditions, stated and not performed (CONVENTIONS.md §2): rustup installed (a default
 toolchain is probably not required: §2, and T03 confirms); `command -v cargo` printing
-`$HOME/.cargo/bin/cargo`; cargo-binstall 1.23.0 on `PATH`; just 1.51.0; uv 0.11.18. If
-any is missing, stop and report it; do not install anything outside the worktree.
+`$HOME/.cargo/bin/cargo`; pixi 0.81.0 or newer; any just; gh. Not uv and not
+cargo-binstall: pixi installs both just and cargo-binstall into the environment. If any
+is missing, stop and report it; do not install anything outside the worktree.
 
 ## Goal
 
@@ -65,7 +69,8 @@ adapters and the bridges; verbatim copies of the seven specification modules; an
 for every page, decision, skill, root document and configuration file that a lane will
 replace. `cargo nextest run` runs one test, `cargo test --doc` runs one doctest,
 `just wasm-check` passes on both targets, and `just coverage` reports 100% of the lines
-of a crate that has almost none.
+of a crate that has almost none. The pixi environment, `pixi.lock` and the one-line
+`tools.txt` are the tool pins from this commit on (decision 0011).
 
 ## Non-goals
 
@@ -87,8 +92,8 @@ of a crate that has almost none.
 
 ## Files touched
 
-Every path in CONVENTIONS.md §3 except those marked T02, T03 (`scripts/install_tools.sh`),
-T04 (`audit.yml`), T05 (`skills-lock.json`, `allium-skill-reference/`). Class: `final` means
+Every path in CONVENTIONS.md §3 except those marked T02, T04 (`audit.yml`), T05
+(`skills-lock.json`, `allium-skill-reference/`). Class: `final` means
 no lane touches it again; `stub` means the named lane replaces it.
 
 | Path | Class | Content |
@@ -96,7 +101,7 @@ no lane touches it again; `stub` means the named lane replaces it.
 | `Cargo.toml` | skeleton -> T02 | step 4 |
 | `Cargo.lock` | generated | step 4 |
 | `rust-toolchain.toml` | final | CONVENTIONS.md §2, exact |
-| `tools.txt` | final | CONVENTIONS.md §2, exact |
+| `tools.txt` | final | CONVENTIONS.md §2, exact (one line) |
 | `rustfmt.toml`, `clippy.toml`, `taplo.toml`, `deny.toml`, `.config/nextest.toml` | stub -> T02 | step 5 |
 | `crates/pawdoku/Cargo.toml` | skeleton -> T02 | step 4 |
 | `crates/pawdoku/src/lib.rs` | skeleton -> T02 | step 4 |
@@ -106,14 +111,15 @@ no lane touches it again; `stub` means the named lane replaces it.
 | `Justfile` | final | CONVENTIONS.md §4, exact |
 | `.pre-commit-config.yaml`, `.pre-commit-fix.yaml` | final | CONVENTIONS.md §5 applied to G's files |
 | `.editorconfig`, `.gitattributes`, `.gitignore`, `.markdownlint-cli2.jsonc`, `lychee.toml`, `_typos.toml` | working -> T03 | CONVENTIONS.md §5's edits applied to G's files, so the hooks pass; T03 finalises the comments |
-| `pyproject.toml`, `uv.lock`, `.python-version` | working -> T03 | D01's content; `uv lock` |
+| `pyproject.toml` | working -> T03 | D02's content (the pixi manifest and B's table) |
+| `pixi.lock` | generated | `pixi lock`; committed |
 | `scripts/initialize.sh` | stub -> T03 | step 7 |
 | `.github/actions/setup/action.yml` | stub -> T04 | step 8 |
 | `.github/workflows/ci.yml` | stub -> T04 | step 8 |
 | `docs/manifest.yml`, `docs/README.md` | final | step 9 |
 | `docs/project/*`, `docs/tutorials/*`, `docs/how-to/*`, `docs/explanation/*` (except the two migrated pages), `docs/reference/*`, `docs/operations/*` | stub -> T07/T08 | step 10 |
 | `docs/explanation/solving-sudoku.md`, `docs/explanation/human-solving.md` | verbatim from G -> T06 | step 10 |
-| `docs/decisions/README.md`, `docs/decisions/0001-*.md` .. `0010-*.md` | stub -> T09 | step 10 |
+| `docs/decisions/README.md`, `docs/decisions/0001-*.md` .. `0011-*.md` | stub -> T09 | step 10 |
 | `docs/specs/{sudoku,solver,technique,reach,effort,lapse,human-solving}.allium` | verbatim from G -> T06 | step 11 |
 | `AGENTS.md` | stub -> T05 | step 13 |
 | `CLAUDE.md`, `.github/copilot-instructions.md`, `.claude/settings.json` | final | byte-identical to G's |
@@ -127,13 +133,18 @@ no lane touches it again; `stub` means the named lane replaces it.
    a ticket"). Verify the preconditions:
 
    ```sh
-   command -v rustup && command -v cargo && command -v cargo-binstall && command -v just
+   command -v rustup && command -v cargo && command -v pixi && command -v just && command -v gh
+   pixi --version
    rustup toolchain list
    ```
 
-   `cargo` must resolve under `~/.cargo/bin`. Stop otherwise.
+   `cargo` must resolve under `~/.cargo/bin` (a `pixi global` rust at `~/.pixi/bin/cargo`
+   shadows rustup in any shell that does not source `~/.cargo/env`; prefix
+   `PATH="$HOME/.cargo/bin:$PATH"` on every command if so). pixi must print 0.81.0 or
+   newer. Stop otherwise.
 
-2. `rust-toolchain.toml` and `tools.txt`, exactly as CONVENTIONS.md §2 prints them. Then
+2. `rust-toolchain.toml` and the one-line `tools.txt`, exactly as CONVENTIONS.md §2 prints
+   them. Then
    `rustup toolchain install` from the worktree and confirm `rustup show active-toolchain`
    prints `1.98.1-<host>`; this is CONVENTIONS.md §12's first claim (the no-argument form
    reads the file). If 1.98.1 is no longer the newest stable, keep the pin: bumping it
@@ -245,8 +256,9 @@ no lane touches it again; `stub` means the named lane replaces it.
 5. The tool configuration stubs, minimal but valid, so that `toml-check`, `clippy`,
    `deny` and `coverage` run: `rustfmt.toml` with `style_edition = "2024"` and
    `max_width = 100`; `clippy.toml` with `allow-unwrap-in-tests = true`; `taplo.toml`
-   with `include = ["**/*.toml"]` and `exclude = ["target/**", ".tools/**", "ai_tmp/**",
-   ".venv/**"]`;
+   with `include = ["**/*.toml"]` and `exclude = ["target/**", ".tools/**", ".pixi/**",
+   "ai_tmp/**"]` (the pixi environment's `site-packages` contain TOML, so the exclude is
+   load-bearing);
    `deny.toml` with a `[licenses] allow = ["Apache-2.0"]` list, `[bans] wildcards =
    "deny"`, `[sources] unknown-registry = "deny"` and `allow-registry` naming crates.io
    (CONVENTIONS.md §12 asks T02 to confirm the 0.20 schema); `.config/nextest.toml` with
@@ -256,27 +268,34 @@ no lane touches it again; `stub` means the named lane replaces it.
 6. `Justfile`, exactly as CONVENTIONS.md §4 prints it; and `.pre-commit-config.yaml` and
    `.pre-commit-fix.yaml`, G's files with every change CONVENTIONS.md §5 lists applied
    and nothing else (copy the SHAs and comments, do not retype them). `pyproject.toml`
-   from D01's hand-back notes ("Files T00, T03 and T04 create"), `.python-version`
-   holding `3.14`, then `uv lock` (GitHub must be reachable for the git dependency) and
-   `uv sync --frozen`.
+   from D02's hand-back notes ("Files T00, T03 and T04 create"), written by hand and
+   never by `pixi init`; then `pixi lock` (GitHub must be reachable for the git
+   dependency, conda-forge for the tools) and `pixi install --frozen`. Before the lock,
+   re-verify every pin with `pixi search <name> --platform linux-64` and record the
+   output; a version conda-forge does not carry for linux-64 is a design change (§12).
+   `pixi.lock` is committed. No `uv.lock`, no `.venv/`, no `.python-version`.
 
 7. The dotfiles, G's with CONVENTIONS.md §5's edits: `.editorconfig` (add `[*.rs]`),
    `.gitattributes`, `.gitignore` (drop the Node, Svelte, Storybook and Chromatic blocks;
    add `target/`, `*.profraw`, `lcov.info`, `mutants.out*/`; keep `.tools/` with G's
-   comment; keep the Python lines), `.markdownlint-cli2.jsonc`
-   (`ignores`), `lychee.toml` (`exclude_path`), and `_typos.toml` as §5 gives it.
+   comment; `.pixi/` in place of `.venv/`, with a comment in the same voice; keep
+   `__pycache__/` and `*.py[cod]`), `.markdownlint-cli2.jsonc` (`ignores`), `lychee.toml`
+   (`exclude_path`), and `_typos.toml` as §5 gives it.
    `scripts/initialize.sh`: G's script with the npm, Storybook and ruff sections removed
-   and these steps in their place, in order, under `set -eu`: `just install-toolchain`;
-   `just check-toolchain`; `command -v cargo-binstall >/dev/null || cargo install
-   cargo-binstall@1.23.0 --locked`; `just install-tools`; `just install-allium`;
-   `test -f Cargo.lock || cargo generate-lockfile`; `just sync`; `just format`; then G's
-   worktree-aware `install-hooks` block and closing lines verbatim. T03 finalises the
-   comments and adds `scripts/install_tools.sh`; this ticket keeps the install inline.
+   and these steps in their place, in order, under `set -eu`: `pixi install --locked`;
+   `just install-toolchain`; `just check-toolchain`; `just install-tools`;
+   `just install-allium`; `test -f Cargo.lock || cargo generate-lockfile`; `just sync`;
+   `just format`; then G's worktree-aware `install-hooks` block (its comment naming
+   `.pixi/envs/default/bin/prek`; the recipe now also provisions every hook environment,
+   so this is the last network step) and closing lines verbatim. Nothing compiles at
+   bootstrap; T03 finalises the comments.
 
 8. CI stub. `.github/actions/setup/action.yml`: a composite action with the `cache-key`
    input and the steps CONVENTIONS.md §10 lists, with every `uses:` pinned to the SHA
    looked up on the day (`gh api repos/<owner>/<repo>/git/ref/tags/<tag>`, dereferencing
-   an annotated tag through `git/tags/<sha>`) and a version comment. `.github/workflows/ci.yml`:
+   an annotated tag through `git/tags/<sha>`) and a version comment; `setup-pixi`'s
+   `pixi-version` is the exact pixi version the manifest's `requires-pixi` floors.
+   `.github/workflows/ci.yml`:
    G's header (triggers, permissions `contents: read`, concurrency) and one job named
    `check`, `timeout-minutes: 45`, checkout with `persist-credentials: false`, the setup
    action, `just install-allium`, `just check`. `actionlint` must pass on it (`just lint`
@@ -324,6 +343,7 @@ no lane touches it again; `stub` means the named lane replaces it.
    decisions/0008-no-std-core.md              Decision 0008: A pure no_std core                          decision [contributor, maintainer, agent]  decision_no_std_core
    decisions/0009-rust-quality-gate.md        Decision 0009: The Rust quality gate                       decision [contributor, maintainer, agent]  decision_rust_gate
    decisions/0010-skill-reference-material.md Decision 0010: Skill reference material beside the skills  decision [maintainer, agent]               decision_skill_reference
+   decisions/0011-tool-manager.md             Decision 0011: Tool manager                                decision [maintainer, agent]               decision_tool_manager
    explanation/solving-sudoku.md              (G's title, verbatim)             explanation [contributor, maintainer, agent]                 sudoku_solving_strategies
    explanation/human-solving.md               Modelling a human Sudoku solver   explanation [contributor, maintainer, agent]                 human_solving_model
    ```
@@ -343,10 +363,11 @@ no lane touches it again; `stub` means the named lane replaces it.
     it is rewritten from (or that it is new), and the owning lane (T07, T08 or T09), with
     no `TODO`, `TBD`, `FIXME` or lorem ipsum (the validator rejects them) and no link.
     The two migrated pages are copied byte-for-byte from G. `docs/decisions/README.md`
-    is G's index page reshaped: the same first two paragraphs, a table of the ten
+    is G's index page reshaped: the same first two paragraphs, a table of the eleven
     numbers and titles above linking to the files, a "The numbering" paragraph saying
-    the series is this repository's own and that carried records say which Pawdoku
-    record they came from, and G's "Writing a new one" and "Related pages" sections.
+    the series is this repository's own, that carried records say which Pawdoku
+    record they came from, and that the next decision is 0012, and G's "Writing a new
+    one" and "Related pages" sections.
 
 11. The seven modules: `git -C /Users/scutting/projects/pawdoku show 78d03cdf:docs/specs/<name>.allium > docs/specs/<name>.allium`
     for `sudoku`, `solver`, `technique`, `reach`, `effort`, `lapse`, `human-solving`.
@@ -394,28 +415,34 @@ no lane touches it again; `stub` means the named lane replaces it.
 
 15. Record every CONVENTIONS.md §12 claim assigned to T00 with its outcome (the
     no-argument `rustup toolchain install`; `wasm32v1-none` on the stub crate; B's
-    checkers with no `package.json`; `bg-project-check` tolerating `target/`). A failed
-    claim is a design change: stop, write it up in the hand-back notes, and ask.
+    checkers with no `package.json`; `bg-project-check` tolerating `target/`, `.tools/`
+    and `.pixi/`; `pixi install --locked` installing the nine conda packages and B and
+    not the virtual project itself; B built from its git tag with `uv_build` under the
+    environment's Python, its six scripts landing in `.pixi/envs/default/bin`; every pin
+    resolving for `linux-64`). A failed claim is a design change: stop, write it up in
+    the hand-back notes, and ask.
 
 16. Set `status: done` and commit on the ticket branch, in one or a few commits with
     short imperative subjects. Stop before pushing.
 
 ## Acceptance criteria
 
-- Every path in CONVENTIONS.md §3 not owned by T02, T03 (`scripts/install_tools.sh`),
-  T04 (`audit.yml`) or T05 (`skills-lock.json`, `allium-skill-reference/`) exists.
+- Every path in CONVENTIONS.md §3 not owned by T02, T04 (`audit.yml`) or T05
+  (`skills-lock.json`, `allium-skill-reference/`) exists.
 - `rust-toolchain.toml`, `tools.txt`, `Justfile`, `.pre-commit-config.yaml`,
   `.pre-commit-fix.yaml`, `docs/manifest.yml`, `docs/README.md`, `CLAUDE.md`,
   `.github/copilot-instructions.md`, `.claude/settings.json` and every bridge are in
   their final form; `CLAUDE.md`, `.github/copilot-instructions.md`, `.claude/settings.json`,
   the twenty-six bridges of carried skills and the seven modules are byte-identical to G's.
-- `just check` is green in the worktree and in a fresh clone after `just initialize`.
+- `just check` is green in the worktree and, with the network blocked
+  (`HTTP_PROXY=http://127.0.0.1:9 HTTPS_PROXY=http://127.0.0.1:9`), in a fresh clone
+  after `just initialize`.
 - `just check-agents` prints `Validated AGENTS.md, 2 adapters, and 14 skills.`;
   `just check-docs` reports every page valid; `just check-specs` and
   `just analyse-specs` report empty arrays for seven modules.
 - `cargo nextest run --workspace` runs one test; `cargo test --doc --workspace` runs
   one doctest; `just wasm-check` passes on both targets; `just coverage` reports 100%.
-- `Cargo.lock` is committed and `just lock-check` passes.
+- `Cargo.lock` and `pixi.lock` are committed and `just lock-check` passes.
 - `git status --porcelain` is empty after `just check` (the snapshot proved it, but say
   so).
 - No file outside `tickets/` and `docs/specs/` contains `TODO`, `TBD` or `FIXME`, and no
@@ -427,9 +454,12 @@ no lane touches it again; `stub` means the named lane replaces it.
 ## Verification
 
 ```sh
+pixi --version
 rustup show active-toolchain
 just check-toolchain
 just initialize
+ls .pixi/envs/default/bin | grep -E '^(cargo-nextest|cargo-llvm-cov|cargo-deny|cargo-shear|taplo|prek|just|cargo-binstall|bg-project-check)$' | wc -l
+ls .tools/bin
 time just check
 git status --porcelain
 for f in CLAUDE.md .github/copilot-instructions.md .claude/settings.json; do cmp "$f" <(git -C /Users/scutting/projects/pawdoku show "78d03cdf:$f") && echo "$f identical"; done
@@ -437,11 +467,12 @@ for m in sudoku solver technique reach effort lapse human-solving; do cmp "docs/
 ls .agents/skills | wc -l; ls .claude/skills | wc -l; ls .codex/skills | wc -l
 cargo nextest run --workspace --locked 2>&1 | tail -3
 cargo test --doc --workspace --locked 2>&1 | tail -3
-grep -rn -E 'TODO|TBD|FIXME' --exclude-dir=.git --exclude-dir=target --exclude-dir=.tools --exclude-dir=.venv --exclude-dir=ai_tmp --exclude-dir=tickets --exclude-dir=specs . || echo "no placeholders"
+grep -rn -E 'TODO|TBD|FIXME' --exclude-dir=.git --exclude-dir=target --exclude-dir=.tools --exclude-dir=.pixi --exclude-dir=ai_tmp --exclude-dir=tickets --exclude-dir=specs . || echo "no placeholders"
 grep -rn -E '\{\{|\{%|\{#' README.md SECURITY.md CHANGELOG.md AGENTS.md docs .agents .claude .codex || echo "no template syntax"
 ```
 
-Expected: the toolchain line names `1.98.1`; `just check` ends with the clean-worktree
+Expected: pixi prints 0.81.0 or newer; the toolchain line names `1.98.1`; the count is
+`9` and `.tools/bin` lists `allium` and `cargo-hack`; `just check` ends with the clean-worktree
 line and exit 0; `git status --porcelain` prints nothing; every `cmp` line says
 `identical`; the three counts are `14`; nextest reports `1 test run: 1 passed`; the
 doctest run reports `1 passed`; the two greps print `no placeholders` and `no template
@@ -449,10 +480,12 @@ syntax`. Quote each in the hand-back notes.
 
 ## Hand-back notes
 
-**In progress, stopped on 2026-09-24 at the maintainer's request.** Nothing is committed
-yet: every file below is in the worktree, uncommitted. `status:` stays `open`. The work
-is blocked on a design question (taplo, below) that needs the maintainer's decision
-before `just check` can be run.
+**In progress, stopped on 2026-09-24 at the maintainer's request, then redirected by
+D02.** The skeleton described below is the work-in-progress commit `8ddb2c2` on
+`ticket/t00-foundation`; `status:` stays `open`. The taplo question that stopped the
+work was settled by D02 (decision 0011: pixi owns the tools), and this ticket was
+rewritten in place to that design. The section "Pivot to D02" below says what the
+commit already has and what changes.
 
 ### Actions with effects outside this worktree
 
@@ -499,11 +532,13 @@ Inside the worktree but gitignored: `.tools/bin/` (allium 3.6.1 from
 `just install-allium`; cargo-nextest, cargo-llvm-cov, cargo-deny, cargo-hack and
 cargo-shear from binstall; taplo from a source build, see below), `.venv/`, `target/`,
 and `ai_tmp/rustup-claim/` (823 MB, a throwaway `RUSTUP_HOME`/`CARGO_HOME` from the §12
-check; safe to delete).
+check; safe to delete). Under D02, `.venv/` and every binary in `.tools/bin` except
+`allium` and `cargo-hack` are dead weight: delete `.venv/` and re-run `just initialize`.
 
-### What was done (files, uncommitted)
+### What was done (commit `8ddb2c2`, before D02)
 
-Steps 1 to 13 are written; step 14 (the gate) has not run.
+Steps 1 to 13 as the ticket then read are written; step 14 (the gate) has not run.
+Items below that D02 changes are listed again under "Pivot to D02".
 
 - Step 2: `rust-toolchain.toml` and `tools.txt`, exactly as CONVENTIONS.md §2 prints
   them.
@@ -580,7 +615,7 @@ None of the checkers (`bg-validate-docs`, `bg-validate-agents`, prek, allium) ha
   points to the section that links them.
 - The branch was renamed (above).
 
-### Blocked: taplo cannot be installed as the design specifies
+### Resolved by D02: taplo could not be installed as the design specified
 
 `just install-tools` fails. binstall resolves all six tools before installing any, so the
 single failure aborts the whole batch:
@@ -618,32 +653,64 @@ Options for the maintainer, put to them when the session stopped:
    config's `taplo-fmt` hook). This downgrades a minor version.
 4. Settle it on `main` first, and resume this ticket afterwards.
 
-Also open: whether that CONVENTIONS.md §2 and §4 edit is made on this branch or as a
-separate pull request on `main` (§11 says changes to CONVENTIONS.md go through `main`).
+The maintainer took none of the four: D02 (2026-09-24) moved every tool conda-forge
+carries to pixi, where taplo 0.10.0 is packaged, and the CONVENTIONS.md change went
+through `main` with D02, as §11 says.
+
+### Pivot to D02
+
+D02 landed on `main` after commit `8ddb2c2`. This branch merges (or rebases onto)
+`main` first; `tickets/T00-foundation.md` conflicts and the `main` version wins. Then,
+against the rewritten steps above:
+
+- **Already right, keep:** everything from steps 3, 4, 5 (except `taplo.toml`'s
+  exclude list), 9 to 13 as `8ddb2c2` has it; `rust-toolchain.toml`; the SHAs looked up
+  for actions/checkout, Swatinem/rust-cache and actions/cache.
+- **Replace:** `tools.txt` (one line); `Justfile` (the `PATH` export and the recipes
+  D02 prints; extract from CONVENTIONS.md §4's fence again, as before); `pyproject.toml`
+  (D02's text); both prek configs (the `exclude` lists and the five script-hook
+  entries); `scripts/initialize.sh` (the step-7 sequence); `.github/actions/setup/action.yml`
+  (D02's steps; look up `prefix-dev/setup-pixi` v0.10.2's SHA; drop the taiki-e and
+  setup-uv SHAs); `.gitignore`, `.gitattributes`, `_typos.toml`, `lychee.toml`,
+  `.markdownlint-cli2.jsonc`, `taplo.toml` (`.pixi` and `pixi.lock` in, `.venv` and
+  `uv.lock` out).
+- **Remove from the tree:** `uv.lock`, `.python-version`. Delete the gitignored
+  `.venv/`.
+- **Add:** `pixi.lock` from `pixi lock`; `docs/decisions/0011-tool-manager.md` as an
+  eleventh stub, its manifest row, and the eleventh row in `docs/decisions/README.md`
+  with the numbering sentence.
+- **Then** step 14 and 15 as written, with the three new §12 claims.
 
 ### Remaining steps
 
-1. Settle the taplo question and apply it.
+1. Merge `main` (D02) into this branch and apply the pivot above.
 2. Run `just lint`, `just check-docs`, `just check-agents`, `just check-specs`,
    `just analyse-specs`, `just wasm-check`, `just coverage` and `actionlint`
    individually; fix what they find. Likely candidates:
    `LICENSE` indentation under editorconfig-checker, and whether `just coverage` finds a
    denominator in a crate whose only item is a `const` (the ticket's open point).
 3. `just initialize` then `time just check`. Then the same from a fresh clone in
-   `ai_tmp/clone`, once everything is committed.
-4. The Verification block, with its output quoted here, and the three remaining §12
-   claims.
+   `ai_tmp/clone`, once everything is committed, with the `check` run under
+   `HTTP_PROXY=http://127.0.0.1:9 HTTPS_PROXY=http://127.0.0.1:9`: the proof that
+   `initialize` has the network and `check` does not need it (CONVENTIONS.md §13). The
+   recipe to watch is `lock-check`: its cargo line has no `--offline`, and on
+   2026-09-24 `cargo update --workspace --locked` exited 0 with the proxy blocked on a
+   current lockfile; if it ever fetches the index, the line gains `--offline`.
+4. The Verification block, with its output quoted here, and the remaining §12 claims.
 5. `status: done`, then commit on `ticket/t00-foundation`. Do not push.
 
 ### Handed back
 
-Nothing yet beyond the taplo design question above.
+The taplo design question, answered by D02.
 
 ### Open points settled
 
 - Branch name: renamed to `ticket/t00-foundation` (maintainer, 2026-09-24).
 - Prerequisites: the agent installed rustup and cargo-binstall and edited `~/.zshrc`
-  rather than uninstalling pixi's rust (maintainer, 2026-09-24).
+  rather than uninstalling pixi's rust (maintainer, 2026-09-24). Under D02 the
+  per-machine cargo-binstall is unused; the pixi environment's own is what
+  `just install-tools` runs.
+- The taplo blocker: settled by D02 (maintainer, 2026-09-24).
 
 ## Open points
 

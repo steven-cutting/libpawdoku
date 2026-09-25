@@ -36,8 +36,8 @@ where a relative link points nowhere, so it carries none.
 
 Facts that shape the content (CONVENTIONS.md §0, §1, §2, §4, §10): the crate is
 `no_std` with `alloc`, `publish = false`, Apache-2.0 with no per-file headers (decision
-0006); the prerequisites are rustup (no default toolchain: T03's §12 outcome),
-cargo-binstall, just, gh and uv; `just initialize` is the one
+0006); the prerequisites are rustup (no default toolchain: T03's §12 outcome), pixi,
+just and gh, not uv and not cargo-binstall (decision 0011); `just initialize` is the one
 first-run command and never stages, commits, tags or pushes; `just fix` is the only
 mutating recipe; CI pins every
 action to a SHA and runs with `contents: read`; cargo-deny bans `rand` and `getrandom`
@@ -89,20 +89,24 @@ day it is written, with the docs contract, markdownlint, typos and lychee green.
      technique catalogue, difficulty rating, hints, a model of a human solver), that
      every rule comes from `docs/specs/`, and that the core is `no_std` so it runs the
      same in a browser, in Python and on the command line.
-   - `## Prerequisites`: rustup (no default toolchain: T03's §12 outcome),
-     cargo-binstall, just, gh and uv. One line on the pixi hazard, then
-     a link to `docs/how-to/develop-locally.md` for the detail.
+   - `## Prerequisites`: D02's bootstrap story: rustup (no default toolchain: T03's
+     §12 outcome; `~/.cargo/bin` ahead of `~/.pixi/bin` on `PATH`), pixi 0.81.0 or
+     newer, just (`pixi global install just`; any just launches the recipes, because
+     the pinned one in the environment runs every nested call and CI) and gh; not uv,
+     not cargo-binstall. One line on the pixi hazard, then a link to
+     `docs/how-to/develop-locally.md` for the detail.
    - `## Quick start`: a console block with `just initialize` then `just check`, and
-     G's sentence adapted: what `initialize` installs (the pinned toolchain, the tool
-     binaries into `.tools/bin`, the Allium checker, the hook) and that it never
-     stages, commits, tags or pushes.
+     G's sentence adapted: what `initialize` installs (the pixi environment, the pinned
+     toolchain, cargo-hack and the Allium checker into `.tools/bin`, the hook) and that
+     it never stages, commits, tags or pushes.
    - `## Check your work`: G's lines 27-35 in shape (`just fix`, `just check`,
      `just --list`, the link to `docs/reference/commands.md`).
    - `## Layout`: a `text` block of CONVENTIONS.md §3 reduced to the top level:
      `crates/pawdoku/` (the engine; `src/random.rs` is the one effect boundary),
      `docs/`, `docs/specs/` (the seven Allium modules, the source of truth for
-     behaviour), `tickets/`, `tools.txt` and `rust-toolchain.toml` (the pins),
-     `.tools/` and `target/` (ignored).
+     behaviour), `tickets/`, `pyproject.toml` and `pixi.lock` (the tool manifest and its
+     pin), `rust-toolchain.toml` (the compiler pin), `tools.txt` (the one exception);
+     `.pixi/`, `.tools/` and `target/` (ignored).
    - `## Documentation`: G's shape; the map, then Purpose and scope, Make your first
      change, Architecture, Specifications, API reference; the `AGENTS.md` sentence.
    - `## How the game will use it`: two sentences: the game will consume the engine
@@ -118,9 +122,9 @@ day it is written, with the docs contract, markdownlint, typos and lychee green.
    the thing rather than the ticket: the workspace and toolchain pin, the licence, the Justfile
    gate and hooks, the GitHub repository and CI (five checks, weekly audit), the
    `no_std` crate skeleton with the randomness boundary and the lint tables, the
-   dotfiles and pinned tool installs, the agent contract with fourteen skills, the
+   dotfiles and the pixi environment, the agent contract with fourteen skills, the
    seven engine modules migrated from Pawdoku with the two explanation pages, the
-   handbook of twenty-five pages, the ten decision records. Close with
+   handbook of twenty-five pages, the eleven decision records. Close with
    `[Unreleased]: https://github.com/steven-cutting/libpawdoku/commits/main/` (G's line
    17 form; T01 created the remote, so it resolves online; no compare link until a tag
    exists, which S02 decides).
@@ -136,10 +140,11 @@ day it is written, with the docs contract, markdownlint, typos and lychee green.
    filesystem or environment access in the core, made unnameable by `no_std`;
    `Cargo.lock` committed and every gate `--locked`; `cargo deny` over licences, bans
    and sources on every check and advisories weekly; `rand` and `getrandom` banned from
-   the core; tool binaries pinned in `tools.txt` and installed from release checksums;
-   every GitHub Action and hook pinned to a commit SHA; CI with `contents: read` and no
-   stored secret; ripsecrets on every commit with output suppressed; the Allium binary
-   pinned by SHA-256. Close with the link to `docs/explanation/security-model.md`.
+   the core; tool binaries pinned by hash in `pixi.lock` and installed from conda-forge,
+   the compiler by rustup from `rust-toolchain.toml`; every GitHub Action and hook
+   pinned to a commit SHA; CI with `contents: read` and no stored secret; ripsecrets on
+   every commit with output suppressed; the Allium binary pinned by SHA-256. Close with
+   the link to `docs/explanation/security-model.md`.
 
 5. `crates/pawdoku/README.md`: what crates.io and docs.rs show. Eight to fifteen lines:
    the crate name, one paragraph on what it does and that it is `no_std` with `alloc`,
