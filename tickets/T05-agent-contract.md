@@ -1,7 +1,7 @@
 ---
 id: T05
 title: "Agent contract: AGENTS.md, adapters, fourteen skills, their bridges"
-status: open
+status: done
 depends_on: [T00]
 parallel_with: [T01, T02, T03, T04, T06, T07, T08, T09]
 branch: ticket/t05-agent-contract
@@ -552,13 +552,189 @@ explained line by line in the hand-back notes;
 
 ## Hand-back notes
 
+**Done on 2026-09-25**, in one session, on the Supacode worktree's branch
+`T05-agent-contract` (see Deviations). The maintainer authorised pushing that branch
+and opening its pull request on 2026-09-25; nothing else was published. No clone (G, B, T) was modified: every read of G used `git -C $G show 78d03cdf:`
+or `git -C $G archive 78d03cdf`.
+
+Actions with effects outside the tracked tree: `just initialize` in this worktree (the
+gitignored `.pixi/envs/default`, `.tools/bin/cargo-hack` 0.6.45 and `.tools/bin/allium`
+3.6.1, downloaded; pixi's and cargo's caches). It is a secondary worktree, so the script
+skipped `install-hooks`; the shared shim at the primary's `.git/hooks/pre-commit`
+already named the primary checkout's `.pixi/envs/default/bin/prek`, which exists, and
+was not rewritten.
+
 ### What was verified, and how
+
+Before any change, `just check` was green on the untouched branch (exit 0, "All checks
+passed and the worktree is unchanged."). The T00 frontmatter of all fourteen skills was
+recorded to `ai_tmp/t05/<name>.frontmatter` first (Prepare step 3).
+
+First block, on the final tree (these notes included) before the commit:
+
+```text
+$ just check-agents
+Validated AGENTS.md, 2 adapters, and 14 skills.
+$ just check-docs
+lychee...Passed
+Validated 37 pages and 38 canonical topics.
+$ just lint
+prek run --all-files          (every hook Passed or Skipped; exit 0)
+$ just check
+==> just check-toolchain, lock-check, lint, fmt-check, toml-check, clippy, features,
+    wasm-check, test-doc, coverage, doc, deny, deps-unused, check-docs, check-agents,
+    check-specs, analyse-specs, check-clean
+The worktree matches the check baseline.
+All checks passed and the worktree is unchanged.     (exit 0)
+```
+
+`git status --porcelain` is empty after the commit.
+
+Second block:
+
+```text
+$ wc -w AGENTS.md
+1445
+untrusted: 1
+just check: 5
+explicit authorization: 1
+ai_tmp/: 1
+docs/specs/: 2
+runes: 1
+$ grep -n -i -E 'svelte|runes|npm|storybook|chromatic|copier update|src/lib|platform\.md|update-from-template' AGENTS.md
+179:This repository has no Svelte runes; the games' reactivity rule does not
+$ grep -n '^## ' AGENTS.md
+8:## What this project is
+26:## Invariants
+60:## Stack and conventions
+90:## Change workflow
+108:## Safety and authority
+129:## Documentation and durable context
+146:## External automation policy
+152:## Provenance
+```
+
+Third block: the three listings are the same fourteen names; `git ls-files .agents
+.claude .codex | wc -l` is `43`; the frontmatter loop printed nothing (no `FRONTMATTER
+MOVED`); `git diff --stat main -- .claude .codex CLAUDE.md
+.github/copilot-instructions.md` is empty; the forbidden-word grep over `.agents/`
+printed nothing and `exit 1`.
+
+Fourth block:
+
+```text
+distill identical
+elicit identical
+tend identical
+weed identical
+witness identical
+allium: 2
+propagate: 2
+code-review: 6
+fix-quality: 11
+plan-change: 2
+project-check: 2
+review-docs: 11
+spec-change: 6
+lock identical
+reference identical
+      23
+```
+
+The Allium skills' frontmatter check of Steps (the `cmp` loop after copying G's seven
+files) printed `<name> frontmatter unchanged` for all seven, so T00's descriptions are
+G's and no bridge needed to move. The five exclusions the vendored reference relies on
+are all present (`.pre-commit-config.yaml` line 10, `.markdownlint-cli2.jsonc` line 21,
+`lychee.toml` line 12, `_typos.toml` line 11, `.gitattributes` line 5), and `_typos.toml`
+already carries G's `mis` allowlist, which the non-excluded Allium skills need.
 
 ### Deviations, and why
 
+- **`fix-quality: 11`, not 17.** The expected count assumed all seven of G's dispatch
+  lines are replaced. Three of them (`check-docs`, `check-agents`, `lock-check`) are kept
+  byte-for-byte, as the step says, and `diff` pairs them with themselves: four lines out
+  (G's Prettier/Ruff, ESLint, `svelte-check` and coverage entries) and seven in
+  (`fmt-check`/`toml-check`, `clippy`, `features`/`wasm-check`, `coverage`, `doc`,
+  `deny`/`deps-unused`, `check-specs`/`analyse-specs`). The file is exactly what the
+  step prescribes.
+- **`AGENTS.md` is 1445 words**, not about 1000. Every section follows the step that
+  governs it; the estimate was low, and the floor is 300.
+- **One clause beyond the Stack step's list.** The `Just` bullet ends: "the one tool
+  conda-forge lacks is pinned in `tools.txt` and installed with the Allium checker into
+  the gitignored `.tools/bin`." T00's stub promised the section would name `tools.txt`,
+  and the statement is true of the `Justfile` and `scripts/initialize.sh`. Drop it if the
+  maintainer prefers the step's list exactly.
+- **Wording choices inside the Stack step.** The tests bullet says unit tests sit
+  "under `#[cfg(test)]`" and renders G's rule as "the games' rule that tests are never
+  colocated with the code"; the fakes bullet adds "a test supplies its draws to the fake
+  that sits beside the trait". The `prek` sentence drops "under `uv`" and puts the pixi
+  and rustup ownership in the sentence after it.
+- **Safety bullet rewrapped.** G lines 111-114 with "enabling GitHub Pages" replaced by
+  "publishing a crate" no longer fit G's line breaks; the words are otherwise G's.
+  "deploying" stays in that list, because the step names only the one substitution
+  there; it is dropped from External automation policy, as that step says.
+- **Branch name.** Supacode created the worktree on `T05-agent-contract`, not the
+  `branch:` field's `ticket/t05-agent-contract`. Asked on 2026-09-25, the maintainer
+  chose to keep the Supacode name, so the `branch:` field above is not the branch this
+  work was pushed from.
+
 ### Handed back
 
+- **For T08 (`docs/reference/agent-contract.md`).** Fourteen canonical skills: six
+  carried house skills (`code-review`, `fix-quality`, `plan-change`, `project-check`,
+  `review-docs`, `spec-change`), one new (`rust-change`), seven vendored Allium skills
+  (`allium`, `distill`, `elicit`, `propagate`, `tend`, `weed`, `witness`); twenty-eight
+  bridges; `.claude/settings.json` tolerated, not expected. The example frontmatter,
+  exactly as committed:
+
+  ```markdown
+  ---
+  name: rust-change
+  description: Implement or review a change to the engine with the trait boundary, no_std, tests and documentation evidence the invariants require.
+  ---
+  ```
+
+  The reference rule: the seven Allium skills' reference material lives at
+  `allium-skill-reference/` at the repository root and is linked from the skills with
+  relative `../../../allium-skill-reference/...` paths; nothing else links to it. The
+  literal-parser caveat is G's page lines 55-56 ("The frontmatter parser is deliberately
+  literal. It splits every line between the `---` markers on the first colon and treats
+  a line without one as an error, so a blank line ..."); B at `6c5c07f6` still behaves
+  so. `skills-lock.json` is read by no validator.
+- **For T09 (decision 0010).** G's `189348e` message: "The skills' reference material
+  (language reference, patterns, worked examples, JSON schemas) moved to
+  allium-skill-reference/ at the repo root, since the Agent instruction contract only
+  permits a single SKILL.md per managed skill. That relocation is a template departure
+  worth a decision record; noted for the PR rather than written here." The validator
+  forced the location, not taste: `_check_inventory` (B lines 141-148) reports every
+  Git-visible file under `.agents/`, `.claude/` or `.codex/` that is neither an expected
+  skill or bridge nor `.claude/settings.json` as an "unexpected managed file". The hash
+  mismatch, re-verified: `git -C $G show 78d03cdf:.agents/skills/allium/SKILL.md |
+  shasum -a 256` is `97798540d089e3a583eaa34eeb3f355332553d869bd6067aaead23b1b79e10f2`;
+  the lock's `computedHash` for `allium` is
+  `52446c6173badac1804a635b3d8d39f8b2ed137222b0d7dbcb6591ebb928c0a0`.
+- **For the maintainer (CONVENTIONS.md §7).** Re-verified: §7 already records line 10,
+  line 12 and five/two. One difference remains: §7's `spec-change` row says "Steps 4, 7
+  and 8", but the edited steps are 1, 4 and 8. Step 1 (G line 10) names
+  `@steven-cutting/biscuit-games`; step 7 is kept verbatim, because everything it names
+  exists here (`just check-specs`, `just analyse-specs`, `just install-allium`,
+  `docs/how-to/work-with-the-specs.md`). Also, this ticket's fourth verification block
+  should expect `fix-quality: 11`.
+- **For T02 and T04.** `AGENTS.md`, `code-review` and `rust-change` name
+  `crates/pawdoku/src/random.rs` (T02 step 7 creates it) and `AGENTS.md` names
+  `audit.yml` (T04). Both are code spans, so no gate checks them today; they must land
+  at those paths.
+- **C02 follow-up, unchanged.** The `runes` sentence closes Provenance, as CONVENTIONS.md
+  §7 quotes it; it goes when the B pin moves (Context).
+
 ### Open points settled
+
+- **Where the reference material lives.** At the root, as G has it; the maintainer did
+  not ask otherwise.
+- **What the lock's hash covers.** Not settled: it needs the installer's source or a
+  fetch of `juxt/allium`, and this ticket used no network for it. The lock is committed
+  byte-for-byte as provenance.
+- **CONVENTIONS.md §7.** Re-verified on the day; the one difference is handed back above.
 
 ## Open points
 
