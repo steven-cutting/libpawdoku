@@ -692,7 +692,10 @@ against the rewritten steps above:
 3. `just initialize` then `time just check`. Then the same from a fresh clone in
    `ai_tmp/clone`, once everything is committed, with the `check` run under
    `HTTP_PROXY=http://127.0.0.1:9 HTTPS_PROXY=http://127.0.0.1:9`: the proof that
-   `initialize` has the network and `check` does not need it (CONVENTIONS.md §13).
+   `initialize` has the network and `check` does not need it (CONVENTIONS.md §13). The
+   recipe to watch is `lock-check`: its cargo line has no `--offline`, and on
+   2026-09-24 `cargo update --workspace --locked` exited 0 with the proxy blocked on a
+   current lockfile; if it ever fetches the index, the line gains `--offline`.
 4. The Verification block, with its output quoted here, and the remaining §12 claims.
 5. `status: done`, then commit on `ticket/t00-foundation`. Do not push.
 

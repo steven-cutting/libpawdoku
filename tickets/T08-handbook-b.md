@@ -271,9 +271,9 @@ Justfile's banners group them: **Setup** (`initialize`, `check-toolchain`,
 committed, `lock` relocks both, `lock-upgrade` runs `cargo update` and `pixi update`,
 `lock-check` proves both, `install-tools` installs `tools.txt` through the
 environment's cargo-binstall; decision 0011), and says which recipes reach the network
-(`install-tools`, `install-allium`, `sync`, the lock recipes, `audit`,
-`check-links-online`, `lint` the
-first time) and that `build`, `test`, `audit` and `check-links-online` are outside
+(`install-tools`, `install-allium`, `install-hooks`, `sync`, `lock`, `lock-upgrade`,
+`audit`, `check-links-online`; `lock-check` and `lint` never, because `install-hooks`
+prepares every hook environment and `lock-check` is offline) and that `build`, `test`, `audit` and `check-links-online` are outside
 `check`. `fix` is the recipe that repairs, not the only one that writes (G 47, kept).
 
 ### `reference/configuration.md`

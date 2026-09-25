@@ -419,8 +419,8 @@ shellcheck-clean; and an outcome line in the hand-back notes for each §12 claim
 ## Acceptance criteria
 
 - The seven dotfiles match step 2 and step 3 byte for byte; `scripts/initialize.sh`
-  matches step 4; G's lines 45-61 are inside `scripts/initialize.sh` with the one
-  comment change step 4 names and no other.
+  matches step 4; G's lines 45-61 are inside `scripts/initialize.sh` with the comment
+  changes step 4 names and no other.
 - `just lint` is green in this worktree and, with the network blocked, after
   `just install-hooks` from an empty `PREK_HOME`; `just fix` repairs
   the tracked scratch file and leaves the tree clean; `just check-docs` and `just check`
