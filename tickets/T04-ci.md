@@ -221,6 +221,23 @@ Nothing else. Every other change is handed back.
        # installed, neither rewritten.
        - run: just sync
          shell: bash
+       # prek's cache outside the workspace, so check-clean's snapshot never
+       # sees it. PREK_HOME is the variable T03 confirms on prek 0.5.3.
+       - run: echo "PREK_HOME=${{ runner.temp }}/prek" >> "$GITHUB_ENV"
+         shell: bash
+       # The seven hook clones, the Go, Node and rustup toolchains and the
+       # ripsecrets build, which every gate job would otherwise fetch again.
+       # Keyed on both hook configs and on pixi.lock, which pins prek; saved on
+       # any branch, like .tools.
+       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+         with:
+           path: ${{ runner.temp }}/prek
+           key: ${{ runner.os }}-${{ runner.arch }}-prek-${{ hashFiles('.pre-commit-config.yaml', '.pre-commit-fix.yaml', 'pixi.lock') }}
+       # The prepare and the lychee warm are the point; the shim it writes into
+       # the runner's .git is harmless. After this step no step reaches the
+       # network.
+       - run: just install-hooks
+         shell: bash
    ```
 
 4. Write `.github/workflows/ci.yml`:
@@ -453,8 +470,10 @@ Nothing else. Every other change is handed back.
    run's total minutes in the hand-back notes.
 
    Then dispatch `ci.yml` a second time and quote, from the `rust` job's setup log, the
-   `setup-pixi` cache line, the rust-cache restore line and the `actions/cache` line for
-   `.tools`. The `.tools` cache hits, because `actions/cache` saves on any branch. The
+   `setup-pixi` cache line, the rust-cache restore line and the `actions/cache` lines
+   for `.tools` and for prek's cache. Both `actions/cache` entries hit, because
+   `actions/cache` saves on any branch, and the `install-hooks` step then prints no
+   clone, download or build line. The
    `setup-pixi` cache is keyed on the `pixi.lock` hash and written from `main` only, so
    it hits only if `main`'s stub run saved an entry for the same lockfile; quote the line
    as observed and say which it was. rust-cache does not hit: `save-if` is `main` only,
@@ -488,6 +507,10 @@ Nothing else. Every other change is handed back.
    - The no-argument `rustup toolchain install` on the runner: quote `check-toolchain`'s
      `active-toolchain` line (`1.98.1-x86_64-unknown-linux-gnu`) and the `wasm` job's two
      green steps.
+   - The prek cache under `${{ runner.temp }}/prek` restores on the second dispatch, and
+     `just lint`'s log then shows no clone, download or build line: quote the cache
+     restore line and the `install-hooks` step's output from the second dispatch, and
+     the first dispatch's `install-hooks` duration against the second's.
 
 9. Confirm from
    `gh api repos/steven-cutting/libpawdoku/commits/<sha>/check-runs --jq '.check_runs[].name'`
@@ -522,10 +545,10 @@ Nothing else. Every other change is handed back.
 - All six jobs of `ci.yml` are green on the dispatch run on `ticket/t04-ci`; the job
   list, per-job durations and the total minutes are quoted in the hand-back notes; the
   check-runs API lists `check` for the dispatched commit.
-- On the second dispatch, the `.tools` cache line reports a hit; the `setup-pixi` and
-  rust-cache lines are quoted as observed and explained.
+- On the second dispatch, the `.tools` and prek cache lines report a hit; the
+  `setup-pixi` and rust-cache lines are quoted as observed and explained.
 - The `lcov` artifact exists on the run with a 7-day retention.
-- The five §12 outcomes and the runner facts of step 8 are recorded in "What was
+- The six §12 outcomes and the runner facts of step 8 are recorded in "What was
   verified, and how".
 
 ## Verification

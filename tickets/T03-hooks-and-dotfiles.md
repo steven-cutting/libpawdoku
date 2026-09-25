@@ -20,7 +20,7 @@ They read seven configuration files that T00 created in working form so the firs
 left `scripts/initialize.sh` in D02's sequence with its comments still to be written
 (T00 step 7). This ticket finalises those files: every gitignored path a gate writes is
 explained in G's voice, the first-run script says in G's voice why each of its lines is
-there, every shell script is shellcheck-clean, and the six CONVENTIONS.md §12 claims
+there, every shell script is shellcheck-clean, and the seven CONVENTIONS.md §12 claims
 assigned to T03 are executed and recorded. There is no separate install script: the pixi
 environment is installed by `pixi install --locked` on first run and re-synced by `just
 sync`, and `just install-tools` is the re-runnable install for the one binary conda-forge
@@ -56,7 +56,11 @@ during this ticket:
   `language: script` (its script downloads a release) and typos and shellcheck are
   Python wheels. The cache also holds `tools/go` and `tools/node`: actionlint and
   editorconfig-checker are Go hooks and markdownlint-cli2 is a Node hook, so a cold
-  `just lint` downloads three toolchains, not only hook repositories.
+  `just lint` would download three toolchains, not only hook repositories; that is why
+  `install-hooks` prepares every environment (`prek install --prepare-hooks`) and runs
+  lychee once, whose `language: script` hook fetches its binary at first run rather
+  than at prepare (`scripts/lychee_pre_commit.sh` in the hook's cached checkout,
+  installing into `<checkout>/.cargo/bin` under prek's home).
 - prek 0.5.3 from conda-forge (D02, 2026-09-24) is a native binary with no Python
   wrapper, and accepts `prek install --overwrite` and `prek run --hook-stage manual`, the
   forms the frozen `Justfile` uses, although its `--help` shows `--force` and `--stage`.
@@ -284,8 +288,9 @@ shellcheck-clean; and an outcome line in the hand-back notes for each §12 claim
    39-40 comment verbatim); then G's lines 45-61: the worktree-aware `install-hooks`
    block and the two closing `printf` lines, byte for byte except that the comment's
    "that worktree's virtual environment" becomes the absolute path the shim records,
-   `.pixi/envs/default/bin/prek` (D02). Nothing compiles at bootstrap and there is no
-   `uv lock` line.
+   `.pixi/envs/default/bin/prek`, and the comment adds that the recipe also provisions
+   every hook environment, the last line of the first-run path that reaches the network
+   (D02). Nothing compiles at bootstrap and there is no `uv lock` line.
 
 5. `pyproject.toml`: confirm the comments D02 prints are present (above
    `[tool.pixi.workspace]`, on `platforms`, on the `python` pin, on `cargo-binstall` and
@@ -330,8 +335,9 @@ shellcheck-clean; and an outcome line in the hand-back notes for each §12 claim
       merges and the claim fails: record it; the design (one file) still holds because
       `pyproject.toml` carries no table.
 
-   d. **prek's Rust hooks and the default toolchain.** The cold run of step 7 answers
-      this. After it, `ls "$PREK_HOME/tools"` and `cat "$PREK_HOME"/hooks/rust-*/.prek-hook.json`.
+   d. **prek's Rust hooks and the default toolchain.** The `just install-hooks` of
+      step 7 answers this. After it, `ls "$PREK_HOME/tools"` and
+      `cat "$PREK_HOME"/hooks/rust-*/.prek-hook.json`.
       Expected, from the 0.4.12 evidence in Context: `tools/rustup/` exists and the
       manifest's `toolchain` points inside it, which means conda-forge's prek 0.5.3
       provisions its own rustup and stable toolchain under `$PREK_HOME` for the
@@ -339,16 +345,17 @@ shellcheck-clean; and an outcome line in the hand-back notes for each §12 claim
       toolchain" prerequisite is unnecessary. Either outcome is recorded; the
       prerequisite change is a `main` follow-up because CONVENTIONS.md is not this
       ticket's file. Also record the wall-clock time of the ripsecrets build, the one
-      compile in the gate. Delete `ai_tmp/prek-cold` only after this step has read it.
+      compile in the first-run path, from step 7's `install-hooks` timing. Delete
+      `ai_tmp/prek-cold` only after this step has read it.
 
-   e. **`pixi lock --check` offline and without writes.** After `just sync`, record the
-      lockfile's hash, then `pixi lock --check --offline`: expected exit 0, no output
-      naming a change, and the hash unchanged; this proves the check needs no network
-      even with the git PyPI source in the lockfile. If it exits non-zero for want of
-      the network, the fallback is recorded as a `main` follow-up for the frozen
-      `Justfile`: `lock-check` gains `--offline` (an offline solve on a stale lock still
-      fails, which is the right answer), or the pixi half of `lock-check` moves to CI
-      only, where `setup-pixi`'s `locked: true` already checks it (T04). Then prove the
+   e. **`lock-check` offline and without writes.** After `just sync`, record the
+      lockfile's hash, then `just lock-check`, whose pixi line is
+      `pixi lock --check --offline`: expected exit 0, no output naming a change, and
+      the hash unchanged; this proves the check needs no network even with the git
+      PyPI source in the lockfile. If it exits non-zero for want of the network, the
+      one fallback is recorded as a `main` follow-up for the frozen `Justfile`: the
+      pixi half of `lock-check` moves to CI only, where `setup-pixi`'s `locked: true`
+      already checks it (T04). Then prove the
       check bites: in a scratch copy of the worktree, add `ripgrep = "*"` under
       `[tool.pixi.dependencies]` and run `pixi lock --check` there (the copy may use the
       network); expected non-zero exit and a message saying the lockfile is out of date.
@@ -364,24 +371,35 @@ shellcheck-clean; and an outcome line in the hand-back notes for each §12 claim
       a `main` follow-up for the frozen config; if it does not, record why the path form
       stays.
 
-7. Cold-cache proof of `just lint`. Never clear `~/.cache/prek` (outside the worktree).
-   Instead point prek at an empty home inside the scratch directory:
+   g. **`lint` offline after `install-hooks`.** Step 7 answers this: after
+      `just install-hooks` from an empty `PREK_HOME`, `just lint` with the network
+      blocked is green, the lychee download included. Record the outcome line here.
+
+7. Cold-cache proof that `install-hooks` pays for the network and `lint` does not.
+   Never clear `~/.cache/prek` (outside the worktree). Instead point prek at an empty
+   home inside the scratch directory:
 
    ```sh
    export PREK_HOME="$PWD/ai_tmp/prek-cold"
    .pixi/envs/default/bin/prek cache dir     # must print $PREK_HOME
-   time just lint
+   time just install-hooks
    ls "$PREK_HOME/tools" "$PREK_HOME/hooks"
+   HTTP_PROXY=http://127.0.0.1:9 HTTPS_PROXY=http://127.0.0.1:9 just lint
    unset PREK_HOME
    ```
 
-   This needs the network and takes minutes: seven hook repositories are cloned and Go,
-   Node and rustup toolchains are downloaded, lychee's script fetches a release, and
-   ripsecrets compiles. Quote the clone and install lines and the final hook table
-   (every hook `Passed`). If `prek cache dir` does not print the exported path,
-   `PREK_HOME` is not the variable on 0.5.3: stop, find the documented one with
-   `prek cache --help` and prek's README, and record the correction. Step 6d reads the
-   directory before it is deleted.
+   The first command needs the network and takes minutes: seven hook repositories are
+   cloned and Go, Node and rustup toolchains are downloaded, ripsecrets compiles, and the
+   lychee warm line fetches its release into the hook's cached checkout. Quote the clone
+   and install lines and the time. The `just lint` after it runs with the network
+   blocked and must print a hook table with every hook `Passed` and no clone, download
+   or build line; this is the §12 claim that `check` never fetches, lychee included. If
+   a hook fetches anyway, name it and hand back a warm line for it as a `main`
+   follow-up for the frozen `Justfile`. If `prek cache dir` does not print the exported
+   path, `PREK_HOME` is not the variable on 0.5.3: stop, find the documented one with
+   `prek cache --help` and prek's README, and record the correction (the CI setup action
+   exports the same variable, so T04 is told). Step 6d reads the directory before it is
+   deleted.
 
 8. `just fix` proof. `--all-files` means tracked files, so an ignored scratch file proves
    nothing. Create `scratch.toml` at the root with `[a]`, a key with no spaces around
@@ -403,7 +421,8 @@ shellcheck-clean; and an outcome line in the hand-back notes for each §12 claim
 - The seven dotfiles match step 2 and step 3 byte for byte; `scripts/initialize.sh`
   matches step 4; G's lines 45-61 are inside `scripts/initialize.sh` with the one
   comment change step 4 names and no other.
-- `just lint` is green in this worktree and from an empty `PREK_HOME`; `just fix` repairs
+- `just lint` is green in this worktree and, with the network blocked, after
+  `just install-hooks` from an empty `PREK_HOME`; `just fix` repairs
   the tracked scratch file and leaves the tree clean; `just check-docs` and `just check`
   are green.
 - `pixi install --frozen` run twice leaves `.pixi/envs/default/bin` listing the same
@@ -423,11 +442,11 @@ just check-toolchain
 pixi install --frozen && pixi install --frozen
 ls -1 .pixi/envs/default/bin | grep -E '^(prek|just|cargo-|taplo|bg-)' ; ls -1 .tools/bin
 for s in scripts/*.sh; do test -x "$s" && echo "$s executable"; done
-PREK_HOME="$PWD/ai_tmp/prek-cold" sh -c '.pixi/envs/default/bin/prek cache dir && time just lint'
+PREK_HOME="$PWD/ai_tmp/prek-cold" sh -c '.pixi/envs/default/bin/prek cache dir && time just install-hooks && HTTP_PROXY=http://127.0.0.1:9 HTTPS_PROXY=http://127.0.0.1:9 just lint'
 typos_bin=$(ls "$(.pixi/envs/default/bin/prek cache dir)"/hooks/*/bin/typos | head -1); "$typos_bin" --dump-config - | sed -n 1,10p
 grep -c 'tool.typos' pyproject.toml || echo "no [tool.typos]"
 HTTP_PROXY=http://127.0.0.1:9 HTTPS_PROXY=http://127.0.0.1:9 just toml-check
-pixi lock --check && echo "lock current"
+just lock-check && echo "lock current"
 just check-docs
 just check
 git status --porcelain
@@ -437,7 +456,8 @@ Expected: the toolchain line names `1.98.1`; the second `pixi install --frozen` 
 nothing to install; the environment listing shows prek, just, cargo-binstall,
 cargo-nextest, cargo-llvm-cov, cargo-deny, cargo-shear, taplo and the six `bg-*`
 scripts, and `.tools/bin` lists `allium` and `cargo-hack`; every script `executable`;
-the cold run prints the exported path then a hook table with every hook `Passed`; the
+the cold run prints the exported path, the clone and install lines, then an offline
+hook table with every hook `Passed`; the
 dump opens with `[files]` and the seven-entry `extend-exclude`; the grep prints
 `no [tool.typos]`; `toml-check` exits 0 within seconds; the lock check prints
 `lock current`; `check-docs` and `check` exit 0; `git status --porcelain` prints

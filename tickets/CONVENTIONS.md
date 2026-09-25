@@ -341,14 +341,23 @@ lock-upgrade:
     cargo update
     pixi update
 
+# Offline, like every gate recipe: an offline solve on a stale lock still
+# fails, which is the right answer.
 lock-check:
     cargo update --workspace --locked
-    pixi lock --check
+    pixi lock --check --offline
 
+# The shim, then every hook environment (seven clones; Go, Node and a rustup
+# toolchain under prek's cache; the ripsecrets build), so that `just check`
+# never fetches. lychee is `language: script` and downloads its binary at first
+# run, not at prepare, so it is run once here on one Markdown file; its exit
+# status is lint's business, not this recipe's.
 install-hooks:
     git rev-parse --is-inside-work-tree >/dev/null
     test -x .pixi/envs/default/bin/prek || { printf '%s\n' 'the pixi environment is not installed; run just initialize first' >&2; exit 2; }
-    prek install --overwrite --hook-type=pre-commit
+    prek install --overwrite --hook-type=pre-commit --prepare-hooks
+    prek prepare-hooks --config .pre-commit-fix.yaml
+    -prek run lychee --files README.md
 
 # ---------------------------------------------------------------- develop ---
 
@@ -607,7 +616,7 @@ shorter adaptations. Twenty-five pages plus the decision index and eleven record
 | `docs/reference/agent-contract.md` | A | T08 | same | Fourteen skills; `rust-change` as the example frontmatter; the reference-directory rule |
 | `docs/reference/api.md` | A | T08 | new | rustdoc is the API reference: `just doc`, where it lands, the doctest policy |
 | `docs/operations/maintenance.md` | B | T08 | same | No secrets; tool-pin rotation (`pixi update`); allium checksums |
-| `docs/operations/troubleshooting.md` | A | T08 | same | pixi's rust shadowing rustup, a missing pixi environment or `.tools/bin/allium`, a stale `pixi.lock`, the first `lint` needs the network, `--locked` failures |
+| `docs/operations/troubleshooting.md` | A | T08 | same | pixi's rust shadowing rustup, a missing pixi environment or `.tools/bin/allium`, a stale `pixi.lock`, a `lint` that clones or downloads (a cleared prek cache, or a secondary worktree whose primary never ran `just initialize`: `just install-hooks` again), `--locked` failures |
 | `docs/decisions/README.md` and eleven records | A | T09 | see §8 | |
 
 Dropped from G: `project/platform.md`, `explanation/accessibility.md`,
@@ -783,7 +792,14 @@ only, `cache-bin: false`; `actions/cache` on `.tools` keyed
 `${{ runner.os }}-${{ runner.arch }}-tools-${{ hashFiles('tools.txt') }}` (what pixi
 cannot own: cargo-hack, and allium as a side effect, which `bg-install-allium`
 version-checks); `just install-tools` with `GITHUB_TOKEN: ${{ github.token }}` on that
-step only; `just sync`; for the `documents` job, `just install-allium`. No `setup-uv`,
+step only; `just sync`; a step appending `PREK_HOME=${{ runner.temp }}/prek` to
+`$GITHUB_ENV` (prek's cache outside the workspace, so `check-clean`'s snapshot never
+sees it); `actions/cache` on that directory keyed
+`${{ runner.os }}-${{ runner.arch }}-prek-${{ hashFiles('.pre-commit-config.yaml', '.pre-commit-fix.yaml', 'pixi.lock') }}`
+(the hook clones, the Go, Node and rustup toolchains and the ripsecrets build, which
+every gate job would otherwise fetch again); `just install-hooks` (the prepare and the
+lychee warm are the point; the shim in the runner's `.git` is harmless), after which no
+step reaches the network; for the `documents` job, `just install-allium`. No `setup-uv`,
 no `install-action`.
 Every `uses:` is pinned to a full SHA with a version comment looked up on the day T04 is
 written (`gh api repos/<owner>/<repo>/git/ref/tags/<tag>`, dereferencing annotated tags).
@@ -890,10 +906,15 @@ is a design change that goes back through this document.
   `.pixi/envs/default/bin`. **T00.**
 - Every pin in the manifest resolves with `pixi search <name> --platform linux-64`; the
   osx-arm64 search does not prove a linux-64 build. **T00.**
-- `pixi lock --check` writes nothing and exits 0 with no network when the lockfile is
-  current, the git PyPI source included. Harness: `pixi lock --check --offline` after
-  `just sync`. Fallback: `lock-check` uses `--offline`, or the pixi half moves to CI only,
-  where `setup-pixi`'s `locked: true` already checks it. **T03.**
+- `pixi lock --check --offline`, the `lock-check` recipe's own line, writes nothing and
+  exits 0 when the lockfile is current, the git PyPI source included. Harness: the
+  recipe after `just sync`, with the lockfile's hash recorded before and after. The one
+  fallback: the pixi half of `lock-check` moves to CI only, where `setup-pixi`'s
+  `locked: true` already checks it. **T03.**
+- After `just install-hooks` from an empty `PREK_HOME`, `just lint` is green with the
+  network blocked (`HTTP_PROXY=http://127.0.0.1:9 HTTPS_PROXY=http://127.0.0.1:9`), the
+  lychee download included. Fallback: a hook that still fetches at run is named and gets
+  its own warm line in the recipe. **T03.**
 - `pixi run -x --frozen bg-ripsecrets` passes a filename containing a space and a single
   quote unchanged; if so, the ripsecrets entry may switch to it for uniformity. **T03.**
 - `taplo lint` stays offline when no `[schema]` section and no `#:schema` directive exists.
@@ -902,9 +923,10 @@ is a design change that goes back through this document.
   `pyproject.toml`), so a root `_typos.toml` is the only source. **T03.**
 - prek 0.5.3 from conda-forge provisions its own rustup and toolchain under `$PREK_HOME`
   for `language: rust` hooks (0.4.12 does), so no `stable` default toolchain is required
-  of the maintainer. **T03.** The second half of the original claim, that prek publishes
-  release binaries cargo-binstall can resolve, was verified by **D01** on 2026-09-24 and
-  is recorded there as evidence only: prek is a pixi dependency here.
+  of the maintainer, and `prek install --prepare-hooks` does so at `install-hooks` time
+  rather than at the first `lint`. **T03.** The second half of the original claim, that
+  prek publishes release binaries cargo-binstall can resolve, was verified by **D01** on
+  2026-09-24 and is recorded there as evidence only: prek is a pixi dependency here.
 - B's checkers run unchanged in a repository with no `package.json`. **T00.**
 - `bg-project-check` tolerates `target/`, `.tools/` and `.pixi/` growth because all
   three are ignored. **T00.**
@@ -917,6 +939,8 @@ is a design change that goes back through this document.
   `$GITHUB_PATH` instead of activating. **T04.**
 - `setup-pixi` restores `.pixi/envs` and the package cache keyed on the `pixi.lock` hash,
   and `cache-write` gated to `main` behaves like rust-cache's `save-if`. **T04.**
+- The prek cache under `${{ runner.temp }}/prek` restores on the second dispatch, and
+  `just lint`'s log then shows no clone, download or build line. **T04.**
 - `Swatinem/rust-cache` with `cache-bin: false` leaves `.tools/` to `actions/cache`. **T04.**
 - The `check` aggregate job under `if: always()` reports `success` when its five `needs`
   succeed and `failure` when any of them failed, was cancelled or was skipped, and the
@@ -953,11 +977,14 @@ is a design change that goes back through this document.
   `check-clean`; T02 proves every recipe is read-only on a clean tree. `target/`,
   `.tools/` and `.pixi/` must be ignored before the first `just check`, and every pixi
   call in a gate is `--frozen` or `lock --check` so none rewrites `pixi.lock`.
-- **The network at first run, none in `check`.** Hook clones, the pixi environment,
-  the cargo-hack binstall, the allium download, `cargo fetch` and cargo-deny's advisory
-  database all need the network;
-  `initialize` has it, `check` must not. If `cargo deny check licenses bans sources`
-  proves to need it, `deny` moves to CI only.
+- **The network at first run, none in `check`.** Hook clones and their toolchains, the
+  pixi environment, the cargo-hack binstall, the allium download, `cargo fetch` and
+  cargo-deny's advisory database all need the network; `initialize` has it, `check` must
+  not. The hook side is paid in `install-hooks` (`--prepare-hooks` and the lychee warm),
+  the last line of the first-run path and a step of the CI setup action, so the first
+  `lint` fetches nothing; T03 proves it with the network blocked, T00 does the same for
+  the fresh-clone `check`. If `cargo deny check licenses bans sources` proves to need it,
+  `deny` moves to CI only.
 - **Exact pins versus a library.** `AGENTS.md` states decision 0007 instead of copying
   G's invariant 4.
 - **Visibility.** Public versus private decides private vulnerability reporting, the

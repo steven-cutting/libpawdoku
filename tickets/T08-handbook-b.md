@@ -476,8 +476,10 @@ usual paths), 19-46,
 - `just lock-check` or `pixi install --locked` fails on `pixi.lock`: the lockfile is
   stale against `pyproject.toml`; run `just lock`, read the diff and commit it. A first
   run never rewrites it silently.
-- The first `just lint` reaches the network: prek clones each hook's repository into its
-  cache once; `just initialize` has the network, `just check` must not (§13).
+- `just lint` clones or downloads: prek's cache was cleared, or this is a secondary
+  worktree whose primary checkout never ran `just initialize`. Run `just install-hooks`,
+  which prepares every hook environment; `just initialize` has the network,
+  `just check` must not (§13).
 - `cargo` reports that `Cargo.lock` needs to be updated: every gate passes `--locked`, so
   an edited `Cargo.toml` fails until `just lock` rewrites the lockfile and it is
   committed. A dependency added by any lane but T02 is handed back (§11).

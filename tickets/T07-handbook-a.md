@@ -424,7 +424,7 @@ first three, the tooling package, the Allium binary and Actions.
   resolution. Keep G's "Nothing updates them for you." and say why it stays true:
   no Dependabot or Renovate until S01 decides.
 - Check that the lockfiles still match (20-27): `just lock-check`, which runs
-  `cargo update --workspace --locked` and `pixi lock --check`; gate 2 of
+  `cargo update --workspace --locked` and `pixi lock --check --offline`; gate 2 of
   `just check`, so a manifest edited without relocking fails rather than drifting.
 - Update deliberately (29-38): `just lock` relocks the workspace members at what the
   manifests state and runs `pixi lock`; `just lock-upgrade` moves every dependency to

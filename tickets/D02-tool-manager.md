@@ -516,14 +516,23 @@ lock-upgrade:
     cargo update
     pixi update
 
+# Offline, like every gate recipe: an offline solve on a stale lock still
+# fails, which is the right answer.
 lock-check:
     cargo update --workspace --locked
-    pixi lock --check
+    pixi lock --check --offline
 
+# The shim, then every hook environment (seven clones; Go, Node and a rustup
+# toolchain under prek's cache; the ripsecrets build), so that `just check`
+# never fetches. lychee is `language: script` and downloads its binary at first
+# run, not at prepare, so it is run once here on one Markdown file; its exit
+# status is lint's business, not this recipe's.
 install-hooks:
     git rev-parse --is-inside-work-tree >/dev/null
     test -x .pixi/envs/default/bin/prek || { printf '%s\n' 'the pixi environment is not installed; run just initialize first' >&2; exit 2; }
-    prek install --overwrite --hook-type=pre-commit
+    prek install --overwrite --hook-type=pre-commit --prepare-hooks
+    prek prepare-hooks --config .pre-commit-fix.yaml
+    -prek run lychee --files README.md
 
 # The only recipe that modifies files. The fix config is run twice because a
 # fixer's first pass may itself fail on what another fixer then repairs.
@@ -571,8 +580,13 @@ by `just lock` and committed, never rewritten silently by a first run); `just
 install-toolchain`; `just check-toolchain`; `just install-tools`; `just install-allium`;
 `test -f Cargo.lock || cargo generate-lockfile`; `just sync`; `just format`; then G's
 worktree-aware `install-hooks` block, whose comment now names
-`.pixi/envs/default/bin/prek` as the absolute path the shim records, and the closing
-lines. The cargo-binstall compile line and G's `uv lock` line are gone.
+`.pixi/envs/default/bin/prek` as the absolute path the shim records and says that the
+recipe also provisions every hook environment, so that this is the last line of the
+first-run path that reaches the network and `just check` never does; and the closing
+lines. prek's cache is per user (`prek cache dir`) and shared by every worktree, so a
+secondary worktree that skips the block is warm as long as the primary checkout ran
+`just initialize` once; the other case is a troubleshooting entry (T08). The
+cargo-binstall compile line and G's `uv lock` line are gone.
 
 **Hooks.** In both prek configs the `exclude` list becomes `\.git/`, `\.pixi/`,
 `ai_tmp/`, `target/`, `\.tools/`, `allium-skill-reference/`, `Cargo\.lock$`,
@@ -645,7 +659,18 @@ every `uses:` pinned to a full SHA looked up on the day:
    a side effect (`bg-install-allium` version-checks, so a stale one is replaced).
 5. `just install-tools` with `GITHUB_TOKEN: ${{ github.token }}` on that step only.
 6. `just sync`.
-7. For the `documents` job, `just install-allium`.
+7. A step that appends `PREK_HOME=${{ runner.temp }}/prek` to `$GITHUB_ENV`, with a
+   comment: prek's cache outside the workspace, so `check-clean`'s snapshot never sees
+   it, under the variable T03 confirms on 0.5.3.
+8. `actions/cache` on `${{ runner.temp }}/prek` keyed
+   `${{ runner.os }}-${{ runner.arch }}-prek-${{ hashFiles('.pre-commit-config.yaml', '.pre-commit-fix.yaml', 'pixi.lock') }}`
+   (`pixi.lock` because it pins prek), saving on any branch like the `.tools` cache, with
+   a comment that it holds the seven hook clones, the Go, Node and rustup toolchains and
+   the ripsecrets build, which every gate job would otherwise fetch again.
+9. `just install-hooks`: the prepare and the lychee warm are the point; the shim it
+   writes into the runner's `.git` is harmless. After this step no job step reaches the
+   network.
+10. For the `documents` job, `just install-allium`.
 
 Gone: `taiki-e/install-action`, `astral-sh/setup-uv`, `uv python install 3.14`.
 `ci.yml` is unchanged. The pixi version appears twice, exact in YAML and as a floor in the
@@ -667,13 +692,19 @@ just exists) and gh. Not uv, not cargo-binstall. First run: `just initialize`, t
 - pixi builds `biscuit-games-tooling` from the git tag with `uv_build` fetched at
   solve time, under the environment's Python 3.14; the six `bg-*` scripts land in
   `.pixi/envs/default/bin`. **T00.**
-- `pixi lock --check` writes nothing and exits 0 with no network when the lockfile is
-  current, the git PyPI source included. Harness: `pixi lock --check --offline` after
-  `just sync`. Fallback: `lock-check` uses `--offline` (an offline solve on a stale lock
-  still fails, which is the right answer) or the pixi half moves to CI only, where
-  `setup-pixi`'s `locked: true` already checks it. **T03.**
+- `pixi lock --check --offline`, the `lock-check` recipe's own line, writes nothing and
+  exits 0 when the lockfile is current, the git PyPI source included. Harness: the
+  recipe after `just sync`, with the lockfile's hash recorded before and after. The one
+  fallback: the pixi half of `lock-check` moves to CI only, where `setup-pixi`'s
+  `locked: true` already checks it. **T03.**
+- After `just install-hooks` from an empty `PREK_HOME`, `just lint` is green with the
+  network blocked (`HTTP_PROXY=http://127.0.0.1:9 HTTPS_PROXY=http://127.0.0.1:9`), the
+  lychee download included: `install-hooks` is where the gate's hook side pays for the
+  network, and `check` never does. Fallback: a hook that still fetches at run is named
+  and gets its own warm line in the recipe. **T03.**
 - conda-forge's prek 0.5.3 provisions its own rustup and toolchain under `$PREK_HOME` for
-  the `language: rust` ripsecrets hook (0.4.12 did). **T03.**
+  the `language: rust` ripsecrets hook (0.4.12 did), and `prek install --prepare-hooks`
+  does so at `install-hooks` time rather than at the first `lint`. **T03.**
 - `pixi run -x --frozen bg-ripsecrets` passes a filename containing a space and a single
   quote unchanged; if so, the ripsecrets entry may switch to it for uniformity. **T03.**
 - `cargo binstall --root .tools` puts binaries in `.tools/bin`, verifies release checksums
@@ -684,6 +715,8 @@ just exists) and gh. Not uv, not cargo-binstall. First run: `just initialize`, t
   `$GITHUB_PATH` instead of activating. **T04.**
 - `setup-pixi` restores `.pixi/envs` and the package cache keyed on the `pixi.lock` hash,
   and `cache-write` gated to `main` behaves like rust-cache's `save-if`. **T04.**
+- The prek cache under `${{ runner.temp }}/prek` restores on the second dispatch, and
+  `just lint`'s log then shows no clone, download or build line. **T04.**
 - Every pin above resolves with `pixi search <name> --platform linux-64` (the osx-arm64
   search does not prove a linux-64 build). **T00.**
 
@@ -703,26 +736,35 @@ rule stays. Deleted: "Bootstrapping cargo-binstall".
   gh; the manifest tables above, `pixi lock`, the one-line `tools.txt`, the `Justfile`
   changes, the hook entries, the exclusion lists, the composite action; `uv.lock`,
   `.venv/` and `.python-version` removed from the worktree; eleven records in the
-  manifest; the taplo blocker marked resolved.
+  manifest; the taplo blocker marked resolved; the fresh-clone `just check` of its
+  acceptance and verification runs with the network blocked, so the "none in `check`"
+  invariant is proven rather than assumed.
 - **T02.** The tool listing in its step 1 names `.pixi/envs/default/bin` and
   `.tools/bin/cargo-hack`; `lock` recipe lines; `taplo.toml` excludes `.pixi/**`;
   `nextest-version` in `.config/nextest.toml` equals the `cargo-nextest` pin in
   `pyproject.toml`.
-- **T03.** No `scripts/install_tools.sh`; `initialize.sh` finalised as above; the three
-  §12 claims above; exclusion lists; the prek-from-conda-forge facts.
-- **T04.** The action above; `setup-pixi`'s SHA looked up on the day; the two §12 claims
-  above; `.tools` cache kept for cargo-hack and allium.
+- **T03.** No `scripts/install_tools.sh`; `initialize.sh` finalised as above; the four
+  §12 claims above (the offline `lock-check` line, the offline `lint` after
+  `install-hooks`, prek's toolchain, the hook filename quoting); its cold-cache proof is
+  now `just install-hooks` with the network, then `just lint` without it; exclusion
+  lists; the prek-from-conda-forge facts.
+- **T04.** The action above, now with the `PREK_HOME` step, the prek cache and
+  `just install-hooks` after `just sync`; `setup-pixi`'s SHA looked up on the day; the
+  three §12 claims above; `.tools` cache kept for cargo-hack and allium.
 - **T05.** `AGENTS.md`'s Stack sentence names pixi and rustup, not uv; the Provenance
   bullet on the Python toolchain names pixi as its resolver; the `project-check` skill's
   step 2 lists `.pixi/envs/default/bin`, `.tools/bin/cargo-hack` and `.tools/bin/allium`.
 - **T07.** `develop-locally.md`: the bootstrap story above, the pixi hazard kept;
   `repository-map.md`: `pixi.lock` and `.pixi/`; `maintain-dependencies.md`: `pixi update`
   and `pixi lock`, no `uv lock`; `first-change.md`: `just initialize` installs the
-  environment.
+  environment; `develop-locally.md`'s first-run caveat is that `just install-hooks` is
+  the last network step, after which `just check` is offline.
 - **T08.** `commands.md`: the recipe rows as above; `configuration.md`: `pyproject.toml`
   as the tool manifest, `tools.txt` as the exception; `maintenance.md`: pin rotation is
   `pixi update`; `troubleshooting.md`: the pixi environment missing, `pixi.lock` stale,
-  the shadowing cargo.
+  the shadowing cargo, and a `lint` that clones or downloads (a cleared prek cache, or a
+  secondary worktree whose primary never ran `just initialize`: run `just install-hooks`
+  again), never "the first `lint` needs the network".
 - **T09.** Record 0011 from the text above, an eleventh row in the index, the numbering
   sentence; 0009's Decision sentence names pixi; the open point on a record for rustup is
   answered by 0011.
@@ -776,4 +818,5 @@ branch lands; its `tickets/T00-foundation.md` will conflict and the `main` versi
 - Platforms beyond `linux-64` and `osx-arm64` (osx-64 for an Intel Mac) are added when a
   `pixi lock` on that platform succeeds; the manifest comment says how.
 - Whether Renovate or Dependabot can move pins in `pixi.lock` (S01).
-- Whether `pixi lock --check` is offline-clean with a git PyPI source (§12, T03).
+- Whether `pixi lock --check --offline` passes on a current lock with a git PyPI source
+  (§12, T03); if not, the pixi half of `lock-check` moves to CI.

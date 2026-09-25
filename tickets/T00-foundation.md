@@ -286,7 +286,8 @@ no lane touches it again; `stub` means the named lane replaces it.
    `just install-toolchain`; `just check-toolchain`; `just install-tools`;
    `just install-allium`; `test -f Cargo.lock || cargo generate-lockfile`; `just sync`;
    `just format`; then G's worktree-aware `install-hooks` block (its comment naming
-   `.pixi/envs/default/bin/prek`) and closing lines verbatim. Nothing compiles at
+   `.pixi/envs/default/bin/prek`; the recipe now also provisions every hook environment,
+   so this is the last network step) and closing lines verbatim. Nothing compiles at
    bootstrap; T03 finalises the comments.
 
 8. CI stub. `.github/actions/setup/action.yml`: a composite action with the `cache-key`
@@ -433,7 +434,9 @@ no lane touches it again; `stub` means the named lane replaces it.
   `.github/copilot-instructions.md`, `.claude/settings.json` and every bridge are in
   their final form; `CLAUDE.md`, `.github/copilot-instructions.md`, `.claude/settings.json`,
   the twenty-six bridges of carried skills and the seven modules are byte-identical to G's.
-- `just check` is green in the worktree and in a fresh clone after `just initialize`.
+- `just check` is green in the worktree and, with the network blocked
+  (`HTTP_PROXY=http://127.0.0.1:9 HTTPS_PROXY=http://127.0.0.1:9`), in a fresh clone
+  after `just initialize`.
 - `just check-agents` prints `Validated AGENTS.md, 2 adapters, and 14 skills.`;
   `just check-docs` reports every page valid; `just check-specs` and
   `just analyse-specs` report empty arrays for seven modules.
@@ -687,7 +690,9 @@ against the rewritten steps above:
    `LICENSE` indentation under editorconfig-checker, and whether `just coverage` finds a
    denominator in a crate whose only item is a `const` (the ticket's open point).
 3. `just initialize` then `time just check`. Then the same from a fresh clone in
-   `ai_tmp/clone`, once everything is committed.
+   `ai_tmp/clone`, once everything is committed, with the `check` run under
+   `HTTP_PROXY=http://127.0.0.1:9 HTTPS_PROXY=http://127.0.0.1:9`: the proof that
+   `initialize` has the network and `check` does not need it (CONVENTIONS.md §13).
 4. The Verification block, with its output quoted here, and the remaining §12 claims.
 5. `status: done`, then commit on `ticket/t00-foundation`. Do not push.
 
