@@ -1,7 +1,7 @@
 ---
 id: T02
 title: "Rust quality gate: tool configs, the no_std crate skeleton, every Rust recipe green"
-status: open
+status: done
 depends_on: [T00]
 parallel_with: [T01, T03, T04, T05, T06, T07, T08, T09]
 branch: ticket/t02-rust-gate
@@ -709,11 +709,259 @@ sources ok`. Quote each in the hand-back notes.
 
 ### What was verified, and how
 
+Executed on 2026-09-25 on the maintainer's machine (Apple silicon) in the Supacode
+worktree for this ticket, on branch `ticket/t02-rust-gate`.
+
+**Preconditions (step 1).** `just check-toolchain` printed
+`1.98.1-aarch64-apple-darwin (overridden by '.../rust-toolchain.toml')`;
+`rustup target list --installed` listed `wasm32-unknown-unknown` and `wasm32v1-none`.
+The worktree was fresh (no `.pixi/`, no `.tools/`), so `just initialize` ran once: it
+installed the pixi environment, cargo-hack and allium 3.6.1 into `.tools/bin`, ran
+`just sync` and `just format`, and skipped `install-hooks` as a secondary worktree.
+The baseline `just check` on T00's stubs then exited 0 in **12.5 s** wall-clock:
+
+```text
+==> just check-clean
+bg-project-check clean "$1"
+The worktree matches the check baseline.
+
+All checks passed and the worktree is unchanged.
+just check  41.31s user 9.43s system 405% cpu 12.519 total
+```
+
+**Specification (step 2).** G's HEAD is now `add73be7`, not `78d03cdf`, so every line was
+read with `git show 78d03cdf:docs/specs/...`. The lines Context cites all hold at the
+pinned commit: `human-solving.allium` 39-40, 192, 308-312, 476-478, 1091-1102, and
+`lapse.allium` 45-47.
+
+**Golden draws.** An independent Python script in the session scratch directory
+(SplitMix64 with explicit 64-bit masking) reproduced all eight rows of the table in
+step 8. It also gave `0xe220a8397b1dcdaf` as the raw first output for seed 0. The test
+pins those bits, and it passes.
+
+**Dependencies (step 4).** `cargo update --workspace` resolved serde 1.0.229, thiserror
+2.0.21 and proptest 1.11.0, the newest versions the caret ranges allow. `Cargo.lock` now
+lists 46 packages.
+
+```text
+$ cargo tree -p pawdoku --all-features -e normal --depth 1 --locked
+pawdoku v0.1.0 (.../crates/pawdoku)
+├── serde v1.0.229
+└── thiserror v2.0.21
+$ cargo tree -p pawdoku -e dev --depth 1 --locked
+pawdoku v0.1.0 (.../crates/pawdoku)
+[dev-dependencies]
+└── proptest v1.11.0
+```
+
+proptest's tree contains `rand` 0.9.5, `rand_core` 0.9.5, and `getrandom` at both 0.3.4
+and 0.4.3 (the second through `tempfile`).
+
+**Each recipe on its own (step 9)**, last lines:
+
+```text
+== fmt-check
+cargo fmt --all --check
+== toml-check
+taplo lint
+== clippy
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.25s
+== features
+info: running `cargo check --locked --no-default-features --features serde` on pawdoku (4/4)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s
+== wasm-check
+info: running `cargo check --locked --target wasm32v1-none --no-default-features --features serde` on pawdoku (4/4)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s
+== test
+     Summary [   0.020s] 19 tests run: 19 passed, 0 skipped
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+== coverage
+TOTAL    152    0   100.00%    16    0   100.00%    90    0   100.00%    0    0    -
+    Finished report saved to target/llvm-cov/lcov.info
+== doc
+   Generated .../target/doc/pawdoku/index.html
+== deny
+bans ok, licenses ok, sources ok
+== deps-unused
+shear/summary
+  ✓ no issues found
+== lock-check
+     Locking 0 packages to latest Rust 1.98 compatible versions
+✔ Lock-file was already up-to-date
+```
+
+`just check` after the two code commits exited 0 in **16.1 s** wall-clock with a warm
+`target/`. T00 recorded 7 s warm and 11 s cold on the stub crate, and this worktree's
+baseline was 12.5 s:
+
+```text
+All checks passed and the worktree is unchanged.
+just check  45.18s user 10.71s system 347% cpu 16.084 total
+```
+
+`git status --porcelain` printed nothing afterwards.
+
+**Coverage.** Line coverage is **100.00%** (90 of 90 lines; `lib.rs` 3, `random.rs` 87)
+after `cargo llvm-cov clean --workspace`. The first run in this worktree, before any
+clean, reported 93 lines, all covered: `lib.rs` counted 6 lines and 2 functions. I did not
+find out why. The clean run is the number of record, and both runs clear the floor.
+
+**Tests.** nextest runs 19 tests across three binaries: 8 in-module (7 unit tests and
+the `proptest!` block), 4 in `tests/api_bounds.rs`, 6 in `tests/random.rs`, and T00's one.
+The doctest run reports 11 passed. That is the module example plus nine public items in
+`random.rs` (`RANDOM_VERSION`, `RandomError`, `RandomStream`, its `next_draw` and `index`,
+`SeededStream`, `SeededStream::new`, `ReplayStream`, `ReplayStream::new`), plus T00's
+`SIDE`. `rg -n 'allow\(' crates/` prints nothing. The three lint attributes in `crates/`
+are all `expect` with a reason: `cast_precision_loss` in `random.rs`, and
+`tests_outside_test_module` in each integration test file.
+
+**`just deny`.** Green. It printed eight `license-not-encountered` warnings, for `0BSD`,
+`Apache-2.0 WITH LLVM-exception`, `BSD-2-Clause`, `BSD-3-Clause`, `CC0-1.0`, `ISC`,
+`Unlicense` and `Zlib`. It also printed two `unused-wrapper` warnings, one for each
+`"pawdoku-cli"` entry. All ten are kept, not silenced. `exclude-dev = true` was accepted
+by cargo-deny 0.20.2, so the fallback wrappers were not needed. A scratch-copy check shows
+the ban bites. With `proptest` moved into `[dependencies]`, `cargo deny check bans`
+exited 2 with `error[banned]: crate 'rand = 0.9.5' is explicitly banned` and the same
+error for `getrandom` 0.3.4 and 0.4.3.
+
+**CONVENTIONS.md §12 claims (step 10).** The scratch copy lived in the session scratch
+directory, with a separate `CARGO_TARGET_DIR` and this worktree's `.pixi/envs/default/bin`
+on `PATH`.
+
+- **Lock drift. Holds.** In the copy, with `version = "0.1.1"`,
+  `cargo update --workspace --locked` exited 101:
+  `error: cannot update the lock file .../Cargo.lock because --locked was passed to
+  prevent this`. In the worktree the same command exited 0 and printed only
+  `Locking 0 packages to latest Rust 1.98 compatible versions`.
+- **Coverage floor and doctests. Holds.** After `cargo llvm-cov nextest --no-report`,
+  `cargo llvm-cov report --fail-under-lines 90` exited 0 on `TOTAL ... 100.00%`. With
+  `--fail-under-lines 101`, one above the reported figure, it exited 1, printing only the
+  table. A real breach was also tried: in the copy, an untested 18-line function took
+  lines to 83.33%, and `--fail-under-lines 90` exited 1. `cargo llvm-cov --doctests` on
+  1.98.1 exited 1 with `warning: --doctests flag requires nightly toolchain; consider
+  using cargo +nightly llvm-cov` and `error: the option Z is only accepted on the nightly
+  compiler`.
+- **deny offline. Holds.** After `just sync`,
+  `CARGO_NET_OFFLINE=true cargo deny --offline --locked check licenses bans sources`
+  exited 0 with `bans ok, licenses ok, sources ok`. `cargo deny --offline --locked check
+  advisories` exited 1: `failed to get 'FETCH_HEAD' metadata` because
+  `~/.cargo/advisory-dbs/advisory-db-...` does not exist.
+- **Feature powerset. Fails as worded.** `cargo hack check -p pawdoku --feature-powerset
+  --locked` exits 0 but runs **four** configurations: `--no-default-features`,
+  `--features default,serde`, `--features default` and `--features serde`. The explicit
+  `default = []` counts as a feature in the powerset, so two of the four configurations
+  are redundant. `just features` and each `wasm-check` target run the same four. The two
+  the claim names are among them. Handed back below.
+- **cargo-shear. Holds in part.** It reads source without a build. Each run took
+  0.06-0.10 s, and the modification time of `target/debug` was unchanged. It also
+  understands `workspace = true`: in the copy, `num-traits = { workspace = true }` added
+  to the crate's `[dependencies]` gave `shear/unused_dependency × unused dependency
+  'num-traits'`. But cargo-shear 1.13.4 **does not flag an unused
+  `[workspace.dependencies]` entry**. Adding `libm = "0.2.15"`, or `num-traits =
+  "0.2.19"` (already in the lock), to the workspace table alone printed
+  `✓ no issues found`. On the real tree it prints `✓ no issues found`. Handed back below.
+- **`wasm32v1-none` on an `alloc`-using crate. Holds.** `just wasm-check` is green on
+  both targets under every configuration. The `serde` result lines:
+  `info: running cargo check --locked --target wasm32-unknown-unknown
+  --no-default-features --features serde on pawdoku (4/4)` and the same for
+  `wasm32v1-none`, each followed by `Finished`.
+- **thiserror and proptest under `no_std`. Holds.** `thiserror` 2.0.21 with
+  `default-features = false` compiles its derive on `wasm32v1-none`. The in-module
+  `random::tests::every_seed_draws_in_range` `proptest!` passes under
+  `cargo nextest run`.
+- **clippy.toml keys. Holds.** `just clippy` prints no configuration error. In the copy,
+  `allow-panic-in-tests` misspelt as `allow-panick-in-tests` makes clippy exit 101 with
+  `error: error reading Clippy's configuration file: unknown field
+  'allow-panick-in-tests', expected one of ...`. The list that follows names all six
+  `-in-tests` keys and `disallowed-types`.
+
+**Verification block.** Each command's output is quoted above. `git diff --stat main --
+. ':!tickets'` lists the twelve paths in Files touched plus `lychee.toml` (Deviations).
+`rg -n 'pub const RANDOM_VERSION'` finds line 29 once. The offline deny run ends
+`bans ok, licenses ok, sources ok`. Nothing was pushed.
+
 ### Deviations, and why
+
+- **Branch renamed** from the Supacode worktree's `T02-rust-gate` to
+  `ticket/t02-rust-gate` with `git branch -m`, as T00 and D01 did, so the `branch:` field
+  is true.
+- **`lychee.toml` reformatted, a thirteenth path.** Its owner is T03. The ticket's
+  `taplo.toml` sets `column_width = 100`, so `taplo fmt` folds the six-line
+  `exclude_path` array onto one line and `toml-check` fails until the file matches. The
+  maintainer chose to reformat it here rather than add `array_auto_collapse = false`. The
+  new line is exactly the form T03's step already prints.
+- **`clippy::string_to_string` dropped from the lint table.** Clippy 1.98 reports
+  `lint clippy::string_to_string has been removed: clippy::implicit_clone covers those
+  cases` (`renamed_and_removed_lints`). `implicit_clone` is in `pedantic`, which the
+  table already enables.
+- **`tests/api_bounds.rs` differs from the printed text in two places.**
+  `assert_send_sync` and `assert_clone_debug` are `const fn`, because
+  `missing_const_for_fn` fired on both. And both integration test files open with
+  `#![expect(clippy::tests_outside_test_module, reason = "an integration test file is its
+  own test module")]`, because the lint fired, which step 8 anticipates.
+- **Small code changes clippy asked for.** `SplitMix64` is in backticks in doc comments
+  (`doc_markdown`). The in-module tests import `alloc::{format, string::ToString, vec}`
+  rather than their `std` paths (`std_instead_of_alloc`); `#[cfg(test)] extern crate std;`
+  stays and draws no `unused_extern_crates`. `ReplayStream::new` carries no `#[must_use]`,
+  because it returns `Result`, which already has it (`double_must_use`).
+- **Commits.** There are two code commits, not three. The tool configurations are one
+  commit. The manifests, `Cargo.lock`, `lib.rs`, `random.rs` and the tests are another,
+  because a manifest that names dependencies without its lockfile does not build under
+  `--locked`, and `deps-unused` fails on dependencies no code uses yet.
+- **taplo's layout of `deny.toml`.** taplo splits each inline `deny` entry's `wrappers`
+  array across three lines. The formatted result is the final file, as step 3 says of
+  `Cargo.toml`.
 
 ### Handed back
 
+None of these was made here. No `Justfile`, `tools.txt`, `rust-toolchain.toml` or
+`pyproject.toml` change was needed for any recipe to pass.
+
+- **`CONVENTIONS.md` §12, feature powerset (and step 10 above).** Two configurations
+  becomes four while the crate manifest declares `default = []`. The cost is a doubled
+  powerset in `features` and in each `wasm-check` target, which grows as 2^(n+1) with n
+  optional features. There are two fixes. One drops `default = []` from
+  `crates/pawdoku/Cargo.toml`: Cargo treats a missing `default` as empty, and the claim
+  then holds as written. That is a change for T02's successor, since the manifest is this
+  lane's. The other adds `--skip default` to the `features` and `wasm-check` recipes, a
+  T00 follow-up on `main`. Recommendation: the first, and correct the §12 wording to
+  match.
+- **`CONVENTIONS.md` §12 and `T00-foundation.md` line 80, cargo-shear.** cargo-shear
+  1.13.4 does not report an unused `[workspace.dependencies]` entry. The premise that
+  "cargo-shear flags an unused entry" in Context above and in T00 does not hold, so
+  `deps-unused` catches unused crate-level dependencies only. A later ticket should
+  decide whether that is acceptable (the entry is inert until a crate names it) or needs
+  another check. Whether a newer cargo-shear reports such entries was not checked; the
+  pin follows conda-forge (D02).
+- **T03, `lychee.toml`.** This branch already holds the one-line `exclude_path`. T03's
+  rewrite of the file must keep that line exactly, or the two lanes conflict at merge and
+  `toml-check` fails on whichever form differs from taplo's.
+
 ### Open points settled
+
+- **`SIDE`** stays in `lib.rs`, as recommended.
+- **`wasm32v1-none`** is installed for 1.98.1 and passes `just wasm-check` on the
+  `alloc`-using crate.
+- **`clippy::cargo_common_metadata`** asked for no field. `just clippy` is clean with the
+  `cargo` group at `warn`, so `crates/pawdoku/Cargo.toml` is as step 4 prints it.
+- **`rustdoc::unescaped_backticks`** is accepted by stable rustdoc 1.98.1. `just doc` is
+  green under `-D warnings`, so the line stays.
+- **`[profile.test] opt-level = 1` does not disturb llvm-cov.** With the profile removed
+  in the scratch copy, and after `cargo llvm-cov clean`, the report was identical:
+  152 regions, 16 functions, 90 lines, 100.00%. The profile is kept.
+- **Nightly-only rustfmt options.** None is used, and `rustfmt.toml` holds only the five
+  stable options. The trade is carried as written.
+- **`wrappers = ["pawdoku-cli"]`** makes cargo-deny 0.20.2 warn `unused-wrapper`, twice,
+  not error. Both are quoted above and kept.
+- **cargo-shear 1.13.4** behaves as expected for crate dependencies and differs for
+  workspace entries (Handed back).
+- **New, carried to S04: serde bypasses `ReplayStream`'s range check.** With the `serde`
+  feature, the derived `Deserialize` builds a `ReplayStream` without calling
+  `ReplayStream::new`, so a deserialised script can hold `1.0` or NaN. The maintainer
+  chose to record it rather than fix it here. The fix is
+  `#[serde(try_from = ...)]` through a private script type, tested with serde's own value
+  deserializers, when a binding first round-trips a `ReplayStream`.
 
 ## Open points
 
