@@ -1,8 +1,8 @@
 # A working stub of the setup every CI job shares, so the one `check` job can run
-# `just check`; T04 replaces it. rust-toolchain.toml, tools.txt, uv.lock and
-# .python-version are the pins: nothing here restates a version they own.
+# `just check`; T04 replaces it. rust-toolchain.toml, pixi.lock and tools.txt are
+# the pins: nothing here restates a version they own, except pixi itself.
 name: Setup
-description: Install just, cargo-binstall, the pinned Rust toolchain, the pinned tools and the Python tooling.
+description: Install pixi and its locked environment, the pinned Rust toolchain, the tools pixi cannot own, and the hook environments.
 
 inputs:
   cache-key:
@@ -12,10 +12,19 @@ inputs:
 runs:
   using: composite
   steps:
-    # The only version pins in YAML: the bootstrap binaries nothing else can install.
-    - uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
+    # The one version pin in YAML is pixi itself, which nothing else can install;
+    # it must satisfy the manifest's requires-pixi. `locked` makes this step the
+    # CI lockfile check. Activation puts .pixi/envs/default/bin, and so `just`,
+    # on every later step's PATH; the environment holds no rust, so cargo stays
+    # the runner's rustup proxy.
+    - uses: prefix-dev/setup-pixi@d3f436a425481402e6a95a1d1fc10331c708cd9e # v0.10.2
       with:
-        tool: just@1.51.0,cargo-binstall@1.23.0
+        pixi-version: v0.81.0
+        manifest-path: pyproject.toml
+        locked: true
+        cache: true
+        cache-write: ${{ github.ref == 'refs/heads/main' }}
+        activate-environment: true
 
     - name: Install the pinned toolchain
       shell: bash
@@ -27,27 +36,39 @@ runs:
         save-if: ${{ github.ref == 'refs/heads/main' }}
         cache-bin: false
 
+    # What pixi cannot own: cargo-hack from tools.txt, and allium as a side
+    # effect (bg-install-allium version-checks, so a stale one is replaced).
     - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: .tools
         key: ${{ runner.os }}-${{ runner.arch }}-tools-${{ hashFiles('tools.txt') }}
 
-    - name: Install the pinned tools
+    - name: Install the tools pixi cannot own
       shell: bash
       env:
         GITHUB_TOKEN: ${{ github.token }}
       run: just install-tools
 
-    - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-      with:
-        version: 0.11.18
-        enable-cache: true
-        cache-dependency-glob: uv.lock
-
-    - name: Install Python
-      shell: bash
-      run: uv python install 3.14
-
     - name: Fetch dependencies
       shell: bash
       run: just sync
+
+    # prek's cache outside the workspace, so check-clean's snapshot never sees
+    # it (T03 confirms the variable on 0.5.3).
+    - name: Point prek's cache outside the workspace
+      shell: bash
+      run: echo "PREK_HOME=${{ runner.temp }}/prek" >> "$GITHUB_ENV"
+
+    # The seven hook clones, the Go, Node and rustup toolchains and the
+    # ripsecrets build, which every gate job would otherwise fetch again.
+    # pixi.lock is in the key because it pins prek.
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/prek
+        key: ${{ runner.os }}-${{ runner.arch }}-prek-${{ hashFiles('.pre-commit-config.yaml', '.pre-commit-fix.yaml', 'pixi.lock') }}
+
+    # The prepare and the lychee warm are the point; the shim it writes into the
+    # runner's .git is harmless. After this step no job step reaches the network.
+    - name: Provision the hook environments
+      shell: bash
+      run: just install-hooks

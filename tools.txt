@@ -1,13 +1,8 @@
-# Binaries `just install-tools` puts in the gitignored .tools/bin through cargo-binstall,
-# one name@version per line, verified 2026-09-23. No lockfile can name a binary, so
-# `just sync` never runs this; `just initialize` does. Two bootstrap pins live outside
-# this file, stated in scripts/install_tools.sh and .github/actions/setup/action.yml:
-# cargo-binstall 1.23.0 (per machine, in ~/.cargo/bin, like rustup itself) and, in CI
-# only, just 1.51.0. Tools a prek hook pins (typos, ripsecrets, lychee, shellcheck,
-# actionlint, editorconfig-checker, markdownlint-cli2) are not listed: one owner per pin.
-cargo-nextest@0.9.146
-cargo-llvm-cov@0.9.1
-cargo-deny@0.20.2
+# Binaries pixi cannot own, installed by `just install-tools` into the gitignored
+# .tools/bin through cargo-binstall (itself a pixi dependency in pyproject.toml), one
+# name@version per line, verified 2026-09-24. Everything conda-forge carries is pinned
+# in pyproject.toml and locked in pixi.lock; this file is the escape hatch for what it
+# lacks, and empties the day cargo-hack is packaged there. Tools a prek hook pins
+# (typos, ripsecrets, lychee, shellcheck, actionlint, editorconfig-checker,
+# markdownlint-cli2) are not listed: one owner per pin.
 cargo-hack@0.6.45
-cargo-shear@1.14.0
-taplo-cli@0.10.0

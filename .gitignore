@@ -1,5 +1,4 @@
 .DS_Store
-.venv/
 __pycache__/
 *.py[cod]
 .ruff_cache/
@@ -29,3 +28,9 @@ mutants.out*/
 # `just check` snapshots the worktree between recipes, so a binary Git can see
 # would abort the run before any recipe's exit code is read.
 .tools/
+
+# The pixi environment `just initialize` installs: every tool binary, Python and
+# the checkers, from pixi.lock. Ignored for the same reason as .tools/: `just
+# check` snapshots the worktree between recipes, and an environment Git can see
+# would abort the run before any recipe's exit code is read.
+.pixi/

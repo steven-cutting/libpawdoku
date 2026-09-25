@@ -16,8 +16,8 @@
   "ignores": [
     "target",
     ".tools",
+    ".pixi",
     "ai_tmp",
-    ".venv",
     "allium-skill-reference"
   ]
 }

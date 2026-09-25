@@ -1,15 +1,17 @@
 # Mutating counterpart to .pre-commit-config.yaml. Never installed as a hook;
 # run it explicitly with `just fix`.
+# pixi.lock is YAML, so without this line the builtin check-yaml would parse
+# the whole lockfile on every commit.
 exclude: >-
   (?x)^(
     \.git/|
-    \.venv/|
+    \.pixi/|
     ai_tmp/|
     target/|
     \.tools/|
     allium-skill-reference/|
     Cargo\.lock$|
-    uv\.lock$
+    pixi\.lock$
   )
 repos:
   - repo: local
@@ -21,7 +23,7 @@ repos:
         pass_filenames: false
         types: [rust]
 
-      # `just fix` is the only caller, so .tools/bin is already on PATH here.
+      # `just fix` is the only caller, so .pixi/envs/default/bin is already on PATH here.
       - id: taplo-fmt
         name: taplo format
         entry: taplo fmt

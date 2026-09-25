@@ -1,20 +1,23 @@
+# pixi.lock is YAML, so without this line the builtin check-yaml would parse
+# the whole lockfile on every commit.
 exclude: >-
   (?x)^(
     \.git/|
-    \.venv/|
+    \.pixi/|
     ai_tmp/|
     target/|
     \.tools/|
     allium-skill-reference/|
     Cargo\.lock$|
-    uv\.lock$
+    pixi\.lock$
   )
 repos:
   - repo: local
     hooks:
       # Rust hooks run through `just`: a git hook does not inherit the Justfile's
-      # PATH, so the recipe is what finds the pinned binaries in .tools/bin, and
-      # each tool's arguments live in exactly one place. Clippy is deliberately
+      # PATH, so routing through the recipe is what lets a hook find the pixi
+      # environment's taplo, and it keeps each tool's arguments in exactly one
+      # place. Clippy is deliberately
       # not a hook: a cold build blocks every commit for minutes, so it is a gate
       # in `just check` and a CI step instead.
       - id: fmt-check
@@ -40,14 +43,14 @@ repos:
 
       - id: validate-docs
         name: Documentation contract
-        entry: uv run --frozen bg-validate-docs
+        entry: pixi run --frozen bg-validate-docs
         language: system
         pass_filenames: false
         files: ^(README\.md|SECURITY\.md|docs/|pyproject\.toml$)
 
       - id: validate-agents
         name: Agent instruction contract
-        entry: uv run --frozen bg-validate-agents
+        entry: pixi run --frozen bg-validate-agents
         language: system
         pass_filenames: false
         files: ^(AGENTS\.md|CLAUDE\.md|\.agents/|\.claude/|\.codex/|\.github/copilot-instructions\.md|skills-lock\.json$|pyproject\.toml$)
@@ -56,22 +59,30 @@ repos:
       # the two contracts above. Both need the pinned binary in the gitignored
       # .tools/bin, so a worktree that has never run `just initialize` fails here
       # until `just install-allium` puts one there. That is deliberate: a gate
-      # that skips itself when its tool is absent asserts nothing. The pin
-      # itself is a trigger, because a waiver is only ever valid against the
-      # version it was verified on: the allium version lives in the
+      # that skips itself when its tool is absent asserts nothing.
+      #
+      # The four script hooks above and below run through pixi as their
+      # activator, because a git hook does not inherit the Justfile's PATH and
+      # the recipe that could provide it (check-docs) runs prek inside prek.
+      # `--frozen` because a bare `pixi run` may rewrite pixi.lock from inside a
+      # commit; pixi resolves the manifest upward from the hook's working
+      # directory, so the environment used is the committing worktree's own.
+      #
+      # The pin itself is a trigger, because a waiver is only ever valid against
+      # the version it was verified on: the allium version lives in the
       # biscuit-games-tooling package, and the package version is the pin in
-      # pyproject.toml. uv.lock is excluded above, so the trigger names the
-      # file a pin bump edits.
+      # pyproject.toml, which is also the pixi manifest, so any pin edit in that
+      # file now fires these hooks. Accepted.
       - id: check-specs
         name: Specification diagnostics
-        entry: uv run --frozen bg-run-allium check
+        entry: pixi run --frozen bg-run-allium check
         language: system
         pass_filenames: false
         files: ^(docs/specs/|pyproject\.toml$)
 
       - id: analyse-specs
         name: Specification analysis
-        entry: uv run --frozen bg-run-allium analyse
+        entry: pixi run --frozen bg-run-allium analyse
         language: system
         pass_filenames: false
         files: ^(docs/specs/|pyproject\.toml$)
@@ -168,4 +179,4 @@ repos:
     rev: 7d94620933e79b8acaa0cd9e60e9864b07673d86 # v0.1.11
     hooks:
       - id: ripsecrets
-        entry: uv run --frozen bg-ripsecrets
+        entry: .pixi/envs/default/bin/bg-ripsecrets

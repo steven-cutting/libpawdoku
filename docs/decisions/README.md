@@ -31,6 +31,7 @@ in the specifications under `docs/specs/`, and unresolved ones are recorded ther
 | [0008](0008-no-std-core.md) | A pure no_std core |
 | [0009](0009-rust-quality-gate.md) | The Rust quality gate |
 | [0010](0010-skill-reference-material.md) | Skill reference material beside the skills |
+| [0011](0011-tool-manager.md) | Tool manager |
 
 ## The numbering
 
@@ -38,7 +39,7 @@ The series is this repository's own and starts at 0001; it does not continue Paw
 Several entries were carried from Pawdoku's decision records when the engine moved here,
 and each of those says under its heading which Pawdoku record it came from and keeps the
 topic slug it had, because the slug is what a cross-repository reference names. A new
-decision takes the next free number.
+decision takes the next free number; the next decision is 0012.
 
 ## Writing a new one
 

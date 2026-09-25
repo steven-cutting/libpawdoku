@@ -1,10 +1,13 @@
 set positional-arguments := true
 set shell := ["sh", "-eu", "-c"]
 
-# Pinned binaries no lockfile can name live in the gitignored .tools/bin (see
-# tools.txt). Every recipe, and every hook that runs through a recipe, sees them
-# first; cargo finds cargo-nextest and friends on PATH by name.
-export PATH := justfile_directory() / ".tools" / "bin" + ":" + env("PATH")
+# pixi owns every tool binary and the Python environment (.pixi/envs/default;
+# pyproject.toml is the manifest, pixi.lock the pin). Tools conda-forge lacks
+# (tools.txt) live in .tools/bin, and so does the Allium checker. Every recipe,
+# and every hook that runs through a recipe, sees both first; cargo finds
+# cargo-nextest and friends on PATH by name. Neither directory holds a cargo, so
+# rustup's proxy stays first for the compiler (check-toolchain proves it).
+export PATH := justfile_directory() / ".pixi" / "envs" / "default" / "bin" + ":" + justfile_directory() / ".tools" / "bin" + ":" + env("PATH")
 
 # Line-coverage floor over crates/pawdoku/src/**. Lower the complexity, not the
 # number.
@@ -31,36 +34,49 @@ check-toolchain:
 install-toolchain:
     rustup toolchain install
 
-# Pinned binaries into .tools/bin (network). cargo-binstall itself is a
-# per-machine prerequisite that scripts/initialize.sh installs when absent.
+# Tools conda-forge lacks (tools.txt) into .tools/bin (network). cargo-binstall
+# comes from the pixi environment.
 install-tools:
     grep -v '^#' tools.txt | xargs cargo binstall --root .tools --no-confirm --locked --disable-strategies compile
 
 # The Allium checker for docs/specs/, pinned and checksummed in the tooling
 # package. Downloads over the network into .tools/bin, which Git ignores.
 install-allium:
-    uv run --frozen bg-install-allium
+    bg-install-allium
 
+# Both lockfiles, exactly as committed. Never rewrites either.
 sync:
     cargo fetch --locked
-    uv sync --frozen
+    pixi install --frozen
 
 lock:
     cargo update --workspace
-    uv lock
+    pixi lock
 
+# Within the manifest's constraints only; every direct pin is exact, so this
+# moves transitives (openssl, libcxx, the Python patch level). `pixi upgrade`
+# rewrites the pins themselves and is not this recipe.
 lock-upgrade:
     cargo update
-    uv lock --upgrade
+    pixi update
 
+# Offline, like every gate recipe: an offline solve on a stale lock still
+# fails, which is the right answer.
 lock-check:
     cargo update --workspace --locked
-    uv lock --check
+    pixi lock --check --offline
 
+# The shim, then every hook environment (seven clones; Go, Node and a rustup
+# toolchain under prek's cache; the ripsecrets build), so that `just check`
+# never fetches. lychee is `language: script` and downloads its binary at first
+# run, not at prepare, so it is run once here on one Markdown file; its exit
+# status is lint's business, not this recipe's.
 install-hooks:
     git rev-parse --is-inside-work-tree >/dev/null
-    test -f uv.lock || { printf '%s\n' 'uv.lock is missing; run just initialize first' >&2; exit 2; }
-    uv run --frozen prek install --overwrite --hook-type=pre-commit
+    test -x .pixi/envs/default/bin/prek || { printf '%s\n' 'the pixi environment is not installed; run just initialize first' >&2; exit 2; }
+    prek install --overwrite --hook-type=pre-commit --prepare-hooks
+    prek prepare-hooks --config .pre-commit-fix.yaml
+    -prek run lychee --files README.md
 
 # ---------------------------------------------------------------- develop ---
 
@@ -85,15 +101,15 @@ format:
 # The only recipe that modifies files. The fix config is run twice because a
 # fixer's first pass may itself fail on what another fixer then repairs.
 fix:
-    -uv run --frozen prek run --all-files --config .pre-commit-fix.yaml
-    uv run --frozen prek run --all-files --config .pre-commit-fix.yaml
+    -prek run --all-files --config .pre-commit-fix.yaml
+    prek run --all-files --config .pre-commit-fix.yaml
     cargo clippy --workspace --all-targets --all-features --locked --fix --allow-dirty --allow-staged
     just lint
 
 # ------------------------------------------------------------------ check ---
 
 lint:
-    uv run --frozen prek run --all-files
+    prek run --all-files
 
 fmt-check:
     cargo fmt --all --check
@@ -143,30 +159,30 @@ deps-unused:
 # --------------------------------------------------------------- documents ---
 
 check-docs:
-    uv run --frozen prek run --all-files markdownlint-cli2 typos lychee
-    uv run --frozen bg-validate-docs
+    prek run --all-files markdownlint-cli2 typos lychee
+    bg-validate-docs
 
 check-agents:
-    uv run --frozen bg-validate-agents
+    bg-validate-agents
 
 # The specifications, checked mechanically: every module must report an empty
 # `diagnostics` array. The wrapper asserts that, because neither subcommand's
 # exit code does. Waiver terms: docs/how-to/work-with-the-specs.md.
 check-specs:
-    uv run --frozen bg-run-allium check
+    bg-run-allium check
 
 analyse-specs:
-    uv run --frozen bg-run-allium analyse
+    bg-run-allium analyse
 
 check-links-online:
-    uv run --frozen prek run --all-files --hook-stage manual lychee-online
+    prek run --all-files --hook-stage manual lychee-online
 
 # --------------------------------------------------------------- aggregate ---
 
 check-clean baseline="":
-    uv run --frozen bg-project-check clean "$1"
+    bg-project-check clean "$1"
 
 # The complete gate: the recipes pyproject.toml lists, in order, with the
 # worktree snapshotted between each, then check-clean.
 check:
-    uv run --frozen bg-project-check run
+    bg-project-check run
