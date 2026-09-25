@@ -1,7 +1,7 @@
 ---
 id: T00
 title: "Foundation: workspace, toolchain, licence, Justfile, hooks, manifest, stubs for every path"
-status: open
+status: done
 depends_on: [D01, D02]
 parallel_with: []
 branch: ticket/t00-foundation
@@ -480,17 +480,16 @@ syntax`. Quote each in the hand-back notes.
 
 ## Hand-back notes
 
-**In progress, stopped on 2026-09-24 at the maintainer's request, then redirected by
-D02.** The skeleton described below is the work-in-progress commit `8ddb2c2` on
-`ticket/t00-foundation`; `status:` stays `open`. The taplo question that stopped the
-work was settled by D02 (decision 0011: pixi owns the tools), and this ticket was
-rewritten in place to that design. The section "Pivot to D02" below says what the
-commit already has and what changes.
+**Done on 2026-09-24.** Two sessions: the first wrote the pre-D02 skeleton (commit
+`8ddb2c2`) and stopped on the taplo blocker; D02 (decision 0011) answered it on `main`;
+the second session merged `main` (`de0c7d7`), applied the "Pivot to D02" list below,
+ran the gate, and closed the ticket. Nothing was pushed; no remote exists.
 
 ### Actions with effects outside this worktree
 
 Each was authorised by the maintainer on 2026-09-24 ("I install them" for the
-prerequisites; "Rename" for the branch), except where marked.
+prerequisites; "Rename" for the branch; the four answers under "Open points settled"
+for the second session), except where marked.
 
 - **rustup 1.29.1 installed** with the official installer, downloaded to the session
   scratch directory from `https://sh.rustup.rs` and run as
@@ -516,109 +515,219 @@ prerequisites; "Rename" for the branch), except where marked.
   from rustup's auto-install, the first time `rustup` ran in this worktree, and not from
   the explicit `rustup toolchain install` that followed (see the §12 claim below).
 - **cargo-binstall 1.23.0 installed** per machine, into `~/.cargo/bin/cargo-binstall`, by
-  `cargo install cargo-binstall@1.23.0 --locked` (compiled from source).
+  `cargo install cargo-binstall@1.23.0 --locked` (compiled from source), in the first
+  session. Under D02 it is unused: the pixi environment's own is what
+  `just install-tools` runs. It was left in place.
 - **Cargo's registry cache** under `~/.cargo/registry/` was populated by that install and
-  by compiling `taplo-cli` (below).
+  by compiling `taplo-cli` in the first session.
 - **uv's cache** (`~/.cache/uv`) gained the git checkout of `biscuit_games_tooling` at
-  `v0.3.0` (`6c5c07f6bec86e86b3930dfa41392e4b440e8c85`) and the `prek` 0.5.3 wheel.
-  `uv sync` used an existing CPython 3.14.3; no interpreter was downloaded.
+  `v0.3.0` and the `prek` 0.5.3 wheel in the first session. Left in place.
+- **pixi's cache** (`~/.cache/rattler` and pixi's PyPI cache) gained the nine conda
+  packages with their transitives for `osx-arm64` and B's git checkout, from `pixi lock`
+  and `pixi install`.
+- **prek's cache** (`prek cache dir`) gained the seven hook clones and their
+  environments, from `just install-hooks`.
+- **The git hook shim.** This worktree is a Supacode secondary worktree, so
+  `scripts/initialize.sh` skipped `install-hooks` here. At the maintainer's choice the
+  agent ran `just install-hooks` from it anyway, which wrote
+  `/Users/scutting/projects/libpawdoku/.git/hooks/pre-commit` naming this worktree's
+  `.pixi/envs/default/bin/prek`. That is the hazard the script's comment describes:
+  commits from the primary checkout run this worktree's prek until `just install-hooks`
+  is run from the primary checkout once the branch has merged (and the primary has run
+  `just initialize`). Do that before deleting this worktree.
 - **Branch renamed** from the Supacode worktree's `T00-foundation` to
   `ticket/t00-foundation` (`git branch -m`), as D01 did, so the `branch:` field is true.
-  The rename is in the shared `.git`, so the primary checkout sees the new name.
-- Nothing was pushed; no remote exists; no clone (G, T, B) was modified. prek has not run
-  yet, so nothing is in `~/.cache/prek`, and no git hooks were installed.
+- Nothing was pushed; no remote exists; no clone (G, T, B) was modified.
 
-Inside the worktree but gitignored: `.tools/bin/` (allium 3.6.1 from
-`just install-allium`; cargo-nextest, cargo-llvm-cov, cargo-deny, cargo-hack and
-cargo-shear from binstall; taplo from a source build, see below), `.venv/`, `target/`,
-and `ai_tmp/rustup-claim/` (823 MB, a throwaway `RUSTUP_HOME`/`CARGO_HOME` from the §12
-check; safe to delete). Under D02, `.venv/` and every binary in `.tools/bin` except
-`allium` and `cargo-hack` are dead weight: delete `.venv/` and re-run `just initialize`.
+Inside the worktree but gitignored: `.pixi/envs/default` (the environment), `.tools/bin/`
+(`allium` 3.6.1 and `cargo-hack` 0.6.45 only; the five binstall binaries of the first
+session were deleted), `target/`, and `ai_tmp/` (the gate logs, the fresh clone, the
+verification transcript; the first session's 823 MB `rustup-claim/` was deleted).
+`.venv/` was deleted.
 
-### What was done (commit `8ddb2c2`, before D02)
+### What was done
 
-Steps 1 to 13 as the ticket then read are written; step 14 (the gate) has not run.
-Items below that D02 changes are listed again under "Pivot to D02".
+Steps 2 to 13 as `8ddb2c2` wrote them (first session), then the pivot to D02 (second
+session), then steps 14 to 16.
 
-- Step 2: `rust-toolchain.toml` and `tools.txt`, exactly as CONVENTIONS.md §2 prints
-  them.
+- Step 2: `rust-toolchain.toml` exactly as CONVENTIONS.md §2 prints it; `tools.txt` the
+  one-line file of §2, extracted from its fence.
 - Step 3: `LICENSE` from `https://www.apache.org/licenses/LICENSE-2.0.txt`, 202 lines,
   SHA-256 `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30`. No `NOTICE`.
 - Step 4: `Cargo.toml`, `crates/pawdoku/Cargo.toml`, `crates/pawdoku/src/lib.rs`, exactly
-  as the step prints them. `cargo generate-lockfile` gives a `Cargo.lock` with the one
-  package; `cargo build --locked` succeeds on 1.98.1.
-- Step 5: `rustfmt.toml`, `clippy.toml`, `taplo.toml`, `deny.toml` (`allow-registry`
+  as the step prints them. `Cargo.lock` lists the one package.
+- Step 5: `rustfmt.toml`, `clippy.toml`, `taplo.toml` (exclude
+  `["target/**", ".tools/**", ".pixi/**", "ai_tmp/**"]`), `deny.toml` (`allow-registry`
   names `https://github.com/rust-lang/crates.io-index`), `.config/nextest.toml`, each with
   a comment naming T02.
-- Step 6: `Justfile` extracted by script from CONVENTIONS.md §4's fence (not retyped).
-  `pyproject.toml` extracted from D01's fence. `.python-version` is `3.14`. `uv lock`
-  resolved 3 packages; `uv sync --frozen` installed `biscuit-games-tooling==0.3.0` and
-  `prek==0.5.3`. `.pre-commit-config.yaml` and `.pre-commit-fix.yaml` are G's files with
-  §5's edits applied by a script that asserts each replaced string occurs once:
-  the `exclude` list, the ruff and eslint hooks replaced by `fmt-check`, `toml-check` and
-  `deps-unused` (fix config: `cargo-fmt`, `taplo-fmt`, `cargo-shear-fix`),
-  `skills-lock\.json$` added to `validate-agents`, and typos moved to
-  `512fc24f… # v1.50.2`. Every other line matches G's.
-- Step 7: `.editorconfig` (`[*.rs]` added), `.gitattributes`, `.gitignore`,
+- Step 6: `Justfile` extracted by script from CONVENTIONS.md §4's fence (asserted equal
+  after the coverage deviation below was applied to both). `pyproject.toml` extracted
+  from D02's fence; `just format` then reformatted the `recipes` list one entry per line
+  (taplo's layout, which `toml-check` enforces), the only difference from D02's text.
+  `pixi.lock` from `pixi lock`, committed: 115 conda records over `linux-64` and
+  `osx-arm64` plus B at
+  `git+https://github.com/steven-cutting/biscuit_games_tooling?tag=v0.3.0#6c5c07f6…`.
+  `.pre-commit-config.yaml` and `.pre-commit-fix.yaml` are G's files with §5's edits
+  applied by scripts that assert each replaced string occurs once: the `exclude` lists
+  (`\.pixi/`, `pixi\.lock$`, with the `check-yaml` comment), the `fmt-check`,
+  `toml-check` and `deps-unused` hooks in place of ruff and eslint (fix config:
+  `cargo-fmt`, `taplo-fmt`, `cargo-shear-fix`), the four `pixi run --frozen bg-*`
+  entries with D02's comment, `skills-lock\.json$` in `validate-agents`, ripsecrets'
+  entry `.pixi/envs/default/bin/bg-ripsecrets`, typos at `512fc24f… # v1.50.2`. Every
+  other line matches G's. No `uv.lock`, no `.venv/`, no `.python-version`.
+- Step 7: `.editorconfig` (`[*.rs]` added; `[LICENSE] indent_size = unset` added, see
+  Deviations), `.gitattributes` (`pixi.lock merge=binary linguist-language=YAML linguist-generated=true`),
+  `.gitignore` (`.pixi/` with a comment in the `.tools/` voice; no `.venv/`),
   `.markdownlint-cli2.jsonc`, `lychee.toml`, `_typos.toml` per §5.
-  `scripts/initialize.sh` (executable) is G's with the npm, Storybook and ruff sections
-  replaced by the step-7 sequence. D01's hand-back asks to keep G's `uv lock` line, so it
-  sits before `just sync`. G's allium comment is kept, minus its opening "The other one.",
-  whose referent (the browser download) is gone.
-- Step 8: `.github/actions/setup/action.yml` and `.github/workflows/ci.yml`. SHAs looked
-  up on 2026-09-24 with `gh api` (annotated tags dereferenced): actions/checkout
-  `3d3c42e5aac5ba805825da76410c181273ba90b1` v7.0.1; taiki-e/install-action
-  `9983c65e42da123ff25d1f78505eb6de315aa172` v2.87.20; Swatinem/rust-cache
-  `63fed3e2fecf6f7b51dc6f043341b79ef82a9ae7` v2.9.2 (annotated); actions/cache
-  `55cc8345863c7cc4c66a329aec7e433d2d1c52a9` v6.1.0; astral-sh/setup-uv
-  `c18668ad3cf93ea998bef934396af7bb5c839dc7` v10.2.0. actionlint has not run on them yet.
-- Steps 9 to 11: `docs/manifest.yml` (36 entries in the step-9 order, G's one-line-per-page
-  layout) and every stub page, generated from one table so that frontmatter and manifest
-  cannot disagree. `docs/README.md` and `docs/decisions/README.md` written per steps 9
-  and 10. The two migrated pages and the seven modules were copied with `git show`;
-  `cmp` says each module is identical.
-- Steps 12 and 13: `README.md` (replacing the `# LibPawdoku` stub), `CHANGELOG.md`,
-  `SECURITY.md`, `crates/pawdoku/README.md`. `AGENTS.md` has 524 words, G's eight
-  headings and the six phrases; `runes` occurs once, in D01's Provenance sentence.
-  `CLAUDE.md`, `.github/copilot-instructions.md` and `.claude/settings.json` were copied
-  from G with `git show`. There are fourteen canonical skill stubs. The twenty-six
-  carried bridges were copied from G; the two `rust-change` bridges were written with
-  the canonical frontmatter and B's `BRIDGE_BODY`.
-
-None of the checkers (`bg-validate-docs`, `bg-validate-agents`, prek, allium) has run yet.
+  `scripts/initialize.sh` is G's with the step-7 sequence: `pixi install --locked`,
+  `just install-toolchain`, `just check-toolchain`, `just install-tools`,
+  `just install-allium`, `test -f Cargo.lock || cargo generate-lockfile`, `just sync`,
+  `just format`, then G's hooks block with the comment naming
+  `.pixi/envs/default/bin/prek` and the provisioning.
+- Step 8: `.github/actions/setup/action.yml` with D02's nine steps. SHAs looked up with
+  `gh api` on 2026-09-24: prefix-dev/setup-pixi `d3f436a425481402e6a95a1d1fc10331c708cd9e`
+  v0.10.2 (lightweight tag); actions/checkout `3d3c42e5aac5ba805825da76410c181273ba90b1`
+  v7.0.1; Swatinem/rust-cache `63fed3e2fecf6f7b51dc6f043341b79ef82a9ae7` v2.9.2
+  (annotated, dereferenced); actions/cache `55cc8345863c7cc4c66a329aec7e433d2d1c52a9`
+  v6.1.0. D02's step 10 (`just install-allium` for the `documents` job) is the line
+  `ci.yml` already carries; `ci.yml` is unchanged from the first session. actionlint
+  passes on both (inside `lint`).
+- Steps 9 to 11: `docs/manifest.yml` (37 entries: the step-9 list including
+  `decisions/0011-tool-manager.md`), every stub page, `docs/README.md`,
+  `docs/decisions/README.md` (eleven rows; "the next decision is 0012"). The two
+  migrated pages and the seven modules were copied with `git show`; `cmp` says each is
+  identical.
+- Steps 12 and 13: `README.md`, `CHANGELOG.md`, `SECURITY.md`, `crates/pawdoku/README.md`,
+  `AGENTS.md` (524 words, G's eight headings, the six phrases), `CLAUDE.md`,
+  `.github/copilot-instructions.md`, `.claude/settings.json` from G; fourteen canonical
+  skill stubs; twenty-six carried bridges from G and two `rust-change` bridges with B's
+  `BRIDGE_BODY`.
+- Steps 14 to 16: below. Commits on `ticket/t00-foundation`: `8ddb2c2` (skeleton),
+  `de0c7d7` (merge of `main`), `b900832` (the pivot), `7146f69` (the two gate fixes),
+  and the closing commit.
 
 ### What was verified, and how
 
-- Preconditions (step 1), as found: no rustup; `command -v cargo` gave
-  `/Users/scutting/.pixi/bin/cargo`; no cargo-binstall; just 1.51.0 and uv 0.11.18 were
-  present. Resolved by the installs above.
-- `rustup show active-toolchain` prints
-  `1.98.1-aarch64-apple-darwin (overridden by '…/T00-foundation/rust-toolchain.toml')`.
-- **§12 claim: no-argument `rustup toolchain install`.** It holds. Run in a fresh
-  `RUSTUP_HOME`/`CARGO_HOME` under `ai_tmp/rustup-claim/` with `RUSTUP_AUTO_INSTALL=0`, so
-  auto-install could not do the work, it printed "downloading 9 components" and "the
-  active toolchain `1.98.1-aarch64-apple-darwin` has been installed". Afterwards all four
-  components (`llvm-tools-preview` lands as `llvm-tools`) and both wasm targets were
-  listed. The command exited 1 only because its closing self-update check found no rustup
-  binary in that throwaway `CARGO_HOME`. That is an artefact of the test, not of the
-  install. Note: rustup 1.29 auto-installs the pinned toolchain on any `rustup` call,
-  so on a real machine `just install-toolchain` usually finds the toolchain present already.
-- The other three §12 claims assigned to T00 (`wasm32v1-none` on the stub crate; B's
-  checkers with no `package.json`; `bg-project-check` tolerating `target/`) are **not yet
-  checked**: they need the gate to run.
+Preconditions (step 1) in the second session: `command -v rustup cargo pixi just gh`
+printed `~/.cargo/bin/rustup`, `~/.cargo/bin/cargo` (with `PATH="$HOME/.cargo/bin:$PATH"`),
+`~/.pixi/bin/pixi`, `~/.pixi/bin/just`, `/opt/homebrew/bin/gh`; `pixi 0.81.0`.
+
+The gate, in this worktree: every recipe run individually in gate order (logs in
+`ai_tmp/gate/`), then `just initialize` (exit 0; it skipped `install-hooks`, this being a
+secondary worktree) and `time just check`: exit 0 in **7 s** wall-clock with a warm
+`target/`, ending
+
+```text
+==> just check-clean
+bg-project-check clean "$1"
+The worktree matches the check baseline.
+
+All checks passed and the worktree is unchanged.
+```
+
+and `git status --porcelain` empty.
+
+The fresh clone: `git clone --branch ticket/t00-foundation . ai_tmp/clone`, then
+`just initialize` with the network (exit 0 in **10 s**; it installed the hook shim into
+the clone's own `.git`, prepared both configs and warmed lychee), then
+`HTTP_PROXY=http://127.0.0.1:9 HTTPS_PROXY=http://127.0.0.1:9 just check`: exit 0 in
+**11 s** with a cold `target/`, the same closing lines, `git status --porcelain` empty.
+So `initialize` has the network and `check` does not need it (CONVENTIONS.md §13),
+`lock-check`'s `pixi lock --check --offline` included.
+
+The Verification block, run from the worktree with the environment's `bin` on `PATH`
+(transcript in `ai_tmp/verification.txt`):
+
+```text
+pixi 0.81.0
+1.98.1-aarch64-apple-darwin (overridden by '…/T00-foundation/rust-toolchain.toml')
+9
+allium cargo-hack
+porcelain: []
+CLAUDE.md identical
+.github/copilot-instructions.md identical
+.claude/settings.json identical
+sudoku identical / solver identical / technique identical / reach identical
+effort identical / lapse identical / human-solving identical
+14 14 14
+     Summary [   0.008s] 1 test run: 1 passed, 0 skipped
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+no placeholders
+no template syntax
+Validated AGENTS.md, 2 adapters, and 14 skills.
+Validated 37 pages and 38 canonical topics.
+```
+
+`just check-specs` and `just analyse-specs` each print seven blocks with
+`"diagnostics": []` (and `"findings": []`); the wrapper's closing line is
+`allium analyse: 7 specifications, no diagnostics and no findings.` `just coverage`
+reports `TOTAL … Lines 3, Missed 0, 100.00%`. No remote exists (`git remote -v` prints
+nothing).
+
+CONVENTIONS.md §12 claims assigned to T00:
+
+- **No-argument `rustup toolchain install`.** Holds (first session). Run in a fresh
+  `RUSTUP_HOME`/`CARGO_HOME` with `RUSTUP_AUTO_INSTALL=0`, so auto-install could not do
+  the work, it printed "downloading 9 components" and "the active toolchain
+  `1.98.1-aarch64-apple-darwin` has been installed"; all four components
+  (`llvm-tools-preview` lands as `llvm-tools`) and both wasm targets were listed. It
+  exited 1 only because its closing self-update check found no rustup binary in the
+  throwaway `CARGO_HOME`; an artefact of the test. rustup 1.29 auto-installs the pinned
+  toolchain on any `rustup` call, so on a real machine `just install-toolchain` usually
+  finds it present already.
+- **`wasm32v1-none` on the stub crate.** Holds: `just wasm-check` passes on both targets
+  (rust-std for `wasm32v1-none` is in the toolchain listing above).
+- **B's checkers with no `package.json`.** Holds: `bg-validate-docs`,
+  `bg-validate-agents`, `bg-run-allium` and `bg-project-check` ran unchanged.
+- **`bg-project-check` tolerates `target/`, `.tools/` and `.pixi/`.** Holds: `just check`
+  ends "the worktree is unchanged" with all three present and growing.
+- **`pixi install --locked` installs the nine conda packages and B, not
+  `libpawdoku-tooling`.** Holds: `pixi list` shows `biscuit_games_tooling 0.3.0 pypi`
+  and no `libpawdoku-tooling`; the environment's `bin` holds `cargo-binstall`,
+  `cargo-deny`, `cargo-llvm-cov`, `cargo-nextest`, `cargo-shear`, `just`, `prek`, `taplo`
+  and Python 3.14.7, and no `cargo`.
+- **B built from its git tag with `uv_build` under the environment's Python; six `bg-*`
+  scripts in `.pixi/envs/default/bin`.** Holds: all six are there, each with the shebang
+  `#!…/T00-foundation/.pixi/envs/default/bin/python3.14` (so the environment is not
+  relocatable, as §13 says).
+- **Every pin resolves for `linux-64`.** Holds, `pixi search <name> --platform linux-64`
+  on 2026-09-24 (`ai_tmp/pixi-search-linux64.txt`): python 3.15.0rc2 first hit and
+  3.14.7 for the `3.14.*` pin; just 1.58.0; prek 0.5.3; cargo-binstall 1.23.0;
+  cargo-nextest 0.9.146; cargo-llvm-cov 0.9.1; cargo-deny 0.20.2; cargo-shear 1.13.4;
+  taplo 0.10.0. The lockfile's `linux-64` section lists each.
+
+One claim assigned to T03 was exercised in passing: `pixi lock --check --offline` on a
+current lock with the git PyPI source exits 0 and writes nothing (the fresh-clone `check`
+above, with the network blocked; `pixi.lock`'s hash was unchanged, as `check-clean`
+proved).
 
 ### Deviations, and why
 
-- `docs/README.md`: G's opening paragraph links to the documentation contract and to
+- **`coverage` recipe: a `mkdir -p target/llvm-cov` line** before the lcov line, in the
+  `Justfile` and in CONVENTIONS.md §4 (both on this branch, the maintainer's choice on
+  2026-09-24). `cargo llvm-cov report --lcov --output-path target/llvm-cov/lcov.info`
+  (0.9.1) does not create the directory and fails with "No such file or directory" on a
+  fresh `target/`; `--output-dir` is refused together with `--lcov`. The floor check on
+  the line before passes. The frozen text would never have been green, so this is a
+  failed §12-style claim fixed at the source rather than a `main` follow-up; T04's
+  upload path `target/llvm-cov/lcov.info` is unchanged.
+- **`.editorconfig` gains `[LICENSE] indent_size = unset`.** editorconfig-checker reported
+  17 "Wrong amount of left-padding spaces" errors in the verbatim Apache text; the
+  hook's `exclude` is frozen and a checker-specific ignore file is not in §3's tree, so
+  the exemption sits in the dotfile T03 owns, in the shape of G's `[*.md]` block.
+- **`pyproject.toml`'s `recipes` list is one entry per line**, taplo's layout, not D02's
+  three-line fence; `toml-check` enforces taplo's format so the fence cannot be kept.
+- **`docs/README.md`**: G's opening paragraph links to the documentation contract and to
   Specifications, which the lists below link again. Step 9 says every registered page is
   linked exactly once, so the opening paragraph names both pages in plain text and
   points to the section that links them.
+- **The hook shim** was installed from a secondary worktree (above).
 - The branch was renamed (above).
 
 ### Resolved by D02: taplo could not be installed as the design specified
 
-`just install-tools` fails. binstall resolves all six tools before installing any, so the
-single failure aborts the whole batch:
+In the first session `just install-tools` failed: binstall resolves all six tools before
+installing any, so the single failure aborted the batch:
 
 ```text
 cargo-binstall:  WARN resolve: … could not GET https://github.com/cargo-bins/cargo-quickinstall/releases/download/taplo-cli-0.10.0/taplo-cli-0.10.0-aarch64-apple-darwin.tar.gz: … 404 Not Found
@@ -627,100 +736,43 @@ cargo-binstall: ERROR Fatal error:
 error: recipe `install-tools` failed on line 37 with exit code 1
 ```
 
-Why: `taplo-cli` 0.10.0 has no `[package.metadata.binstall]` table, and cargo-quickinstall
-has no build of it. Its GitHub release (`tamasfe/taplo` tag `0.10.0`, the newest) ships
-raw gzip binaries such as `taplo-darwin-aarch64.gz`, a format binstall cannot unpack.
-`--disable-strategies compile` then refuses a source build, as designed. This fails on
-every platform, CI included. The newest taplo on PyPI is 0.9.3 (wheels for macOS, Linux
-and Windows). `tools.txt` and the `Justfile` are frozen, and CONVENTIONS.md §2 and §4
-print the failing text, so any fix is a CONVENTIONS.md change.
-
-To keep finding other failures, the agent installed the five other tools with the
-unchanged binstall command minus the taplo line, and built taplo into the gitignored
-`.tools/` with `cargo install taplo-cli@0.10.0 --locked --root .tools`. Both succeeded.
-That is a workaround in the worktree, not a fix in any committed file.
-
-Options for the maintainer, put to them when the session stopped:
-
-1. Build taplo alone from source: `install-tools` gains a second line,
-   `cargo install taplo-cli@0.10.0 --locked --root .tools` (a no-op once installed; CI's
-   `.tools` cache holds the result), and binstall stays strict for the other five. The
-   agent's recommendation.
-2. Drop `--disable-strategies compile`, so taplo compiles through binstall. This loses the
-   loud failure for any other tool.
-3. Pin `taplo==0.9.3` in `pyproject.toml`'s dev group and call it with
-   `uv run --frozen taplo` (the `Justfile`'s `format` and `toml-check`, and the fix
-   config's `taplo-fmt` hook). This downgrades a minor version.
-4. Settle it on `main` first, and resume this ticket afterwards.
-
-The maintainer took none of the four: D02 (2026-09-24) moved every tool conda-forge
-carries to pixi, where taplo 0.10.0 is packaged, and the CONVENTIONS.md change went
-through `main` with D02, as §11 says.
-
-### Pivot to D02
-
-D02 landed on `main` after commit `8ddb2c2`. This branch merges (or rebases onto)
-`main` first; `tickets/T00-foundation.md` conflicts and the `main` version wins. Then,
-against the rewritten steps above:
-
-- **Already right, keep:** everything from steps 3, 4, 5 (except `taplo.toml`'s
-  exclude list), 9 to 13 as `8ddb2c2` has it; `rust-toolchain.toml`; the SHAs looked up
-  for actions/checkout, Swatinem/rust-cache and actions/cache.
-- **Replace:** `tools.txt` (one line); `Justfile` (the `PATH` export and the recipes
-  D02 prints; extract from CONVENTIONS.md §4's fence again, as before); `pyproject.toml`
-  (D02's text); both prek configs (the `exclude` lists and the five script-hook
-  entries); `scripts/initialize.sh` (the step-7 sequence); `.github/actions/setup/action.yml`
-  (D02's steps; look up `prefix-dev/setup-pixi` v0.10.2's SHA; drop the taiki-e and
-  setup-uv SHAs); `.gitignore`, `.gitattributes`, `_typos.toml`, `lychee.toml`,
-  `.markdownlint-cli2.jsonc`, `taplo.toml` (`.pixi` and `pixi.lock` in, `.venv` and
-  `uv.lock` out).
-- **Remove from the tree:** `uv.lock`, `.python-version`. Delete the gitignored
-  `.venv/`.
-- **Add:** `pixi.lock` from `pixi lock`; `docs/decisions/0011-tool-manager.md` as an
-  eleventh stub, its manifest row, and the eleventh row in `docs/decisions/README.md`
-  with the numbering sentence.
-- **Then** step 14 and 15 as written, with the three new §12 claims.
-
-### Remaining steps
-
-1. Merge `main` (D02) into this branch and apply the pivot above.
-2. Run `just lint`, `just check-docs`, `just check-agents`, `just check-specs`,
-   `just analyse-specs`, `just wasm-check`, `just coverage` and `actionlint`
-   individually; fix what they find. Likely candidates:
-   `LICENSE` indentation under editorconfig-checker, and whether `just coverage` finds a
-   denominator in a crate whose only item is a `const` (the ticket's open point).
-3. `just initialize` then `time just check`. Then the same from a fresh clone in
-   `ai_tmp/clone`, once everything is committed, with the `check` run under
-   `HTTP_PROXY=http://127.0.0.1:9 HTTPS_PROXY=http://127.0.0.1:9`: the proof that
-   `initialize` has the network and `check` does not need it (CONVENTIONS.md §13). The
-   recipe to watch is `lock-check`: its cargo line has no `--offline`, and on
-   2026-09-24 `cargo update --workspace --locked` exited 0 with the proxy blocked on a
-   current lockfile; if it ever fetches the index, the line gains `--offline`.
-4. The Verification block, with its output quoted here, and the remaining §12 claims.
-5. `status: done`, then commit on `ticket/t00-foundation`. Do not push.
+`taplo-cli` 0.10.0 has no `[package.metadata.binstall]` table, cargo-quickinstall has no
+build of it, and its GitHub release ships raw gzip binaries binstall cannot unpack. The
+maintainer took none of the four options the agent put to them; D02 (2026-09-24) moved
+every tool conda-forge carries to pixi, where taplo 0.10.0 is packaged, and the
+CONVENTIONS.md change went through `main` with D02, as §11 says. Under D02
+`just install-tools` installs cargo-hack alone through the environment's cargo-binstall
+and prints "cargo-hack v0.6.45 is already installed" on a second run.
 
 ### Handed back
 
-The taplo design question, answered by D02.
+- **`main` follow-up, none required**: the coverage `mkdir` line is already in
+  CONVENTIONS.md §4 on this branch and lands with the merge.
+- **T03**: `[LICENSE]` in `.editorconfig` to keep or restate; the `pixi lock --check
+  --offline` claim is already observed green above.
+- **T09**: `docs/decisions/0011-tool-manager.md` is a stub like the other ten.
+- **Maintainer**: run `just initialize` then `just install-hooks` from the primary
+  checkout after the merge, so the shared hook shim stops naming this worktree.
 
 ### Open points settled
 
 - Branch name: renamed to `ticket/t00-foundation` (maintainer, 2026-09-24).
 - Prerequisites: the agent installed rustup and cargo-binstall and edited `~/.zshrc`
-  rather than uninstalling pixi's rust (maintainer, 2026-09-24). Under D02 the
-  per-machine cargo-binstall is unused; the pixi environment's own is what
-  `just install-tools` runs.
+  rather than uninstalling pixi's rust (maintainer, 2026-09-24).
 - The taplo blocker: settled by D02 (maintainer, 2026-09-24).
+- Second session (maintainer, 2026-09-24): scope through step 16; commits in stages;
+  delete `ai_tmp/rustup-claim/` and the dead `.tools/bin` binaries; run
+  `just install-hooks` from this secondary worktree; `mkdir -p` in the coverage recipe.
 
 ## Open points
 
-- Whether `rustup toolchain install` with no arguments installs the targets as well as
-  the components on rustup's current release (CONVENTIONS.md §12). If not, the recipe
-  becomes `rustup show`, which is a `main` follow-up because the `Justfile` is frozen.
-- Whether `cargo llvm-cov` on a crate whose only code is a `const` reports a
-  denominator at all, or reports "no coverage data" and exits non-zero. If the latter,
-  the stub gains one trivially covered function (say, `pub const fn cells() -> u8`) in
-  this ticket, and T02 inherits it.
-- The wall-clock cost of a cold `just check` on the maintainer's machine, for the
-  troubleshooting page and for deciding whether `features` belongs in the commit hook
-  later (it does not now).
+- `rustup toolchain install` with no arguments does install the targets as well as the
+  components on rustup 1.29.1 (the §12 check above); the `rustup show` fallback is not
+  needed.
+- `cargo llvm-cov` on a crate whose only code is a `const` reports a denominator: 3
+  lines, 1 function (the test), 100%. No extra function was added; T02 inherits the
+  stub as printed.
+- The wall-clock cost of `just check` on the maintainer's machine (Apple silicon): 7 s
+  warm, 11 s in a fresh clone with a cold `target/`, on a crate with one item. The
+  number that matters for the troubleshooting page and the hook decision is T02's,
+  after the first dependencies land.
