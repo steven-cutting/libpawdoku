@@ -25,8 +25,8 @@ Three things make this lane different from the other eight:
 
 - It is the only lane that may add a dependency (CONVENTIONS.md §11): `thiserror`
   (errors), `serde` (optional, behind a feature) and `proptest` (dev). `Cargo.lock` has one
-  owner, and this is it. T00 declared the three in `[workspace.dependencies]` but nothing
-  depends on them yet.
+  owner, and this is it. T00 declared none, not even in `[workspace.dependencies]`
+  (cargo-shear flags an unused entry); step 3 adds the three.
 - It exercises every `cargo` recipe in the `Justfile` for the first time on real code,
   and so it carries seven of CONVENTIONS.md §12's unverified claims. The `Justfile` and
   `tools.txt` are frozen; a recipe flag this lane finds wrong is handed back as a T00
@@ -315,7 +315,7 @@ elsewhere is a hand-back.
 
    ```toml
    include = ["**/*.toml"]
-   exclude = ["target/**", ".tools/**", "ai_tmp/**"]
+   exclude = ["target/**", ".tools/**", "ai_tmp/**", ".venv/**"]
 
    [formatting]
    column_width = 100
@@ -331,6 +331,10 @@ elsewhere is a hand-back.
    [rule.formatting]
    reorder_keys = true
    ```
+
+   Confirm that `.config/nextest.toml` is in `taplo fmt --check`'s file list (a deliberate
+   misformat there must fail the check); if `**` does not enter dot-directories, add
+   `.config/*.toml` to `include`.
 
    `.config/nextest.toml`. `nextest-version` must equal the `cargo-nextest` pin in
    `tools.txt`; if the two disagree, `tools.txt` wins and the mismatch is a hand-back. The

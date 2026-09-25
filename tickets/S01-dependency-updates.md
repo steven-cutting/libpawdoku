@@ -30,7 +30,7 @@ repository who is not a person with write access. Here the pins are more varied:
 | Tool binaries | `tools.txt` `name@version` (frozen) | T00 follow-up | by hand |
 | Hook revisions | both prek configs, `rev:` SHA plus version comment (frozen) | T00 follow-up | by hand |
 | The Allium binary | B's `install_allium.py` version and four checksums | B | a B release, then the tag in `pyproject.toml` |
-| Bootstrap pins | cargo-binstall 1.23.0 and just 1.51.0 in `scripts/initialize.sh` and the action | T03, T04 | by hand |
+| Bootstrap pins | cargo-binstall 1.23.0 and just 1.51.0 in `scripts/install_tools.sh` and the action | T03, T04 | by hand |
 
 Facts to start from and verify at execution (reasoned from the tools' documentation on
 2026-09-23, none run): Dependabot has `cargo`, `github-actions` and `uv` ecosystems and

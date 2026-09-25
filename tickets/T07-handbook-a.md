@@ -99,7 +99,7 @@ line. Every page keeps the frontmatter T00 wrote, byte for byte.
    `Cargo.toml`, `pyproject.toml` or a hook `rev` already states; it names the file, or
    links `../reference/configuration.md`, instead. Two exceptions, both places where G's
    page states a figure too: the one-time cargo-binstall command in develop-locally
-   (G lines 15-16 state Node 26 and npm 11; the pin lives in `scripts/initialize.sh`, not
+   (G lines 15-16 state Node 26 and npm 11; the pin lives in `scripts/install_tools.sh`, not
    in `tools.txt`), and allium `3.6.1` in the waiver terms (G work-with-the-specs line
    108 and 128; maintain-dependencies line 144).
 5. **Voice and shape** as G's pages: prose wrapped by hand near 90 columns, `console`
@@ -273,9 +273,10 @@ Related 107-112). Keep the six headings. Content:
   the first time cargo runs here; `tools.txt` names every other binary and its version;
   link `../reference/configuration.md` rather than restating a number.
 - First run (25-52), rewritten around three facts. One: rustup, installed once per
-  machine with a `stable` default toolchain (CONVENTIONS.md §2 "Maintainer
-  prerequisites"), because prek's `language: rust` hooks compile with the default
-  toolchain, not the pin; the one-time command is upstream's, with the flags §2 implies:
+  machine; no default toolchain is required, because prek provisions its own rustup for
+  its one `language: rust` hook (CONVENTIONS.md §2 "Maintainer prerequisites"; T03's
+  §12 outcome is the record, and a contrary outcome is a hand-back to this page); the
+  one-time command is upstream's, with the flags §2 implies:
 
   ```console
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain stable --profile minimal
@@ -289,7 +290,7 @@ Related 107-112). Keep the six headings. Content:
   `just check-toolchain` refuses it before anything else runs; the remedy is
   `~/.cargo/bin` ahead of `~/.pixi/bin` on `PATH`, or `pixi global uninstall rust`.
   Quote the recipe's two error lines (`Justfile`, `check-toolchain`) so a reader can
-  search for them. Three: cargo-binstall, once per machine, which `scripts/initialize.sh`
+  search for them. Three: cargo-binstall, once per machine, which `scripts/install_tools.sh`
   does when it is absent and which is the one tool compiled from source:
 
   ```console
@@ -419,7 +420,7 @@ first three, the tooling package (option A only), the Allium binary and Actions.
 - The tools in `tools.txt` (new, in place of 60-89): one `name@version` per line; bump a
   pin by editing the line and running `just install-tools`, which skips a matching
   version and refuses a source build (`--disable-strategies compile`); the two bootstrap
-  pins outside the file, cargo-binstall in `scripts/initialize.sh` and, in CI, `just` and
+  pins outside the file, cargo-binstall in `scripts/install_tools.sh` and, in CI, `just` and
   cargo-binstall in `.github/actions/setup/action.yml`, move together with it.
 - The toolchain (new): `channel` in `rust-toolchain.toml` and `rust-version` in the root
   `Cargo.toml` move together; after a bump run `just install-toolchain`, then

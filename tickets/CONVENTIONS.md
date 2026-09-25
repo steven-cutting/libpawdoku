@@ -149,7 +149,7 @@ whether the component is now named `llvm-tools`; rustup accepts both).
 # Binaries `just install-tools` puts in the gitignored .tools/bin through cargo-binstall,
 # one name@version per line, verified 2026-09-23. No lockfile can name a binary, so
 # `just sync` never runs this; `just initialize` does. Two bootstrap pins live outside
-# this file, stated in scripts/initialize.sh and .github/actions/setup/action.yml:
+# this file, stated in scripts/install_tools.sh and .github/actions/setup/action.yml:
 # cargo-binstall 1.23.0 (per machine, in ~/.cargo/bin, like rustup itself) and, in CI
 # only, just 1.51.0. Tools a prek hook pins (typos, ripsecrets, lychee, shellcheck,
 # actionlint, editorconfig-checker, markdownlint-cli2) are not listed: one owner per pin.
@@ -166,7 +166,7 @@ Under D01 option B, `prek@0.5.3` is appended. The install command is
 (§12: `--root .tools` lands binaries in `.tools/bin`; a matching version already there is
 skipped; `--disable-strategies compile` refuses a source build so an unpinnable tool fails
 loudly). cargo-binstall itself is installed once per machine by
-`cargo install cargo-binstall@1.23.0 --locked` (from `scripts/initialize.sh` when absent;
+`cargo install cargo-binstall@1.23.0 --locked` (from `scripts/install_tools.sh` when absent;
 from `taiki-e/install-action` in CI), never by a curl-pipe script.
 
 Other pins this document fixes: prek 0.5.3, uv 0.11.18 and Python 3.14 (D01 option A),
@@ -182,7 +182,8 @@ for its one `language: rust` hook, ripsecrets; §12 has T03 confirm on 0.5.3); `
 `pixi global uninstall rust`; `command -v cargo` printing `~/.cargo/bin/cargo`;
 cargo-binstall 1.23.0; just; gh; uv under D01 option A. T00's first verification is
 `rustup show active-toolchain` from this repository printing `1.98.1`; an executing agent
-that finds otherwise stops rather than installing anything.
+that finds otherwise runs `rustup toolchain install` from the worktree, the one install
+T00 performs (§11), and stops if the pin still does not print.
 
 ## 3. Target repository tree (exact paths and owners)
 
@@ -488,8 +489,9 @@ Changes to G's `.pre-commit-config.yaml`:
 
 Changes to G's `.pre-commit-fix.yaml`: the same `exclude`; `ruff-fix` and `ruff-format`
 dropped; local `cargo-fmt` (`entry: cargo fmt --all`, `pass_filenames: false`,
-`types: [rust]`), `taplo-fmt` (`entry: just format`, or `taplo fmt` once `just` is on the
-hook's `PATH`; `types: [toml]`) and `cargo-shear-fix` (`entry: cargo shear --fix`,
+`types: [rust]`), `taplo-fmt` (`entry: taplo fmt`, `types: [toml]`; the fix config runs
+only through `just fix`, so `.tools/bin` is on its `PATH` and the file list passes
+through) and `cargo-shear-fix` (`entry: cargo shear --fix`,
 `pass_filenames: false`) added; builtin `end-of-file-fixer` and `trailing-whitespace` and
 `markdownlint-cli2 --fix` unchanged. `cargo clippy --fix` stays in the `fix` recipe body
 because it needs `--allow-dirty --allow-staged` and a full build.
@@ -521,7 +523,7 @@ The Diátaxis handbook under `docs/`, governed by the documentation contract G s
 one owning page; every page is reachable from `docs/README.md`; 40 words minimum; links
 resolve with exact case. `docs/manifest.yml` and `docs/README.md` are final at T00 and
 frozen. Tier A pages are rewritten from G's page of the same path; tier B pages are
-shorter adaptations. Twenty-six pages plus the decision index and ten records.
+shorter adaptations. Twenty-five pages plus the decision index and ten records.
 
 | Path | Tier | Owner | From G | Rewrite note |
 | --- | --- | --- | --- | --- |

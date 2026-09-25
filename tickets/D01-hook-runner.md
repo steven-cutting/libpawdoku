@@ -13,7 +13,7 @@ estimated_size: M
 ## Context
 
 Every Biscuit Games repository runs its quality gate the same way: `prek` (a Rust
-reimplementation of pre-commit) runs the hook gate, and five console scripts from the
+reimplementation of pre-commit) runs the hook gate, and six console scripts from the
 Python package `biscuit-games-tooling` (B, CONVENTIONS.md §0) do the work no hook does:
 `bg-validate-docs` (the documentation contract), `bg-validate-agents` (the agent
 contract), `bg-project-check` (the ordered gate with a worktree snapshot between

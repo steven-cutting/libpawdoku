@@ -238,7 +238,7 @@ shellcheck-clean; and an outcome line in the hand-back notes for each §12 claim
 
    ```toml
    # The only typos configuration. pyproject.toml carries no [tool.typos]: typos
-   # stops at the first configuration file it finds, and finds this one (step 8).
+   # stops at the first configuration file it finds, and finds this one.
 
    [files]
    # Lockfiles and vendored reference carry hashes and names that look like
@@ -293,10 +293,10 @@ shellcheck-clean; and an outcome line in the hand-back notes for each §12 claim
 5. `scripts/initialize.sh`: G's script reshaped as T00 step 7 ordered it, with the
    inline bootstrap replaced by `sh scripts/install_tools.sh`. Keep G's lines 1-7 (the
    shebang, `set -eu`, the root-finding prologue, the worktree check), then these steps
-   with a comment each in G's voice: `just check-toolchain` ("the pin in
-   `rust-toolchain.toml` is honoured only by rustup's cargo proxy, so this refuses any
-   other cargo before anything is installed with it"); `just install-toolchain` (the
-   toolchain, components and targets the file names); `sh scripts/install_tools.sh` ("one
+   with a comment each in G's voice: `just install-toolchain` (the toolchain, components
+   and targets the file names); `just check-toolchain` ("the pin in `rust-toolchain.toml`
+   is honoured only by rustup's cargo proxy, so this refuses any other cargo before any
+   tool is installed with it"); `sh scripts/install_tools.sh` ("one
    of the network downloads in the first-run path that no lockfile accounts for");
    `just install-allium` (G's lines 32-37 comment verbatim under option A; under option B
    "pinned and checksummed in `scripts/install_allium.sh`"); `test -f Cargo.lock || cargo

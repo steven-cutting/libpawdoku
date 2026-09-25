@@ -137,11 +137,13 @@ A scratch clone lives in the session's scratch directory and is deleted at the e
    Record the run URL and each job's duration. An `audit` failure is acceptable only if
    its log shows the RustSec fetch failing; a real advisory is a T02 hand-back.
 
-5. Branch protection, verified. Dry run only, by the script's absolute path, with the
-   arguments T01 used:
+5. Branch protection, verified. Dry run only, from the pinned copy T01 took (not T's
+   working file, which may have moved on), with the arguments T01 used:
 
    ```sh
-   /Users/scutting/projects/biscuit_games_template/scripts/bootstrap_repo.sh steven-cutting/libpawdoku --no-pages --checks check --hygiene
+   mkdir -p ai_tmp
+   git -C /Users/scutting/projects/biscuit_games_template show 2283589c:scripts/bootstrap_repo.sh > ai_tmp/bootstrap_repo.sh
+   sh ai_tmp/bootstrap_repo.sh steven-cutting/libpawdoku --no-pages --checks check --hygiene
    ```
 
    Drop `--hygiene` only if T01's hand-back says T01 did not pass it. Expected: step 2
@@ -167,7 +169,7 @@ A scratch clone lives in the session's scratch directory and is deleted at the e
 7. Placeholders and cleanliness, on `main` at the SHA step 3 cloned:
 
    ```sh
-   grep -rn -E 'TODO|TBD|FIXME' --exclude-dir=.git --exclude-dir=target --exclude-dir=.tools --exclude-dir=.venv --exclude-dir=tickets --exclude-dir=docs/specs --exclude-dir=allium-skill-reference . || echo "no placeholders"
+   grep -rn -E 'TODO|TBD|FIXME' --exclude-dir=.git --exclude-dir=target --exclude-dir=.tools --exclude-dir=.venv --exclude-dir=ai_tmp --exclude-dir=tickets --exclude-dir=specs --exclude-dir=allium-skill-reference . || echo "no placeholders"
    ```
 
 8. Delete the scratch clone. Set `status: done` and commit on the ticket branch. Stop

@@ -51,9 +51,10 @@ Check `git -C /Users/scutting/projects/pawdoku rev-parse --short=8 HEAD` prints
 `78d03cdf`; if a clone has moved, read the pinned content with
 `git -C <clone> show <commit>:<path>` instead of the working file.
 
-Preconditions, stated and not performed (CONVENTIONS.md §2): rustup installed with a
-`stable` default toolchain; `command -v cargo` printing `$HOME/.cargo/bin/cargo`;
-cargo-binstall 1.23.0 on `PATH`; just 1.51.0; uv 0.11.18 under option A. If any is
+Preconditions, stated and not performed (CONVENTIONS.md §2): rustup installed (a default
+toolchain is probably not required: §2, and T03 confirms); `command -v cargo` printing
+`$HOME/.cargo/bin/cargo`; cargo-binstall 1.23.0 on `PATH`; just 1.51.0; uv 0.11.18 under
+option A. If any is
 missing, stop and report it; do not install anything outside the worktree.
 
 ## Goal
@@ -246,7 +247,8 @@ no lane touches it again; `stub` means the named lane replaces it.
 5. The tool configuration stubs, minimal but valid, so that `toml-check`, `clippy`,
    `deny` and `coverage` run: `rustfmt.toml` with `style_edition = "2024"` and
    `max_width = 100`; `clippy.toml` with `allow-unwrap-in-tests = true`; `taplo.toml`
-   with `include = ["**/*.toml"]` and `exclude = ["target/**", ".tools/**", "ai_tmp/**"]`;
+   with `include = ["**/*.toml"]` and `exclude = ["target/**", ".tools/**", "ai_tmp/**",
+   ".venv/**"]` (`.venv/**` is option A's entry);
    `deny.toml` with a `[licenses] allow = ["Apache-2.0"]` list, `[bans] wildcards =
    "deny"`, `[sources] unknown-registry = "deny"` and `allow-registry` naming crates.io
    (CONVENTIONS.md §12 asks T02 to confirm the 0.20 schema); `.config/nextest.toml` with
@@ -266,8 +268,8 @@ no lane touches it again; `stub` means the named lane replaces it.
    comment; keep or drop the Python lines per D01), `.markdownlint-cli2.jsonc`
    (`ignores`), `lychee.toml` (`exclude_path`), and `_typos.toml` as §5 gives it.
    `scripts/initialize.sh`: G's script with the npm, Storybook and ruff sections removed
-   and these steps in their place, in order, under `set -eu`: `just check-toolchain`;
-   `just install-toolchain`; `command -v cargo-binstall >/dev/null || cargo install
+   and these steps in their place, in order, under `set -eu`: `just install-toolchain`;
+   `just check-toolchain`; `command -v cargo-binstall >/dev/null || cargo install
    cargo-binstall@1.23.0 --locked`; `just install-tools`; `just install-allium`;
    `test -f Cargo.lock || cargo generate-lockfile`; `just sync`; `just format`; then G's
    worktree-aware `install-hooks` block and closing lines verbatim. T03 finalises the
@@ -407,7 +409,8 @@ no lane touches it again; `stub` means the named lane replaces it.
 - `rust-toolchain.toml`, `tools.txt`, `Justfile`, `.pre-commit-config.yaml`,
   `.pre-commit-fix.yaml`, `docs/manifest.yml`, `docs/README.md`, `CLAUDE.md`,
   `.github/copilot-instructions.md`, `.claude/settings.json` and every bridge are in
-  their final form; the last four and the seven modules are byte-identical to G's.
+  their final form; `CLAUDE.md`, `.github/copilot-instructions.md`, `.claude/settings.json`,
+  the twenty-six bridges of carried skills and the seven modules are byte-identical to G's.
 - `just check` is green in the worktree and in a fresh clone after `just initialize`.
 - `just check-agents` prints `Validated AGENTS.md, 2 adapters, and 14 skills.`;
   `just check-docs` reports every page valid; `just check-specs` and
@@ -436,7 +439,7 @@ for m in sudoku solver technique reach effort lapse human-solving; do cmp "docs/
 ls .agents/skills | wc -l; ls .claude/skills | wc -l; ls .codex/skills | wc -l
 cargo nextest run --workspace --locked 2>&1 | tail -3
 cargo test --doc --workspace --locked 2>&1 | tail -3
-grep -rn -E 'TODO|TBD|FIXME' --exclude-dir=.git --exclude-dir=target --exclude-dir=.tools --exclude-dir=tickets --exclude-dir=specs . || echo "no placeholders"
+grep -rn -E 'TODO|TBD|FIXME' --exclude-dir=.git --exclude-dir=target --exclude-dir=.tools --exclude-dir=.venv --exclude-dir=ai_tmp --exclude-dir=tickets --exclude-dir=specs . || echo "no placeholders"
 grep -rn -E '\{\{|\{%|\{#' README.md SECURITY.md CHANGELOG.md AGENTS.md docs .agents .claude .codex || echo "no template syntax"
 ```
 
