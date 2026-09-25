@@ -1,6 +1,9 @@
+# The only typos configuration. pyproject.toml carries no [tool.typos]: typos
+# stops at the first configuration file it finds, and finds this one.
+
 [files]
-# Lockfiles carry hashes that look like typos; build output and scratch are not
-# the repository's prose.
+# Lockfiles and vendored reference carry hashes and names that look like
+# typos; the environment and tool directories hold binaries.
 extend-exclude = [
   "Cargo.lock",
   "pixi.lock",

@@ -8,10 +8,13 @@ indent_size = 2
 insert_final_newline = true
 trim_trailing_whitespace = true
 
-[*.py]
+# rustfmt owns Rust layout and writes four spaces; this entry stops
+# editorconfig-checker from reporting what rustfmt has just written. TOML is
+# left at the two-space default above, which is what taplo writes.
+[*.rs]
 indent_size = 4
 
-[*.rs]
+[*.py]
 indent_size = 4
 
 [Justfile]
