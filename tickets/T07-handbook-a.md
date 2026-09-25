@@ -33,8 +33,8 @@ develop-locally states), §3 (the tree repository-map draws), §4 (every recipe 
 name), §5 (the hook pins), §6 (the page table and the dropped pages), §8 (the decision
 numbers), §9 (the boundary wording), §11 and §13; `tickets/T00-foundation.md` steps 9
 and 10 (the manifest rows, which are the authority for every page's frontmatter, and the
-stub rules); D01's hand-back notes (the `pyproject.toml` content, and the reason
-`.python-version` is kept, under "Handed back", T03);
+stub rules); D02's hand-back notes (the `pyproject.toml` content, the one-line
+`tools.txt` and the bootstrap story, under "Files T00, T03 and T04 create");
 `G docs/reference/documentation-contract.md` (strict-JSON manifest 20-29; five
 order-sensitive frontmatter keys 33-48; the rules at 61-68: H1
 equals title, forty words, no placeholder prose, exact-case links, reachable from the
@@ -72,10 +72,10 @@ line. Every page keeps the frontmatter T00 wrote, byte for byte.
 | `docs/project/repository-map.md` | A | `docs/project/repository-map.md` (60) | The §3 tree in G's presentation; new responsibility table |
 | `docs/project/terminology.md` | B | `docs/project/terminology.md` (97) | "The repository" kept and edited; "The game" becomes "The engine" |
 | `docs/tutorials/first-change.md` | A | `docs/tutorials/first-change.md` (91) | G's seven steps, around a clause, a test and `just check` |
-| `docs/how-to/develop-locally.md` | A | `docs/how-to/develop-locally.md` (112) | rustup, the pixi hazard, cargo-binstall, the offline first-run caveats |
+| `docs/how-to/develop-locally.md` | A | `docs/how-to/develop-locally.md` (112) | rustup, pixi, the pixi hazard, the offline first-run caveats |
 | `docs/how-to/test-and-debug.md` | B | `docs/how-to/test-and-debug.md` (75) | nextest filters, doctests, llvm-cov HTML, backtraces |
 | `docs/how-to/work-with-the-specs.md` | A | `docs/how-to/work-with-the-specs.md` (141) | Seven-module table; waiver terms verbatim; `just test` |
-| `docs/how-to/maintain-dependencies.md` | A | `docs/how-to/maintain-dependencies.md` (184) | Caret ranges and `Cargo.lock`; `tools.txt`; hook, action and toolchain pins |
+| `docs/how-to/maintain-dependencies.md` | A | `docs/how-to/maintain-dependencies.md` (184) | Caret ranges and `Cargo.lock`; `pyproject.toml` and `pixi.lock`; `tools.txt`; hook, action and toolchain pins |
 
 ## Steps
 
@@ -96,24 +96,27 @@ line. Every page keeps the frontmatter T00 wrote, byte for byte.
    `just dev`, `just storybook`, `just frontend-*`, `just preview` and
    `just storybook-browsers` have no counterpart; each brief says what replaces them.
 4. **Versions.** A page states no version that `rust-toolchain.toml`, `tools.txt`,
-   `Cargo.toml`, `pyproject.toml` or a hook `rev` already states; it names the file, or
-   links `../reference/configuration.md`, instead. Two exceptions, both places where G's
-   page states a figure too: the one-time cargo-binstall command in develop-locally
-   (G lines 15-16 state Node 26 and npm 11; the pin lives in `scripts/install_tools.sh`, not
-   in `tools.txt`), and allium `3.6.1` in the waiver terms (G work-with-the-specs line
-   108 and 128; maintain-dependencies line 144).
+   `Cargo.toml`, `pyproject.toml`, `pixi.lock` or a hook `rev` already states; it names
+   the file, or links `../reference/configuration.md`, instead. Two exceptions, both
+   places where G's page states a figure too: the pixi floor in develop-locally's
+   prerequisites (G lines 15-16 state Node 26 and npm 11; the pin is `requires-pixi` in
+   `pyproject.toml` and the `setup-pixi` step's `pixi-version` in the composite action,
+   the one tool no lockfile can install), and allium `3.6.1` in the waiver terms (G
+   work-with-the-specs line 108 and 128; maintain-dependencies line 144).
 5. **Voice and shape** as G's pages: prose wrapped by hand near 90 columns, `console`
    fences for commands, `text` fences for file content, one `## Related pages` list at
    the end, "this repository" or "the engine" rather than "this game", and never a
    `/Users/` path. Paths are code spans.
 6. **The Python toolchain stays** (decision 0004): `pyproject.toml` pins prek and B's
-   `bg-*` console scripts, and every sentence below is written for that. Nothing here
-   describes a Python-free form; the reader has one repository.
+   `bg-*` console scripts, pixi resolves them into `.pixi/envs/default` beside every
+   other tool (decision 0011; there is no `uv`), and every sentence below is written
+   for that. Nothing here describes a Python-free form; the reader has one repository.
 
 ### 2. Worktree and the baseline
 
 Create the worktree on `ticket/t07-handbook-a` from `main` (README.md "How to pick up a
-ticket"), run `just initialize` if `.tools/bin` is empty, then `just check-docs` and
+ticket"), run `just initialize` if `.pixi/envs/default` or `.tools/bin` is empty, then
+`just check-docs` and
 `just lint` on the untouched stubs and keep the output: it is the baseline every later
 run is compared with. Both must be green before any page is written.
 
@@ -160,22 +163,24 @@ order: `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, `tools.txt`, the five 
 configs (`rustfmt.toml`, `clippy.toml`, `taplo.toml`, `deny.toml`,
 `.config/nextest.toml`), `crates/pawdoku/` with `src/lib.rs`, `src/random.rs` and
 `tests/`, `docs/` with `specs/`, `scripts/`, `.agents/skills/`, `allium-skill-reference/`,
-`.github/`, `AGENTS.md`, `Justfile`, then `pyproject.toml`, `uv.lock` and
-`.python-version`. Gitignored directories (`target/`, `.tools/`, `ai_tmp/`) close the tree with
-"never committed" in the annotation, as §3's last line says. The responsibility table
+`.github/`, `AGENTS.md`, `Justfile`, then `pyproject.toml` and `pixi.lock`. Gitignored
+directories (`target/`, `.pixi/`, `.tools/`, `ai_tmp/`) close the tree with "never
+committed" in the annotation, as §3's last line says. The responsibility table
 (G 41-52) has these rows: `crates/pawdoku/src/` (pure behaviour; the one effect behind
 the trait `random.rs` defines; every public item documented and its example a test),
 `crates/pawdoku/tests/` (integration tests: the API bounds and the boundary; unit tests
 sit in-module, a stated deviation recorded in decision 0009), `docs/specs/` (G row 51
-verbatim), `scripts/` (the first-run script and the tool installer; the validators, the
-allium installer and runner, the gate runner and the ripsecrets wrapper are console
-scripts of `biscuit-games-tooling` pinned in `pyproject.toml`, as G row 50 says),
+verbatim), `scripts/` (the first-run script; the validators, the allium installer and
+runner, the gate runner and the ripsecrets wrapper are console scripts of
+`biscuit-games-tooling` pinned in `pyproject.toml`, as G row 50 says),
 `.agents/skills/` (canonical agent
 procedures; the two bridge trees point at them), `allium-skill-reference/` (vendored
 reference material for the Allium skills; ignored by every linter, decision 0010),
-`.tools/bin` (the pinned binaries `tools.txt` names; on `PATH` inside every recipe and
-nowhere else), `target/` (cargo's; `just coverage` writes `target/llvm-cov/`). Keep G
-54-55 (the layering link). Related pages: G's two.
+`.pixi/envs/default/bin` (every tool `pyproject.toml` pins and B's console scripts,
+installed from `pixi.lock`; first on `PATH` inside every recipe and nowhere else),
+`.tools/bin` (cargo-hack from `tools.txt`, and the Allium checker; on `PATH` inside
+every recipe after the pixi environment), `target/` (cargo's; `just coverage` writes
+`target/llvm-cov/`). Keep G 54-55 (the layering link). Related pages: G's two.
 
 Target 400-550 words (G has 471).
 
@@ -224,11 +229,13 @@ G's seven-step shape and every heading that still applies. The change is small o
 purpose and passes through every layer: a clause, a test, an item, the gate.
 
 - Intro (11-15): about half an hour from a fresh clone to a green gate; the first run
-  downloads a toolchain, the pinned tools, the Allium checker and the hook environments,
-  so it needs the network and rustup first (link `../how-to/develop-locally.md`).
+  downloads the pixi environment, a toolchain, cargo-hack, the Allium checker and the
+  hook environments, so it needs the network, rustup and pixi first (link
+  `../how-to/develop-locally.md`).
 - Step 1 (17-27): `just initialize` then `just check`. What `initialize` does, in T00
-  step 7's order: refuses a cargo that is not rustup's, installs the pinned toolchain,
-  the tools into `.tools/bin` and the Allium checker, syncs, normalises formatting, and
+  step 7's order: installs the pixi environment from `pixi.lock`, refuses a cargo that
+  is not rustup's, installs the pinned toolchain, cargo-hack into `.tools/bin` and the
+  Allium checker, syncs, normalises formatting, and
   installs the pre-commit hook from the primary worktree only. Keep G 26 ("It never
   stages, commits, tags or pushes.").
 - Step 2, "See the crate" for "See the app" (29-37): `just doc`, then open
@@ -264,16 +271,20 @@ Target 500-650 words (G has 518).
 Every day 54-87, Before handing work back 89-97, Keeping the workspace current 99-105,
 Related 107-112). Keep the six headings. Content:
 
-- Prerequisites table (13-19): `rustup` (installs the exact toolchain
-  `rust-toolchain.toml` pins, and the only cargo the gate accepts); `cargo-binstall`
-  (installs the pinned binaries `tools.txt` names, without compiling them); `just` (the
-  task runner, and the only supported interface to the checks); `uv` (runs the pinned
-  Python tooling the hook gate needs; `.python-version` pins the interpreter series so
-  two machines and CI resolve the same one, as D01 settled); `gh` (only for the pin-bump
-  commands in maintain-dependencies). Replace 21-23 with: `rust-toolchain.toml` names
-  the exact toolchain, its components and its two wasm targets, and rustup installs them
-  the first time cargo runs here; `tools.txt` names every other binary and its version;
-  link `../reference/configuration.md` rather than restating a number.
+- Prerequisites table (13-19), the D02 bootstrap story: `rustup` (installs the exact
+  toolchain `rust-toolchain.toml` pins, and the only cargo the gate accepts; `~/.cargo/bin`
+  ahead of `~/.pixi/bin` on `PATH`, or `pixi global uninstall rust`); `pixi`, 0.81.0 or
+  newer (installs every other tool and the Python environment from `pixi.lock` into the
+  gitignored `.pixi/envs/default`); `just` (the task runner, and the only supported
+  interface to the checks; `pixi global install just`; any just launches the recipes,
+  because the pinned one in the environment runs every nested call and CI, and
+  `pixi run --frozen just <recipe>` is the escape hatch when no global just exists);
+  `gh` (only for the pin-bump commands in maintain-dependencies). Not uv, not
+  cargo-binstall. Replace 21-23 with: `rust-toolchain.toml` names the exact toolchain,
+  its components and its two wasm targets, and rustup installs them the first time
+  cargo runs here; `pyproject.toml` names every other tool and `pixi.lock` pins it, with
+  `tools.txt` the one-line exception for what conda-forge lacks; link
+  `../reference/configuration.md` rather than restating a number.
 - First run (25-52), rewritten around three facts. One: rustup, installed once per
   machine; no default toolchain is required, because prek provisions its own rustup for
   its one `language: rust` hook (CONVENTIONS.md §2 "Maintainer prerequisites"; T03's
@@ -284,36 +295,41 @@ Related 107-112). Keep the six headings. Content:
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain stable --profile minimal
   ```
 
-  Say in one sentence that this is the only curl-pipe in the handbook, and that any
-  route ending with `rustup` on `PATH` and `command -v cargo` printing
-  `~/.cargo/bin/cargo` is equivalent. Two: the pixi hazard, in the tone of G's `~/.npmrc`
+  Say in one sentence that any route ending with `rustup` on `PATH` and
+  `command -v cargo` printing `~/.cargo/bin/cargo` is equivalent. Two: pixi, the second
+  and last per-machine install, with the one-line installer pixi's documentation gives
+  (copy the documented command on the day; the page names it and states no version,
+  because `requires-pixi` in `pyproject.toml` is the floor). Say that these two are the
+  only curl-pipes in the handbook, and that
+  `pixi global install just` is how just arrives when nothing else provides it. Three:
+  the pixi hazard, in the tone of G's `~/.npmrc`
   paragraph (37-44): a cargo from `pixi global`, Homebrew's `rust` formula or a
   distribution ignores `rust-toolchain.toml` and builds with whatever it is, so
   `just check-toolchain` refuses it before anything else runs; the remedy is
   `~/.cargo/bin` ahead of `~/.pixi/bin` on `PATH`, or `pixi global uninstall rust`.
   Quote the recipe's two error lines (`Justfile`, `check-toolchain`) so a reader can
-  search for them. Three: cargo-binstall, once per machine, which `scripts/install_tools.sh`
-  does when it is absent and which is the one tool compiled from source:
-
-  ```console
-  cargo install cargo-binstall@1.23.0 --locked
-  ```
+  search for them. The repository's own pixi environment holds no cargo and is not the
+  hazard; a `pixi global` rust is.
 
   Then `just initialize` (46-52 rewritten): what it does, in order, and that it needs the
-  network for the toolchain, the tools, the Allium checker, `cargo fetch` and the Python
-  environment. Then the offline caveat: the first `just lint` clones and
+  network for the pixi environment, the toolchain, cargo-hack, the Allium checker,
+  `cargo fetch` and the hook clones. Then the offline caveat: the first `just lint`
+  clones and
   builds the hook environments and needs the network too; `just check` runs `lint` as
   its third gate and adds no network need of its own, so run `just lint` once after
-  `just initialize` and the gate is offline from then on. Name `.tools/bin`: gitignored,
-  prepended to `PATH` by the `Justfile` for every recipe and not on the shell's `PATH`,
-  so a bare `cargo nextest` from a shell needs `PATH="$PWD/.tools/bin:$PATH"` or a recipe.
+  `just initialize` and the gate is offline from then on. Name `.pixi/envs/default/bin`
+  and `.tools/bin`: both gitignored, prepended to `PATH` in that order by the `Justfile`
+  for every recipe and not on the shell's `PATH`, so a bare `cargo nextest` from a shell
+  needs `PATH="$PWD/.pixi/envs/default/bin:$PWD/.tools/bin:$PATH"`, a recipe, or
+  `pixi run --frozen cargo nextest`.
 - Every day (54-87): `just build`, `just test`, `just doc` in place of `dev`,
   `storybook`, `preview`; the `BASE_PATH` paragraphs (73-87) go. One sentence each.
 - Before handing work back (89-97): G's block verbatim, with 96 corrected as the
   template's T07 hand-back did: `fix` is the one of the pair that modifies files;
   `lock` and `format` write too.
-- Keeping the workspace current (99-105): `just sync` after pulling, and
-  `just install-tools` after `tools.txt` moved, which skips a version already there.
+- Keeping the workspace current (99-105): `just sync` after pulling (it installs a moved
+  `pixi.lock` exactly as committed), and `just install-tools` after `tools.txt` moved,
+  which skips a version already there.
 - Related pages: G's four minus the workshop page; add `../reference/configuration.md`.
 
 Target 550-750 words (G has 558). Ubuntu and macOS only; Windows is an open point.
@@ -333,7 +349,7 @@ failure".
   RUST_BACKTRACE=1 cargo nextest run -p pawdoku -E 'test(name)'
   ```
 
-  with the `.tools/bin` sentence from develop-locally. Keep 27-28 (the link to
+  with the `PATH` sentence from develop-locally. Keep 27-28 (the link to
   `../reference/testing.md`).
 - Narrow down a failing test (32-40): item 1 becomes one test by filter; item 2 becomes
   "read the assertion's left and right and, for a panic, the backtrace `RUST_BACKTRACE=1`
@@ -407,22 +423,29 @@ first three, the tooling package, the Allium binary and Actions.
   exact-pin invariant, because a library that writes `=1.2.3` poisons every downstream
   resolution. Keep G's "Nothing updates them for you." and say why it stays true:
   no Dependabot or Renovate until S01 decides.
-- Check that the lockfile still matches (20-27): `just lock-check`, which runs
-  `cargo update --workspace --locked` and `uv lock --check`; gate 2 of
+- Check that the lockfiles still match (20-27): `just lock-check`, which runs
+  `cargo update --workspace --locked` and `pixi lock --check`; gate 2 of
   `just check`, so a manifest edited without relocking fails rather than drifting.
 - Update deliberately (29-38): `just lock` relocks the workspace members at what the
-  manifests state; `just lock-upgrade` moves every dependency to the newest version its
-  range admits, which here, unlike under exact pins, changes plenty; read the diff.
+  manifests state and runs `pixi lock`; `just lock-upgrade` moves every dependency to
+  the newest version its range admits, which here, unlike under exact pins, changes
+  plenty, and runs `pixi update`, which moves only transitives because every tool pin
+  is exact; read both diffs.
 - Upgrading a crate (40-58, rewritten): the version lives in `[workspace.dependencies]`
   in the root `Cargo.toml` and nowhere else; edit the range, `just lock`, read the
   lockfile diff, `just sync`, `just deny` (licences, bans and sources, offline),
   `just check`; `just audit` for advisories, which needs the network and is why it sits
   outside `check`. A new crate is a decision-0007 note in the pull request.
-- The tools in `tools.txt` (new, in place of 60-89): one `name@version` per line; bump a
-  pin by editing the line and running `just install-tools`, which skips a matching
-  version and refuses a source build (`--disable-strategies compile`); the two bootstrap
-  pins outside the file, cargo-binstall in `scripts/install_tools.sh` and, in CI, `just` and
-  cargo-binstall in `.github/actions/setup/action.yml`, move together with it.
+- The tools in `pyproject.toml` (new, in place of 60-89): the `[tool.pixi.dependencies]`
+  table pins every tool, Python and prek exactly and `pixi.lock` records the resolution;
+  move a pin by editing the line, running `pixi update <name>`, reading the lockfile
+  diff and committing `pixi.lock` (decision 0011). `tools.txt` is the exception for what
+  conda-forge lacks, one `name@version` per line (cargo-hack today); bump it by editing
+  the line and running `just install-tools`, which skips a matching version and refuses
+  a source build (`--disable-strategies compile`). The bootstrap pins outside both
+  files are pixi's own version, a floor in `requires-pixi` in `pyproject.toml` and an
+  exact `pixi-version` on the `setup-pixi` step in `.github/actions/setup/action.yml`,
+  which move together.
 - The toolchain (new): `channel` in `rust-toolchain.toml` and `rust-version` in the root
   `Cargo.toml` move together; after a bump run `just install-toolchain`, then
   `just clippy`, because the lint set moves with the release (CONVENTIONS.md §13).
@@ -446,8 +469,10 @@ first three, the tooling package, the Allium binary and Actions.
   `setup` action pin every `uses:` to a full SHA with a version comment; the same `gh
   api` line resolves them; `actionlint` runs inside `just lint` (178, kept).
 - Moving the tooling package (91-114): kept with two edits: 104-106's
-  `uv lock --upgrade-package biscuit-games-tooling` stays; 110-111 names the hooks that
-  read `pyproject.toml` (`check-specs` and `analyse-specs`, CONVENTIONS.md §5).
+  `uv lock --upgrade-package biscuit-games-tooling` becomes moving the `tag` in
+  `pyproject.toml`, `pixi update biscuit-games-tooling` and a committed `pixi.lock`;
+  110-111 names the hooks that read `pyproject.toml` (`check-specs` and
+  `analyse-specs`, CONVENTIONS.md §5).
 - Moving the Allium binary (116-149): kept with the decision link at 121 moved to 0005,
   the "package pin" sentences (121-122, 147-149) kept (the pin is B's package version,
   which `pyproject.toml` names), and the

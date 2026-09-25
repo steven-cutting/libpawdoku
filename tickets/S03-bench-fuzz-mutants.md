@@ -22,7 +22,8 @@ deterministic, offline and read-only on the worktree (CONVENTIONS.md §1 fact 3,
 where it runs: never in `check`, either in a scheduled CI job, or by hand through a
 recipe.
 
-Facts to start from, each verified at execution (as reasoned on 2026-09-23):
+Facts to start from, each verified at execution against the tool's documentation or
+`pixi search` (as reasoned on 2026-09-23):
 
 - **Benchmarks.** divan is attribute-style (`#[divan::bench]`), small, and prints a
   table; criterion keeps baselines on disk and compares runs, at the cost of a larger
@@ -71,8 +72,10 @@ artefact and is never required.
 ## Non-goals
 
 - Adding a dependency, a recipe, a workflow or a `fuzz/` directory: the follow-up does
-  that, with the recipe and the `tools.txt` lines as T00 follow-ups because both files
-  are frozen.
+  that, with the recipe and the tool pin (a pixi dependency in `pyproject.toml` when
+  conda-forge carries cargo-mutants, checked with `pixi search`, otherwise a `tools.txt`
+  line) as T00 follow-ups, because the `Justfile` and `tools.txt` are frozen and the
+  manifest is T00's.
 - A performance target for the solver; a specification question for `effort.allium`
   and `solver.allium`, not a tooling one.
 - Changing the coverage floor or the gate order.
@@ -101,12 +104,14 @@ artefact and is never required.
 
 3. Size the workload on the tree as it is: the functions cargo-mutants would mutate
    (`cargo mutants --list` from a scratch install under the session's scratch
-   directory, never `.tools/`) and the tests nextest lists. A crate with ten functions
+   directory, by `pixi exec` if conda-forge carries it or by a binstall there, never
+   `.tools/` or `.pixi/`) and the tests nextest lists. A crate with ten functions
    is not worth a weekly job yet; the recommendation says when it becomes worth it.
 
 4. Write, per adopted tool, the exact changes the follow-up needs: the dev-dependency
    for `[workspace.dependencies]` and the crate (T02 hand-back), the `benches/<name>.rs`
-   skeleton, the `bench` and `mutants` recipes and `tools.txt` lines (T00 follow-up),
+   skeleton, the `bench` and `mutants` recipes and the cargo-mutants pin, a pixi
+   dependency or a `tools.txt` line (T00 follow-up),
    the `taplo.toml` and `.gitignore` edits (T02 and T03 hand-backs), the `[workspace]
    exclude` line, and a `mutants.yml` workflow (weekly `schedule`, `workflow_dispatch`,
    `contents: read`, `actions/upload-artifact` of `mutants.out/`, never required)
@@ -138,7 +143,8 @@ cargo nextest list --workspace --locked 2>/dev/null | tail -1
 git status --porcelain
 ```
 
-Expected: the `mutants.out*/` line; taplo's exclude list (no `fuzz/**` today); the
+Expected: the `mutants.out*/` line; taplo's exclude list (`target/**`, `.tools/**`,
+`.pixi/**`, `ai_tmp/**`; no `fuzz/**` today); the
 installed toolchains (a nightly is not required for this spike); the test count; one
 line naming this file.
 

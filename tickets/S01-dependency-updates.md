@@ -25,18 +25,20 @@ repository who is not a person with write access. Here the pins are more varied:
 | --- | --- | --- | --- |
 | Crate versions | `Cargo.toml` caret ranges, `Cargo.lock` the pin (decision 0007) | T02 | `cargo update` |
 | GitHub Actions | `ci.yml`, `audit.yml`, `.github/actions/setup/action.yml`, SHA plus version comment | T04 | by hand |
-| uv, Python, the B tag | `pyproject.toml`, `uv.lock`, `.python-version` | T03 | `uv lock` |
+| Every tool, Python, prek and the B tag | `pyproject.toml` and `pixi.lock` (decision 0011) | T00 | `pixi update <name>` |
 | The toolchain | `rust-toolchain.toml` `channel = "1.98.1"` (frozen, CONVENTIONS.md §2) | T00 follow-up | by hand, with `rust-version` and a clippy re-run (§13) |
-| Tool binaries | `tools.txt` `name@version` (frozen) | T00 follow-up | by hand |
+| cargo-hack | `tools.txt` (frozen, one line) | T00 follow-up | by hand |
 | Hook revisions | both prek configs, `rev:` SHA plus version comment (frozen) | T00 follow-up | by hand |
 | The Allium binary | B's `install_allium.py` version and four checksums | B | a B release, then the tag in `pyproject.toml` |
-| Bootstrap pins | cargo-binstall 1.23.0 and just 1.51.0 in `scripts/install_tools.sh` and the action | T03, T04 | by hand |
+| Bootstrap pin | pixi 0.81.0: `requires-pixi` in `pyproject.toml` and `pixi-version` in the setup action | T00, T04 | by hand |
 
 Facts to start from and verify at execution (reasoned from the tools' documentation on
-2026-09-23, none run): Dependabot has `cargo`, `github-actions` and `uv` ecosystems and
-can group updates weekly, but reads no `rust-toolchain.toml`, `tools.txt`,
-nextest-version or prek `rev`; Renovate reaches those through regex custom managers
-(`tools.txt` lines as `name@version` against the crates.io datasource, the toolchain
+2026-09-23, none run): Dependabot has `cargo` and `github-actions` ecosystems and can
+group updates weekly, but reads no `rust-toolchain.toml`, `tools.txt`, nextest-version
+or prek `rev`, and no `uv` ecosystem applies here; whether Dependabot or Renovate
+understands `pixi.lock` is a fact to verify (Renovate documents a pixi manager; verify
+on the day). Renovate reaches the frozen pins through regex custom managers (the one
+`tools.txt` line as `name@version` against the crates.io datasource, the toolchain
 `channel` against Rust releases, a prek `rev` with its version comment against GitHub
 tags) and pins action digests with `helpers:pinGitHubActionDigests`, but needs the Mend
 app installed on the account (T's C04 step 2 records the same authorisation). Neither
@@ -48,8 +50,9 @@ no updater does.
 
 The trust question is smaller than C04's: `ci.yml` runs with `contents: read` and no
 secret, and nothing runs installed code beside a token. What remains is
-`just install-tools` binstalling whatever a bump writes into `tools.txt`, and `just
-sync` fetching whatever `Cargo.lock` names, both on the bot's branch in CI.
+`just install-tools` binstalling whatever a bump writes into `tools.txt` (cargo-hack
+alone), and `just sync` and `setup-pixi` installing whatever `Cargo.lock` and
+`pixi.lock` name, all on the bot's branch in CI.
 
 Read first: CONVENTIONS.md §1 fact 8, §2, §11, §13 (the last risk);
 `docs/decisions/0007-dependency-policy.md`; `docs/how-to/maintain-dependencies.md`;
@@ -61,13 +64,13 @@ A recommendation with evidence in the hand-back notes and, where one is taken, a
 drafted build ticket. Nothing is installed, no app is authorised, no file outside this
 ticket changes. The starting recommendation: **Renovate if the maintainer accepts the
 Mend app**, because it is the only option that reaches the frozen pins; otherwise
-**Dependabot for `cargo`, `github-actions` and `uv`, plus a written manual routine** in
+**Dependabot for `cargo` and `github-actions`, plus a written manual routine** in
 `docs/operations/maintenance.md` for the rest.
 
 | Option | Reaches | Misses | Cost to adopt | Trust surface | Fits decision 0007 |
 | --- | --- | --- | --- | --- | --- |
-| Dependabot | crates, actions with SHA, uv | toolchain, `tools.txt`, hook revs, allium, bootstrap pins | one `.github/dependabot.yml` (a new path: T00 follow-up) | bot branches in the base repository; no app | verify: relock only, or rewrite the caret range |
-| Renovate | the above plus the four frozen-file pins via regex managers and `pinDigests` | allium checksums; the `rust-version` half of a toolchain bump | the Mend app (authorisation), `renovate.json`, three regex managers written and tested | the same, plus an app with repository access | verify: `rangeStrategy: update-lockfile` keeps ranges |
+| Dependabot | crates, actions with SHA; `pixi.lock` only if verified | toolchain, `tools.txt`, hook revs, allium, the pixi pin | one `.github/dependabot.yml` (a new path: T00 follow-up) | bot branches in the base repository; no app | verify: relock only, or rewrite the caret range |
+| Renovate | the above plus `pixi.lock` through its pixi manager (verify) and the frozen-file pins via regex managers and `pinDigests` | allium checksums; the `rust-version` half of a toolchain bump | the Mend app (authorisation), `renovate.json`, three regex managers written and tested | the same, plus an app with repository access | verify: `rangeStrategy: update-lockfile` keeps ranges |
 | None | nothing | everything | a routine in `docs/operations/maintenance.md` | none | yes, by hand |
 
 ## Non-goals
@@ -95,31 +98,34 @@ Mend app**, because it is the only option that reaches the frozen pins; otherwis
    grep -v '^#' tools.txt
    grep -n 'channel' rust-toolchain.toml
    grep -n -E 'rev:|uses:' .pre-commit-config.yaml .pre-commit-fix.yaml .github/workflows/*.yml .github/actions/setup/action.yml | wc -l
-   grep -n 'biscuit_games_tooling@' pyproject.toml
+   grep -n -E '==|tag = |requires-pixi' pyproject.toml
    cargo metadata --locked --format-version 1 | jq '.packages | length'
    ```
 
 3. Verify, read-only, against each tool's current documentation, recording each answer
    with its source: (a) Dependabot `cargo` on caret ranges with a committed lockfile:
    does a bump rewrite the range, refresh only `Cargo.lock`, or both, and can that be
-   chosen; (b) whether Dependabot `uv` refreshes `uv.lock` for a git dependency pinned
-   to a tag; (c) whether Dependabot `github-actions` keeps the `# vX.Y.Z` comment beside
-   a SHA it moves; (d) Renovate `cargo` with `rangeStrategy: update-lockfile`; (e) a
-   Renovate regex manager for `tools.txt` lines (datasource `crate`), for `channel`
-   (a Rust release datasource) and for `rev:` with the comment; (f) whether Renovate's
-   `pre-commit` manager is still disabled by default (T's C04 line 107); (g) whether
-   either bot can move `rust-toolchain.toml` and `rust-version` together (expected: no).
+   chosen; (b) whether Dependabot or Renovate understands `pixi.lock` (Renovate
+   documents a pixi manager), moves an exact conda pin in `pyproject.toml`, and moves a
+   PyPI git dependency pinned to a tag; (c) whether Dependabot `github-actions` keeps
+   the `# vX.Y.Z` comment beside a SHA it moves; (d) Renovate `cargo` with
+   `rangeStrategy: update-lockfile`; (e) a Renovate regex manager for the `tools.txt`
+   line (datasource `crate`), for `channel` (a Rust release datasource) and for `rev:`
+   with the comment; (f) whether Renovate's `pre-commit` manager is still disabled by
+   default (T's C04 line 107); (g) whether either bot can move `rust-toolchain.toml` and
+   `rust-version` together (expected: no).
 
 4. Settle the trust surface for a bot branch (the five jobs with `contents: read`;
-   `just install-tools` binstalling a bumped `tools.txt` line under cargo-binstall's
-   checksum verification, T03's §12 outcome). Write the sentence
-   `docs/how-to/maintain-dependencies.md` will carry.
+   `setup-pixi` installing a bumped `pixi.lock` by hash; `just install-tools`
+   binstalling a bumped `tools.txt` line under cargo-binstall's checksum verification,
+   T03's §12 outcome). Write the sentence `docs/how-to/maintain-dependencies.md` will
+   carry.
 
 5. Weigh the options and decide. If Renovate: draft `renovate.json` in the hand-back
    notes (schema, `config:recommended`, `helpers:pinGitHubActionDigests`,
    `rangeStrategy`, a grouped weekly schedule, the three regex managers, and a
    `packageRules` entry holding the B tag for dashboard approval as C04 line 131 does
-   for the hub package). If Dependabot: draft `.github/dependabot.yml` with three
+   for the hub package). If Dependabot: draft `.github/dependabot.yml` with two
    ecosystems, weekly, grouped, and the manual routine for what it misses. If none:
    the routine alone.
 

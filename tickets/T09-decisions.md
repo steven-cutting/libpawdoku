@@ -2,7 +2,7 @@
 id: T09
 title: "Decision records"
 status: open
-depends_on: [T00, D01]
+depends_on: [T00, D01, D02]
 parallel_with: [T01, T02, T03, T04, T05, T06, T07, T08]
 branch: ticket/t09-decisions
 estimated_size: M
@@ -13,14 +13,14 @@ estimated_size: M
 ## Context
 
 This repository starts a decision series of its own under `docs/decisions/`: an index
-and ten numbered records (CONVENTIONS.md §8). Four are carried from Pawdoku (G) at
-`78d03cdf`, one is D01's text, and five are new to a Rust library. A carried record opens
-"Carried from Pawdoku's decision NNNN at `78d03cdf`" and keeps G's `canonical_for` slug,
-following the hub's precedent: "Ported entries say so and keep the topic slug they had,
-because the slug is what a cross-repository reference names" (H `AGENTS.md` lines
-242-243 at `575e3dd1`).
+and eleven numbered records (CONVENTIONS.md §8). Four are carried from Pawdoku (G) at
+`78d03cdf`, two are decision texts (D01's 0004 and D02's 0011), and five are new to a
+Rust library. A carried record opens "Carried from Pawdoku's decision NNNN at
+`78d03cdf`" and keeps G's `canonical_for` slug, following the hub's precedent: "Ported
+entries say so and keep the topic slug they had, because the slug is what a
+cross-repository reference names" (H `AGENTS.md` lines 242-243 at `575e3dd1`).
 
-T00 has merged: `docs/manifest.yml` carries the eleven entries (T00 step 9), and every
+T00 has merged: `docs/manifest.yml` carries the twelve entries (T00 step 9), and every
 file this ticket owns exists as a stub with valid frontmatter and 40 words of prose (T00
 step 10). This lane replaces the stubs. T01 to T08 run beside it and touch none of these
 files; T11 waits for all nine lanes. Read `CONVENTIONS.md` §0, §1 (every decision and fact
@@ -48,6 +48,8 @@ Sources, at the commits CONVENTIONS.md §0 pins, read with `git -C <clone> show 
   (`missing managed file`, `unexpected managed file`).
 - D01's hand-back notes in this repository: the section "The decision, and decision record
   0004" holds the full text of record 0004.
+- D02's hand-back notes in this repository: the section "The decision, and decision record
+  0011" holds the full text of record 0011.
 - T = `/Users/scutting/projects/biscuit_games_template` at `2283589c`,
   `tickets/T09-decisions.md`, for the shape of this ticket's hand-back notes only.
 
@@ -58,10 +60,11 @@ for a frontend repository; record 0005 below reasons from the fact that it exist
 
 ## Goal
 
-Eleven files under `docs/decisions/` in final form: an index of ten rows and ten records
-in G's shape, each passing `bg-validate-docs`, markdownlint, typos and offline lychee, so
-that `just check-docs` and `just lint` are green and a reader of any record knows what was
-chosen, what it costs, and what would reopen it, without reading `tickets/`.
+Twelve files under `docs/decisions/` in final form: an index of eleven rows and eleven
+records in G's shape, each passing `bg-validate-docs`, markdownlint, typos and offline
+lychee, so that `just check-docs` and `just lint` are green and a reader of any record
+knows what was chosen, what it costs, and what would reopen it, without reading
+`tickets/`.
 
 ## Non-goals
 
@@ -71,10 +74,11 @@ chosen, what it costs, and what would reopen it, without reading `tickets/`.
 - The pages the records link to: `project/`, `tutorials/` and `how-to/` are T07;
   `explanation/`, `reference/` and `operations/` are T08. A stub is a valid link target;
   do not wait for a lane.
-- An eleventh record, a different number, or a different file name for any of the ten.
-- D01's argument: record 0004 is copied, not rewritten. If D01's `status:` is not `done`,
-  or its hand-back notes carry no record text, stop and report; T00 could not have merged
-  in that state, so this is a defect to raise, not a gap to fill.
+- A twelfth record, a different number, or a different file name for any of the eleven.
+- D01's and D02's arguments: records 0004 and 0011 are copied, not rewritten. If either
+  ticket's `status:` is not `done`, or its hand-back notes carry no record text, stop and
+  report; T00 could not have merged in that state, so this is a defect to raise, not a
+  gap to fill.
 - G's, H's and T's own records: never modified.
 
 ## Files touched
@@ -92,6 +96,7 @@ chosen, what it costs, and what would reopen it, without reading `tickets/`.
 | `docs/decisions/0008-no-std-core.md` | new | The core's constraints and their costs |
 | `docs/decisions/0009-rust-quality-gate.md` | new | The Rust gates and the test-placement deviation |
 | `docs/decisions/0010-skill-reference-material.md` | new | The record G's `189348e` deferred |
+| `docs/decisions/0011-tool-manager.md` | D02's text | Verbatim from D02's hand-back notes |
 
 Every record: frontmatter equal to its manifest entry (five keys in G's order, `title`
 double-quoted, lists inline); H1 `# Decision NNNN: <title>`; a carried record's line 11
@@ -103,22 +108,24 @@ names targets as paths.
 ## Steps
 
 1. Create the worktree on `ticket/t09-decisions` from `main` (README.md "How to pick up
-   a ticket"), run `just initialize` if `.tools/bin` is empty, then `just check-docs`
-   on the untouched stubs and keep the output: it is the baseline every later run is
-   compared with.
+   a ticket"), run `just initialize` if `.pixi/envs/default` or `.tools/bin` is missing,
+   then `just check-docs` on the untouched stubs and keep the output: it is the baseline
+   every later run is compared with.
 
-2. Read `docs/manifest.yml` in the worktree. Its eleven `decisions/` entries are the
+2. Read `docs/manifest.yml` in the worktree. Its twelve `decisions/` entries are the
    authority for every file's frontmatter. Two entries differ from CONVENTIONS.md §8's
    titles and the manifest wins: 0003 is "Decision 0003: Effects behind traits" and 0008
    is "Decision 0008: A pure no_std core" (T00 step 9). Record 0004's title is
    "Decision 0004: Hook runner and checkers", its slug `decision_python_toolchain` and
-   its file name `0004-hook-runner-and-checkers.md` (D01). The manifest was frozen at
-   T00, so run `grep -n '0004' docs/manifest.yml` before writing anything: the row must
+   its file name `0004-hook-runner-and-checkers.md` (D01). Record 0011's title is
+   "Decision 0011: Tool manager", its slug `decision_tool_manager` and its file name
+   `0011-tool-manager.md` (D02). The manifest was frozen at T00, so run
+   `grep -n -E '0004|0011' docs/manifest.yml` before writing anything: each row must
    carry that title and slug, because the record cannot pass `bg-validate-docs` with a
    different slug and this lane cannot edit the manifest. A mismatch is a T00 follow-up
    on `main`, handed back first.
 
-3. Rules every file obeys (B's `validate_docs.py` and the hooks enforce them; run step 15
+3. Rules every file obeys (B's `validate_docs.py` and the hooks enforce them; run step 17
    rather than trusting a reading): 40 or more words, no `TODO`, `TBD`, `FIXME` or lorem
    ipsum; every relative link resolves with exact case to a registered page; no link to
    a G-only page or record; no `/Users/` path; G's name appears only where a record
@@ -209,17 +216,19 @@ names targets as paths.
    (why the wrapper reads the JSON; a missing binary fails the gate) and 83-84. Replace
    lines 42-45 with the argument for this repository: `allium-cli` 3.6.1 is on crates.io
    (state the date verified), so `cargo install allium-cli --locked` and a
-   `tools.txt` line for cargo-binstall are both real alternatives, and G's objection to
-   a third toolchain lapses because cargo is this repository's toolchain. Neither is
-   taken: a source build costs minutes on every cold runner and verifies nothing, and a
-   binstall of the release artefact verifies only checksums upstream publishes, which for
-   the platform binaries is none (G lines 54-59), so the house installer with its four
-   recorded values is still the only path that proves what was downloaded. Also: one
+   `tools.txt` line (or a pixi dependency, if conda-forge packages allium) are both real
+   alternatives, and G's objection to a third toolchain lapses because cargo is this
+   repository's toolchain. Neither is taken: a source build costs minutes on every cold
+   runner and verifies nothing, and a binstall of the release artefact verifies only
+   checksums upstream publishes, which for the platform binaries is none (G lines
+   54-59), so the house installer with its four recorded values is still the only path
+   that proves what was downloaded. Also: one
    owner per pin (the tooling package, moved by one line, shared with every house
    repository) and the JSON-reading runner travel together with the version they were
    verified against. What would reopen this: G's two clauses (lines 88-90), restated as
    upstream publishing checksums that cover the platform binaries, at which point a
-   `tools.txt` line replaces the installer and the record is superseded. Related pages:
+   `tools.txt` line or a pixi dependency replaces the installer and the record is
+   superseded. Related pages:
    G's three, `docs/how-to/work-with-the-specs.md`, `docs/how-to/maintain-dependencies.md`,
    `docs/reference/quality-gates.md`.
 
@@ -307,11 +316,12 @@ names targets as paths.
     the host and both wasm targets; rustdoc with `-D warnings --cfg docsrs`; taplo for
     every TOML; `cargo-shear` for unused dependencies; nextest for unit and integration
     tests and `cargo test --doc` for doctests, which nextest cannot run and llvm-cov
-    cannot measure on stable, so doctests run uncovered; every tool pinned in `tools.txt`
-    and installed by cargo-binstall into `.tools/bin`, one owner per pin; clippy runs at
-    gate 6 and in CI but never as a commit hook, because a cold run blocks every commit
-    for tens of seconds to minutes, the same call G makes by keeping `svelte-check` out
-    of its hook. The test-placement deviation, stated as such: unit tests live in
+    cannot measure on stable, so doctests run uncovered; every tool pinned in
+    `pyproject.toml` and installed by pixi into the environment, cargo-hack through
+    `tools.txt`, one owner per pin (decision 0011); clippy runs at gate 6 and in CI but
+    never as a commit hook, because a cold run blocks every commit for tens of seconds
+    to minutes, the same call G makes by keeping `svelte-check` out of its hook. The
+    test-placement deviation, stated as such: unit tests live in
     `#[cfg(test)] mod tests` inside the module they test, integration tests in
     `crates/pawdoku/tests/`, and doc examples are tests; this departs from the games'
     "never colocated" rule because Rust's privacy model means a private item can only be
@@ -346,39 +356,50 @@ names targets as paths.
     reference itself, at which point the directory is deleted and the links move.
     Related pages: `docs/reference/agent-contract.md`, `docs/project/repository-map.md`.
 
-15. `docs/decisions/README.md`: T00's shape kept (G's first two paragraphs with "how
-    Pawdoku is built" made "how this library is built"; "Writing a new one" and "Related
-    pages" verbatim from G lines 46-55). The table: ten rows, each linking its file and
-    carrying the short title (the manifest `title` after "Decision NNNN: "). "The
-    numbering", final, in place of G's lines 35-44: this series is the repository's own
-    and starts at 0001; four entries were carried from Pawdoku at `78d03cdf` (0002, 0003,
-    0004, 0005), each says so under its heading and keeps the slug it had,
-    because the slug is what a cross-repository reference names; the game restates the
-    engine's clauses and cites these records by slug; nothing here is rendered from a
-    template, so no frozen inventory applies, and the next decision this repository
-    takes is 0011.
+15. `0011-tool-manager.md`: the full record text from D02's hand-back notes ("The
+    decision, and decision record 0011"), copied without edits except that the
+    frontmatter equals the manifest entry. The slug is `decision_tool_manager`; the
+    record is new, not carried, so it has no line 11 opening sentence, and it names
+    which consequences of 0004 it supersedes while 0004 itself stays verbatim. If D02's
+    text lacks a section of the shape, or links to a page the manifest does not
+    register, stop and hand it back; do not repair it here.
 
-16. After each file, `just check-docs`; the output must match step 1's baseline apart
-    from the word counts. When all eleven are done, `just lint`, then `just check`, then
+16. `docs/decisions/README.md`: T00's shape kept (G's first two paragraphs with "how
+    Pawdoku is built" made "how this library is built"; "Writing a new one" and "Related
+    pages" verbatim from G lines 46-55). The table: eleven rows, each linking its file
+    and carrying the short title (the manifest `title` after "Decision NNNN: "), and one
+    sentence beneath it: 0004 is superseded in part by 0011, which says which of its
+    consequences stand. "The numbering", final, in place of G's lines 35-44: this series
+    is the repository's own and starts at 0001; four entries were carried from Pawdoku
+    at `78d03cdf` (0002, 0003, 0004, 0005), each says so under its heading and keeps the
+    slug it had, because the slug is what a cross-repository reference names; the game
+    restates the engine's clauses and cites these records by slug; nothing here is
+    rendered from a template, so no frozen inventory applies, and the next decision
+    this repository takes is 0012.
+
+17. After each file, `just check-docs`; the output must match step 1's baseline apart
+    from the word counts. When all twelve are done, `just lint`, then `just check`, then
     the Verification commands. Set `status: done` in this file, commit on the ticket
     branch in one or a few commits with short imperative subjects, and stop: pushing and
     opening the pull request are separately authorised (CONVENTIONS.md §11).
 
 ## Acceptance criteria
 
-- Eleven files under `docs/decisions/`, and no other file changed except this ticket's
+- Twelve files under `docs/decisions/`, and no other file changed except this ticket's
   `status:` line.
 - Each record has the five sections in G's order and 40 or more words in the body; a
   realistic total is 45 to 100 lines, as G's carried records are 58 to 98.
-- Frontmatter of all eleven files equals the manifest entry key for key; H1 equals
+- Frontmatter of all twelve files equals the manifest entry key for key; H1 equals
   `title`; 0003 and 0008 carry the manifest's shorter titles.
 - Line 11 of 0002, 0003, 0004 and 0005 is step 4's sentence with
   the right Pawdoku number (0003, 0002, 0007, 0004), and each keeps G's slug.
-- 0004 is D01's text unchanged; 0005 states that `allium-cli` is on crates.io and why it
-  is still not the install path; 0007 and 0009 each name their deviation from the games'
-  `AGENTS.md` and say why; 0010 cites what the validator forbids.
+- 0004 is D01's text unchanged and 0011 is D02's; 0005 states that `allium-cli` is on
+  crates.io and why it is still not the install path; 0007 and 0009 each name their
+  deviation from the games' `AGENTS.md` and say why; 0010 cites what the validator
+  forbids.
 - Every "Related pages" link resolves to a registered page; no link to a G-only page.
-- The index has ten rows and a final "The numbering"; "Writing a new one" is G's verbatim.
+- The index has eleven rows, the sentence on 0004 and 0011 beneath them, and a final
+  "The numbering"; "Writing a new one" is G's verbatim.
 - `just check-docs`, `just lint` and `just check` green in the worktree.
 
 ## Verification
@@ -396,10 +417,10 @@ git status --porcelain
 ```
 
 Expected: the three `just` runs exit 0 and `check-docs` reports every page valid; `ls`
-prints `11`; the loop prints four lines each beginning `*Carried from Pawdoku's decision`;
+prints `12`; the loop prints four lines each beginning `*Carried from Pawdoku's decision`;
 every record
 counts `5` sections and the index `4`; the two greps print their messages; `git status`
-lists only the eleven files and this ticket. Quote each in the hand-back notes.
+lists only the twelve files and this ticket. Quote each in the hand-back notes.
 
 ## Hand-back notes
 
@@ -417,9 +438,10 @@ lists only the eleven files and this ticket. Quote each in the hand-back notes.
   every consumer inherits, 0009 is a property of this repository's gate, and each has
   its own reopening condition.
 - Whether "rustup and the exact toolchain pin" (§1 decision 4, §2) needs a record of its
-  own. It is stated in 0009's Context as the reason the lint set is stable; if a reader
-  of `docs/how-to/develop-locally.md` needs the argument against pixi's cargo in a
-  record, add 0011 later rather than widening 0009.
+  own. Answered by D02: 0011 records the split, pixi for the tools and rustup for the
+  compiler, with the argument against a pixi-owned cargo, so a separate rustup record
+  is not needed; 0009's Context still states the pin as the reason the lint set is
+  stable.
 - Whether typos flags a word in a record (a slug like `no_std` or a crate name). Check:
   the `just lint` run; the remedy is an `extend-words` entry in `_typos.toml`, which is
   T03's file, so hand it back.

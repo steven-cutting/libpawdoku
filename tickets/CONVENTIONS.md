@@ -43,7 +43,13 @@ Tooling verified on 2026-09-23 on the maintainer's machine: just 1.51.0, uv 0.11
 by `pixi global` at `~/.pixi/bin` (a conda-forge build, **not** a rustup proxy), **no
 rustup**, and none of cargo-binstall, cargo-nextest, cargo-llvm-cov, cargo-deny,
 cargo-hack, cargo-shear, taplo, prek, typos or lychee on `PATH`. Rust stable on that day
-was 1.98.1 (`channel-rust-stable.toml`, released 2026-09-01).
+was 1.98.1 (`channel-rust-stable.toml`, released 2026-09-01). Re-verified on 2026-09-24
+for D02: rustup 1.29.1 and cargo-binstall 1.23.0 now in `~/.cargo/bin` (T00 installed
+them); pixi 0.81.0 at `~/.pixi/bin/pixi`; `~/.pixi/bin/cargo` still shadows rustup in
+any shell that does not source `~/.cargo/env`. conda-forge that day: cargo-nextest
+0.9.146, cargo-llvm-cov 0.9.1, cargo-deny 0.20.2, taplo 0.10.0, prek 0.5.3,
+cargo-binstall 1.23.0, cargo-shear 1.13.4, just 1.58.0, python 3.14; no cargo-hack, no
+ripsecrets, no editorconfig-checker.
 
 ## 1. Decisions taken with the maintainer, and the facts everything rests on
 
@@ -69,15 +75,24 @@ Decisions, taken on 2026-09-23:
    seeded stream of draws; `rand` and `getrandom` are banned from the core by cargo-deny.
    No timeouts: limits are step budgets.
 6. **The Python toolchain stays**, decided in D01 (done 2026-09-24; decision 0004). G's
-   decision 0004 keeps uv, prek and B's checkers in a repository that ships no Python;
-   the same argument holds here and pyo3 brings uv back regardless. The maintainer asked
-   for the evaluation to be written down, and D01's hand-back notes hold it. Every
-   Rust-side decision in this document was the same under either outcome.
+   decision 0004 keeps prek and B's checkers in a repository that ships no Python; the
+   same argument holds here. The maintainer asked for the evaluation to be written
+   down, and D01's hand-back notes hold it. Every Rust-side decision in this document
+   was the same under either outcome. Who installs the toolchain is decision 9.
 7. **Tickets in this repository**, in T's format, executed by AI agents in separate
    worktrees (§11). D01 first, then T00 as one shape-complete foundation, then nine
    parallel lanes.
 8. **Dependency updates, release automation, benchmarks, fuzzing and the bindings
    crates are spikes** (S01 to S04), picked up after T11.
+9. **pixi owns the tools, rustup keeps the compiler**, decided in D02 (done 2026-09-24;
+   decision 0011). `pyproject.toml` is a pixi manifest pinning Python, just, prek,
+   cargo-binstall and every cargo tool conda-forge carries, plus B as a PyPI git
+   dependency; `pixi.lock` is the pin; the environment is the gitignored `.pixi/`. uv,
+   `uv.lock`, `.python-version` and the per-machine cargo-binstall are gone. cargo-hack
+   is not on conda-forge, so a one-line `tools.txt` and the environment's cargo-binstall
+   put it in `.tools/bin` beside the Allium checker. Decision 4 is untouched: the pixi
+   environment holds no `rust`, and `check-toolchain` still refuses any cargo that is
+   not rustup's proxy. D02's hand-back notes hold the comparison and the record.
 
 Facts, each verified in source, that shape the mechanism:
 
@@ -93,8 +108,10 @@ Facts, each verified in source, that shape the mechanism:
    predicates from `[tool.biscuit-games-tooling]`. Nothing in it names a frontend.
 3. **B's gate runner snapshots the worktree.** `run_project_check.py` lines 41-62 hash
    every tracked and untracked-unignored path after each recipe and abort on any change.
-   So `target/`, `.tools/` and everything a Rust recipe writes are gitignored, and every
-   cargo invocation in a gate carries `--locked` so no recipe can rewrite `Cargo.lock`.
+   So `target/`, `.tools/`, `.pixi/` and everything a Rust recipe writes are gitignored,
+   and every cargo invocation in a gate carries `--locked` so no recipe can rewrite
+   `Cargo.lock`; the pixi calls in a gate are `--frozen` or `lock --check` for the same
+   reason.
 4. **The Allium binary is pinned by checksum.** B's `install_allium.py` line 34 pins
    allium-tools `3.6.1` with SHA-256 per target; `run_allium.py` reads the JSON
    diagnostics because the binary's exit code is not trustworthy. G's modules are
@@ -143,47 +160,64 @@ targets = ["wasm32-unknown-unknown", "wasm32v1-none"]
 `rust-src` serves rust-analyzer; `llvm-tools-preview` serves cargo-llvm-cov (§12 checks
 whether the component is now named `llvm-tools`; rustup accepts both).
 
-### `tools.txt` (exact text; the single pin list, frozen at T00)
+### `pyproject.toml` (the pixi manifest; T00 writes it, T03 finalises comments)
+
+The complete text is in D02's hand-back notes ("Files T00, T03 and T04 create") and is
+not repeated here. Its pins: `python = "3.14.*"`, `just ==1.58.0`, `prek ==0.5.3`,
+`cargo-binstall ==1.23.0`, `cargo-nextest ==0.9.146`, `cargo-llvm-cov ==0.9.1`,
+`cargo-deny ==0.20.2`, `cargo-shear ==1.13.4` (the newest conda-forge carried on
+2026-09-24; the pin follows conda-forge, not crates.io), `taplo ==0.10.0`;
+`biscuit-games-tooling` at git tag `v0.3.0` under `[tool.pixi.pypi-dependencies]`;
+`channels = ["conda-forge"]`, `platforms = ["linux-64", "osx-arm64"]`,
+`requires-pixi = ">=0.81.0"`. No `rust`: rustup owns the compiler (decision 9). No
+`[tool.pixi.tasks]`: the `Justfile` is the task runner. `pixi.lock` is generated by
+`pixi lock`, committed, and never hand-edited; `pixi install --frozen` (in `just sync`)
+installs it, `pixi lock --check` (in `just lock-check`) proves it, and `pixi install
+--locked` (the first line of `scripts/initialize.sh`, and `setup-pixi` in CI) refuses a
+lockfile that disagrees with the manifest. The environment is `.pixi/envs/default`,
+gitignored; its `bin` is first on every recipe's `PATH`.
+
+### `tools.txt` (exact text; the exception list, frozen at T00)
 
 ```text
-# Binaries `just install-tools` puts in the gitignored .tools/bin through cargo-binstall,
-# one name@version per line, verified 2026-09-23. No lockfile can name a binary, so
-# `just sync` never runs this; `just initialize` does. Two bootstrap pins live outside
-# this file, stated in scripts/install_tools.sh and .github/actions/setup/action.yml:
-# cargo-binstall 1.23.0 (per machine, in ~/.cargo/bin, like rustup itself) and, in CI
-# only, just 1.51.0. Tools a prek hook pins (typos, ripsecrets, lychee, shellcheck,
-# actionlint, editorconfig-checker, markdownlint-cli2) are not listed: one owner per pin.
-cargo-nextest@0.9.146
-cargo-llvm-cov@0.9.1
-cargo-deny@0.20.2
+# Binaries pixi cannot own, installed by `just install-tools` into the gitignored
+# .tools/bin through cargo-binstall (itself a pixi dependency in pyproject.toml), one
+# name@version per line, verified 2026-09-24. Everything conda-forge carries is pinned
+# in pyproject.toml and locked in pixi.lock; this file is the escape hatch for what it
+# lacks, and empties the day cargo-hack is packaged there. Tools a prek hook pins
+# (typos, ripsecrets, lychee, shellcheck, actionlint, editorconfig-checker,
+# markdownlint-cli2) are not listed: one owner per pin.
 cargo-hack@0.6.45
-cargo-shear@1.14.0
-taplo-cli@0.10.0
 ```
 
 The install command is
 `grep -v '^#' tools.txt | xargs cargo binstall --root .tools --no-confirm --locked --disable-strategies compile`
 (§12: `--root .tools` lands binaries in `.tools/bin`; a matching version already there is
 skipped; `--disable-strategies compile` refuses a source build so an unpinnable tool fails
-loudly). cargo-binstall itself is installed once per machine by
-`cargo install cargo-binstall@1.23.0 --locked` (from `scripts/install_tools.sh` when absent;
-from `taiki-e/install-action` in CI), never by a curl-pipe script.
+loudly). cargo-binstall comes from the pixi environment; nothing is compiled at bootstrap
+and nothing is installed by a curl-pipe script.
 
-Other pins this document fixes: prek 0.5.3, uv 0.11.18 and Python 3.14,
-allium-tools 3.6.1 with B's checksums, proptest 1.11.0, thiserror 2.0.17, serde 1.0.228
-(§12 re-verifies each on the day a ticket writes it). Every remote hook and every GitHub
-Action is pinned to a full commit SHA with a version comment (§5, §10).
+Other pins this document fixes: pixi 0.81.0 (`requires-pixi` floors it in the manifest;
+`setup-pixi`'s `pixi-version` names it exactly in CI), allium-tools 3.6.1 with B's
+checksums, proptest 1.11.0, thiserror 2.0.17, serde 1.0.228 (§12 re-verifies each on the
+day a ticket writes it). Every remote hook and every GitHub Action is pinned to a full
+commit SHA with a version comment (§5, §10).
 
 ### Maintainer prerequisites (not ticket steps)
 
 rustup installed (a `stable` default toolchain is probably not needed: prek 0.4.12 in G's
 environment provisions its own rustup and stable toolchain under `$PREK_HOME/tools/rustup`
 for its one `language: rust` hook, ripsecrets; §12 has T03 confirm on 0.5.3); `~/.cargo/bin` ahead of `~/.pixi/bin` on `PATH`, or
-`pixi global uninstall rust`; `command -v cargo` printing `~/.cargo/bin/cargo`;
-cargo-binstall 1.23.0; just; gh; uv 0.11.18. T00's first verification is
-`rustup show active-toolchain` from this repository printing `1.98.1`; an executing agent
-that finds otherwise runs `rustup toolchain install` from the worktree, the one install
-T00 performs (§11), and stops if the pin still does not print.
+`pixi global uninstall rust`; `command -v cargo` printing `~/.cargo/bin/cargo`; pixi
+0.81.0 or newer; just (`pixi global install just`; any just launches the recipes, because
+the pinned one in the environment runs every nested call and CI; `pixi run --frozen just
+<recipe>` is the escape hatch when no global just exists); gh. Not uv, not
+cargo-binstall. T00's first verification is `rustup show active-toolchain` from this
+repository printing `1.98.1`; an executing agent that finds otherwise runs
+`rustup toolchain install` from the worktree, the one install T00 performs (§11), and
+stops if the pin still does not print. An agent's tool shell may not source
+`~/.cargo/env`; if `command -v cargo` prints `~/.pixi/bin/cargo`, every command is
+prefixed `PATH="$HOME/.cargo/bin:$PATH"`.
 
 ## 3. Target repository tree (exact paths and owners)
 
@@ -198,7 +232,7 @@ rust-toolchain.toml              T00 (frozen)
 rustfmt.toml  clippy.toml        T00 stub -> T02
 taplo.toml  deny.toml            T00 stub -> T02
 .config/nextest.toml             T00 stub -> T02
-tools.txt                        T00 (frozen)
+tools.txt                        T00 (frozen; one line)
 crates/pawdoku/Cargo.toml        T00 skeleton -> T02
 crates/pawdoku/README.md         T00 stub -> T10
 crates/pawdoku/src/lib.rs        T00 (no_std, one documented, tested item) -> T02
@@ -217,9 +251,9 @@ Justfile                         T00 (frozen)
 .pre-commit-config.yaml  .pre-commit-fix.yaml   T00 (frozen)
 .editorconfig  .gitattributes  .gitignore   T00 -> T03
 .markdownlint-cli2.jsonc  lychee.toml  _typos.toml   T00 -> T03
-pyproject.toml  uv.lock  .python-version   T00 -> T03
+pyproject.toml                   T00 (the pixi manifest and B's table) -> T03 comments
+pixi.lock                        T00 (generated by `pixi lock`; committed)
 scripts/initialize.sh            T00 stub -> T03
-scripts/install_tools.sh         T03
 .github/actions/setup/action.yml T00 stub -> T04
 .github/workflows/ci.yml         T00 one-job stub -> T04
 .github/workflows/audit.yml      T04
@@ -228,26 +262,33 @@ docs/project/*.md                T00 stub -> T07
 docs/tutorials/*.md  docs/how-to/*.md   T00 stub -> T07
 docs/explanation/*.md            T00 stub -> T08 (two pages T06)
 docs/reference/*.md  docs/operations/*.md   T00 stub -> T08
-docs/decisions/README.md  docs/decisions/0001..0010-*.md   T00 stub -> T09
+docs/decisions/README.md  docs/decisions/0001..0011-*.md   T00 stub -> T09
 docs/specs/{sudoku,solver,technique,reach,effort,lapse,human-solving}.allium   T00 verbatim from G -> T06
 tickets/                         this directory
-ai_tmp/  .tools/  target/        gitignored; never committed
+ai_tmp/  .tools/  .pixi/  target/   gitignored; never committed
 ```
 
 ## 4. `Justfile` (complete; frozen at T00)
 
-The text below is frozen at T00. D01 kept the Python toolchain (decision 0004), so
-`prek` and B's console scripts run through `uv run --frozen`, and the recipe list `check`
-runs lives in `pyproject.toml`.
+The text below is frozen at T00. D01 kept the Python toolchain (decision 0004) and D02
+made pixi its installer (decision 0011), so `prek` and B's console scripts are binaries
+on the recipe `PATH`, called by name, and the recipe list `check` runs lives in
+`pyproject.toml`. No recipe runs through `pixi run`: a bare `pixi run` may rewrite
+`pixi.lock`, it exports `CONDA_PREFIX` and `PIXI_*` around every cargo build, and it
+runs the line through its own shell instead of `sh -eu`; the `PATH` export is the one
+activation.
 
 ```just
 set positional-arguments := true
 set shell := ["sh", "-eu", "-c"]
 
-# Pinned binaries no lockfile can name live in the gitignored .tools/bin (see
-# tools.txt). Every recipe, and every hook that runs through a recipe, sees them
-# first; cargo finds cargo-nextest and friends on PATH by name.
-export PATH := justfile_directory() / ".tools" / "bin" + ":" + env("PATH")
+# pixi owns every tool binary and the Python environment (.pixi/envs/default;
+# pyproject.toml is the manifest, pixi.lock the pin). Tools conda-forge lacks
+# (tools.txt) live in .tools/bin, and so does the Allium checker. Every recipe,
+# and every hook that runs through a recipe, sees both first; cargo finds
+# cargo-nextest and friends on PATH by name. Neither directory holds a cargo, so
+# rustup's proxy stays first for the compiler (check-toolchain proves it).
+export PATH := justfile_directory() / ".pixi" / "envs" / "default" / "bin" + ":" + justfile_directory() / ".tools" / "bin" + ":" + env("PATH")
 
 # Line-coverage floor over crates/pawdoku/src/**. Lower the complexity, not the
 # number.
@@ -274,36 +315,40 @@ check-toolchain:
 install-toolchain:
     rustup toolchain install
 
-# Pinned binaries into .tools/bin (network). cargo-binstall itself is a
-# per-machine prerequisite that scripts/initialize.sh installs when absent.
+# Tools conda-forge lacks (tools.txt) into .tools/bin (network). cargo-binstall
+# comes from the pixi environment.
 install-tools:
     grep -v '^#' tools.txt | xargs cargo binstall --root .tools --no-confirm --locked --disable-strategies compile
 
 # The Allium checker for docs/specs/, pinned and checksummed in the tooling
 # package. Downloads over the network into .tools/bin, which Git ignores.
 install-allium:
-    uv run --frozen bg-install-allium
+    bg-install-allium
 
+# Both lockfiles, exactly as committed. Never rewrites either.
 sync:
     cargo fetch --locked
-    uv sync --frozen
+    pixi install --frozen
 
 lock:
     cargo update --workspace
-    uv lock
+    pixi lock
 
+# Within the manifest's constraints only; every direct pin is exact, so this
+# moves transitives (openssl, libcxx, the Python patch level). `pixi upgrade`
+# rewrites the pins themselves and is not this recipe.
 lock-upgrade:
     cargo update
-    uv lock --upgrade
+    pixi update
 
 lock-check:
     cargo update --workspace --locked
-    uv lock --check
+    pixi lock --check
 
 install-hooks:
     git rev-parse --is-inside-work-tree >/dev/null
-    test -f uv.lock || { printf '%s\n' 'uv.lock is missing; run just initialize first' >&2; exit 2; }
-    uv run --frozen prek install --overwrite --hook-type=pre-commit
+    test -x .pixi/envs/default/bin/prek || { printf '%s\n' 'the pixi environment is not installed; run just initialize first' >&2; exit 2; }
+    prek install --overwrite --hook-type=pre-commit
 
 # ---------------------------------------------------------------- develop ---
 
@@ -328,15 +373,15 @@ format:
 # The only recipe that modifies files. The fix config is run twice because a
 # fixer's first pass may itself fail on what another fixer then repairs.
 fix:
-    -uv run --frozen prek run --all-files --config .pre-commit-fix.yaml
-    uv run --frozen prek run --all-files --config .pre-commit-fix.yaml
+    -prek run --all-files --config .pre-commit-fix.yaml
+    prek run --all-files --config .pre-commit-fix.yaml
     cargo clippy --workspace --all-targets --all-features --locked --fix --allow-dirty --allow-staged
     just lint
 
 # ------------------------------------------------------------------ check ---
 
 lint:
-    uv run --frozen prek run --all-files
+    prek run --all-files
 
 fmt-check:
     cargo fmt --all --check
@@ -386,33 +431,33 @@ deps-unused:
 # --------------------------------------------------------------- documents ---
 
 check-docs:
-    uv run --frozen prek run --all-files markdownlint-cli2 typos lychee
-    uv run --frozen bg-validate-docs
+    prek run --all-files markdownlint-cli2 typos lychee
+    bg-validate-docs
 
 check-agents:
-    uv run --frozen bg-validate-agents
+    bg-validate-agents
 
 # The specifications, checked mechanically: every module must report an empty
 # `diagnostics` array. The wrapper asserts that, because neither subcommand's
 # exit code does. Waiver terms: docs/how-to/work-with-the-specs.md.
 check-specs:
-    uv run --frozen bg-run-allium check
+    bg-run-allium check
 
 analyse-specs:
-    uv run --frozen bg-run-allium analyse
+    bg-run-allium analyse
 
 check-links-online:
-    uv run --frozen prek run --all-files --hook-stage manual lychee-online
+    prek run --all-files --hook-stage manual lychee-online
 
 # --------------------------------------------------------------- aggregate ---
 
 check-clean baseline="":
-    uv run --frozen bg-project-check clean "$1"
+    bg-project-check clean "$1"
 
 # The complete gate: the recipes pyproject.toml lists, in order, with the
 # worktree snapshotted between each, then check-clean.
 check:
-    uv run --frozen bg-project-check run
+    bg-project-check run
 ```
 
 **Gate order** (the `recipes` list in `pyproject.toml`), then `check-clean`:
@@ -450,21 +495,31 @@ T00 (§11).
 
 Changes to G's `.pre-commit-config.yaml`:
 
-- `exclude` becomes `\.git/`, `\.venv/`, `ai_tmp/`, `target/`, `\.tools/`,
-  `allium-skill-reference/`, `Cargo\.lock$`, `uv\.lock$`.
+- `exclude` becomes `\.git/`, `\.pixi/`, `ai_tmp/`, `target/`, `\.tools/`,
+  `allium-skill-reference/`, `Cargo\.lock$`, `pixi\.lock$`, with a comment that
+  `pixi.lock` is YAML and the builtin `check-yaml` would otherwise parse it on every
+  commit.
 - The `ruff-check`, `ruff-format-check` and `eslint` local hooks are dropped.
 - Three local hooks are added, each `language: system`, `pass_filenames: false`, with
   `entry: just <recipe>`: a git hook does not inherit the Justfile's `PATH`, so routing
-  through `just` is what lets a hook find `.tools/bin/taplo`, and it keeps each tool's
-  arguments in exactly one place. `fmt-check` with
+  through `just` is what lets a hook find the environment's `taplo`, and it keeps each
+  tool's arguments in exactly one place. `fmt-check` with
   `files: ^(crates/.*\.rs|rustfmt\.toml)$`; `toml-check` with `types: [toml]`;
   `deps-unused` with `files: ^(Cargo\.toml|crates/.*/Cargo\.toml|crates/.*\.rs)$`.
   Clippy is deliberately not a hook: a cold `cargo clippy --all-targets --all-features`
   blocks every commit for tens of seconds to minutes; it is gate 6 and a CI step, the
   same call G makes by keeping `svelte-check` out of the hook.
-- `validate-docs` keeps its trigger; `validate-agents` adds `skills-lock\.json$` to its
+- `validate-docs`, `validate-agents`, `check-specs` and `analyse-specs` run through
+  pixi as their activator: `entry: pixi run --frozen bg-validate-docs`,
+  `pixi run --frozen bg-validate-agents`, `pixi run --frozen bg-run-allium check`,
+  `pixi run --frozen bg-run-allium analyse` (`--frozen` because a bare `pixi run` may
+  rewrite `pixi.lock` from inside a commit; pixi resolves the manifest upward from the
+  hook's working directory, so the environment is the committing worktree's own; the
+  recipe that could provide the `PATH` instead, `check-docs`, runs prek inside prek).
+  `validate-docs` keeps its trigger; `validate-agents` adds `skills-lock\.json$` to its
   `files`; `check-specs` and `analyse-specs` keep `^(docs/specs/|pyproject\.toml$)`
-  (the allium pin is the tooling package version, which `pyproject.toml` pins).
+  (the allium pin is the tooling package version, which `pyproject.toml` pins; since
+  the pixi manifest lives in the same file, any pin edit now fires them, accepted).
 - The `builtin` hygiene set is unchanged (`check-added-large-files --maxkb=768`,
   `check-case-conflict`, `check-executables-have-shebangs`, `check-json`,
   `check-merge-conflict`, `check-shebang-scripts-are-executable`, `check-toml`,
@@ -478,13 +533,15 @@ Changes to G's `.pre-commit-config.yaml`:
   shellcheck-py `745eface02aef23e168a8afb6b5737818efbea95 # v0.11.0.1`; actionlint
   `914e7df21a07ef503a81201c76d2b11c789d3fca # v1.7.12`; ripsecrets
   `7d94620933e79b8acaa0cd9e60e9864b07673d86 # v0.1.11` with entry
-  `uv run --frozen bg-ripsecrets`.
+  `.pixi/envs/default/bin/bg-ripsecrets` (the one hook that receives filenames; git runs
+  hooks from the worktree root, so the relative path resolves, and argv passes through
+  untouched, which `pixi run` is not proven to do: §12).
 
 Changes to G's `.pre-commit-fix.yaml`: the same `exclude`; `ruff-fix` and `ruff-format`
 dropped; local `cargo-fmt` (`entry: cargo fmt --all`, `pass_filenames: false`,
 `types: [rust]`), `taplo-fmt` (`entry: taplo fmt`, `types: [toml]`; the fix config runs
-only through `just fix`, so `.tools/bin` is on its `PATH` and the file list passes
-through) and `cargo-shear-fix` (`entry: cargo shear --fix`,
+only through `just fix`, so `.pixi/envs/default/bin` is on its `PATH` and the file list
+passes through) and `cargo-shear-fix` (`entry: cargo shear --fix`,
 `pass_filenames: false`) added; builtin `end-of-file-fixer` and `trailing-whitespace` and
 `markdownlint-cli2 --fix` unchanged. `cargo clippy --fix` stays in the `fix` recipe body
 because it needs `--allow-dirty --allow-staged` and a full build.
@@ -494,18 +551,24 @@ Config files the hooks read, each G's with the named edits (T03 owns them):
 - `.editorconfig`: G's, plus `[*.rs]` with `indent_size = 4`; `[*.py]` stays. TOML stays
   at the 2-space default, which is taplo's.
 - `.gitattributes`: `* text=auto eol=lf`, `Cargo.lock linguist-generated=true`,
-  `uv.lock linguist-generated=true`, `allium-skill-reference/** linguist-vendored=true`.
+  `pixi.lock merge=binary linguist-language=YAML linguist-generated=true` (the shape
+  pixi recommends for its lockfile; T03 confirms the wording),
+  `allium-skill-reference/** linguist-vendored=true`.
 - `.gitignore`: G's minus the Node, Svelte, Storybook and Chromatic blocks, plus
   `target/`, `*.profraw`, `lcov.info`, `mutants.out*/`, with G's `.tools/` comment kept
-  and a comment on `target/` in the same voice. `.venv/`, `__pycache__/`, `*.py[cod]` and
-  `.ruff_cache/` stay.
+  and a comment on `target/` in the same voice; `.pixi/` in place of `.venv/`, with a
+  comment in the same voice (the environment `just initialize` installs). `__pycache__/`
+  and `*.py[cod]` stay; `.ruff_cache/` is T03's call.
 - `.markdownlint-cli2.jsonc`: G's rules verbatim; `ignores` becomes `target`, `.tools`,
-  `ai_tmp`, `.venv`, `allium-skill-reference`.
-- `lychee.toml`: G's settings; `exclude_path` becomes `.git`, `.venv`, `ai_tmp`,
+  `.pixi`, `ai_tmp`, `allium-skill-reference`.
+- `lychee.toml`: G's settings; `exclude_path` becomes `.git`, `.pixi`, `ai_tmp`,
   `target`, `.tools`, `allium-skill-reference`.
+- `taplo.toml` (T02's): `exclude = ["target/**", ".tools/**", ".pixi/**", "ai_tmp/**"]`,
+  load-bearing because `toml-check` runs taplo over `**/*.toml` and the environment's
+  `site-packages` contain TOML.
 - `_typos.toml` at the root is the only typos configuration; `pyproject.toml` carries no
   `[tool.typos]` (§12 checks precedence). Contents: `[files] extend-exclude =
-  ["Cargo.lock", ".tools/", "target/", "ai_tmp/", "uv.lock", "allium-skill-reference/"]`
+  ["Cargo.lock", "pixi.lock", ".pixi/", ".tools/", "target/", "ai_tmp/", "allium-skill-reference/"]`
   and `[default.extend-words] mis = "mis"` (G's allowlist for the hyphenated prefix).
 
 ## 6. Handbook
@@ -516,7 +579,7 @@ The Diátaxis handbook under `docs/`, governed by the documentation contract G s
 one owning page; every page is reachable from `docs/README.md`; 40 words minimum; links
 resolve with exact case. `docs/manifest.yml` and `docs/README.md` are final at T00 and
 frozen. Tier A pages are rewritten from G's page of the same path; tier B pages are
-shorter adaptations. Twenty-five pages plus the decision index and ten records.
+shorter adaptations. Twenty-five pages plus the decision index and eleven records.
 
 | Path | Tier | Owner | From G | Rewrite note |
 | --- | --- | --- | --- | --- |
@@ -525,10 +588,10 @@ shorter adaptations. Twenty-five pages plus the decision index and ten records.
 | `docs/project/repository-map.md` | A | T07 | same | The workspace tree of §3 |
 | `docs/project/terminology.md` | B | T07 | same | Keep "The repository"; engine words from `sudoku.allium`'s vocabulary |
 | `docs/tutorials/first-change.md` | A | T07 | same | Clone, `just initialize`, change a clause, derive a test, `just check` |
-| `docs/how-to/develop-locally.md` | A | T07 | same | rustup prerequisite, the pixi/`PATH` note, cargo-binstall, offline first-run caveats |
+| `docs/how-to/develop-locally.md` | A | T07 | same | rustup and pixi prerequisites, the pixi-rust/`PATH` note, the environment's `bin`, offline first-run caveats |
 | `docs/how-to/test-and-debug.md` | B | T07 | same | nextest filters, doctests, llvm-cov HTML, `RUST_BACKTRACE` |
 | `docs/how-to/work-with-the-specs.md` | A | T07 | same | Module table = the seven engine modules; waiver terms verbatim (G lines 77-136, the "Diagnostics and waivers" section); `just frontend-unit` becomes `just test` |
-| `docs/how-to/maintain-dependencies.md` | A | T07 | same | Caret ranges + `Cargo.lock`, `tools.txt`, hook SHAs, action SHAs, the allium pin; "nothing updates them" until S01 |
+| `docs/how-to/maintain-dependencies.md` | A | T07 | same | Caret ranges + `Cargo.lock`, the pixi pins + `pixi.lock`, `tools.txt`, hook SHAs, action SHAs, the allium pin; "nothing updates them" until S01 |
 | `docs/explanation/architecture.md` | A | T08 | same | Crate layout, the randomness boundary, the future bindings crates, what stays out of the core |
 | `docs/explanation/layering.md` | B | T08 | same | Module dependency direction mirrors the spec import graph |
 | `docs/explanation/specifications.md` | A | T08 | same | "Seven are the library's"; the game's root module and platform figures are G's, held equal by test on G's side |
@@ -537,15 +600,15 @@ shorter adaptations. Twenty-five pages plus the decision index and ten records.
 | `docs/explanation/solving-sudoku.md` | A | T06 | same | Verbatim |
 | `docs/explanation/human-solving.md` | A | T06 | same | Lines 16 and 255 reworded (§9) |
 | `docs/reference/commands.md` | A | T08 | same | The recipe table of §4 |
-| `docs/reference/configuration.md` | B | T08 | same | `rust-toolchain.toml`, `[workspace.lints]`, `deny.toml`, the floor, `tools.txt` |
+| `docs/reference/configuration.md` | B | T08 | same | `rust-toolchain.toml`, `[workspace.lints]`, `deny.toml`, the floor, `pyproject.toml` as the pixi manifest, `tools.txt` |
 | `docs/reference/testing.md` | A | T08 | same | nextest, doctests, coverage scope, fakes through the trait, in-module unit tests |
 | `docs/reference/quality-gates.md` | A | T08 | same | The seventeen gates; allium paragraphs verbatim; no network gate |
 | `docs/reference/documentation-contract.md` | A | T08 | same | Verbatim minus the managed/seed paragraph |
 | `docs/reference/agent-contract.md` | A | T08 | same | Fourteen skills; `rust-change` as the example frontmatter; the reference-directory rule |
 | `docs/reference/api.md` | A | T08 | new | rustdoc is the API reference: `just doc`, where it lands, the doctest policy |
-| `docs/operations/maintenance.md` | B | T08 | same | No secrets; tool-pin rotation; allium checksums |
-| `docs/operations/troubleshooting.md` | A | T08 | same | pixi shadowing rustup, missing `.tools/bin/allium`, the first `lint` needs the network, `--locked` failures |
-| `docs/decisions/README.md` and ten records | A | T09 | see §8 | |
+| `docs/operations/maintenance.md` | B | T08 | same | No secrets; tool-pin rotation (`pixi update`); allium checksums |
+| `docs/operations/troubleshooting.md` | A | T08 | same | pixi's rust shadowing rustup, a missing pixi environment or `.tools/bin/allium`, a stale `pixi.lock`, the first `lint` needs the network, `--locked` failures |
+| `docs/decisions/README.md` and eleven records | A | T09 | see §8 | |
 
 Dropped from G: `project/platform.md`, `explanation/accessibility.md`,
 `how-to/work-in-the-component-workshop.md`, `how-to/deploy-to-github-pages.md`,
@@ -625,6 +688,7 @@ Consequences, What would reopen this, Related pages.
 | 0008 | A pure `no_std` core | new: the constraints that keep bindings possible: no clock/threads/fs, the randomness trait, `Send + Sync`, `#[non_exhaustive]`, no panics, feature policy, the two wasm targets | `decision_no_std_core` |
 | 0009 | The Rust quality gate | new: pedantic clippy, the floor, feature powerset, rustdoc warnings, in-module unit tests as a stated deviation from the games' "never colocated" rule | `decision_rust_gate` |
 | 0010 | Skill reference material beside the skills | new: the record G's `189348e` deferred | `decision_skill_reference` |
+| 0011 | Tool manager | D02's text: pixi owns the tools and the Python environment, rustup keeps the compiler; supersedes 0004's uv-specific consequences | `decision_tool_manager` |
 
 ## 9. Specification migration
 
@@ -704,18 +768,23 @@ one job `audit` running `just audit`; never a required check, because the RustSe
 can fail for reasons unrelated to the diff.
 
 `.github/actions/setup/action.yml`, composite, input `cache-key`, in this order:
-`taiki-e/install-action` with `tool: just@1.51.0,cargo-binstall@1.23.0` (the only pins in
-YAML; bootstrap only); `just install-toolchain` (rustup 1.29 is preinstalled on GitHub runners; there is no
+`prefix-dev/setup-pixi` with `pixi-version: v0.81.0` (the one version pin in YAML; it
+must satisfy the manifest's `requires-pixi`), `manifest-path: pyproject.toml`,
+`locked: true` (the CI lockfile check), `cache: true` (keyed on the `pixi.lock` hash),
+`cache-write` on `main` only, `activate-environment: true` (the environment's `bin`, and
+so `just`, on every later step's `PATH`; the environment holds no rust, so cargo stays
+the runner's rustup proxy); `just install-toolchain` (rustup 1.29 is preinstalled on GitHub runners; there is no
 fallback that reads `rust-toolchain.toml` for free: `dtolnay/rust-toolchain` makes its
 `toolchain` input required (its `action.yml` lines 9-11 and 36-39 at `master`
 `02cb101e`), so the fallback is the no-argument `rustup show`, a `main` follow-up because
 the `Justfile` is frozen);
 `Swatinem/rust-cache` with `shared-key: ${{ inputs.cache-key }}`, `save-if` on `main`
 only, `cache-bin: false`; `actions/cache` on `.tools` keyed
-`${{ runner.os }}-${{ runner.arch }}-tools-${{ hashFiles('tools.txt') }}`;
-`just install-tools` with `GITHUB_TOKEN: ${{ github.token }}` on that step only;
-`astral-sh/setup-uv` (`version: 0.11.18`, cache on `uv.lock`) then
-`uv python install 3.14`; `just sync`; for the `documents` job, `just install-allium`.
+`${{ runner.os }}-${{ runner.arch }}-tools-${{ hashFiles('tools.txt') }}` (what pixi
+cannot own: cargo-hack, and allium as a side effect, which `bg-install-allium`
+version-checks); `just install-tools` with `GITHUB_TOKEN: ${{ github.token }}` on that
+step only; `just sync`; for the `documents` job, `just install-allium`. No `setup-uv`,
+no `install-action`.
 Every `uses:` is pinned to a full SHA with a version comment looked up on the day T04 is
 written (`gh api repos/<owner>/<repo>/git/ref/tags/<tag>`, dereferencing annotated tags).
 
@@ -741,9 +810,9 @@ administrator bypassing the gate.
   `supacode repo worktree-new --branch <branch> --base main --name <id>`; otherwise
   `git worktree add ../<id> -b <branch> main`. A ticket touches only its listed files plus
   the `status:` line of its own `tickets/<id>-*.md`.
-- **D01 before T00.** D01 is done: T00 creates `pyproject.toml` (the content in D01's
-  hand-back notes), `uv.lock` and `.python-version`, and writes the `Justfile` as §4
-  prints it.
+- **D01 and D02 before T00.** Both are done: T00 creates `pyproject.toml` (the content
+  in D02's hand-back notes: the pixi manifest and B's table) and `pixi.lock`, and
+  writes the `Justfile` as §4 prints it.
 - **T00 ships a shape-complete skeleton.** `bg-validate-docs` and `bg-validate-agents`
   (or their ports) can only be green if every path in §3 exists from the first commit,
   so T00 ships a stub for every file: each registered page with valid frontmatter, a
@@ -776,7 +845,7 @@ administrator bypassing the gate.
 - **Separately authorised actions.** Commits on the ticket branch are the ticket's work.
   Pushing, opening a pull request, tagging, filing GitHub issues, creating the repository,
   changing repository settings, publishing anywhere, installing anything outside the
-  worktree (rustup, cargo-binstall, pixi changes) and editing another repository (G, T,
+  worktree (rustup, pixi itself, `pixi global` changes) and editing another repository (G, T,
   B, P, H) are each a separately authorised action: the ticket says where one occurs, and
   the agent stops and asks the maintainer rather than proceeding.
 - **Scratch.** Anything an agent writes that is not a deliverable goes in `ai_tmp/`
@@ -811,25 +880,43 @@ is a design change that goes back through this document.
 - The `clippy.toml` keys `allow-panic-in-tests` and `allow-indexing-slicing-in-tests`
   exist under those names in clippy 1.98. **T02.**
 - `cargo binstall --root .tools` puts binaries in `.tools/bin`, verifies release
-  checksums where the crate publishes them, and skips a matching installed version.
-  **T03.**
+  checksums where the crate publishes them, and skips a matching installed version (one
+  tool, cargo-hack). **T03.**
+- `pixi install --locked` on this `pyproject.toml` installs the nine conda packages and
+  B, and does not try to install `libpawdoku-tooling` itself (no `[build-system]`,
+  `dependencies = []`). **T00.**
+- pixi builds `biscuit-games-tooling` from its git tag with `uv_build` fetched at solve
+  time, under the environment's Python 3.14; the six `bg-*` scripts land in
+  `.pixi/envs/default/bin`. **T00.**
+- Every pin in the manifest resolves with `pixi search <name> --platform linux-64`; the
+  osx-arm64 search does not prove a linux-64 build. **T00.**
+- `pixi lock --check` writes nothing and exits 0 with no network when the lockfile is
+  current, the git PyPI source included. Harness: `pixi lock --check --offline` after
+  `just sync`. Fallback: `lock-check` uses `--offline`, or the pixi half moves to CI only,
+  where `setup-pixi`'s `locked: true` already checks it. **T03.**
+- `pixi run -x --frozen bg-ripsecrets` passes a filename containing a space and a single
+  quote unchanged; if so, the ripsecrets entry may switch to it for uniformity. **T03.**
 - `taplo lint` stays offline when no `[schema]` section and no `#:schema` directive exists.
   **T03.**
 - typos stops at the first configuration it finds (`_typos.toml` before
   `pyproject.toml`), so a root `_typos.toml` is the only source. **T03.**
-- prek 0.5.3 provisions its own rustup and toolchain under `$PREK_HOME` for `language:
-  rust` hooks (0.4.12 does), so no `stable` default toolchain is required of the
-  maintainer. **T03.** The second half of the original claim, that prek publishes release
-  binaries cargo-binstall can resolve, was verified by **D01** on 2026-09-24 and is
-  recorded there as evidence only: prek is a uv dependency here.
+- prek 0.5.3 from conda-forge provisions its own rustup and toolchain under `$PREK_HOME`
+  for `language: rust` hooks (0.4.12 does), so no `stable` default toolchain is required
+  of the maintainer. **T03.** The second half of the original claim, that prek publishes
+  release binaries cargo-binstall can resolve, was verified by **D01** on 2026-09-24 and
+  is recorded there as evidence only: prek is a pixi dependency here.
 - B's checkers run unchanged in a repository with no `package.json`. **T00.**
-- `bg-project-check` tolerates `target/` and `.tools/` growth because both are ignored.
-  **T00.**
+- `bg-project-check` tolerates `target/`, `.tools/` and `.pixi/` growth because all
+  three are ignored. **T00.**
 - `rustup toolchain install` with no arguments works on the runner's rustup (1.29.1 on
-  image 20260907.300.1) as it does locally; `taiki-e/install-action` v2.87.19 accepts
-  `tool: just@1.51.0,cargo-binstall@1.23.0` (its manifests carry both; verified
-  2026-09-23). Not a fallback: `dtolnay/rust-toolchain` requires its `toolchain` input
-  (verified 2026-09-23 by reading its `action.yml`), so it would restate the pin. **T04.**
+  image 20260907.300.1) as it does locally. Not a fallback: `dtolnay/rust-toolchain`
+  requires its `toolchain` input (verified 2026-09-23 by reading its `action.yml`), so it
+  would restate the pin. **T04.**
+- The activation variables `setup-pixi` exports (`CONDA_PREFIX`, `PIXI_*`) are inert for
+  cargo; if a build script ever reacts to them, CI appends the environment's `bin` to
+  `$GITHUB_PATH` instead of activating. **T04.**
+- `setup-pixi` restores `.pixi/envs` and the package cache keyed on the `pixi.lock` hash,
+  and `cache-write` gated to `main` behaves like rust-cache's `save-if`. **T04.**
 - `Swatinem/rust-cache` with `cache-bin: false` leaves `.tools/` to `actions/cache`. **T04.**
 - The `check` aggregate job under `if: always()` reports `success` when its five `needs`
   succeed and `failure` when any of them failed, was cancelled or was skipped, and the
@@ -844,21 +931,31 @@ is a design change that goes back through this document.
 
 ## 13. Risks every ticket states where it applies
 
-- **rustup is absent and pixi shadows it.** T00 cannot honour the pin until rustup is
-  installed and ahead on `PATH`; a maintainer prerequisite, and T00's first verification.
-- **Bootstrapping cargo-binstall.** `just install-tools` cannot binstall its own
-  installer; `scripts/initialize.sh` installs it with `cargo install --locked` when
-  absent, which compiles it once per machine.
+- **pixi's rust shadows rustup.** T00 cannot honour the pin until rustup is installed
+  and ahead on `PATH`; a maintainer prerequisite, and T00's first verification. An
+  agent's tool shell may not source `~/.cargo/env` (in the D02 session `command -v cargo`
+  printed `~/.pixi/bin/cargo`), so every agent command prefixes
+  `PATH="$HOME/.cargo/bin:$PATH"`, or the maintainer runs `pixi global uninstall rust`.
+- **The pixi environment must never gain `rust`.** Adding it, or a tool that depends on
+  it, puts a cargo first on every recipe's `PATH`; `check-toolchain`'s `case` line is
+  the alarm, and the manifest comment says so.
+- **One environment per worktree.** `pixi install --frozen` in each worktree (about
+  150 MB of hardlinks from pixi's cache); not relocatable, because the `bg-*` shebangs
+  name the worktree's absolute Python, so a renamed worktree needs `pixi install
+  --frozen` again. The hook shim's primary-checkout rule in `scripts/initialize.sh`
+  stays for the same reason.
 - **`runes`.** `AGENTS.md` carries the honest sentence until C02 ships; `check-agents`
   must be green at T00.
 - **Doctests and the small denominator.** nextest skips doctests and llvm-cov cannot
   measure them on stable, so the floor is a statement about unit and integration tests;
   on a tiny crate one untested branch in `random.rs` breaches 90%.
 - **`--locked` and the snapshot.** Any recipe that rewrites `Cargo.lock` fails
-  `check-clean`; T02 proves every recipe is read-only on a clean tree. `target/` and
-  `.tools/` must be ignored before the first `just check`.
-- **The network at first run, none in `check`.** Hook clones, binstall downloads, the
-  allium download, `cargo fetch` and cargo-deny's advisory database all need the network;
+  `check-clean`; T02 proves every recipe is read-only on a clean tree. `target/`,
+  `.tools/` and `.pixi/` must be ignored before the first `just check`, and every pixi
+  call in a gate is `--frozen` or `lock --check` so none rewrites `pixi.lock`.
+- **The network at first run, none in `check`.** Hook clones, the pixi environment,
+  the cargo-hack binstall, the allium download, `cargo fetch` and cargo-deny's advisory
+  database all need the network;
   `initialize` has it, `check` must not. If `cargo deny check licenses bans sources`
   proves to need it, `deny` moves to CI only.
 - **Exact pins versus a library.** `AGENTS.md` states decision 0007 instead of copying
