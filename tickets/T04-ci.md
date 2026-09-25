@@ -525,7 +525,7 @@ Nothing else. Every other change is handed back.
 - On the second dispatch, the `.tools` cache line reports a hit; the `setup-pixi` and
   rust-cache lines are quoted as observed and explained.
 - The `lcov` artifact exists on the run with a 7-day retention.
-- The four §12 outcomes and the runner facts of step 8 are recorded in "What was
+- The five §12 outcomes and the runner facts of step 8 are recorded in "What was
   verified, and how".
 
 ## Verification

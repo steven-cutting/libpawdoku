@@ -208,6 +208,24 @@ changed.
 
   Also present, not used: uv 0.12.18, lychee 0.24.2, typos 1.50.2, shellcheck 0.11.0,
   actionlint 1.7.12, markdownlint-cli2 0.23.3.
+- The Verification block's loop, `--platform linux-64`, run after the propagation commit
+  (2026-09-25 UTC, still 2026-09-24 locally):
+
+  ```text
+  cargo-nextest: 0.9.146
+  cargo-llvm-cov: 0.9.1
+  cargo-deny: 0.20.2
+  cargo-shear: 1.13.4
+  taplo: 0.10.0
+  prek: 0.5.3
+  cargo-binstall: 1.23.0
+  just: 1.58.0
+  python: 3.15.0rc2 (first hit; the manifest pins 3.14.*, which the search also lists)
+  cargo-hack: No packages found matching 'cargo-hack'
+  ```
+
+  Every pin the manifest names has a linux-64 build at the pinned version, so T00's
+  re-check is a formality.
 - The conda-forge `rust` feedstock's `recipe/meta.yaml` at `main`: version 1.98.1;
   outputs `rust`, `rust-src`, `rust-docs` and `rust-std-<target>` for a list that includes
   `wasm32-unknown-unknown` and `wasm32-unknown-emscripten` and does not include
