@@ -532,9 +532,12 @@ for the second session), except where marked.
   agent ran `just install-hooks` from it anyway, which wrote
   `/Users/scutting/projects/libpawdoku/.git/hooks/pre-commit` naming this worktree's
   `.pixi/envs/default/bin/prek`. That is the hazard the script's comment describes:
-  commits from the primary checkout run this worktree's prek until `just install-hooks`
-  is run from the primary checkout once the branch has merged (and the primary has run
-  `just initialize`). Do that before deleting this worktree.
+  commits from the primary checkout run this worktree's prek until the shim is
+  rewritten. The primary cannot rewrite it before the merge: on `main` it holds only
+  `README.md` and `tickets/`, with no `justfile` and no pixi environment. After the merge,
+  `just initialize` from the primary rewrites it, because the primary passes the script's
+  common-dir test and so runs `install-hooks` itself. The ordered checklist is under
+  "Handed back"; this worktree must outlive it.
 - **Branch renamed** from the Supacode worktree's `T00-foundation` to
   `ticket/t00-foundation` (`git branch -m`), as D01 did, so the `branch:` field is true.
 - Nothing was pushed; no remote exists; no clone (G, T, B) was modified.
@@ -754,8 +757,28 @@ and prints "cargo-hack v0.6.45 is already installed" on a second run.
 - **T03**: `[LICENSE]` in `.editorconfig` to keep or restate; the `pixi lock --check
   --offline` claim is already observed green above.
 - **T09**: `docs/decisions/0011-tool-manager.md` is a stub like the other ten.
-- **Maintainer**: run `just initialize` then `just install-hooks` from the primary
-  checkout after the merge, so the shared hook shim stops naming this worktree.
+- **Maintainer**: repair the shared hook shim in this order, every command from
+  `/Users/scutting/projects/libpawdoku`, and do not remove this worktree first:
+  1. `git merge --ff-only ticket/t00-foundation`. The branch's merge-base is `main`'s
+     tip, so the fast-forward is available, and a fast-forward runs no hook, so the
+     not-yet-repaired shim is never invoked. If `main` has moved and `--ff-only`
+     refuses, a plain `git merge` is still safe: `git merge` fires `pre-merge-commit`,
+     which is not installed, never `pre-commit`; only a hand-run `git commit` after
+     conflict resolution would invoke the shim.
+  2. `just initialize`. The primary passes the common-dir test in
+     `scripts/initialize.sh`, so this runs `install-hooks` itself; a separate
+     `just install-hooks` is not needed.
+  3. Verify: `grep PREK= .git/hooks/pre-commit` prints a path under
+     `/Users/scutting/projects/libpawdoku/.pixi/envs/default/bin/prek`.
+  4. Only then remove this worktree: Supacode's own removal, or, since the worktree is
+     locked, `git worktree remove --force --force`.
+  Until step 3 passes, any commit from the primary runs this worktree's prek against a
+  tree that, before the merge, has no `.pre-commit-config.yaml`; whether that blocks the
+  commit was not tested. The `--ff-only` merge sidesteps the question.
+- **T03**: the structural fix, a shim that does not name one worktree's environment (a
+  per-worktree `core.hooksPath` under `extensions.worktreeConfig`, or a shim that
+  resolves `prek` per worktree), belongs with `scripts/initialize.sh` lines 45-61 and
+  `install-hooks`, which T03 owns.
 
 ### Open points settled
 
