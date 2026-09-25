@@ -1,0 +1,3 @@
+# A working minimum so `just test` and `just coverage` run; T02 finalises this file.
+[profile.default]
+fail-fast = true

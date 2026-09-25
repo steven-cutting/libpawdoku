@@ -1,0 +1,531 @@
+-- allium: 3
+--
+-- Lapse — a player whose marks fall behind, who guesses, and who is wrong
+--
+-- Scope
+--   The third of four models of a player, and the one in which a limit
+--   leads to error. The player's marks are kept up only as far as their
+--   upkeep reaches, so they fall behind the grid; a look that finds nothing
+--   is answered by checking them, and where none has lapsed or the player
+--   has no patience by a guess; a guess can be wrong, and a wrong one is
+--   found out when the player is next stuck and put right. A puzzle
+--   is rated by how many steps all of that takes. reach.allium,
+--   effort.allium and human-solving.allium model the same player differently
+--   and none of the four imports another.
+--   This module is coarse beside human-solving.allium, and on purpose. It
+--   has no chance in it, a repair is perfect, and a contradiction is seen
+--   whole the first time the player is stuck. Each is a stated
+--   simplification, recorded under Resolved Questions below with the other
+--   questions this module once left open.
+--   Source: docs/explanation/solving-sudoku.md, for hand backtracking: a
+--   checkpoint, a branch, and a return to the checkpoint on contradiction.
+--
+-- Includes
+--   - Where error comes from, which is not where it first seems. By
+--     technique.allium's ExtraCandidatesHideAndNeverMislead, marks that have
+--     fallen behind allow too much and so hide deductions; they never
+--     license a false one. A deterministic player is therefore wrong only by
+--     guessing. Lapsed marks are what bring the guess on.
+--   - Upkeep: after a placement the digit is struck from the marks of the
+--     peers the profile's upkeep reaches, and from no others.
+--   - Four kinds of step: a deduction, a check of the marks, a guess and a
+--     repair.
+--   - Choice: the deduction taken is the one the player's order and
+--     fixation prefer, as in reach.allium.
+--   - Being stuck, which is when this player takes stock: a contradiction is
+--     noticed then and not before, lapsed marks are checked then, and with
+--     nothing lapsed the player guesses.
+--   - The guess: in a cell with the fewest marks, and among those one the
+--     player's fixation favours.
+--   - The run, which ends solved, or abandoned where it is in contradiction
+--     with no guess to blame or has nothing left to guess.
+--
+-- Excludes
+--   - Slips: a digit misread, a candidate struck by mistake, a mark never
+--     written. They need chance, which this game reaches through its
+--     randomness port, and they are human-solving.allium's, which draws them
+--     by seed. Nothing here is drawn at random, and this model stays the
+--     account of what error there is without chance.
+--   - Cost, which is effort.allium's, and hints, which are reach.allium's. A
+--     mistaken belief is never offered as a hint. So this model reads
+--     repertoire, capacity, spans, marking, order, fixation, upkeep and
+--     patience, and ignores budget and fatigue.
+--   - A faulty repair, and a contradiction that must be looked for. Here the
+--     grid returns exactly as it stood before the guess, and a player who is
+--     stuck sees every conflict there is. Recalling a change wrongly and
+--     paying to observe a conflict are human-solving.allium's.
+--   - Which of several equal deductions is taken, which of several equally
+--     preferred cells is guessed in, and which of that cell's marks is tried.
+--     Each must be the same every time and is otherwise the
+--     implementation's, as the order of tied branches is in solver.allium.
+--
+-- Dependencies
+--   sudoku.allium, for Given, and technique.allium, for the grid, the
+--   catalogue, deductions, placements and the profile.
+--
+-- Vocabulary
+--   technique.allium's words stand, and solver.allium's guess: never trial,
+--   never bifurcation. To them: run, look and step, as in reach.allium, each
+--   module's own. Lapsed, of marks that still allow what a placed peer rules
+--   out; technique.allium calls the candidate stale. Stuck, of a look that
+--   sees no deduction. Check, a step that brings every mark up to date,
+--   taken only while some mark is stale. Move, a deduction or a guess: the
+--   steps that leave the player's eye somewhere. Standing, of a guess not
+--   yet withdrawn.
+--   Repair, the return to the grid as it stood before a guess, with the
+--   guessed digit struck.
+
+use "./sudoku.allium" as sudoku
+use "./technique.allium" as technique
+
+------------------------------------------------------------
+-- Enumerations
+------------------------------------------------------------
+
+enum StepKind { deduction | check | guess | repair }
+
+------------------------------------------------------------
+-- Entities and Variants
+------------------------------------------------------------
+
+entity Run {
+    profile: technique/Profile
+    start: Set<sudoku/Given>
+    status: looking | stepping | solved | abandoned
+
+    transitions status {
+        looking -> stepping
+        stepping -> looking
+        looking -> solved
+        looking -> abandoned
+        terminal: solved, abandoned
+    }
+
+    -- The player's grid: their digits and their marks. There is no second
+    -- grid holding the truth, because the player has none to look at; what a
+    -- rating knows beyond the player is read from the solution.
+    grid: technique/Grid with keeper = this
+
+    steps: Step with run = this
+    last_steps: steps where is_last
+    standing_guesses: steps where is_standing_guess
+    latest_standing_guesses: steps where is_latest_standing_guess
+    latest_moves: steps where is_latest_move
+
+    -- What a rating may weigh apart. How it weighs them is the rating's.
+    deduction_steps: steps where kind = deduction
+    checks: steps where kind = check
+    guesses: steps where kind = guess
+    withdrawn_guesses: steps where is_withdrawn
+
+    -- Looks in a row that found nothing. A deduction, a guess and a repair
+    -- each set it back to none, and a check is taken only while a mark is
+    -- stale and leaves none, so it never passes one: patience is a switch
+    -- here. A player with none guesses on lapsed marks; any other checks
+    -- first, and a patience past one never bites.
+    fruitless_looks: Integer
+
+    sees(x): profile.sees(x)
+
+    sees_something: grid.deductions.any(x => sees(x))
+
+    -- Systematic: nothing seen is lower on the ladder. Unsystematic:
+    -- anything seen will do. As in reach.allium.
+    is_in_order(x):
+        sees(x)
+            and (profile.order = unsystematic
+                or grid.deductions.all(o => sees(o) implies o.technique.rank >= x.technique.rank))
+
+    -- Fixation bends the order and never breaks it: a favoured deduction is
+    -- preferred among those in order, and where none is favoured all of them
+    -- are. So fixation cannot stall a run that order would have moved.
+    is_preferred(x):
+        is_in_order(x)
+            and (is_favoured(x)
+                or not grid.deductions.any(o => is_in_order(o) and is_favoured(o)))
+
+    -- How a wrong guess shows itself to the player: two peers holding one
+    -- digit, which is a placed cell whose own digit has gone stale, or an
+    -- open cell with no mark left.
+    is_in_contradiction:
+        grid.is_contradictory
+            or grid.cells.any(c => c.digit != null and c.has_stale_candidate)
+
+    -- A contradiction is noticed when the player is stuck and not before.
+    -- While a deduction is seen it is taken, wrong branch or not, so a wrong
+    -- guess costs the whole of the run it leads to. A full grid licenses
+    -- nothing, so a full grid in contradiction is noticed too. Once stuck,
+    -- the player sees every conflict there is, whatever their spans.
+    notices_contradiction: is_in_contradiction and not sees_something
+
+    has_lapsed_marks: grid.stale_cells.count > 0
+
+    -- Where a guess may go, and where it does. A guess is between
+    -- alternatives, in a cell with the fewest of them, which is
+    -- solver.allium's choice and the common advice. The marks are the
+    -- grid's, lapsed or not; a player who keeps none is modelled the same
+    -- way, as in reach.allium.
+    can_guess_in(c): c.digit = null and c.candidates.count >= config.fewest_to_guess
+
+    has_cell_to_guess: grid.open_cells.any(c => can_guess_in(c))
+
+    is_fewest(c):
+        can_guess_in(c)
+            and grid.open_cells.all(o =>
+                can_guess_in(o) implies o.candidates.count >= c.candidates.count)
+
+    -- Where the player's eye is, as in reach.allium, measured against the
+    -- latest move whether it was deduced or guessed: a guess is a move of
+    -- its one cell and one digit. A withdrawn guess is still the latest
+    -- move, so after a repair the eye is where the guess was. Nothing is
+    -- favoured before the first move or by a player with no fixation.
+    share_a_unit(p, q):
+        p.row = q.row or p.column = q.column
+            or (box_index(p.row, config.box_side) = box_index(q.row, config.box_side)
+                and box_index(p.column, config.box_side) = box_index(q.column, config.box_side))
+
+    is_near_move(p, s):
+        (s.kind = deduction and s.deduction.cells.any(q => share_a_unit(p, q)))
+            or (s.kind = guess and share_a_unit(p, s.guessed.position))
+
+    is_digit_of_move(d, s):
+        (s.kind = deduction and d in s.deduction.digits)
+            or (s.kind = guess and d = s.guessed.digit)
+
+    -- A deduction holding a digit of the latest move, or with a cell near
+    -- one of its cells.
+    is_favoured(x):
+        latest_moves.any(s =>
+            (profile.fixation = same_digit and x.digits.any(d => is_digit_of_move(d, s)))
+            or (profile.fixation = nearby and x.cells.any(p => is_near_move(p, s))))
+
+    -- A cell allowing a digit of the latest move, or near one of its cells.
+    is_favoured_cell(c):
+        latest_moves.any(s =>
+            (profile.fixation = same_digit and c.candidates.any(d => is_digit_of_move(d, s)))
+            or (profile.fixation = nearby and is_near_move(c, s)))
+
+    -- Fixation bends the choice and never breaks it: a favoured cell is
+    -- preferred among those with the fewest marks, and where none is
+    -- favoured all of them are.
+    is_preferred_guess(c):
+        is_fewest(c)
+            and (is_favoured_cell(c)
+                or not grid.open_cells.any(o => is_fewest(o) and is_favoured_cell(o)))
+
+    -- Ready to look. A grid is born kept, by technique.allium's
+    -- AGridIsBornKept, so the first marking-up is true; after that a run
+    -- looks at its marks as they are, lapsed or not.
+    is_poised: status = looking and grid != null and grid.is_laid_out
+}
+
+entity Step {
+    run: Run
+    index: Integer
+    kind: StepKind
+
+    -- Present on a deduction step, and the placement on a guess.
+    deduction: technique/Deduction?
+    guessed: technique/Placement?
+
+    -- A guess a repair has taken back.
+    is_withdrawn: Boolean
+
+    is_last: run.steps.all(o => o.index <= index)
+    is_move: kind = deduction or kind = guess
+    is_latest_move: is_move and run.steps.all(o => o.is_move implies o.index <= index)
+    is_standing_guess: kind = guess and not is_withdrawn
+    is_latest_standing_guess:
+        is_standing_guess
+            and run.steps.all(o => o.is_standing_guess implies o.index <= index)
+}
+
+------------------------------------------------------------
+-- Config
+------------------------------------------------------------
+
+config {
+    box_side: Integer = sudoku/config.box_side
+    side: Integer = sudoku/config.side
+
+    -- A guess is between alternatives, so on a cell with at least two marks.
+    fewest_to_guess: Integer = 2
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+rule BeginRun {
+    when: Tackle(givens, profile)
+
+    requires: solution_count(givens, config.side) = 1
+
+    ensures: Run.created(
+        profile: profile,
+        start: givens,
+        status: looking,
+        fruitless_looks: 0
+    )
+}
+
+rule OpenGrid {
+    when: run: Run.created
+
+    ensures: technique/Grid.created(keeper: run, start: run.start, uniqueness_promised: true)
+}
+
+rule Look {
+    when: run: Run.is_poised
+
+    requires: run.status = looking
+    requires: run.is_poised
+
+    -- Read before anything changes: the count of looks is compared as it
+    -- stood, and the step about to be recorded is not among the steps.
+    let is_patient = run.fruitless_looks < run.profile.patience
+    let next_index = run.steps.count + 1
+    let taken = chosen(filter(run.grid.deductions, x => run.is_preferred(x)))
+    let guess_cell = chosen(filter(run.grid.open_cells, c => run.is_preferred_guess(c)))
+
+    -- One rule and its ends, in this order. A contradiction the player
+    -- notices, which is one that stands when nothing is seen, is repaired if
+    -- a guess stands to blame, and otherwise the run is abandoned; no guess
+    -- is made between a contradiction arising and its being noticed, so the
+    -- latest standing guess is the one to blame. A full grid with no
+    -- contradiction is solved. Something seen is taken, the one preferred
+    -- by order and fixation as in reach.allium. Nothing seen is a fruitless
+    -- look. With lapsed marks and patience left the player checks them,
+    -- which may uncover what they hid; a check on marks that are kept would
+    -- strike nothing, so it is not taken. Otherwise they guess, if any cell
+    -- offers a choice: in a preferred cell, one of its marks. With no cell
+    -- to guess in the run is abandoned, a guess standing or not: being
+    -- stuck proves nothing against the guess, and withdrawing it would
+    -- strike a mark that may be the solution's, which is the open question
+    -- below. chosen and filter are the black boxes reach.allium reads, and
+    -- chosen of nothing is nothing, which is never read: a run that sees
+    -- nothing takes nothing, and one with no cell to guess in does not
+    -- guess.
+    ensures:
+        if run.notices_contradiction and run.standing_guesses.count = 0:
+            run.status = abandoned
+        else if run.notices_contradiction:
+            Step.created(run: run, index: next_index, kind: repair, is_withdrawn: false)
+            run.fruitless_looks = 0
+            run.status = stepping
+        else if run.grid.is_filled:
+            run.status = solved
+        else if run.sees_something:
+            Step.created(
+                run: run,
+                index: next_index,
+                kind: deduction,
+                deduction: taken,
+                is_withdrawn: false
+            )
+            run.fruitless_looks = 0
+            run.status = stepping
+        else if is_patient and run.has_lapsed_marks:
+            Step.created(run: run, index: next_index, kind: check, is_withdrawn: false)
+            run.fruitless_looks = run.fruitless_looks + 1
+            run.status = stepping
+        else if run.has_cell_to_guess:
+            Step.created(
+                run: run,
+                index: next_index,
+                kind: guess,
+                guessed: {
+                    position: { row: guess_cell.row, column: guess_cell.column },
+                    digit: chosen(guess_cell.candidates)
+                },
+                is_withdrawn: false
+            )
+            run.fruitless_looks = 0
+            run.status = stepping
+        else:
+            run.status = abandoned
+}
+
+rule TakeStep {
+    when: run: Run.status transitions_to stepping
+
+    requires: run.status = stepping
+
+    -- The guess a repair blames, read before the repair withdraws it, and
+    -- the cells a check strikes, read before the strikes leave none stale.
+    let blamed_guesses = run.latest_standing_guesses
+    let stale_cells = run.grid.stale_cells
+
+    -- By kind. A deduction's strikes are taken as in reach.allium. A
+    -- placement, deduced or guessed, goes in its cell and leaves the marks
+    -- of those open peers that share with it a unit of a kind the player
+    -- keeps up, and of no others: that is the lapse. A check strikes every
+    -- stale mark. A repair takes the latest standing guess back: every cell
+    -- is as it stood before that guess, and the guessed digit is struck from
+    -- the guessed cell. digit_before and candidates_before are black boxes:
+    -- the cell as it stood when that step was recorded.
+    ensures:
+        run.status = looking
+        for step in run.last_steps:
+            let placed = if step.kind = guess: step.guessed else: step.deduction?.placement
+            if step.kind = deduction:
+                for strike in step.deduction.strikes:
+                    for cell in run.grid.cells:
+                        if cell.row = strike.position.row and cell.column = strike.position.column:
+                            cell.candidates = cell.candidates - strike.digits
+            if placed != null:
+                for cell in run.grid.cells:
+                    if cell.row = placed.position.row and cell.column = placed.position.column:
+                        cell.digit = placed.digit
+                        cell.candidates = { placed.digit }
+                        for peer in cell.peers:
+                            if peer.digit = null
+                                    and ((row in run.profile.upkeep and peer.row = cell.row)
+                                        or (column in run.profile.upkeep and peer.column = cell.column)
+                                        or (box in run.profile.upkeep
+                                            and peer.box_number = cell.box_number)):
+                                peer.candidates = peer.candidates - { placed.digit }
+            if step.kind = check:
+                for cell in stale_cells:
+                    cell.candidates = cell.candidates - cell.placed_peer_digits
+            if step.kind = repair:
+                for blamed in blamed_guesses:
+                    blamed.is_withdrawn = true
+                    for cell in run.grid.cells:
+                        cell.digit = digit_before(blamed, cell)
+                        if cell.row = blamed.guessed.position.row
+                                and cell.column = blamed.guessed.position.column:
+                            cell.candidates = candidates_before(blamed, cell) - { blamed.guessed.digit }
+                        else:
+                            cell.candidates = candidates_before(blamed, cell)
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+invariant StepsCarryWhatTheirKindNeeds {
+    for step in Steps:
+        (step.kind = deduction implies step.deduction != null)
+            and (step.kind = guess implies step.guessed != null)
+            and (step.is_withdrawn implies step.kind = guess)
+}
+
+invariant EveryDeductionStepWasSeen {
+    for step in Steps:
+        step.kind = deduction implies step.run.sees(step.deduction)
+}
+
+invariant SolvedMeansFilledAndConsistent {
+    for run in Runs:
+        run.status = solved implies run.grid.is_filled and not run.is_in_contradiction
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+surface Tackling {
+    provides:
+        Tackle(givens, profile)
+
+    @guarantee OnlyAGuessIsEverWrong
+        -- A grid is born kept, upkeep and checks strike only what a placed
+        -- peer rules out, and a deduction read from marks that allow
+        -- too much is sound. That holds of the two uniqueness techniques
+        -- too, by technique.allium's UniquenessPatterns: the promise a run
+        -- makes its grid is of the givens it began from, which are
+        -- well-posed, and lapsed marks hide those patterns and never fake
+        -- them. So while no guess stands, every digit in the
+        -- grid is the solution's. A solved run's grid is the solution, since
+        -- a full grid with no contradiction is one and the puzzle has one.
+
+    @guarantee AlwaysEnds
+        -- Every run ends, solved or abandoned. Between one guess or repair
+        -- and the next, every deduction fills a cell or strikes a mark that
+        -- stood and every check strikes at least one stale mark, and a grid
+        -- holds a finite number of both. Guesses are a depth-first search:
+        -- a guess takes a standing mark in a cell with at least two, no more
+        -- stand at once than there are cells, and a repair returns the grid
+        -- as it stood before the guess it blames with that mark struck, so
+        -- the grid a guess was made from has one mark fewer each time a
+        -- guess made from it is withdrawn, and only so many to lose. This is
+        -- argued and not checked; a property test is the evidence once the
+        -- model is built.
+
+    @guarantee SameInputSameRun
+        -- The same givens and the same profile give the same steps, the
+        -- same guesses and the same end, every time.
+}
+
+surface TackledRun {
+    context run: Run
+
+    exposes:
+        run.status
+        run.profile
+        run.steps.count
+        run.standing_guesses.count
+        run.deduction_steps.count
+        run.checks.count
+        run.guesses.count
+        run.withdrawn_guesses.count
+        for step in run.steps:
+            step.index
+            step.kind
+            step.deduction
+            step.guessed
+            step.is_withdrawn
+            step.is_last
+            step.is_latest_move
+            step.is_latest_standing_guess
+        for cell in run.grid.cells:
+            cell.row
+            cell.column
+            cell.digit
+            cell.candidates
+}
+
+------------------------------------------------------------
+-- Resolved Questions
+------------------------------------------------------------
+
+-- This module once asked seven questions. It now answers them, and where an
+-- answer differs from human-solving.allium's it differs on purpose: that
+-- model has chance to spend and this one has none.
+--   Which cell and which digit a guess takes: a cell with the fewest marks,
+--     of at least two, and among those one the player's fixation favours, by
+--     is_preferred_guess; then one of its marks. Ties are the
+--     implementation's and the same every time. A player who keeps no marks
+--     guesses the same way. human-solving.allium draws the cell by attention
+--     and the digit uniformly.
+--   Whether every run ends: it does, by Tackling's AlwaysEnds, which is
+--     argued and not checked.
+--   Whether a repair is perfect: it is, as a stated simplification. The grid
+--     returns exactly as it stood before the blamed guess, with the guessed
+--     digit struck. Misremembering a change needs chance, and is
+--     human-solving.allium's.
+--   When a contradiction is noticed: when the player is stuck, which a full
+--     grid always is, and not before, by notices_contradiction. A wrong
+--     guess so costs the whole of the run it leads to, which a rating by
+--     steps can read. Once stuck the player sees every conflict, whatever
+--     their spans; paying to observe one is human-solving.allium's.
+--   What a check reaches and when it is taken: every stale mark, and only
+--     while one is stale and patience is left. A look that sees nothing on
+--     kept marks is answered by a guess, because looking again at the same
+--     grid without chance finds the same nothing. So patience is a switch
+--     here, none or some, and technique.allium's novice and expert differ in
+--     this model by their upkeep and not by their patience. A player who
+--     keeps no marks checks as any other does: the grid's marks stand for
+--     what they would see.
+--   Whether this model stays without chance: it does. Slips are
+--     human-solving.allium's, as Excludes says.
+--   Whether steps are the only measure: no. A run reports its deductions,
+--     checks, guesses and withdrawn guesses apart, by TackledRun, and how
+--     they are weighed is the rating's.
+
+------------------------------------------------------------
+-- Open Questions
+------------------------------------------------------------
+
+open question "A player stuck under a standing guess, with nothing seen, nothing lapsed, no cell with two marks and no contradiction in sight, is abandoned, though the guess may be wrong: a wrong branch that shows no conflict is never backtracked from. Withdrawing the guess instead would strike its mark from its cell, and being stuck proves nothing against it, since a player whose repertoire is too small is stuck on the right branch too; a struck mark the solution needs breaks OnlyAGuessIsEverWrong, and a later deduction can then be wrong with no guess standing. Should such a player withdraw, and if so what does the model promise of the grid afterwards?"

@@ -1,0 +1,316 @@
+-- allium: 3
+--
+-- Effort — what a puzzle takes out of a player
+--
+-- Scope
+--   The second of four models of a player, and the one in which a limit
+--   makes things dear. Nothing is hidden and nothing is wrong: every step
+--   has a price, the price is the player's own, and a puzzle is rated by
+--   what it costs them from the first step to the last. Where the player's
+--   profile gives out, the run goes on past it and says so, so that every
+--   puzzle the catalogue can finish is priced end to end for every player.
+--   reach.allium, lapse.allium and human-solving.allium model the same
+--   player differently and none of the four imports another.
+--   human-solving.allium also counts effort, from the bottom up: every look,
+--   thought and mark is a paid microstep and a price is what they add up to
+--   in one seeded attempt. Here a price is read from the top down, off the
+--   deduction taken, and is the same every time.
+--   This module is coarse. Its lifecycle, its steps and the shape of a price
+--   are stated; the figures, the count of search and what fatigue does are
+--   open questions, and nothing should be built on them yet.
+--   Sources: docs/explanation/solving-sudoku.md, which asks for empirically
+--   validated cognitive costs, and the per-technique scale of Sudoku
+--   Explainer (N. Juillerat), the likeliest first source of base figures.
+--
+-- Includes
+--   - The run: one for each pricing asked for. It looks, steps and looks
+--     again until the grid is full, or until the catalogue itself licenses
+--     nothing.
+--   - Price: a base figure for the technique, scaled by how much of the
+--     player's capacity the deduction fills, plus what it took to find.
+--   - Escalation: a step from beyond the profile, taken when nothing within
+--     it is left, flagged, and priced like any other.
+--   - What a rating reads: the dearest step, the total, the count of steps
+--     and the count of escalations, and whether the total passes the
+--     player's budget.
+--
+-- Excludes
+--   - Missing and erring. A deduction beyond the profile is dear, never
+--     unseen, and every step is sound. So this model reads repertoire,
+--     capacity, spans, marking, order, fixation, budget and fatigue, and
+--     ignores upkeep and patience.
+--   - Hints. A hint is what a player would find, which is reach.allium's.
+--   - Time. A price is effort and no clock is read.
+--   - Chance, and which of several equally cheap deductions is taken.
+--
+-- Dependencies
+--   sudoku.allium, for Given, and technique.allium, for the grid, the
+--   catalogue, deductions and the profile.
+--
+-- Vocabulary
+--   technique.allium's words stand. To them: run, look and step, as in
+--   reach.allium, each module's own. Price, what one step costs this player;
+--   base figure, what its technique costs anyone. Within, of a deduction the
+--   profile reaches; beyond, of one it does not. Escalation, a step from
+--   beyond. Unpriced, of a run the catalogue could not finish.
+
+use "./sudoku.allium" as sudoku
+use "./technique.allium" as technique
+
+------------------------------------------------------------
+-- Entities and Variants
+------------------------------------------------------------
+
+entity Run {
+    profile: technique/Profile
+    start: Set<sudoku/Given>
+    status: looking | stepping | solved | unpriced
+
+    -- A run looks and steps by turns and ends solved, or unpriced where the
+    -- puzzle needs something beyond the catalogue: one of the families
+    -- technique.allium defers, or a chain past its limits.
+    transitions status {
+        looking -> stepping
+        stepping -> looking
+        looking -> solved
+        looking -> unpriced
+        terminal: solved, unpriced
+    }
+
+    grid: technique/Grid with keeper = this
+
+    steps: Step with run = this
+    last_steps: steps where is_last
+    escalations: steps where is_beyond_profile
+
+    -- What the steps so far have cost.
+    total: Decimal
+
+    is_over_budget: total > profile.budget
+
+    -- What reach.allium calls seen. Here it only decides which deductions
+    -- are tried first.
+    is_within(x): profile.sees(x)
+
+    has_something_within: grid.deductions.any(x => is_within(x))
+
+    -- The profile is exhausted before the run goes beyond it.
+    is_eligible(x): is_within(x) or not has_something_within
+
+    -- base_figure is a black box: what the technique costs anyone, from a
+    -- table this module has still to state. search_effort is a black box:
+    -- what this player examines, in their order and from their fixation,
+    -- before the deduction is found. A deduction that fills the player's
+    -- capacity costs its base figure, a smaller one a share of it, and one
+    -- past capacity more than it.
+    price(x):
+        base_figure(x.technique) * x.load / profile.capacity
+            + search_effort(grid, profile, last_steps, x)
+
+    is_cheapest(x):
+        is_eligible(x)
+            and grid.deductions.all(o => is_eligible(o) implies price(o) >= price(x))
+
+    is_poised: status = looking and grid != null and grid.is_kept
+}
+
+entity Step {
+    run: Run
+    index: Integer
+    deduction: technique/Deduction
+
+    -- Taken from beyond the profile because nothing within it was left.
+    is_beyond_profile: Boolean
+
+    -- The price when it was taken.
+    cost: Decimal
+
+    is_last: run.steps.all(o => o.index <= index)
+    is_dearest: run.steps.all(o => o.cost <= cost)
+}
+
+------------------------------------------------------------
+-- Config
+------------------------------------------------------------
+
+config {
+    side: Integer = sudoku/config.side
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+rule BeginPricing {
+    when: Price(givens, profile)
+
+    -- A price is of a puzzle, and only well-posed givens are one.
+    requires: solution_count(givens, config.side) = 1
+
+    -- A player who can hold nothing has no price for anything.
+    requires: profile.capacity >= 1
+
+    ensures: Run.created(profile: profile, start: givens, status: looking, total: 0)
+}
+
+rule OpenGrid {
+    when: run: Run.created
+
+    ensures: technique/Grid.created(keeper: run, start: run.start, uniqueness_promised: true)
+}
+
+rule KeepMarksTrue {
+    when: cell: technique/GridCell.has_stale_candidate
+
+    -- Upkeep is perfect here, as in reach.allium. Whether it should be free
+    -- is an open question below.
+    for run in Runs where grid = cell.grid:
+        requires: run.status = looking
+
+        ensures: cell.candidates = cell.candidates - cell.placed_peer_digits
+}
+
+rule Look {
+    when: run: Run.is_poised
+
+    requires: run.status = looking
+    requires: run.is_poised
+
+    -- Read before anything changes, so that the step about to be recorded
+    -- does not enter its own price. chosen of nothing is nothing, and a
+    -- binding is read whether or not the branch below uses it, so the
+    -- price is guarded: pricing nothing would read the technique of
+    -- nothing, which is an error. Then no step is recorded and no price
+    -- is read.
+    let taken = chosen(filter(run.grid.deductions, x => run.is_cheapest(x)))
+    let cost = if taken != null: run.price(taken) else: null
+    let next_index = run.steps.count + 1
+
+    -- One rule and three ends. A full grid is solved. A grid that licenses
+    -- nothing at all is beyond the catalogue, and the run is unpriced rather
+    -- than given a figure that means nothing. Otherwise the cheapest
+    -- eligible deduction is taken, at its price. chosen and filter are the
+    -- black boxes reach.allium reads.
+    ensures:
+        if run.grid.is_filled:
+            run.status = solved
+        else if run.grid.deductions.count = 0:
+            run.status = unpriced
+        else:
+            Step.created(
+                run: run,
+                index: next_index,
+                deduction: taken,
+                is_beyond_profile: not run.is_within(taken),
+                cost: cost
+            )
+            run.total = run.total + cost
+            run.status = stepping
+}
+
+rule TakeStep {
+    when: run: Run.status transitions_to stepping
+
+    requires: run.status = stepping
+
+    -- Applied as in reach.allium: the placement put in its cell, or each
+    -- strike taken from its cell.
+    ensures:
+        run.status = looking
+        for step in run.last_steps:
+            if step.deduction.placement != null:
+                for cell in run.grid.cells:
+                    if cell.row = step.deduction.placement.position.row
+                            and cell.column = step.deduction.placement.position.column:
+                        cell.digit = step.deduction.placement.digit
+                        cell.candidates = { step.deduction.placement.digit }
+            for strike in step.deduction.strikes:
+                for cell in run.grid.cells:
+                    if cell.row = strike.position.row and cell.column = strike.position.column:
+                        cell.candidates = cell.candidates - strike.digits
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+invariant NothingIsSpentBeforeTheFirstStep {
+    for run in Runs:
+        run.steps.count = 0 implies run.total = 0
+}
+
+invariant EscalationsAreBeyondTheProfile {
+    for step in Steps:
+        step.is_beyond_profile = not step.run.is_within(step.deduction)
+}
+
+invariant NoCostIsNegative {
+    for step in Steps:
+        step.cost >= 0
+}
+
+invariant SolvedMeansFilled {
+    for run in Runs:
+        run.status = solved implies run.grid.is_filled
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+surface Pricing {
+    provides:
+        Price(givens, profile)
+
+    @guarantee PricedEndToEnd
+        -- A run never stops because the profile gave out. It stops solved,
+        -- or unpriced where the catalogue itself licenses nothing, so two
+        -- profiles put to one puzzle are compared over the whole of it.
+        -- Either end records no step and leaves the total as it stood:
+        -- nothing is priced when nothing is taken.
+
+    @guarantee EscalationIsTheLastResort
+        -- No step is taken from beyond the profile while anything within it
+        -- is licensed, and every such step is flagged.
+
+    @guarantee SameInputSamePrice
+        -- The same givens and the same profile give the same steps, the
+        -- same costs and the same total, every time.
+}
+
+surface PricedRun {
+    context run: Run
+
+    exposes:
+        run.status
+        run.profile
+        run.total
+        run.is_over_budget
+        run.steps.count
+        run.escalations.count
+        for step in run.steps:
+            step.index
+            step.deduction
+            step.is_beyond_profile
+            step.cost
+            step.is_last
+            step.is_dearest
+}
+
+------------------------------------------------------------
+-- Open Questions
+------------------------------------------------------------
+
+open question "The base figures. Sudoku Explainer's scale is the likeliest start, but it prices a hidden single in a box below one in a line, which here is extent and not technique. One figure per technique, or per technique and extent?"
+
+open question "search_effort: what is counted as examined before a find (units, cells, digits), how order and fixation change it, and whether an unsystematic player pays less search for a dearer find. human-solving.allium's EffortAccounting and ChoiceAndBias answer it for a seeded attempt, one paid inspection at a time; still open is the figure this deterministic model should read, which might be that model's expectation."
+
+open question "fatigue: does every profile.fatigue of effort spent take one from capacity, and does a run that passes profile.budget end, or only report it? In human-solving.allium fatigue raises error and lowers notice and never touches capacity, and the effort limit ends an attempt; the two models need not agree, but the difference should be chosen."
+
+open question "Upkeep is free here. Marking a grid up and striking after each placement is real work for a player who keeps marks; should it be priced, and should a player with no marks pay nothing and find less? human-solving.allium prices every note written and erased."
+
+open question "An unpriced run: what should a rating say of a puzzle the catalogue cannot finish? Every named technique is now specified, so this is a puzzle that needs a deferred family, a chain past technique.allium's limits, or a guess."
+
+open question "Pricing a variable load. For colouring, chains, forcing chains and BUG+1 a deduction's load is the count of candidate propositions in its proof, which may be many times any capacity; base_figure * load / capacity was written for loads of one to four. Is a long chain priced by its length, by what is held at once, or by its base figure alone?"
+
+open question "Should the cheapest deduction be taken, as here, or the one reach.allium would take, priced? The first is the least a puzzle can cost this player; the second is what it would."

@@ -1,0 +1,652 @@
+-- allium: 3
+--
+-- Solver — the verdict on a set of givens
+--
+-- Scope
+--   What decides whether a set of givens has no solution, one or many, and
+--   what those solutions are. It is the search sudoku.allium leaves out: that
+--   module asks solution_count of its givens and says nothing of how anyone
+--   finds it. This one says how, as far as the answer and the work done to
+--   reach it can be seen, and no further.
+--   Sources: docs/explanation/solving-sudoku.md, which surveys the ways a
+--   puzzle is solved, and https://norvig.com/sudoku.html, for propagation by
+--   singles and the guess on a cell with the fewest candidates.
+--
+-- Includes
+--   - The search: one for each set of givens handed over, which ends in a
+--     verdict of none, one or many and never in anything else.
+--   - Branches: a grid of candidates each, one of them working at a time. A
+--     guess splits a branch into one child for each candidate of a cell, so
+--     nothing is ever undone: a branch that fails is left behind.
+--   - Propagation: a placed digit leaves its peers' candidates, a cell with
+--     one candidate takes it, and a digit with one place left in a unit is
+--     placed there. All of it runs out before anything is guessed.
+--   - Contradiction: a cell with no candidate, a unit with no place for a
+--     digit, or a cell that is the only place for two digits. It ends its
+--     branch at once.
+--   - What makes the search quick and can be seen from outside it: it guesses
+--     only when propagation has nothing left, on a cell with the fewest
+--     candidates, goes depth first, and stops at the second solution.
+--   - Two boundaries: Solving, where givens are handed over, and SearchResult,
+--     where the verdict and the solutions are read.
+--
+-- Excludes
+--   - How any of it is stored or made fast: bitmasks, exact cover, clause
+--     learning, trails against copies, and how long a search takes. Another
+--     solver that keeps every clause here is the same solver.
+--   - The order in which tied cells and tied branches are taken. It must be
+--     the same each time and is otherwise the implementation's.
+--   - Deductions past singles: locked candidates, subsets, fish, wings and
+--     chains. A solver may make them, since none removes a candidate a
+--     solution uses, but none is owed. They are technique.allium's.
+--   - Steps a person could follow, hints, and how hard a puzzle is. A verdict
+--     explains nothing. Those are reach.allium's, effort.allium's,
+--     lapse.allium's and human-solving.allium's, which stand on
+--     technique.allium and not on this module.
+--   - Finding givens, and solving from a puzzle in play. The search reads
+--     givens and nothing a player has placed.
+--   - Variants, as sudoku.allium excludes them.
+--
+-- Dependencies
+--   sudoku.allium, for Given, Position and the two sides of the grid. It does
+--   not import this module in return: its solution_count stays a black box,
+--   and VerdictIsTrue below ties the verdict to it.
+--
+-- Vocabulary
+--   sudoku.allium's words stand: given, unit, peer, box, well-posed. To them:
+--   candidate, a digit a cell may still hold. Search. Branch, one grid of
+--   candidates. Propagate. Guess, never trial or assumption. Contradiction.
+--   Verdict. Solution, the grid a solved branch holds.
+
+use "./sudoku.allium" as sudoku
+
+------------------------------------------------------------
+-- Value Types
+------------------------------------------------------------
+
+-- The digit a branch was opened to try, and where.
+value Guess {
+    position: sudoku/Position
+    digit: Integer
+}
+
+------------------------------------------------------------
+-- Entities and Variants
+------------------------------------------------------------
+
+entity Search {
+    -- Whatever was handed over, before anything is known about it.
+    givens: Set<sudoku/Given>
+    status: searching | concluded
+
+    -- Concluded is final, and a search that has concluded has a verdict.
+    transitions status {
+        searching -> concluded
+        terminal: concluded
+    }
+
+    verdict: none | one | many when status = concluded
+
+    -- How many branches have been split. The work a search did, as far as it
+    -- can be seen from outside.
+    guesses: Integer
+
+    branches: Branch with search = this
+    working_branches: branches where status = working
+    waiting_branches: branches where status = waiting
+    ready_branches: branches where is_ready
+    solved_branches: branches where status = solved
+
+    -- Every given on the grid and in range, and no two disagreeing about one
+    -- position. Two givens that agree are one given, since givens is a set.
+    -- Givens in conflict are well-formed: propagation finds them out.
+    givens_are_well_formed:
+        givens.all(g =>
+            g.position.row >= 1 and g.position.row <= config.side
+                and g.position.column >= 1 and g.position.column <= config.side
+                and g.digit >= 1 and g.digit <= config.side)
+            and givens.all(a => givens.all(b =>
+                a.position = b.position implies a.digit = b.digit))
+
+    has_enough_solutions:
+        status = searching and solved_branches.count >= config.solutions_sought
+
+    -- Nothing is working and something can be. Never true once enough
+    -- solutions are in, so the search does not look for a third.
+    is_idle:
+        status = searching
+            and solved_branches.count < config.solutions_sought
+            and working_branches.count = 0
+            and ready_branches.count > 0
+
+    -- Every branch has ended. Counted from a search that has branches, so
+    -- that one just begun is not exhausted.
+    is_exhausted:
+        status = searching
+            and solved_branches.count < config.solutions_sought
+            and branches.count > 0
+            and working_branches.count = 0
+            and waiting_branches.count = 0
+}
+
+entity Branch {
+    search: Search
+
+    -- Absent on the root, which holds the givens and no guess.
+    parent: Branch?
+    guess: Guess?
+
+    -- Guesses between the root and this branch.
+    depth: Integer
+
+    status: waiting | working | split | contradicted | solved | abandoned
+
+    -- A branch waits until it is the deepest there is, works until it is
+    -- split, contradicted or solved, and is abandoned only by a search that
+    -- has concluded with it still waiting.
+    transitions status {
+        waiting -> working
+        waiting -> abandoned
+        working -> split
+        working -> contradicted
+        working -> solved
+        terminal: split, contradicted, solved, abandoned
+    }
+
+    cells: BranchCell with branch = this
+    placed_cells: cells where digit != null
+    unplaced_cells: cells where digit = null
+    fewest_candidate_cells: cells where has_fewest_candidates
+
+    is_laid_out: cells.count = config.side * config.side
+
+    -- Depth first: a waiting branch may work only when none waits deeper.
+    -- Breadth first would keep every other clause here and still open
+    -- branches without end on an empty grid before a second solution showed.
+    -- And only when every waiting branch is laid out, so that chosen reads
+    -- every child of a split and never just the ones laid out so far.
+    is_ready:
+        status = waiting
+            and is_laid_out
+            and search.waiting_branches.all(other =>
+                other.depth <= depth and other.is_laid_out)
+
+    -- The one ready branch an idle search takes up. chosen is a black box:
+    -- one member of the collection, and the same one whenever the collection
+    -- is the same. Which is the implementation's.
+    is_next: is_ready and search.is_idle and chosen(search.ready_branches) = this
+
+    -- A waiting branch's turn has come, one way or the other: it is next,
+    -- or its search has concluded without it. Never both, since only a
+    -- search still searching is idle.
+    is_due: status = waiting and (is_next or search.status = concluded)
+
+    -- Read from the cells alone, and is_filled likewise, so that neither
+    -- changes when the branch's status does.
+    is_contradictory: cells.any(c => c.is_contradictory)
+
+    is_propagating:
+        cells.any(c => c.has_stale_candidate or c.is_naked_single or c.is_hidden_single)
+
+    -- Propagation has run out and found nothing wrong. Everything the search
+    -- decides about a branch, it decides of a settled one.
+    is_settled: status = working and not is_contradictory and not is_propagating
+
+    -- The moment a working branch is decided: contradictory, which does not
+    -- wait for propagation to finish, or settled.
+    is_decided: status = working and (is_contradictory or is_settled)
+
+    -- Filled is not yet solved. A cell is placed the moment it holds a
+    -- digit, and two peers may hold one digit until each has been struck
+    -- from the other. Settled is what makes a filled grid a solution: a
+    -- settled branch has no such pair.
+    is_filled: placed_cells.count = config.side * config.side
+}
+
+entity BranchCell {
+    branch: Branch
+    row: Integer
+    column: Integer
+    band: Integer
+    stack: Integer
+
+    -- The digits the cell may still hold. A placed cell keeps its digit as
+    -- its one candidate, and loses even that if a peer is placed with it.
+    candidates: Set<Integer>
+
+    -- Absent until the cell is placed: by a given, a single or a guess.
+    digit: Integer?
+
+    -- The other cells of the cell's row, of its column and of its box.
+    row_mates: BranchCell with branch = this.branch
+        and row = this.row and column != this.column
+    column_mates: BranchCell with branch = this.branch
+        and column = this.column and row != this.row
+    box_mates: BranchCell with branch = this.branch
+        and band = this.band and stack = this.stack
+        and (row != this.row or column != this.column)
+
+    -- As sudoku.allium's Cell.peers, within one branch.
+    peers: BranchCell with branch = this.branch
+        and (row = this.row or column = this.column or (band = this.band and stack = this.stack))
+        and (row != this.row or column != this.column)
+
+    placed_peer_digits: peers where digit != null -> digit
+
+    -- Only a working branch propagates. Each condition below is false while
+    -- its branch waits and turns true, if it is going to, when the branch is
+    -- taken up.
+    is_live: branch.status = working
+
+    has_stale_candidate: is_live and candidates.any(d => d in placed_peer_digits)
+
+    is_naked_single: is_live and digit = null and candidates.count = 1
+
+    -- No other cell of one of this cell's units can hold the digit.
+    is_sole_place(d):
+        d in candidates
+            and (row_mates.all(m => not (d in m.candidates))
+                or column_mates.all(m => not (d in m.candidates))
+                or box_mates.all(m => not (d in m.candidates)))
+
+    is_overdemanded:
+        candidates.any(a => candidates.any(b =>
+            a != b and is_sole_place(a) and is_sole_place(b)))
+
+    is_hidden_single:
+        is_live and digit = null and not is_overdemanded
+            and candidates.any(d => is_sole_place(d))
+
+    -- A digit this cell cannot hold and no other cell of one of its units
+    -- can either. digits_up_to is a black box: the digits from 1 to its
+    -- argument, each once.
+    has_unit_without_place:
+        digits_up_to(config.side).any(d =>
+            not (d in candidates)
+                and (row_mates.all(m => not (d in m.candidates))
+                    or column_mates.all(m => not (d in m.candidates))
+                    or box_mates.all(m => not (d in m.candidates))))
+
+    is_contradictory: candidates.count = 0 or has_unit_without_place or is_overdemanded
+
+    has_fewest_candidates:
+        digit = null
+            and branch.unplaced_cells.all(other => other.candidates.count >= candidates.count)
+}
+
+------------------------------------------------------------
+-- Config
+------------------------------------------------------------
+
+config {
+    -- sudoku.allium's two figures, under its names. A product of two
+    -- qualified figures does not read as one, so they are restated here
+    -- once and every clause below reads them from here.
+    box_side: Integer = sudoku/config.box_side
+    side: Integer = sudoku/config.side
+
+    -- One solution shows the givens can be solved and a second shows they
+    -- are not well-posed. No verdict needs a third, so none is looked for.
+    -- Named so that no rule carries a bare number, not so that it can be
+    -- tuned.
+    solutions_sought: Integer = 2
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+-- Beginning -------------------------------------------------
+
+rule BeginSearch {
+    when: Solve(givens)
+
+    -- Nothing is required of the givens. Whatever SetPuzzle may be handed,
+    -- this may be handed, and the worst of it gets a verdict of none.
+    ensures: Search.created(givens: givens, status: searching, guesses: 0)
+}
+
+rule RefuseMalformedGivens {
+    when: search: Search.created
+
+    requires: not search.givens_are_well_formed
+
+    -- A given off the grid, a digit out of range or two digits to a position
+    -- has no solution, and no branch is opened to find that out.
+    ensures:
+        search.status = concluded
+        search.verdict = none
+}
+
+rule OpenRootBranch {
+    when: search: Search.created
+
+    requires: search.givens_are_well_formed
+
+    ensures: Branch.created(search: search, depth: 0, status: waiting)
+}
+
+rule LayOutRootBranch {
+    when: branch: Branch.created
+
+    requires: branch.parent = null
+
+    -- grid_positions, box_index and given_digit_at are sudoku.allium's black
+    -- boxes, read as they are there. A given's cell is placed from the start
+    -- and every other cell may hold any digit.
+    ensures:
+        for position in grid_positions(config.side):
+            let given_digit = given_digit_at(branch.search.givens, position)
+            BranchCell.created(
+                branch: branch,
+                row: position.row,
+                column: position.column,
+                band: box_index(position.row, config.box_side),
+                stack: box_index(position.column, config.box_side),
+                digit: given_digit,
+                candidates: if given_digit != null: { given_digit } else: digits_up_to(config.side)
+            )
+}
+
+rule LayOutChildBranch {
+    when: branch: Branch.created
+
+    requires: branch.parent != null
+
+    -- A child is its parent's grid with the guess placed in it.
+    ensures:
+        for source in branch.parent.cells:
+            let is_guessed =
+                source.row = branch.guess.position.row
+                    and source.column = branch.guess.position.column
+            BranchCell.created(
+                branch: branch,
+                row: source.row,
+                column: source.column,
+                band: source.band,
+                stack: source.stack,
+                digit: if is_guessed: branch.guess.digit else: source.digit,
+                candidates: if is_guessed: { branch.guess.digit } else: source.candidates
+            )
+}
+
+rule AttendWaitingBranch {
+    when: branch: Branch.is_due
+
+    requires: branch.status = waiting
+
+    -- Read when the rule runs and not when it was set off: a branch whose
+    -- turn has since gone to another is not taken up.
+    requires: branch.is_due
+
+    -- One rule and two ends. The search has concluded, and whatever still
+    -- waits is left unopened; or it has not, and this is the deepest branch
+    -- there is.
+    ensures:
+        if branch.search.status = concluded:
+            branch.status = abandoned
+        else:
+            branch.status = working
+}
+
+-- Propagation -----------------------------------------------
+
+rule EliminateFromPeers {
+    when: cell: BranchCell.has_stale_candidate
+
+    requires: cell.branch.status = working
+
+    -- No two peers hold one digit, so no solution has this cell holding a
+    -- digit one of its peers is placed with.
+    ensures: cell.candidates = cell.candidates - cell.placed_peer_digits
+}
+
+rule PlaceNakedSingle {
+    when: cell: BranchCell.is_naked_single
+
+    requires: cell.branch.status = working
+    requires: cell.digit = null
+    requires: cell.candidates.count = 1
+
+    ensures:
+        for only in cell.candidates:
+            cell.digit = only
+}
+
+rule PlaceHiddenSingle {
+    when: cell: BranchCell.is_hidden_single
+
+    requires: cell.branch.status = working
+    requires: cell.digit = null
+    requires: not cell.is_overdemanded
+
+    -- Every unit holds every digit, so a digit with one place left in a unit
+    -- goes there, whatever else the cell could have held.
+    ensures:
+        for d in cell.candidates:
+            if cell.is_sole_place(d):
+                cell.digit = d
+                cell.candidates = { d }
+}
+
+-- The end of a branch ---------------------------------------
+
+rule DecideBranch {
+    when: branch: Branch.is_decided
+
+    requires: branch.status = working
+
+    -- One rule and three ends, in this order. A contradiction ends the
+    -- branch at once: nothing waits for propagation to finish and nothing is
+    -- guessed beneath it. Otherwise the branch is settled. Settled and
+    -- filled, it holds a solution. Settled and not filled, it is split on a
+    -- cell with the fewest candidates, which opens the fewest children and
+    -- finds a wrong guess out soonest; and one child for each candidate, so
+    -- that whatever the cell holds in a solution, some child has guessed it.
+    ensures:
+        if branch.is_contradictory:
+            branch.status = contradicted
+        else if branch.is_filled:
+            branch.status = solved
+        else:
+            let cell = chosen(branch.fewest_candidate_cells)
+            branch.status = split
+            branch.search.guesses = branch.search.guesses + 1
+            for candidate in cell.candidates:
+                Branch.created(
+                    search: branch.search,
+                    parent: branch,
+                    guess: { position: { row: cell.row, column: cell.column }, digit: candidate },
+                    depth: branch.depth + 1,
+                    status: waiting
+                )
+}
+
+-- The verdict -----------------------------------------------
+
+rule ConcludeMany {
+    when: search: Search.has_enough_solutions
+
+    requires: search.status = searching
+
+    -- The second solution settles it. Whatever still waits is left unopened.
+    ensures:
+        search.status = concluded
+        search.verdict = many
+}
+
+rule ConcludeExhausted {
+    when: search: Search.is_exhausted
+
+    requires: search.status = searching
+
+    ensures:
+        search.status = concluded
+        if search.solved_branches.count = 1:
+            search.verdict = one
+        else:
+            search.verdict = none
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+-- These hold in every state a search can reach. One property is about every
+-- solution the givens have rather than about what stands now, and so is
+-- prose: no solution is lost. A solution of the givens is a way to fill the
+-- grid that SolvedBranchesAreSolutions would accept. Each lies within the
+-- root branch, since the root strikes nothing. Each propagation rule strikes
+-- only a candidate no solution within its branch uses; a contradiction ends
+-- only a branch no solution lies within; and a split gives every candidate of
+-- one cell a child, so a solution within the parent lies within a child. A
+-- solution is therefore always within a branch that waits, works or is
+-- solved, until the search has the solutions it sought. VerdictIsTrue rests
+-- on this.
+--
+-- A state is what stands once a stimulus and the rules it sets off have run,
+-- as in sudoku.allium. A search concludes by one rule and its waiting
+-- branches are abandoned by the next, and ConcludedLeavesNothingOpen is to be
+-- read of what stands after both.
+
+invariant OneBranchWorksAtATime {
+    for search in Searches:
+        search.working_branches.count <= 1
+}
+
+invariant TheDeepestBranchWorks {
+    for working in Branches:
+        for waiting in Branches:
+            working.search = waiting.search
+                and working.status = working and waiting.status = waiting
+                implies waiting.depth <= working.depth
+}
+
+invariant ChildrenSitBelowTheirParent {
+    for branch in Branches:
+        branch.parent != null implies
+            branch.depth = branch.parent.depth + 1
+                and branch.search = branch.parent.search
+                and branch.guess != null
+}
+
+invariant OnlySplitBranchesHaveChildren {
+    for branch in Branches:
+        branch.parent != null implies branch.parent.status = split
+}
+
+-- A split branch's cells stand as they stood when it was split, since only
+-- a working branch propagates, so what was guessed can still be held to
+-- what was there to guess.
+invariant GuessesAreOnFewestCandidates {
+    for branch in Branches:
+        branch.parent != null implies branch.parent.cells.all(c =>
+            c.row = branch.guess.position.row and c.column = branch.guess.position.column
+                implies c.has_fewest_candidates and branch.guess.digit in c.candidates)
+}
+
+invariant PlacedCellsKeepOnlyTheirDigit {
+    for cell in BranchCells:
+        cell.digit != null implies cell.candidates.all(d => d = cell.digit)
+}
+
+invariant CandidatesAreDigits {
+    for cell in BranchCells:
+        cell.candidates.all(d => d >= 1 and d <= config.side)
+}
+
+-- A solved branch holds a solution of the givens: full, no two peers with
+-- one digit, and every given where the setter put it.
+invariant SolvedBranchesAreSolutions {
+    for branch in Branches:
+        branch.status = solved implies
+            branch.is_filled
+                and branch.cells.all(c => c.peers.all(p => p.digit != c.digit))
+                and branch.search.givens.all(g => branch.cells.any(c =>
+                    c.row = g.position.row
+                        and c.column = g.position.column
+                        and c.digit = g.digit))
+}
+
+-- Two solved branches part at some split above them both, where they follow
+-- children that guessed different digits for one cell, and a placed digit
+-- never changes.
+invariant SolutionsAreDistinct {
+    for a in Branches:
+        for b in Branches:
+            a != b and a.search = b.search and a.status = solved and b.status = solved
+                implies a.cells.any(ca => b.cells.any(cb =>
+                    ca.row = cb.row and ca.column = cb.column and ca.digit != cb.digit))
+}
+
+invariant NoMoreSolutionsThanSought {
+    for search in Searches:
+        search.solved_branches.count <= config.solutions_sought
+}
+
+invariant ConcludedLeavesNothingOpen {
+    for search in Searches:
+        search.status = concluded implies
+            search.working_branches.count = 0 and search.waiting_branches.count = 0
+}
+
+invariant VerdictMatchesSolutions {
+    for search in Searches:
+        search.status = concluded implies
+            (search.verdict = none implies search.solved_branches.count = 0)
+                and (search.verdict = one implies search.solved_branches.count = 1)
+                and (search.verdict = many implies
+                    search.solved_branches.count = config.solutions_sought)
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+-- Where givens are handed over: a setter checking its work, or a generator.
+surface Solving {
+    provides:
+        Solve(givens)
+
+    @guarantee AlwaysConcludes
+        -- Every search ends in a verdict. Propagation only ever strikes
+        -- candidates or places digits, a child holds fewer candidates than
+        -- its parent, and a grid holds a finite number of them, so no branch
+        -- is worked for ever and no line of guesses goes on for ever.
+
+    @guarantee VerdictIsTrue
+        -- The verdict is none exactly when sudoku.allium's solution_count of
+        -- the givens is 0, one exactly when it is 1, and many exactly when it
+        -- is 2 or more. Givens are well-posed exactly when the verdict is
+        -- one, and then the one solved branch holds the solution.
+
+    @guarantee NeverCountsPastTwo
+        -- A search stops at config.solutions_sought solutions. No branch is
+        -- taken up and nothing is guessed once they are in, whatever still
+        -- waits.
+
+    @guarantee GuessesAreTheLastResort
+        -- Nothing is guessed in a branch while a candidate can be struck or
+        -- a single placed, nor in one that is contradictory; and a guess is
+        -- on a cell with as few candidates as any unplaced cell has.
+
+    @guarantee SameGivensSameResult
+        -- The same givens get the same verdict, the same solutions and the
+        -- same count of guesses, every time. Nothing here is left to chance.
+}
+
+-- What a search has to show for itself. It carries no guarantee about how a
+-- verdict is shown, since it draws nothing.
+surface SearchResult {
+    context search: Search
+
+    exposes:
+        search.status
+        search.verdict when search.status = concluded
+        search.guesses
+        for branch in search.solved_branches:
+            for cell in branch.cells:
+                cell.row
+                cell.column
+                cell.digit
+}

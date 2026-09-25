@@ -1,0 +1,5 @@
+* text=auto eol=lf
+
+Cargo.lock linguist-generated=true
+uv.lock linguist-generated=true
+allium-skill-reference/** linguist-vendored=true

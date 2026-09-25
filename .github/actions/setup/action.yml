@@ -1,0 +1,53 @@
+# A working stub of the setup every CI job shares, so the one `check` job can run
+# `just check`; T04 replaces it. rust-toolchain.toml, tools.txt, uv.lock and
+# .python-version are the pins: nothing here restates a version they own.
+name: Setup
+description: Install just, cargo-binstall, the pinned Rust toolchain, the pinned tools and the Python tooling.
+
+inputs:
+  cache-key:
+    description: Shared key for the cargo cache, so jobs building the same thing share it.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # The only version pins in YAML: the bootstrap binaries nothing else can install.
+    - uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
+      with:
+        tool: just@1.51.0,cargo-binstall@1.23.0
+
+    - name: Install the pinned toolchain
+      shell: bash
+      run: just install-toolchain
+
+    - uses: Swatinem/rust-cache@63fed3e2fecf6f7b51dc6f043341b79ef82a9ae7 # v2.9.2
+      with:
+        shared-key: ${{ inputs.cache-key }}
+        save-if: ${{ github.ref == 'refs/heads/main' }}
+        cache-bin: false
+
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: .tools
+        key: ${{ runner.os }}-${{ runner.arch }}-tools-${{ hashFiles('tools.txt') }}
+
+    - name: Install the pinned tools
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: just install-tools
+
+    - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      with:
+        version: 0.11.18
+        enable-cache: true
+        cache-dependency-glob: uv.lock
+
+    - name: Install Python
+      shell: bash
+      run: uv python install 3.14
+
+    - name: Fetch dependencies
+      shell: bash
+      run: just sync

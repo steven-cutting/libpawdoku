@@ -1,0 +1,425 @@
+-- allium: 3
+--
+-- Reach — how far a player gets, and what they would find next
+--
+-- Scope
+--   The first of four models of a player, and the one in which a limit
+--   hides things. A deduction the player does not know, cannot hold, cannot
+--   take in or cannot read is not there for them, and that is the whole of
+--   it: what is left is found at no cost and never wrongly. Put to a set of
+--   givens it says how far such a player gets, by which techniques, and
+--   where they stop. Put to a puzzle in play it says what that player would
+--   find next, which is a hint pitched at them. effort.allium,
+--   lapse.allium and human-solving.allium model the same player differently
+--   and none of the four imports another. A player described in
+--   human-solving.allium's finer terms is put to this model through the
+--   projection it states.
+--   Source: docs/explanation/solving-sudoku.md, for the workflow a
+--   systematic player follows.
+--
+-- Includes
+--   - The run: one for each rating or hint asked for. It looks, steps, and
+--     looks again, until the grid is full or nothing it can see is left.
+--   - Sight: the four ways a profile hides a deduction, which are
+--     technique.allium's knows, holds, takes_in and can_read.
+--   - Choice: a systematic player takes the lowest technique on the ladder
+--     that yields anything, an unsystematic one whatever is seen, and either
+--     is drawn first to what their fixation favours.
+--   - Steps: the deductions taken, in order, which are the trace a rating
+--     reads and the one step a hint is.
+--   - Three boundaries: Rating and Hinting, where a run is asked for, and
+--     RunResult, where it is read.
+--
+-- Excludes
+--   - Cost. A step here is free, and a puzzle is within reach or it is not.
+--     What it takes out of a player is effort.allium's.
+--   - Error and guessing. Marks are kept true, every step is sound, and a
+--     player who sees nothing stalls. A novice who would guess is reported
+--     here as stalled; what guessing does is lapse.allium's. So this model
+--     reads repertoire, capacity, spans, marking, order and fixation, and
+--     ignores upkeep, budget, fatigue and patience.
+--   - Which of several equally preferred deductions is taken. It must be the
+--     same each time and is otherwise the implementation's, as the order of
+--     tied branches is in solver.allium.
+--   - How a hint is worded or shown, and anything a surface draws.
+--   - Chance. The same profile and the same digits give the same run.
+--
+-- Dependencies
+--   sudoku.allium, for Given and Puzzle, and technique.allium, for the grid,
+--   the catalogue, deductions and the profile.
+--
+-- Vocabulary
+--   technique.allium's words stand. To them: run. Look, the moment a run
+--   surveys what its grid licenses; step, a deduction taken. See, of a
+--   deduction the profile does not hide. Stall, to look and see nothing with
+--   the grid unfilled. Rating and hint, the two things a run is for.
+
+use "./sudoku.allium" as sudoku
+use "./technique.allium" as technique
+
+------------------------------------------------------------
+-- Enumerations
+------------------------------------------------------------
+
+enum Purpose { rating | hint }
+
+------------------------------------------------------------
+-- Entities and Variants
+------------------------------------------------------------
+
+entity Run {
+    profile: technique/Profile
+    purpose: Purpose
+
+    -- The digits the run starts from: givens for a rating, and for a hint
+    -- every digit standing in the puzzle, the player's with the setter's.
+    start: Set<sudoku/Given>
+
+    status: looking | stepping | solved | stalled | answered
+
+    -- A run looks and steps by turns. A rating ends solved or stalled. A
+    -- hint ends on its first look: answered with one step, or stalled if
+    -- this player would see nothing. It is never solved, since a puzzle that
+    -- is unsolved and consistent has a cell to fill.
+    transitions status {
+        looking -> stepping
+        stepping -> looking
+        looking -> solved
+        looking -> stalled
+        looking -> answered
+        terminal: solved, stalled, answered
+    }
+
+    -- The run is the grid's keeper. Absent only between the run's creation
+    -- and the rule that opens its grid.
+    grid: technique/Grid with keeper = this
+
+    steps: Step with run = this
+    last_steps: steps where is_last
+
+    -- The miss model entire: a deduction is seen when nothing about the
+    -- profile hides it. Known, small enough to hold, narrow enough to take
+    -- in, and read from marks only by a player who keeps them.
+    sees(x): profile.sees(x)
+
+    sees_something: grid.deductions.any(x => sees(x))
+
+    -- Systematic: nothing seen is lower on the ladder. Every step is a
+    -- fresh look, which is the return to the cheap techniques the source
+    -- asks for. Unsystematic: anything seen will do.
+    is_in_order(x):
+        sees(x)
+            and (profile.order = unsystematic
+                or grid.deductions.all(o => sees(o) implies o.technique.rank >= x.technique.rank))
+
+    -- Whether the player's eye is already there. Nearby is a cell of the
+    -- deduction sharing a row, a column or a box with a cell of the last
+    -- step; same_digit is a digit shared with it. Nothing is favoured before
+    -- the first step or by a player with no fixation.
+    is_favoured(x):
+        last_steps.any(s =>
+            (profile.fixation = same_digit
+                and x.digits.any(d => d in s.deduction.digits))
+            or (profile.fixation = nearby
+                and x.cells.any(p => s.deduction.cells.any(q =>
+                    p.row = q.row or p.column = q.column
+                        or (box_index(p.row, config.box_side) = box_index(q.row, config.box_side)
+                            and box_index(p.column, config.box_side) = box_index(q.column, config.box_side))))))
+
+    -- Fixation bends the order and never breaks it: a favoured deduction is
+    -- preferred among those in order, and where none is favoured all of them
+    -- are. So fixation cannot stall a run that order would have moved.
+    is_preferred(x):
+        is_in_order(x)
+            and (is_favoured(x)
+                or not grid.deductions.any(o => is_in_order(o) and is_favoured(o)))
+
+    -- Ready to look: the grid stands whole and every mark is true.
+    is_poised: status = looking and grid != null and grid.is_kept
+}
+
+entity Step {
+    run: Run
+
+    -- From 1, in the order taken.
+    index: Integer
+
+    deduction: technique/Deduction
+
+    is_last: run.steps.all(o => o.index <= index)
+
+    -- As high on the ladder as any step of the run. What a rating reports as
+    -- the hardest technique the puzzle asked of this player.
+    is_hardest: run.steps.all(o => o.deduction.technique.rank <= deduction.technique.rank)
+}
+
+------------------------------------------------------------
+-- Config
+------------------------------------------------------------
+
+config {
+    box_side: Integer = sudoku/config.box_side
+    side: Integer = sudoku/config.side
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+-- Beginning -------------------------------------------------
+
+rule BeginRating {
+    when: Rate(givens, profile)
+
+    -- A rating is of a puzzle, and only well-posed givens are one. As
+    -- sudoku.allium's SetPuzzle requires, in its words; solver.allium's
+    -- verdict of one says the same.
+    requires: solution_count(givens, config.side) = 1
+
+    ensures: Run.created(profile: profile, purpose: rating, start: givens, status: looking)
+}
+
+rule BeginHint {
+    when: NextStep(puzzle, profile)
+
+    -- No hint is offered over a conflict: the player has something to put
+    -- right first, and a grid in conflict licenses nothing that can be
+    -- trusted. standing_digits is a black box: every filled cell of the
+    -- puzzle as a position and its digit, given or placed.
+    requires: puzzle.status = unsolved
+    requires: puzzle.is_consistent
+
+    ensures: Run.created(
+        profile: profile,
+        purpose: hint,
+        start: standing_digits(puzzle),
+        status: looking
+    )
+}
+
+rule OpenGrid {
+    when: run: Run.created
+
+    -- technique.allium lays the grid out when it is created.
+    ensures: technique/Grid.created(
+        keeper: run, start: run.start, uniqueness_promised: run.purpose = rating
+    )
+}
+
+-- Upkeep ----------------------------------------------------
+
+rule KeepMarksTrue {
+    when: cell: technique/GridCell.has_stale_candidate
+
+    -- Only of a grid a run of this model keeps, and only while it is
+    -- looking: a finished run's grid is never touched again. A grid is born
+    -- kept, so a candidate only ever turns stale when a step places a digit,
+    -- and this answers each cell that step has made stale.
+    for run in Runs where grid = cell.grid:
+        requires: run.status = looking
+
+        -- In this model upkeep is perfect and free: whatever a placed peer
+        -- rules out is struck before the run looks again. A player who keeps
+        -- no marks is modelled the same way and simply cannot read them.
+        ensures: cell.candidates = cell.candidates - cell.placed_peer_digits
+}
+
+-- Looking and stepping --------------------------------------
+
+rule Look {
+    when: run: Run.is_poised
+
+    requires: run.status = looking
+    requires: run.is_poised
+
+    -- Read before anything changes, so that the step about to be recorded
+    -- is not counted as the last one or among the steps. chosen of nothing
+    -- is nothing, and then no step is recorded.
+    let taken = chosen(filter(run.grid.deductions, x => run.is_preferred(x)))
+    let next_index = run.steps.count + 1
+
+    -- One rule and three ends, in this order. A full grid is solved; a full
+    -- grid licenses nothing, so this comes first. A grid the player sees
+    -- nothing in is where they stall. Otherwise one preferred deduction is
+    -- taken. chosen is solver.allium's black box: one member of the
+    -- collection, the same whenever the collection is the same. filter is a
+    -- black box: the members of the collection the condition holds of.
+    ensures:
+        if run.grid.is_filled:
+            run.status = solved
+        else if not run.sees_something:
+            run.status = stalled
+        else:
+            Step.created(run: run, index: next_index, deduction: taken)
+            if run.purpose = hint:
+                run.status = answered
+            else:
+                run.status = stepping
+}
+
+rule TakeStep {
+    when: run: Run.status transitions_to stepping
+
+    requires: run.status = stepping
+
+    -- The step Look has just recorded is applied as technique.allium pins
+    -- it: its placement put in its cell, or each of its strikes taken from
+    -- its cell. A hint never gets here, so its one step is recorded and not
+    -- taken: the puzzle is the player's to change. A placed digit then
+    -- leaves its peers by KeepMarksTrue, and the run looks again once it
+    -- has.
+    ensures:
+        run.status = looking
+        for step in run.last_steps:
+            if step.deduction.placement != null:
+                for cell in run.grid.cells:
+                    if cell.row = step.deduction.placement.position.row
+                            and cell.column = step.deduction.placement.position.column:
+                        cell.digit = step.deduction.placement.digit
+                        cell.candidates = { step.deduction.placement.digit }
+            for strike in step.deduction.strikes:
+                for cell in run.grid.cells:
+                    if cell.row = strike.position.row and cell.column = strike.position.column:
+                        cell.candidates = cell.candidates - strike.digits
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+-- These hold in every state a run can reach. Two properties compare one
+-- state with the next and so are prose. A systematic run never takes a step
+-- while a lower technique it can see yields anything: Look reads the ladder
+-- afresh each time. And a run never undoes anything: a placed digit stays
+-- and a struck candidate stays struck, because nothing here is a guess.
+
+invariant EveryStepWasSeen {
+    for step in Steps:
+        step.run.sees(step.deduction)
+}
+
+invariant StepsAreNumberedInOrder {
+    for a in Steps:
+        for b in Steps:
+            a != b and a.run = b.run implies a.index != b.index
+}
+
+invariant StepsCountFromOne {
+    for step in Steps:
+        step.index >= 1 and step.index <= step.run.steps.count
+}
+
+invariant AHintIsOneStep {
+    for run in Runs:
+        (run.purpose = hint implies run.steps.count <= 1)
+            and (run.status = answered implies run.purpose = hint and run.steps.count = 1)
+}
+
+invariant SolvedMeansFilled {
+    for run in Runs:
+        run.status = solved implies run.grid.is_filled
+}
+
+-- The grid of a finished run is never touched again, so this stays true.
+invariant StalledSeesNothing {
+    for run in Runs:
+        run.status = stalled implies not run.grid.is_filled and not run.sees_something
+}
+
+-- Of a rating, whose grid is laid out from givens and kept true. A hint's
+-- grid is the player's, and a digit that fits and is wrong can leave it
+-- with a cell that allows nothing; what a hint does then is the open
+-- question below.
+invariant NoRatingIsContradictory {
+    for run in Runs:
+        run.purpose = rating and run.grid != null implies not run.grid.is_contradictory
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+-- Where a rating is asked for: a generator grading what it has made, or a
+-- setter checking who a puzzle is for.
+surface Rating {
+    provides:
+        Rate(givens, profile)
+
+    @guarantee AlwaysEnds
+        -- Every run ends. Each step fills a cell or strikes a candidate that
+        -- stood, nothing is ever put back, and a grid holds a finite number
+        -- of both.
+
+    @guarantee NeverWrong
+        -- The grid starts true and KeepMarksTrue strikes only what the rules
+        -- forbid, so by technique.allium's DeductionsAreSound every step is
+        -- sound. A solved run's grid is the puzzle's one solution, and a
+        -- stalled run's grid is part of it.
+
+    @guarantee StalledIsNotUnsolvable
+        -- Stalled says this profile sees nothing more. It says nothing of
+        -- the puzzle, which is well-posed, and nothing of what the player
+        -- would do next. The grid as far as it got is there to be read, and
+        -- so is every technique the catalogue licenses that the profile hid.
+
+    @guarantee SameInputSameRun
+        -- The same givens and the same profile give the same steps in the
+        -- same order and the same end, every time.
+
+    @guarantee LimitsOnlyHide
+        -- A profile changes which deductions are seen and in what order they
+        -- are taken. It never changes what a deduction is, what it costs or
+        -- whether it is right.
+}
+
+-- Where a hint is asked for: the surface a puzzle is played on.
+surface Hinting {
+    context puzzle: sudoku/Puzzle
+
+    provides:
+        NextStep(puzzle, profile)
+            when puzzle.status = unsolved and puzzle.is_consistent
+
+    @guarantee AHintIsWhatThisPlayerWouldFind
+        -- The step a hint run records is the first this profile would take
+        -- from the same digits and premises: a technique the player knows,
+        -- of a size they can hold, where they would look. Unverified player
+        -- entries carry no uniqueness promise, so a hint cannot use the two
+        -- uniqueness techniques that a rating run may use. A hint is never
+        -- drawn from above the profile, and a stalled hint run says there
+        -- is nothing at this level under the available premises.
+
+    @guarantee AHintChangesNothing
+        -- A hint run reads the puzzle and never places in it. Its grid is
+        -- its own.
+}
+
+-- What a run has to show for itself. It draws nothing and words nothing.
+surface RunResult {
+    context run: Run
+
+    exposes:
+        run.purpose
+        run.status
+        run.profile
+        for step in run.steps:
+            step.index
+            step.deduction
+            step.is_last
+            step.is_hardest
+        for cell in run.grid.cells:
+            cell.row
+            cell.column
+            cell.digit
+            cell.candidates
+}
+
+------------------------------------------------------------
+-- Open Questions
+------------------------------------------------------------
+
+open question "A hint over a digit that fits and is wrong: the puzzle is consistent, so NextStep is offered, but the grid is no longer true and a licensed deduction may be unsound or the grid may contradict. Should the hint say the digit is wrong, using the solution, or refuse?"
+
+open question "Does a richer profile always reach at least as far? It does if every order ends at the same grid, which holds for a systematic player with every span; whether a fixation or a missing span can close off a deduction for good is not shown. technique.allium's ExtraCandidatesHideAndNeverMislead now says outright that it is no monotonicity claim: past subsets, a strike one player takes can change the shape another pattern needed, so the answer may be no even for a systematic player."
+
+open question "Should a rating of a stalled run name the lowest technique that would have moved it, as effort.allium does by escalating, or is that effort.allium's alone?"

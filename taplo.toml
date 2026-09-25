@@ -1,0 +1,3 @@
+# A working minimum so `just toml-check` runs; T02 finalises this file.
+include = ["**/*.toml"]
+exclude = ["target/**", ".tools/**", "ai_tmp/**", ".venv/**"]

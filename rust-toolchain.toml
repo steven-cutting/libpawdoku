@@ -1,0 +1,10 @@
+[toolchain]
+# An exact stable release, bumped deliberately. `channel = "stable"` would move the
+# clippy lint set every six weeks and break `-D warnings` with no diff. rust-version
+# in Cargo.toml follows this pin until the crate is first published.
+channel = "1.98.1"
+profile = "minimal"
+components = ["rustfmt", "clippy", "llvm-tools-preview", "rust-src"]
+# wasm32-unknown-unknown is what wasm-bindgen targets. wasm32v1-none has no std at
+# all, so a check against it is the mechanical proof that the core is no_std.
+targets = ["wasm32-unknown-unknown", "wasm32v1-none"]

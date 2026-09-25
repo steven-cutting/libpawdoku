@@ -1,0 +1,9 @@
+[files]
+# Lockfiles carry hashes that look like typos; build output and scratch are not
+# the repository's prose.
+extend-exclude = ["Cargo.lock", ".tools/", "target/", "ai_tmp/", "uv.lock", "allium-skill-reference/"]
+
+[default.extend-words]
+# "mis-" as a hyphenated prefix (mis-wired, mis-asserting) reads as the
+# fragment "mis", which the checker's dictionary mistakes for "miss"/"mist".
+mis = "mis"

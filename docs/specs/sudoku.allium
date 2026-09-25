@@ -1,0 +1,351 @@
+-- allium: 3
+--
+-- Sudoku — the rules
+--
+-- Scope
+--   Classic Sudoku and nothing else: what the grid is, what a setter may pose,
+--   what a player may do to it and when it is solved. It is the game as it is
+--   played on paper, stated without a screen, so every module that draws,
+--   stores or generates a puzzle answers to this one.
+--   Source: https://en.wikipedia.org/wiki/Sudoku
+--
+-- Includes
+--   - The grid: config.side rows and columns of cells, and the boxes of
+--     config.box_side by config.box_side that tile it.
+--   - Units and peers: a unit is a row, a column or a box, and a cell's peers
+--     are the other cells of its three units.
+--   - Setting: a setter supplies givens, which must be partially completed,
+--     free of conflict and well-posed — exactly one solution.
+--   - Play: placing a digit in a cell that is not given, erasing one, and the
+--     conflicts a placement may leave standing.
+--   - The outcome: a puzzle is solved when every cell holds a digit and none
+--     conflicts, and solved is final.
+--   - Two boundaries, PuzzleSetting and PuzzleSolving, which say where the
+--     three stimuli come from and what of a puzzle can be seen. Neither says
+--     anything of how it looks.
+--
+-- Excludes
+--   - Variants: other sizes, irregular boxes, diagonals, cages, overlapping
+--     grids. Each is a different game.
+--   - How a setter finds givens, how hard a puzzle is, and how anyone solves
+--     one. solution_count below is a black box for that reason; what decides
+--     it is solver.allium's, which imports this module and is not imported.
+--   - Notes, hints, undo, timers, counts of mistakes and whatever is remembered
+--     between visits. None is a rule of Sudoku.
+--   - Whether a surface refuses, flags or merely allows a conflicting
+--     placement. The rules allow it; pawdoku.allium's Play surface and the
+--     modules beneath it decide what a player is shown.
+--
+-- Dependencies
+--   None. The rules need no figure pawdoku.allium states, so this module does
+--   not import it; a module that draws the rules imports both.
+--
+-- Vocabulary
+--   One word each. Box, never block, region or subgrid. Given, never clue.
+--   Well-posed, never proper. Unit for a row, a column or a box; peer for
+--   another cell sharing a unit; conflict for two peers holding one digit.
+
+------------------------------------------------------------
+-- Value Types
+------------------------------------------------------------
+
+-- Where a cell sits. Rows count from the top and columns from the left, both
+-- from 1 to config.side.
+value Position {
+    row: Integer
+    column: Integer
+}
+
+-- One digit the setter has written in before play begins.
+value Given {
+    position: Position
+    digit: Integer
+}
+
+------------------------------------------------------------
+-- Entities and Variants
+------------------------------------------------------------
+
+entity Puzzle {
+    -- What the setter supplied. No rule changes it, so a puzzle's givens are
+    -- the same for as long as the puzzle exists.
+    givens: Set<Given>
+    status: unsolved | solved
+
+    -- Solved is final: no rule moves a solved puzzle, and both moves require
+    -- an unsolved one.
+    transitions status {
+        unsolved -> solved
+        terminal: solved
+    }
+
+    cells: Cell with puzzle = this
+    filled_cells: cells where digit != null
+    conflicting_cells: cells where is_conflicting
+
+    -- Counted rather than quantified, so that a grid with no cells in it is
+    -- not full.
+    is_full: filled_cells.count = config.side * config.side
+    is_consistent: conflicting_cells.count = 0
+
+    -- The whole of the Sudoku constraint. Every unit holds config.side cells
+    -- and there are config.side digits, so a full grid in which no unit
+    -- repeats a digit is one in which every row, every column and every box
+    -- contains all of the digits from 1 to config.side.
+    is_complete: is_full and is_consistent
+}
+
+entity Cell {
+    puzzle: Puzzle
+    row: Integer
+    column: Integer
+
+    -- Which box the cell is in: the band counts boxes from the top and the
+    -- stack from the left, both from 1 to config.box_side. CellsSitInTheirBox
+    -- says exactly which band a row belongs to and which stack a column does.
+    band: Integer
+    stack: Integer
+
+    -- Absent while the cell is empty.
+    digit: Integer?
+
+    -- Written by the setter rather than the player, and so never the
+    -- player's to change. Read from the puzzle's givens, which never change.
+    is_given: puzzle.givens.any(g => g.position.row = row and g.position.column = column)
+
+    -- Every other cell that shares a row, a column or a box with this one.
+    -- The last clause sets the cell itself aside, by position because
+    -- OneCellToAPosition makes a position name one cell, so nothing that
+    -- reads peers has to.
+    peers: Cell with puzzle = this.puzzle
+        and (row = this.row or column = this.column or (band = this.band and stack = this.stack))
+        and (row != this.row or column != this.column)
+
+    -- A conflict is two peers holding one digit, and both cells are in it.
+    -- An empty cell conflicts with nothing.
+    is_conflicting: digit != null and peers.any(p => p.digit = digit)
+}
+
+------------------------------------------------------------
+-- Config
+------------------------------------------------------------
+
+config {
+    -- A box is box_side cells across and box_side down, and the grid is
+    -- box_side boxes across and box_side down. Classic Sudoku fixes it at 3;
+    -- it is named so that no rule carries a bare number, not so that it can
+    -- be tuned.
+    box_side: Integer = 3
+
+    -- Cells in a row, in a column and in a box; and the digits run from 1 to
+    -- this.
+    side: Integer = box_side * box_side
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+-- Setting ---------------------------------------------------
+
+rule SetPuzzle {
+    when: SetPuzzle(givens)
+
+    -- "A partially completed grid": the setter leaves the player something
+    -- to do.
+    requires: givens.count < config.side * config.side
+
+    -- Well-posed. solution_count is a black box: the number of ways to give
+    -- every position of the grid a digit from 1 to config.side so that no two
+    -- peers hold the same digit and every given's position holds that given's
+    -- digit. Exactly one is a stronger demand than it looks. It fails givens
+    -- that are off the grid, out of range, two to a position or in conflict,
+    -- because those have no solution at all; and it fails givens that leave
+    -- the answer open, because those have several. The fewest givens that can
+    -- pass is 17, which is a fact about this rule and not another rule.
+    -- solver.allium says how the count is decided: its verdict is one
+    -- exactly when this is 1.
+    requires: solution_count(givens, config.side) = 1
+
+    ensures: Puzzle.created(givens: givens, status: unsolved)
+}
+
+rule LayOutGrid {
+    when: puzzle: Puzzle.created
+
+    -- A puzzle and its grid come into being together: this follows SetPuzzle
+    -- in the same breath, and nothing sees a puzzle without its cells.
+    --
+    -- grid_positions is a black box: every position from row 1, column 1 to
+    -- row config.side, column config.side, each once. box_index is a black
+    -- box that CellsSitInTheirBox pins down: the one band a row belongs to,
+    -- or the one stack a column does. given_digit_at is a black box: the
+    -- digit of the given at that position, and nothing where there is none.
+    ensures:
+        for position in grid_positions(config.side):
+            Cell.created(
+                puzzle: puzzle,
+                row: position.row,
+                column: position.column,
+                band: box_index(position.row, config.box_side),
+                stack: box_index(position.column, config.box_side),
+                digit: given_digit_at(puzzle.givens, position)
+            )
+}
+
+-- Play ------------------------------------------------------
+
+rule PlaceDigit {
+    when: PlaceDigit(cell, digit)
+
+    requires: cell.puzzle.status = unsolved
+    requires: not cell.is_given
+    requires: digit >= 1 and digit <= config.side
+
+    -- Nothing here asks the digit to be absent from the cell's units. As on
+    -- paper, a player may write a digit that conflicts, or one that fits and
+    -- is wrong; the first shows as a conflict and neither solves the puzzle.
+    -- A cell that already holds the player's digit takes the new one.
+    ensures: cell.digit = digit
+}
+
+rule EraseDigit {
+    when: EraseDigit(cell)
+
+    requires: cell.puzzle.status = unsolved
+    requires: not cell.is_given
+    requires: cell.digit != null
+
+    ensures: cell.digit = null
+}
+
+-- The outcome -----------------------------------------------
+
+rule PuzzleSolved {
+    when: puzzle: Puzzle.is_complete
+
+    requires: puzzle.status = unsolved
+
+    -- For a well-posed puzzle the complete grid is the one solution its
+    -- givens admit, so there is one way to be solved and no way to be solved
+    -- wrongly.
+    ensures: puzzle.status = solved
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+-- These hold in every state a puzzle can reach, conflicts included. The
+-- Sudoku constraint is not among them: it governs the complete grid alone
+-- and is Puzzle.is_complete. One property compares one state with the next
+-- and so is prose: a puzzle's givens never change, because no rule writes
+-- Puzzle.givens. GivenCellsHoldTheirGiven then keeps every given cell at its
+-- given's digit, and both moves refuse a cell that is given.
+--
+-- A state is what stands once a stimulus and the rules it sets off have run.
+-- SetPuzzle and LayOutGrid are one such step: the pinned checker sees a
+-- creation only when it is unbound, so the puzzle is created by one rule and
+-- its cells by the next, and the puzzle with no cells that stands between
+-- them is not a state anything reaches or sees. The language reference checks
+-- invariants after rule sequences, and TheGridIsWhole is to be read that way.
+
+invariant TheGridIsWhole {
+    for puzzle in Puzzles:
+        puzzle.cells.count = config.side * config.side
+}
+
+invariant OneCellToAPosition {
+    for a in Cells:
+        for b in Cells:
+            a != b and a.puzzle = b.puzzle
+                implies a.row != b.row or a.column != b.column
+}
+
+invariant CellsSitOnTheGrid {
+    for cell in Cells:
+        cell.row >= 1 and cell.row <= config.side
+            and cell.column >= 1 and cell.column <= config.side
+}
+
+-- Box b of a band or a stack covers lines (b - 1) * box_side + 1 to
+-- b * box_side, so rows 1 to 3 are band 1, 4 to 6 band 2 and 7 to 9 band 3,
+-- and columns likewise.
+invariant CellsSitInTheirBox {
+    for cell in Cells:
+        (cell.band - 1) * config.box_side < cell.row
+            and cell.row <= cell.band * config.box_side
+            and (cell.stack - 1) * config.box_side < cell.column
+            and cell.column <= cell.stack * config.box_side
+}
+
+invariant DigitsAreInRange {
+    for cell in Cells:
+        cell.digit != null implies cell.digit >= 1 and cell.digit <= config.side
+}
+
+invariant GivenCellsHoldTheirGiven {
+    for cell in Cells:
+        cell.is_given implies cell.puzzle.givens.any(g =>
+            g.position.row = cell.row
+                and g.position.column = cell.column
+                and g.digit = cell.digit)
+}
+
+invariant GivensNeverConflict {
+    for a in Cells:
+        for b in Cells:
+            a.is_given and b.is_given and b in a.peers
+                implies a.digit != b.digit
+}
+
+invariant SolvedMeansComplete {
+    for puzzle in Puzzles:
+        puzzle.status = solved implies puzzle.is_complete
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+-- The two boundaries the rules have, and nothing of how either looks. Each
+-- is here so that its stimuli have somewhere to come from.
+
+-- Where a puzzle comes from: a person, a book or a generator.
+surface PuzzleSetting {
+    provides:
+        SetPuzzle(givens)
+
+    @guarantee OnlyWellPosedPuzzlesArePosed
+        -- Whatever sets a puzzle, a player is only ever handed one that is
+        -- partially completed and has exactly one solution.
+}
+
+-- What a player has in front of them. It draws nothing, so it carries no
+-- guarantee about how a state is shown: given and conflicting are states the
+-- module that draws them owes a non-colour indication and an accessible name.
+-- The digit of PlaceDigit is the player's to supply once the move is offered,
+-- so its range is the rule's to refuse and not a condition of the offer.
+surface PuzzleSolving {
+    context puzzle: Puzzle
+
+    exposes:
+        puzzle.status
+        puzzle.is_full
+        puzzle.is_consistent
+        for cell in puzzle.cells:
+            cell.row
+            cell.column
+            cell.band
+            cell.stack
+            cell.digit
+            cell.is_given
+            cell.is_conflicting
+
+    provides:
+        for cell in puzzle.cells:
+            PlaceDigit(cell, digit)
+                when puzzle.status = unsolved and not cell.is_given
+            EraseDigit(cell)
+                when puzzle.status = unsolved and not cell.is_given and cell.digit != null
+}

@@ -1,0 +1,31 @@
+.DS_Store
+.venv/
+__pycache__/
+*.py[cod]
+.ruff_cache/
+.cache/
+.lycheecache
+.env
+.env.*
+!.env.example
+
+ai_tmp/
+
+# Assistant state written on first use; the agent contract covers only the
+# committed surface, so these must never enter the inventory.
+.claude/settings.local.json
+.codex/settings.local.json
+
+# Cargo's build output, and what coverage and mutation runs leave behind.
+# Ignored because `just check` snapshots the worktree between recipes, so a
+# build artefact Git can see would abort the run before any recipe's exit code
+# is read.
+target/
+*.profraw
+lcov.info
+mutants.out*/
+
+# The pinned allium binary, installed by `just install-allium`. Ignored because
+# `just check` snapshots the worktree between recipes, so a binary Git can see
+# would abort the run before any recipe's exit code is read.
+.tools/

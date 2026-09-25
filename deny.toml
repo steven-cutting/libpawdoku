@@ -1,0 +1,10 @@
+# A working minimum so `just deny` runs; T02 finalises this file.
+[licenses]
+allow = ["Apache-2.0"]
+
+[bans]
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

@@ -449,13 +449,201 @@ syntax`. Quote each in the hand-back notes.
 
 ## Hand-back notes
 
+**In progress, stopped on 2026-09-24 at the maintainer's request.** Nothing is committed
+yet: every file below is in the worktree, uncommitted. `status:` stays `open`. The work
+is blocked on a design question (taplo, below) that needs the maintainer's decision
+before `just check` can be run.
+
+### Actions with effects outside this worktree
+
+Each was authorised by the maintainer on 2026-09-24 ("I install them" for the
+prerequisites; "Rename" for the branch), except where marked.
+
+- **rustup 1.29.1 installed** with the official installer, downloaded to the session
+  scratch directory from `https://sh.rustup.rs` and run as
+  `sh rustup-init.sh -y --default-toolchain none --no-modify-path`. It created
+  `~/.rustup/` (which held only `settings.toml` before) and `~/.cargo/bin/` (absent
+  before), with the proxies and `~/.cargo/env`. There is no default toolchain.
+- **`~/.zshrc` edited.** Right after line 33 (`export PATH="/Users/scutting/.pixi/bin:$PATH"`)
+  these lines were inserted, so a new shell resolves `cargo` to `~/.cargo/bin/cargo` ahead
+  of pixi's:
+
+  ```sh
+
+  # rustup's proxies ahead of pixi's rust, so rust-toolchain.toml pins are honoured.
+  . "$HOME/.cargo/env"
+  ```
+
+  pixi's rust is **not** uninstalled; it is shadowed. Verified: `zsh -ic 'command -v cargo'`
+  prints `/Users/scutting/.cargo/bin/cargo`. (The agent's own tool shell does not re-read
+  `~/.zshrc`, so every command it ran prefixed `PATH="$HOME/.cargo/bin:$PATH"`.)
+- **Toolchain 1.98.1 installed** into `~/.rustup/toolchains/1.98.1-aarch64-apple-darwin`
+  (components `cargo`, `clippy`, `llvm-tools`, `rust-src`, `rust-std`, `rustc`, `rustfmt`;
+  targets `aarch64-apple-darwin`, `wasm32-unknown-unknown`, `wasm32v1-none`). This came
+  from rustup's auto-install, the first time `rustup` ran in this worktree, and not from
+  the explicit `rustup toolchain install` that followed (see the §12 claim below).
+- **cargo-binstall 1.23.0 installed** per machine, into `~/.cargo/bin/cargo-binstall`, by
+  `cargo install cargo-binstall@1.23.0 --locked` (compiled from source).
+- **Cargo's registry cache** under `~/.cargo/registry/` was populated by that install and
+  by compiling `taplo-cli` (below).
+- **uv's cache** (`~/.cache/uv`) gained the git checkout of `biscuit_games_tooling` at
+  `v0.3.0` (`6c5c07f6bec86e86b3930dfa41392e4b440e8c85`) and the `prek` 0.5.3 wheel.
+  `uv sync` used an existing CPython 3.14.3; no interpreter was downloaded.
+- **Branch renamed** from the Supacode worktree's `T00-foundation` to
+  `ticket/t00-foundation` (`git branch -m`), as D01 did, so the `branch:` field is true.
+  The rename is in the shared `.git`, so the primary checkout sees the new name.
+- Nothing was pushed; no remote exists; no clone (G, T, B) was modified. prek has not run
+  yet, so nothing is in `~/.cache/prek`, and no git hooks were installed.
+
+Inside the worktree but gitignored: `.tools/bin/` (allium 3.6.1 from
+`just install-allium`; cargo-nextest, cargo-llvm-cov, cargo-deny, cargo-hack and
+cargo-shear from binstall; taplo from a source build, see below), `.venv/`, `target/`,
+and `ai_tmp/rustup-claim/` (823 MB, a throwaway `RUSTUP_HOME`/`CARGO_HOME` from the §12
+check; safe to delete).
+
+### What was done (files, uncommitted)
+
+Steps 1 to 13 are written; step 14 (the gate) has not run.
+
+- Step 2: `rust-toolchain.toml` and `tools.txt`, exactly as CONVENTIONS.md §2 prints
+  them.
+- Step 3: `LICENSE` from `https://www.apache.org/licenses/LICENSE-2.0.txt`, 202 lines,
+  SHA-256 `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30`. No `NOTICE`.
+- Step 4: `Cargo.toml`, `crates/pawdoku/Cargo.toml`, `crates/pawdoku/src/lib.rs`, exactly
+  as the step prints them. `cargo generate-lockfile` gives a `Cargo.lock` with the one
+  package; `cargo build --locked` succeeds on 1.98.1.
+- Step 5: `rustfmt.toml`, `clippy.toml`, `taplo.toml`, `deny.toml` (`allow-registry`
+  names `https://github.com/rust-lang/crates.io-index`), `.config/nextest.toml`, each with
+  a comment naming T02.
+- Step 6: `Justfile` extracted by script from CONVENTIONS.md §4's fence (not retyped).
+  `pyproject.toml` extracted from D01's fence. `.python-version` is `3.14`. `uv lock`
+  resolved 3 packages; `uv sync --frozen` installed `biscuit-games-tooling==0.3.0` and
+  `prek==0.5.3`. `.pre-commit-config.yaml` and `.pre-commit-fix.yaml` are G's files with
+  §5's edits applied by a script that asserts each replaced string occurs once:
+  the `exclude` list, the ruff and eslint hooks replaced by `fmt-check`, `toml-check` and
+  `deps-unused` (fix config: `cargo-fmt`, `taplo-fmt`, `cargo-shear-fix`),
+  `skills-lock\.json$` added to `validate-agents`, and typos moved to
+  `512fc24f… # v1.50.2`. Every other line matches G's.
+- Step 7: `.editorconfig` (`[*.rs]` added), `.gitattributes`, `.gitignore`,
+  `.markdownlint-cli2.jsonc`, `lychee.toml`, `_typos.toml` per §5.
+  `scripts/initialize.sh` (executable) is G's with the npm, Storybook and ruff sections
+  replaced by the step-7 sequence. D01's hand-back asks to keep G's `uv lock` line, so it
+  sits before `just sync`. G's allium comment is kept, minus its opening "The other one.",
+  whose referent (the browser download) is gone.
+- Step 8: `.github/actions/setup/action.yml` and `.github/workflows/ci.yml`. SHAs looked
+  up on 2026-09-24 with `gh api` (annotated tags dereferenced): actions/checkout
+  `3d3c42e5aac5ba805825da76410c181273ba90b1` v7.0.1; taiki-e/install-action
+  `9983c65e42da123ff25d1f78505eb6de315aa172` v2.87.20; Swatinem/rust-cache
+  `63fed3e2fecf6f7b51dc6f043341b79ef82a9ae7` v2.9.2 (annotated); actions/cache
+  `55cc8345863c7cc4c66a329aec7e433d2d1c52a9` v6.1.0; astral-sh/setup-uv
+  `c18668ad3cf93ea998bef934396af7bb5c839dc7` v10.2.0. actionlint has not run on them yet.
+- Steps 9 to 11: `docs/manifest.yml` (36 entries in the step-9 order, G's one-line-per-page
+  layout) and every stub page, generated from one table so that frontmatter and manifest
+  cannot disagree. `docs/README.md` and `docs/decisions/README.md` written per steps 9
+  and 10. The two migrated pages and the seven modules were copied with `git show`;
+  `cmp` says each module is identical.
+- Steps 12 and 13: `README.md` (replacing the `# LibPawdoku` stub), `CHANGELOG.md`,
+  `SECURITY.md`, `crates/pawdoku/README.md`. `AGENTS.md` has 524 words, G's eight
+  headings and the six phrases; `runes` occurs once, in D01's Provenance sentence.
+  `CLAUDE.md`, `.github/copilot-instructions.md` and `.claude/settings.json` were copied
+  from G with `git show`. There are fourteen canonical skill stubs. The twenty-six
+  carried bridges were copied from G; the two `rust-change` bridges were written with
+  the canonical frontmatter and B's `BRIDGE_BODY`.
+
+None of the checkers (`bg-validate-docs`, `bg-validate-agents`, prek, allium) has run yet.
+
 ### What was verified, and how
+
+- Preconditions (step 1), as found: no rustup; `command -v cargo` gave
+  `/Users/scutting/.pixi/bin/cargo`; no cargo-binstall; just 1.51.0 and uv 0.11.18 were
+  present. Resolved by the installs above.
+- `rustup show active-toolchain` prints
+  `1.98.1-aarch64-apple-darwin (overridden by '…/T00-foundation/rust-toolchain.toml')`.
+- **§12 claim: no-argument `rustup toolchain install`.** It holds. Run in a fresh
+  `RUSTUP_HOME`/`CARGO_HOME` under `ai_tmp/rustup-claim/` with `RUSTUP_AUTO_INSTALL=0`, so
+  auto-install could not do the work, it printed "downloading 9 components" and "the
+  active toolchain `1.98.1-aarch64-apple-darwin` has been installed". Afterwards all four
+  components (`llvm-tools-preview` lands as `llvm-tools`) and both wasm targets were
+  listed. The command exited 1 only because its closing self-update check found no rustup
+  binary in that throwaway `CARGO_HOME`. That is an artefact of the test, not of the
+  install. Note: rustup 1.29 auto-installs the pinned toolchain on any `rustup` call,
+  so on a real machine `just install-toolchain` usually finds the toolchain present already.
+- The other three §12 claims assigned to T00 (`wasm32v1-none` on the stub crate; B's
+  checkers with no `package.json`; `bg-project-check` tolerating `target/`) are **not yet
+  checked**: they need the gate to run.
 
 ### Deviations, and why
 
+- `docs/README.md`: G's opening paragraph links to the documentation contract and to
+  Specifications, which the lists below link again. Step 9 says every registered page is
+  linked exactly once, so the opening paragraph names both pages in plain text and
+  points to the section that links them.
+- The branch was renamed (above).
+
+### Blocked: taplo cannot be installed as the design specifies
+
+`just install-tools` fails. binstall resolves all six tools before installing any, so the
+single failure aborts the whole batch:
+
+```text
+cargo-binstall:  WARN resolve: … could not GET https://github.com/cargo-bins/cargo-quickinstall/releases/download/taplo-cli-0.10.0/taplo-cli-0.10.0-aarch64-apple-darwin.tar.gz: … 404 Not Found
+cargo-binstall: ERROR Fatal error:
+  × For crate taplo-cli: Fallback to cargo-install is disabled
+error: recipe `install-tools` failed on line 37 with exit code 1
+```
+
+Why: `taplo-cli` 0.10.0 has no `[package.metadata.binstall]` table, and cargo-quickinstall
+has no build of it. Its GitHub release (`tamasfe/taplo` tag `0.10.0`, the newest) ships
+raw gzip binaries such as `taplo-darwin-aarch64.gz`, a format binstall cannot unpack.
+`--disable-strategies compile` then refuses a source build, as designed. This fails on
+every platform, CI included. The newest taplo on PyPI is 0.9.3 (wheels for macOS, Linux
+and Windows). `tools.txt` and the `Justfile` are frozen, and CONVENTIONS.md §2 and §4
+print the failing text, so any fix is a CONVENTIONS.md change.
+
+To keep finding other failures, the agent installed the five other tools with the
+unchanged binstall command minus the taplo line, and built taplo into the gitignored
+`.tools/` with `cargo install taplo-cli@0.10.0 --locked --root .tools`. Both succeeded.
+That is a workaround in the worktree, not a fix in any committed file.
+
+Options for the maintainer, put to them when the session stopped:
+
+1. Build taplo alone from source: `install-tools` gains a second line,
+   `cargo install taplo-cli@0.10.0 --locked --root .tools` (a no-op once installed; CI's
+   `.tools` cache holds the result), and binstall stays strict for the other five. The
+   agent's recommendation.
+2. Drop `--disable-strategies compile`, so taplo compiles through binstall. This loses the
+   loud failure for any other tool.
+3. Pin `taplo==0.9.3` in `pyproject.toml`'s dev group and call it with
+   `uv run --frozen taplo` (the `Justfile`'s `format` and `toml-check`, and the fix
+   config's `taplo-fmt` hook). This downgrades a minor version.
+4. Settle it on `main` first, and resume this ticket afterwards.
+
+Also open: whether that CONVENTIONS.md §2 and §4 edit is made on this branch or as a
+separate pull request on `main` (§11 says changes to CONVENTIONS.md go through `main`).
+
+### Remaining steps
+
+1. Settle the taplo question and apply it.
+2. Run `just lint`, `just check-docs`, `just check-agents`, `just check-specs`,
+   `just analyse-specs`, `just wasm-check`, `just coverage` and `actionlint`
+   individually; fix what they find. Likely candidates:
+   `LICENSE` indentation under editorconfig-checker, and whether `just coverage` finds a
+   denominator in a crate whose only item is a `const` (the ticket's open point).
+3. `just initialize` then `time just check`. Then the same from a fresh clone in
+   `ai_tmp/clone`, once everything is committed.
+4. The Verification block, with its output quoted here, and the three remaining §12
+   claims.
+5. `status: done`, then commit on `ticket/t00-foundation`. Do not push.
+
 ### Handed back
 
+Nothing yet beyond the taplo design question above.
+
 ### Open points settled
+
+- Branch name: renamed to `ticket/t00-foundation` (maintainer, 2026-09-24).
+- Prerequisites: the agent installed rustup and cargo-binstall and edited `~/.zshrc`
+  rather than uninstalling pixi's rust (maintainer, 2026-09-24).
 
 ## Open points
 

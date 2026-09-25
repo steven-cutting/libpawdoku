@@ -1,0 +1,24 @@
+[project]
+name = "libpawdoku-tooling"
+version = "0.1.0"
+description = "Repository tooling for libpawdoku. Not the library; see Cargo.toml for that."
+requires-python = ">=3.14"
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "biscuit-games-tooling @ git+https://github.com/steven-cutting/biscuit_games_tooling@v0.3.0",
+  "prek==0.5.3",
+]
+
+[tool.uv]
+package = false
+default-groups = ["dev"]
+
+[tool.biscuit-games-tooling]
+recipes = [
+  "check-toolchain", "lock-check", "lint", "fmt-check", "toml-check", "clippy",
+  "features", "wasm-check", "test-doc", "coverage", "doc", "deny", "deps-unused",
+  "check-docs", "check-agents", "check-specs", "analyse-specs",
+]
+predicates = {}

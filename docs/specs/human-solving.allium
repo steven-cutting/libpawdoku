@@ -1,0 +1,1280 @@
+-- allium: 3
+--
+-- Human solving — a fallible, bounded attempt and its assessment
+--
+-- Scope
+--   The fourth of four models of a player, and the one in which a limit
+--   changes what is noticed, kept in mind and got wrong, by chance.
+--   reach.allium, effort.allium and lapse.allium model the same player
+--   without chance and none of the four imports another.
+--   Simulate a person solving fresh classic Sudoku from its givens, and
+--   assess difficulty relative to a declared profile and environment over
+--   repeated seeded attempts. An attempt includes looking without finding,
+--   remembering, forgetting, writing notes, faulty reasoning and recovery.
+--   Research motivates the mechanisms, not the numerical defaults. The
+--   evidence and calibration limits are in explanation/human-solving.md.
+--
+-- Includes
+--   - Independent cognitive ability, learned expertise, biases and coping.
+--   - Separate physical sheet, bounded mental state, and observer judgement.
+--   - Explicit microsteps, effort, provenance, seeds and finite budgets.
+--   - Manual/automatic notes, highlighting, feedback and uniqueness premise.
+--   - Named pattern recognition, bounded elementary reasoning, and guesses.
+--   - Within-attempt fatigue, frustration and rest, with fixed learned skills.
+--   - Four provisional experience presets on one standard ability.
+--   - The projection from this module's description of a player to
+--     technique.allium's Profile, so that one player can be put through
+--     reach, effort and lapse as well.
+--
+-- Excludes
+--   - Runtime/UI implementation, persistence, puzzle generation and hints.
+--   - Importing in-progress games, Sudoku variants, or learning across games.
+--   - Diagnoses, intelligence scores, predictions in minutes, calibrated
+--     population probabilities, and a single universal difficulty number.
+--   - An exhaustive expert repertoire or an unbounded solution search.
+--   - Changing reach, effort or lapse into this model, or this one into
+--     them. Each answers differently what a limit does, several of their
+--     open questions name the answer given here, and they stay without
+--     chance.
+--   - The random generator. Draws come from this game's randomness port;
+--     what this module states is how a draw becomes a decision.
+--
+-- Dependencies
+--   sudoku.allium owns the rules; technique.allium owns logical techniques
+--   and the Profile this module projects onto. It keeps no technique/Grid:
+--   a Grid has one set of marks and licenses whatever they support, where a
+--   person has a sheet and a mind that may disagree and finds only what
+--   they look for.
+--   An exact evaluator may establish well-posedness and judge an attempt.
+--   Its solution and deductions are never player inputs. An explicitly
+--   enabled feedback aid may reveal only the queried entry's error signal.
+--
+-- Vocabulary
+--   technique.allium's words stand: technique, deduction, placement, strike,
+--   candidate, mark, load, proof, witness. Attempt is this model's run, one
+--   seeded solve from the givens to a stopping reason, and microstep its
+--   step; they have names of their own because a microstep is far smaller
+--   than a deduction and most of them deduce nothing. Sheet, what is
+--   physically written, against mind, what is believed; neither is
+--   technique.allium's grid. Entry, a digit standing on the sheet, a given or
+--   a placement the player wrote. Note, one cell's written marks together
+--   with a claim of coverage; a mark is still one written candidate. Fact, a
+--   proposition the player has acquired, which may be false; chunk, facts
+--   held as one. A coverage fact is the player's running possibility set for
+--   one cell or one digit in one unit, held as one item and grown by folding
+--   other facts into it. Observer, the judge that sees the solution and
+--   never steers.
+--   Capacity here counts retained chunks, fatigue is a state between zero and
+--   one, and patience counts fruitless episodes; technique.allium's Profile
+--   uses the same three words for coarser figures, and the projection below
+--   says how they meet.
+
+use "./sudoku.allium" as sudoku
+use "./technique.allium" as technique
+
+enum ActionKind {
+    attend | inspect | recall | rehearse | write_note | erase_note
+    | recognize | infer | verify | enter | erase_entry | guess
+    | backtrack | rest | claim_finished | give_up
+}
+enum FactKind {
+    entry | empty | possible | excluded | coverage | unique_promise
+}
+enum SourceKind { board | manual_note | automatic_note | highlight | feedback | reasoning }
+enum Highlighting { off | peers | same_digit | peers_and_digit }
+enum Feedback { none | conflicts | solution_check }
+enum StopReason { claimed | abandoned | no_action | effort_limit | microstep_limit }
+enum ObjectiveResult { solved | incomplete | erroneous }
+enum ReasoningMode { familiar_pattern | elementary | speculative }
+enum Obstacle {
+    unnoticed | forgotten | incomplete_information | capacity_limit
+    | unfamiliar_pattern | reasoning_limit | fixation | incorrect_belief
+    | branch_limit | patience_limit | budget_limit | catalogue_limit
+}
+
+------------------------------------------------------------
+-- Inputs and tunable parameters
+------------------------------------------------------------
+
+-- All ranges below are inclusive. Probabilities are dimensionless in [0,1];
+-- zero disables that source of chance. Positive integer bounds are finite.
+value CognitiveAbility {
+    capacity: Integer             -- 1..12 simultaneous chunks
+    retention: Integer            -- 1..1000 microsteps without refresh
+    interference: Decimal         -- forgetting probability per focus change
+    attention_cells: Integer      -- 1..9 positions in the current focus
+    switch_effort: Integer        -- 0..20 effort added to a focus change
+    reasoning_depth: Integer      -- 0..24 implications per reasoning episode
+    notice: Decimal               -- probability of noticing an inspected fact
+    perception_error: Decimal     -- misreading a noticed fact
+    inference_error: Decimal      -- faulty attempted logical step
+    entry_error: Decimal          -- wrong entry/erasure/note operation
+}
+
+value Skill {
+    method: technique/Technique
+    fluency: Decimal              -- recognition probability when premises are ready
+    chunk_facts: Integer          -- 1..12 atomic facts per learned pattern chunk
+    habit: Decimal                -- 0.1..10 relative search weight
+}
+
+value Experience {
+    familiar: Set<technique/Technique>
+    fluency: Decimal
+    chunk_facts: Integer
+    habit: Decimal
+    overrides: Set<Skill>
+    -- One override per method, only for familiar methods. Effective skill is
+    -- the override, else the common figures above for a familiar method.
+    -- An unfamiliar method has no recognition shortcut and chunk_facts=1.
+}
+
+value Biases {
+    area_fixation: Decimal        -- 0..10 extra weight for current focus
+    digit_fixation: Decimal       -- 0..10 extra weight for current digit
+    familiar_preference: Decimal  -- 0..10 extra weight times skill fluency
+    confirmation: Decimal        -- chance of skipping disconfirming evidence
+    overconfidence: Decimal      -- confidence increment, reduces verification
+}
+
+value Coping {
+    note_use: Decimal             -- probability of choosing to externalize a fact
+    verification: Decimal        -- probability of checking a proposed entry
+    confidence_threshold: Decimal -- perceived confidence required to commit
+    guess_when_stuck: Decimal     -- chance of opening a branch at patience limit
+    guess_depth: Integer          -- 0..9 standing branches; 0 disables guesses
+    guess_limit: Integer          -- 0..100 guesses in the whole attempt
+    branch_recall: Decimal        -- probability of correctly recalling an unwritten change
+    patience: Integer             -- 1..1000 consecutive fruitless search episodes
+    rest_limit: Integer           -- 0..100 rests
+    fatigue_gain: Decimal         -- 0..1 fatigue per unit of non-rest effort
+    frustration_gain: Decimal     -- 0..1 per fruitless episode/detected error
+    progress_relief: Decimal      -- 0..1 frustration removed on perceived progress
+    rest_relief: Decimal          -- 0..1 removed from fatigue and frustration per rest
+}
+
+value PlayerProfile {
+    name: String
+    ability: CognitiveAbility
+    experience: Experience
+    biases: Biases
+    coping: Coping
+}
+
+value Environment {
+    manual_notes: Boolean
+    automatic_candidates: Boolean
+    highlighting: Highlighting
+    feedback: Feedback
+    uniqueness_disclosed: Boolean
+    branch_notes: Boolean
+}
+
+value EffortCosts {
+    read: Integer                -- 1..100, inspect/recall/rehearse/attend
+    think: Integer               -- 1..100, recognize/infer/verify
+    write: Integer               -- 1..100, one entry or one note edit
+    rest: Integer                -- 1..100
+    declare: Integer             -- 1..100, claim_finished/give_up
+}
+
+value Limits {
+    effort: Integer              -- 1..1000000
+    microsteps: Integer           -- 1..1000000
+}
+
+value AttemptRequest {
+    givens: Set<sudoku/Given>
+    profile: PlayerProfile
+    environment: Environment
+    costs: EffortCosts
+    limits: Limits
+    seed: Integer                -- 0..2147483647
+    model_version: String
+    catalogue_version: String
+    random_version: String
+}
+
+-- The acting policy receives no givens or evaluator state. Geometry is
+-- public; puzzle contents enter only through a requested observation.
+value PolicyInput {
+    profile: PlayerProfile
+    environment: Environment
+    costs: EffortCosts
+    limits: Limits
+    seed: Integer
+    model_version: String
+    catalogue_version: String
+    random_version: String
+}
+
+------------------------------------------------------------
+-- Physical record, mental record and observation
+------------------------------------------------------------
+
+value Note {
+    position: sudoku/Position
+    possible: Set<Integer>
+    excluded: Set<Integer>
+    complete: Boolean
+    -- complete is the player's assertion that all nine alternatives were
+    -- checked. It may be wrong or stale; the observer does not repair it.
+}
+
+value BranchMark {
+    branch: Integer
+    position: sudoku/Position
+    previous_digit: Integer?
+    previous_note: Note?
+    -- A deliberately written checkpoint fragment, not a hidden snapshot.
+}
+
+value Sheet {
+    givens: Set<sudoku/Given>
+    entries: Set<technique/Placement>
+    notes: Set<Note>
+    branch_marks: Set<BranchMark>
+}
+
+value Fact {
+    key: Integer
+    kind: FactKind
+    position: sudoku/Position?
+    digit: Integer?
+    unit: technique/UnitRef?
+    source: SourceKind
+    supports: Set<Integer>
+    confidence: Decimal
+    remaining: Set<Integer>?
+    checked: Boolean?
+    -- One atomic proposition, or coverage: the possibility set of one cell's
+    -- nine alternatives or one digit's nine positions in a unit. remaining
+    -- and checked are present exactly when kind is coverage: remaining holds
+    -- the alternatives not yet folded out; checked is the player's claim
+    -- that every source was examined (the cell's twenty peers, or the
+    -- unit's nine positions), earned by their own folds or read from a
+    -- coverage flag, and it may be false.
+    -- A coverage fact is one item however many facts it has folded; supports
+    -- names each of them, and they need not stay live. It is a tally, not a
+    -- bundle: it does not keep its premises addressable, so it is not a chunk.
+    -- supports names earlier trace facts, including fallible ones.
+}
+
+value MemoryItem {
+    facts: Set<Fact>
+    method: technique/Technique?
+    refreshed_at: Integer
+    -- A raw fact is one item, and a coverage fact is one raw item. Multiple
+    -- facts require a learned, recognized chunk of this method; no arbitrary
+    -- bundle can be called one chunk.
+}
+
+value BranchBelief {
+    branch: Integer
+    choice: technique/Placement
+    alternatives: Set<Integer>
+    change_keys: Set<Integer>
+    -- Contents count against memory unless explicitly written externally.
+    -- The record can be incomplete; no observer checkpoint is retrievable.
+}
+
+value Mind {
+    memory: Set<MemoryItem>
+    focus: Set<sudoku/Position>
+    digit: Integer?
+    branches: List<BranchBelief>
+    pending: Fact?
+    confidence: Decimal
+    fatigue: Decimal
+    frustration: Decimal
+    fruitless: Integer
+    episode_depth: Integer
+    guesses: Integer
+    rests: Integer
+    perceived_complete: Boolean
+}
+
+value Action {
+    kind: ActionKind
+    mode: ReasoningMode
+    positions: Set<sudoku/Position>
+    digits: Set<Integer>
+    method: technique/Technique?
+    premises: Set<Integer>
+    intended: Fact?
+    source: SourceKind?
+}
+
+value Draw {
+    index: Integer
+    purpose: String
+    value: Decimal
+}
+
+value Plan {
+    action: Action?
+    cost: Integer
+    draws: List<Draw>
+    next_cursor: Integer
+}
+
+value Effect {
+    sheet: Sheet
+    mind: Mind
+    observations: Set<Fact>
+    draws: List<Draw>
+    next_cursor: Integer
+    progress: Boolean
+    episode_failed: Boolean
+}
+
+value Judgement {
+    result: ObjectiveResult
+    wrong_entries: Set<technique/Placement>
+    faulty_inferences: Set<Integer>
+    slips: Set<Integer>
+    corrections: Set<Integer>
+    lucky_guesses: Set<Integer>
+    obstacles: Set<Obstacle>
+    steps: List<StepJudgement>
+    -- Integers name microsteps; these are observer labels, never Mind data.
+}
+
+value StepJudgement {
+    index: Integer
+    perceived_reasoning_valid: Boolean?
+    premises_true: Boolean?
+    result_correct: Boolean?
+    error_noticed: Boolean
+    correction_perceived: Boolean
+    proof: technique/Deduction?
+    matching_methods: Set<technique/Technique>
+    dependencies: Set<Integer>
+    obstacles: Set<Obstacle>
+    -- Null truth/proof fields mean not applicable, not a failed judgement.
+    -- proofs are reconstructed from the actual acquired premises, never
+    -- substituted with a better proof the player did not find.
+}
+
+------------------------------------------------------------
+-- Attempts and immutable trace
+------------------------------------------------------------
+
+entity Attempt {
+    request: AttemptRequest
+    assessment: Assessment?
+    sample_index: Integer?
+    status: ready | acting | ended
+    transitions status {
+        ready -> acting
+        acting -> ready
+        ready -> ended
+        acting -> ended
+        terminal: ended
+    }
+    sheet: Sheet
+    mind: Mind
+    spent: Integer
+    cursor: Integer
+    plan: Plan?
+    reason: StopReason?
+    judgement: Judgement?
+    steps: Microstep with attempt = this
+    is_finished: status = ended and judgement != null
+}
+
+entity Microstep {
+    attempt: Attempt
+    index: Integer
+    action: Action
+    before_sheet: Sheet
+    before_mind: Mind
+    effect: Effect
+    after_sheet: effect.sheet
+    after_mind: effect.mind
+    cost: Integer
+    observations: effect.observations
+    draws: List<Draw>
+    progress: effect.progress
+    episode_failed: effect.episode_failed
+}
+
+value AssessmentRequest {
+    template: AttemptRequest
+    seeds: List<Integer>
+    -- Seeds replace template.seed, one occurrence per run. All other inputs
+    -- stay fixed. No adaptive stopping or deletion of inconvenient runs.
+}
+
+value Distribution {
+    samples: List<Integer>
+    minimum: Integer?
+    median: Decimal?
+    p90: Integer?
+    maximum: Integer?
+}
+
+value AssessmentSummary {
+    total: Integer
+    solved: Integer
+    solve_fraction: Decimal
+    successful_effort: Distribution
+    unsuccessful_effort: Distribution
+    -- Failed attempts carry observed expenditure, not a guessed solve cost.
+    report: AssessmentDetail
+}
+
+value AssessmentDetail {
+    stop_counts: Set<StopCount>
+    technique_counts: Set<TechniqueCount>
+    obstacle_counts: Set<ObstacleCount>
+    mistakes: Distribution
+    corrections: Distribution
+    guesses: Distribution
+    rereads: Distribution
+    fruitless_searches: Distribution
+    dependency_depth: Distribution
+}
+
+value StopCount { reason: StopReason, count: Integer }
+value TechniqueCount {
+    method: technique/Technique
+    recognized: Integer
+    derived: Integer
+    attempted_faultily: Integer
+}
+value ObstacleCount { obstacle: Obstacle, count: Integer }
+
+entity Assessment {
+    request: AssessmentRequest
+    status: gathering | complete
+    transitions status {
+        gathering -> complete
+        terminal: complete
+    }
+    runs: AssessmentRun with assessment = this
+    summary: AssessmentSummary?
+    is_ready: runs.count = request.seeds.count and runs.all(r => r.attempt.is_finished)
+}
+
+entity AssessmentRun {
+    assessment: Assessment
+    index: Integer
+    attempt: Attempt
+}
+
+------------------------------------------------------------
+-- Provisional defaults: all numerical choices are model assumptions
+------------------------------------------------------------
+
+config {
+    model_version: String = "human-solving-1"
+
+    -- technique.allium's, restated as its figures are elsewhere.
+    catalogue_version: String = technique/config.catalogue_version
+
+    -- Names the randomness port's seeded stream. The generator is the
+    -- port's; a different generator is a different name.
+    random_version: String = "seeded-stream-1"
+}
+
+default CognitiveAbility standard_ability = {
+    capacity: 4, retention: 12, interference: 0.02, attention_cells: 3,
+    switch_effort: 2, reasoning_depth: 8, notice: 0.90,
+    perception_error: 0.01, inference_error: 0.01, entry_error: 0.005
+}
+default Biases standard_biases = {
+    area_fixation: 0.5, digit_fixation: 0.3, familiar_preference: 2.0,
+    confirmation: 0.10, overconfidence: 0.05
+}
+default Coping standard_coping = {
+    note_use: 0.70, verification: 0.35, confidence_threshold: 0.80,
+    guess_when_stuck: 0.25, guess_depth: 2, guess_limit: 12,
+    branch_recall: 0.80, patience: 24, rest_limit: 2,
+    fatigue_gain: 0.0002, frustration_gain: 0.03,
+    progress_relief: 0.15, rest_relief: 0.25
+}
+default Environment paper = {
+    manual_notes: true, automatic_candidates: false, highlighting: off,
+    feedback: none, uniqueness_disclosed: true, branch_notes: true
+}
+default EffortCosts standard_costs = { read: 1, think: 2, write: 1, rest: 5, declare: 1 }
+default Limits standard_limits = { effort: 5000, microsteps: 10000 }
+
+default Experience rules_only = {
+    familiar: {}, fluency: 0.0, chunk_facts: 1, habit: 1.0, overrides: {}
+}
+default Experience practised_beginner = {
+    familiar: {
+        technique/full_unit, technique/cross_hatch,
+        technique/naked_single, technique/hidden_single
+    },
+    fluency: 0.55, chunk_facts: 2, habit: 1.0, overrides: {}
+}
+default Experience intermediate = {
+    familiar: {
+        technique/full_unit, technique/cross_hatch,
+        technique/naked_single, technique/hidden_single,
+        technique/pointing, technique/claiming,
+        technique/naked_pair, technique/hidden_pair,
+        technique/naked_triple, technique/hidden_triple, technique/x_wing
+    },
+    fluency: 0.75, chunk_facts: 3, habit: 1.0, overrides: {}
+}
+default Experience expert = {
+    familiar: {
+        technique/full_unit, technique/cross_hatch,
+        technique/naked_single, technique/hidden_single,
+        technique/pointing, technique/claiming,
+        technique/naked_pair, technique/hidden_pair,
+        technique/naked_triple, technique/hidden_triple,
+        technique/naked_quad, technique/hidden_quad,
+        technique/x_wing, technique/swordfish, technique/jellyfish,
+        technique/xy_wing, technique/xyz_wing, technique/w_wing,
+        technique/skyscraper, technique/two_string_kite, technique/empty_rectangle,
+        technique/simple_colouring, technique/remote_pair, technique/x_chain,
+        technique/xy_chain, technique/alternating_inference_chain,
+        technique/forcing_chain, technique/unique_rectangle_type_1,
+        technique/bug_plus_one
+    },
+    fluency: 0.95, chunk_facts: 4, habit: 1.0, overrides: {}
+}
+
+default PlayerProfile rules_only_novice = {
+    name: "Rules-only novice", ability: standard_ability, experience: rules_only,
+    biases: standard_biases, coping: standard_coping
+}
+default PlayerProfile beginner = {
+    name: "Practised beginner", ability: standard_ability, experience: practised_beginner,
+    biases: standard_biases, coping: standard_coping
+}
+default PlayerProfile intermediate_player = {
+    name: "Intermediate", ability: standard_ability, experience: intermediate,
+    biases: standard_biases, coping: standard_coping
+}
+default PlayerProfile expert_player = {
+    name: "Expert", ability: standard_ability, experience: expert,
+    biases: standard_biases, coping: standard_coping
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+-- Helpers have the contracts below, not a licence to run a hidden solver.
+-- valid_request enforces every declared range, uniqueness of keyed fields,
+-- valid Sudoku positions/digits and supported nonempty version identifiers.
+-- fresh_sheet retains the immutable givens and copies them into entries;
+-- notes and branch_marks are empty. fresh_mind has empty memory/focus/branches,
+-- no pending fact/digit, confidence/fatigue/frustration/counters zero and
+-- perceived_complete=false. Even printed givens must be attended and read.
+
+rule BeginAttempt {
+    when: Simulate(request)
+    requires: valid_request(request)
+    requires: solution_count(request.givens, sudoku/config.side) = 1
+    ensures: Attempt.created(
+        request: request, assessment: null, sample_index: null,
+        status: ready, sheet: fresh_sheet(request.givens),
+        mind: fresh_mind(), spent: 0, cursor: 0,
+        plan: null, reason: null, judgement: null
+    )
+}
+
+rule ChooseMicrostep {
+    when: attempt: Attempt.status becomes ready
+    requires: attempt.status = ready
+    ensures:
+        if attempt.steps.count >= attempt.request.limits.microsteps:
+            attempt.reason = microstep_limit
+            attempt.status = ended
+        else if attempt.spent >= attempt.request.limits.effort:
+            attempt.reason = effort_limit
+            attempt.status = ended
+        else:
+            let proposed = choose_action(policy_input(attempt.request), attempt.mind, attempt.cursor)
+            if proposed.action = null:
+                attempt.reason = no_action
+                attempt.status = ended
+            else if attempt.spent + proposed.cost > attempt.request.limits.effort:
+                attempt.reason = effort_limit
+                attempt.status = ended
+            else:
+                attempt.plan = proposed
+                attempt.status = acting
+}
+
+rule PerformMicrostep {
+    when: attempt: Attempt.status transitions_to acting
+    requires: attempt.status = acting
+    requires: attempt.plan != null
+
+    -- Read before anything changes: the plan is cleared, the sheet and mind
+    -- replaced, and the step about to be recorded is not yet among the
+    -- steps. A creation parameter or an if guard below would otherwise
+    -- read the state the rule leaves.
+    let plan = attempt.plan
+    let index = attempt.steps.count + 1
+    let before_sheet = attempt.sheet
+    let before_mind = attempt.mind
+    let effect = perform_action(
+        policy_input(attempt.request), before_sheet, before_mind,
+        plan.action, index, plan.next_cursor
+    )
+    ensures:
+        Microstep.created(
+            attempt: attempt, index: index,
+            action: plan.action,
+            before_sheet: before_sheet, before_mind: before_mind,
+            effect: effect, cost: plan.cost,
+            draws: concatenate(plan.draws, effect.draws)
+        )
+        attempt.sheet = effect.sheet
+        attempt.mind = effect.mind
+        attempt.spent = attempt.spent + plan.cost
+        attempt.cursor = effect.next_cursor
+        if plan.action.kind = claim_finished:
+            attempt.reason = claimed
+            attempt.status = ended
+        else if plan.action.kind = give_up:
+            attempt.reason = abandoned
+            attempt.status = ended
+        else:
+            attempt.status = ready
+        attempt.plan = null
+}
+
+rule JudgeEndedAttempt {
+    when: attempt: Attempt.status transitions_to ended
+    requires: attempt.status = ended
+    ensures: attempt.judgement = judge(attempt.request, attempt.sheet, attempt.steps)
+}
+
+-- Batch run creation uses an indexed request helper rather than editing a
+-- completed attempt's seed. Each occurrence gets its own run, even repeats.
+rule BeginAssessment {
+    when: Assess(request)
+    requires: valid_assessment(request)
+    requires: solution_count(request.template.givens, sudoku/config.side) = 1
+    ensures: Assessment.created(request: request, status: gathering, summary: null)
+}
+
+rule StartAssessmentRuns {
+    when: assessment: Assessment.created
+    ensures:
+        for index in indices(assessment.request.seeds):
+            Attempt.created(
+                request: request_for(assessment.request, index), status: ready,
+                assessment: assessment, sample_index: index,
+                sheet: fresh_sheet(assessment.request.template.givens),
+                mind: fresh_mind(), spent: 0, cursor: 0,
+                plan: null, reason: null, judgement: null
+            )
+}
+
+rule AssociateAssessmentRun {
+    when: attempt: Attempt.created
+    requires: attempt.assessment != null
+    ensures: AssessmentRun.created(
+        assessment: attempt.assessment, index: attempt.sample_index, attempt: attempt
+    )
+}
+
+rule CompleteAssessment {
+    when: assessment: Assessment.is_ready
+    requires: assessment.status = gathering
+    requires: assessment.is_ready
+    ensures:
+        assessment.summary = summarize(assessment.request, assessment.runs)
+        assessment.status = complete
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+invariant EffortIsBounded {
+    for attempt in Attempts:
+        attempt.spent >= 0 and attempt.spent <= attempt.request.limits.effort
+            and attempt.steps.count <= attempt.request.limits.microsteps
+}
+
+invariant EveryMicrostepCostsSomething {
+    for step in Microsteps:
+        step.cost >= 1 and step.index >= 1
+            and step.index <= step.attempt.steps.count
+}
+
+invariant TraceIndicesAreUnique {
+    for a in Microsteps:
+        for b in Microsteps:
+            a != b and a.attempt = b.attempt implies a.index != b.index
+}
+
+invariant StateIsBounded {
+    for attempt in Attempts:
+        attempt.mind.fatigue >= 0 and attempt.mind.fatigue <= 1
+            and attempt.mind.frustration >= 0 and attempt.mind.frustration <= 1
+            and attempt.mind.focus.count <= attempt.request.profile.ability.attention_cells
+            and retained_chunks(attempt.mind) <= attempt.request.profile.ability.capacity
+            and attempt.mind.guesses <= attempt.request.profile.coping.guess_limit
+            and attempt.mind.branches.count <= attempt.request.profile.coping.guess_depth
+            and attempt.mind.rests <= attempt.request.profile.coping.rest_limit
+}
+
+invariant GivensRemain {
+    for attempt in Attempts:
+        attempt.sheet.givens = attempt.request.givens
+            and attempt.request.givens.all(g => attempt.sheet.entries.any(e =>
+                e.position = g.position and e.digit = g.digit))
+}
+
+invariant EndHasAReason {
+    for attempt in Attempts:
+        attempt.status = ended implies attempt.reason != null
+}
+
+invariant AssessmentIsComplete {
+    for assessment in Assessments:
+        assessment.status = complete implies assessment.is_ready and assessment.summary != null
+}
+
+------------------------------------------------------------
+-- Boundaries and detailed behavioural contracts
+------------------------------------------------------------
+
+contract CognitiveOperations {
+    choose_action: (input: PolicyInput, mind: Mind, cursor: Integer) -> Plan
+    perform_action: (
+        input: PolicyInput, sheet: Sheet, mind: Mind,
+        action: Action, index: Integer, cursor: Integer
+    ) -> Effect
+
+    @invariant ProjectedObservation
+        -- choose_action has no access to Sheet. perform_action can read
+        -- sheet contents only to execute the specified observation or edit.
+        -- Immutable givens identify protected entries. Only an explicitly
+        -- requested solution_check may use those givens to obtain the aid's
+        -- boolean error signal; it cannot return a solution or extra facts.
+        -- All cognitive effects obey Simulation's guarantees; returning an
+        -- entire hidden solution as one Effect violates this contract.
+}
+
+-- One player, four models. reach, effort and lapse read technique.allium's
+-- Profile, so a player described here is put to them through this.
+contract Projection {
+    coarse_profile: (
+        profile: PlayerProfile, environment: Environment, limits: Limits
+    ) -> technique/Profile
+
+    @invariant ProjectionToTheCoarseProfile
+        -- What is projected, field by field:
+        --   repertoire: experience.familiar.
+        --   capacity: ability.capacity.
+        --   marking: full_marks if the environment has manual notes or
+        --     automatic candidates, else no_marks.
+        --   fixation: unfixed if area_fixation and digit_fixation are both
+        --     zero; else nearby if area_fixation is the greater or they are
+        --     equal; else same_digit.
+        --   patience: coping.patience.
+        -- Five fields have nothing here to be read from and take a stated
+        -- provisional figure, each an open question below: spans, every
+        -- extent; order, systematic; upkeep, every kind of unit; budget,
+        -- limits.effort; fatigue, limits.effort, so that capacity never
+        -- falls within budget.
+        -- The projection reads nothing else and is the same every time. It
+        -- loses what the Profile cannot say: chance, fluency, partial notes,
+        -- and elementary reasoning, so that rules_only projects to an empty
+        -- repertoire and stalls in reach.allium at once while the same
+        -- player here can still derive a single.
+}
+
+surface Simulation {
+    contracts:
+        fulfils CognitiveOperations
+        fulfils Projection
+
+    provides:
+        Simulate(request)
+
+    @guarantee InputValidation
+        -- Reject an invalid request before creating an attempt. This includes
+        -- malformed/duplicate/out-of-range givens, a puzzle with zero or
+        -- multiple solutions, versions other than config's supported values,
+        -- bad ranges, duplicate method
+        -- overrides and branch_notes enabled without manual_notes.
+        -- No request can supply notes, entries beyond givens, memories or
+        -- observer truth. Snapshot the complete effective input; later edits
+        -- to a preset cannot alter an existing attempt.
+
+    @guarantee MicrostepsAreTheUnitOfWork
+        -- choose_action only sees the profile/environment/costs, bounded
+        -- Mind and random stream. policy_input drops the givens. Board layout
+        -- and Sudoku rules are long-term knowledge available to all profiles.
+        -- It cannot enumerate true deductions and pick an affordable one.
+        -- perform_action reads only the source and positions targeted by
+        -- that action. No action combines a scan with unrecorded inference,
+        -- notes, placement or upkeep. A failed action still costs effort.
+        -- The following guarantees completely constrain these two helpers;
+        -- strategy changes within them require a new model_version.
+
+    @guarantee ObservationAndAttention
+        -- attend selects at most attention_cells positions and optionally a
+        -- digit, without reading cell contents. Each inspect reads ONE
+        -- entry/empty fact, one candidate mark, one coverage flag, or one
+        -- enabled aid/feedback fact at a focused position. Whole-unit
+        -- inspection needs successive such events. Reinspection is paid.
+        -- A notice draw succeeds with notice/(1+fatigue). If noticed, an
+        -- independent perception-error draw uses min(1,p*(1+fatigue)).
+        -- A misread substitutes a different digit 1..9 or reverses a
+        -- candidate/coverage assertion, chosen uniformly among valid
+        -- alternatives. It never changes the sheet or a given itself.
+        -- Unnoticed facts add no belief. Observations record the presented
+        -- source and perceived fact separately through before_sheet and
+        -- observations; their truth remains observer information.
+
+    @guarantee MemoryAndChunking
+        -- All retained puzzle propositions, pending conclusions, unfinished
+        -- proofs and unwritten branch data count against capacity. A focus
+        -- address and control counters are metadata, not stored board facts.
+        -- Raw facts consume one chunk each. A coverage fact consumes one
+        -- whatever it has folded; a fact folded into it may be evicted
+        -- without changing the set, and which sources it has folded is
+        -- bookkeeping the set carries, like a control counter, not further
+        -- facts. A multi-fact chunk must match a
+        -- previously recognized familiar pattern, contain at most the
+        -- effective skill's chunk_facts, and preserve individually addressable
+        -- premises. A phrase like "the whole grid" cannot be one chunk.
+        -- Familiar recognition may use a matching chunk without expanding
+        -- all its facts at once. An operation that needs to unpack facts
+        -- counts the expanded live items against capacity as well.
+        -- Overflow evicts the least recently refreshed item, breaking ties
+        -- by the smallest fact key; trace the eviction, never increase capacity.
+        -- After each microstep, expire items older than retention steps
+        -- since refresh. On a focus change, independently lose each remaining
+        -- item with probability min(1,interference*(1+fatigue)).
+        -- Recall succeeds only from retained memory or by a new paid read
+        -- of an external record. Rehearsal refreshes one retained item and
+        -- consumes a microstep. There is no free episodic trace lookup.
+
+    @guarantee NotesAreExternalAndFallible
+        -- A fresh manual sheet has no notes. One write_note/erase_note edits
+        -- one cell-digit mark, coverage flag, or branch checkpoint fragment.
+        -- The intended edit uses a retained fact, then entry_error may
+        -- substitute one other legal edit. Given entries cannot be edited.
+        -- Writing a mark needs a possible fact or a coverage fact that
+        -- still holds that digit, checked or not, so marks may be partial;
+        -- erasing a mark needs an excluded fact or a checked coverage fact
+        -- that no longer holds that digit. Writing a coverage flag needs a
+        -- retained checked coverage fact for that cell whose remaining set
+        -- is exactly the marks the cell already shows. The flag certifies
+        -- the marks as complete, so an incomplete cell cannot be flagged,
+        -- and a false flag arises only through an error already in the
+        -- facts it and its marks were written from, or a later board change.
+        -- Reading a coverage flag yields a coverage fact with checked true,
+        -- remaining full and no mark yet folded. A present mark read yields
+        -- a possible fact; an absent mark read yields an excluded fact from
+        -- manual_note only while a checked coverage fact for that cell is
+        -- retained, else nothing. Folding each such fact settles that
+        -- alternative, present stays and absent leaves, and which marks
+        -- have been folded is the set's bookkeeping. Missing manual marks
+        -- mean unknown until such a coverage fact has folded every mark.
+        -- Partial positive marks alone never establish excluded candidates
+        -- or strong links.
+        -- A player may falsely believe coverage through an error; resulting
+        -- moves are attempted inferences, not sound catalogue deductions.
+        -- Changing an entry never silently repairs manual notes or memory.
+        -- Old coverage remains the player's stale assertion until checked.
+        -- Every use of an external fact requires reading it into memory.
+
+    @guarantee AidsChangeTheEnvironment
+        -- Automatic candidates, if enabled, show exactly digits not excluded
+        -- by currently entered peers. They do not consult the solution and
+        -- can therefore reflect a wrong entry. They are distinct from
+        -- manual notes and recalculate after edits, but must still be read.
+        -- Highlighting reveals only the selected cell's peers and/or visible
+        -- occurrences of a selected digit. It supplies no deductions.
+        -- Conflict feedback reveals equal peer entries; solution_check may
+        -- reveal that a queried entry disagrees with the certified solution,
+        -- never the correct digit. Each feedback query is a paid inspection.
+        -- The aid checks the original Sheet.givens, never a puzzle that
+        -- silently treats the player's later entries as additional givens.
+        -- The cognitive operation receives only the requested boolean; the
+        -- full solution and observer judgement remain inaccessible to it.
+        -- With feedback=none the evaluator never interrupts a mistake.
+        -- uniqueness_disclosed exposes only the setter's uniqueness promise,
+        -- as a fact to read; it supplies no other solution information.
+
+    @guarantee FamiliarRecognition
+        -- recognize tests one chosen familiar method on the premises in
+        -- memory. All presence, absence and coverage claims needed by that
+        -- particular witness must have been acquired or derived. Successful
+        -- recognition has probability fluency/(1+fatigue); failure is paid
+        -- and yields no conclusion. Recognition cannot search unseen units.
+        -- A successful recognition proposes the catalogue conclusion if
+        -- the perceived premises fit. An inference-error draw may instead
+        -- omit one required premise or confuse one digit/target, recording
+        -- that operation. Its correctness is judged separately afterward.
+        -- A recognize action may instead group a fully acquired fragment of
+        -- the chosen familiar pattern: a cell's checked candidate set, a
+        -- digit's checked places in one unit, a witnessed link, or a
+        -- consecutive implication path. The fragment has no missing premise
+        -- and fits chunk_facts. It uses the same fluency/error draws, costs
+        -- think, and yields a chunk rather than a placement or strike.
+        -- This permits incremental chunk construction before attempting a
+        -- larger pattern. No chunk can be formed just because that larger
+        -- pattern would exist on the unseen sheet. Raw and expanded facts
+        -- still fit capacity while the grouping operation is performed.
+        -- The ladder supplies a search preference, not universal discovery
+        -- or a guarantee that a familiar method will be noticed.
+
+    @guarantee BoundedElementaryReasoning
+        -- Every profile knows the rules. infer performs ONE paid move,
+        -- of three kinds. Construct: a cell's coverage fact from a retained
+        -- empty fact for that cell, or a unit-digit's from public geometry;
+        -- all nine alternatives remain and no source is folded, and the
+        -- empty fact enters supports and need not stay live. A set is
+        -- never inferred from marks alone. Fold: one live premise settles
+        -- one alternative or one source: a peer's placement removes its
+        -- digit from a cell's set; a position holding another digit, or
+        -- excluded by a peer holding the digit, leaves a unit-digit set; a
+        -- placement of the digit inside the unit ends that set with nothing
+        -- to find; an empty peer folds with no removal. Conclude, one
+        -- implication: a known placement excludes that digit from a peer;
+        -- one remaining alternative asserts it; nothing
+        -- remaining is the contradiction GuessesAndRecovery names; k checked
+        -- sets of k positions restricted to k digits reserve those digits;
+        -- a verified weak/strong link carries one literal implication; or
+        -- completed exhaustive cases yield their common conclusion.
+        -- Every membership, exclusion, coverage and exhaustiveness premise
+        -- must be live, in retained facts or an eligible learned chunk, at
+        -- the step that consumes it. A coverage fact stands for what was
+        -- folded into it, and the observer judges a conclusion drawn from
+        -- one through the closure of its supports, so a folded misread
+        -- still taints it. Comparing one pair or adding one implication is
+        -- likewise a separate paid action. Reasoning depth bounds a chain:
+        -- consecutive implications each taking the previous conclusion as
+        -- a premise. Constructing and folding are not chain steps; capacity,
+        -- retention, interference and effort bound them instead, and
+        -- capacity still bounds simultaneously live premises.
+        -- A bound failure yields reasoning_limit, not a forced answer.
+        -- inference_error uses min(1,p*(1+fatigue)) and the same explicit
+        -- premise/digit/target fault operations as recognition.
+        -- Unfamiliar named techniques may emerge from these steps. Match a
+        -- completed sound proof to the catalogue afterward for reporting;
+        -- do not call the unfamiliar recognizer to generate that proof.
+        -- This does not add the method to experience or enlarge chunks.
+        -- A derivation without a named match is reported as elementary
+        -- reasoning, with its proof intact, never mislabeled as a technique.
+
+    @guarantee ChoiceAndBias
+        -- The initial policy searches cells, digits and units, not deductions.
+        -- At each choice it enumerates eligible local actions from Mind:
+        -- reading missing premises, trying a familiar method, folding a live
+        -- fact into a coverage fact, extending an elementary episode, noting
+        -- a retained fact, checking a proposal,
+        -- committing a sufficiently confident proposal, or changing focus.
+        -- Eligibility may use public geometry and retained facts only.
+        -- Base weights are 1; a familiar-method action uses skill.habit.
+        -- Multiply by (1+area_fixation) when staying in the current area,
+        -- (1+digit_fixation) when staying on its digit, and
+        -- (1+familiar_preference*fluency) for a familiar-method attempt.
+        -- None applies without a previous focus/digit/familiar method.
+        -- At a fresh search episode, a familiar method's base weight is also
+        -- divided by its catalogue rank, encouraging cheap methods first.
+        -- Draw one action proportional to these weights in canonical order.
+        -- Recognition failure does not establish that no pattern exists.
+        -- A confirmation draw may skip a selected check of opposing evidence;
+        -- the action still costs effort and logs the skipped check.
+        -- Perceived confidence starts at notice for a read fact; a conclusion
+        -- takes the minimum premise confidence (zero with missing premises),
+        -- then adds overconfidence, clamped to [0,1]. It never uses truth.
+        -- Before committing, request a verification episode with probability
+        -- verification*(1-overconfidence). That episode rereads prerequisites
+        -- in separate inspect steps; verify compares only retained claims.
+        -- A commitment requires confidence >= confidence_threshold.
+        -- note_use gates externalization when allowed. All biases set to
+        -- zero remove their own effects, not all stochastic behaviour.
+
+    @guarantee GuessesAndRecovery
+        -- A speculative guess has no complete proof. Only at patience limit,
+        -- with remaining depth and guess budgets, may guess_when_stuck choose
+        -- a branch. Select a perceived open cell with at least two perceived
+        -- alternatives by the ordinary attention weights; choose an untried
+        -- alternative uniformly. It need not be a true candidate.
+        -- Increment guesses and retain/write the branch choice and intended
+        -- alternatives before committing it. Recording each checkpoint
+        -- fragment is separately paid; branch data uses memory or branch_notes.
+        -- Bounded forcing proofs that never commit speculation are infer
+        -- actions; they remain separate from guess events.
+        -- A contradiction must be noticed: observed equal peer entries,
+        -- a coverage fact with nothing remaining, or explicit permitted
+        -- feedback. The observer cannot trigger repair.
+        -- Recovery chooses the newest accessible branch or a suspected
+        -- erroneous entry/mark. backtrack recalls one recorded change; an
+        -- unwritten change is recalled correctly with branch_recall, else
+        -- omitted or misremembered. Actual restoration uses separate paid
+        -- erase/enter/note events and can slip. No snapshot restore is free.
+        -- Repair invalidates only dependencies the player notices. Wrong
+        -- dependent beliefs can persist. Observed correction does not
+        -- retroactively make a faulty inference sound or a lucky guess logical.
+
+    @guarantee FatigueFrustrationAndStopping
+        -- For every non-rest action, fatigue increases by cost*fatigue_gain,
+        -- capped at 1. A fruitless episode is one failed recognition, an
+        -- elementary episode ended without a usable conclusion, or a
+        -- planned scan completed with no noticed lead; count it once.
+        -- It adds frustration_gain to frustration and one to fruitless.
+        -- A fold that removes nothing continues its episode and is not
+        -- fruitless by itself.
+        -- A noticed error also adds frustration_gain, not a search failure.
+        -- Perceived progress resets fruitless, clears episode_depth and
+        -- subtracts progress_relief from frustration, floored at zero.
+        -- Such progress may be objectively wrong. Truth never resets counters.
+        -- Frustration reduces effective patience to
+        -- max(1,ceil(patience*(1-frustration/2))). All references to patience
+        -- limit, including branch eligibility, use this effective value.
+        -- At patience limit: attempt a permitted guess with its stated
+        -- probability, otherwise rest if available and either fatigue or
+        -- frustration is positive, otherwise give_up. A rest subtracts
+        -- rest_relief from both (floor zero), resets fruitless and increments
+        -- rests. Rest does not refund effort, restore memory or teach skills.
+        -- All ordinary effects use the before-action state; fatigue,
+        -- frustration, expiration and capacity eviction follow the action.
+        -- Zero fatigue_gain/frustration_gain from a fresh mind disables each.
+        -- A player may claim_finished only from a retained belief of all
+        -- cells filled and a paid completion-check episode; this belief can
+        -- be mistaken. The observer does not end a correct grid early.
+        -- No eligible action gives no_action. Limits take precedence before
+        -- the next action; a budget-rejected action has no physical or mental
+        -- effect. Every attempt ends after finitely many positive-cost steps.
+
+    @guarantee EffortAccounting
+        -- inspect, recall, rehearse cost read. attend costs read plus
+        -- switch_effort iff focus or digit changes. recognize, infer and
+        -- verify cost think; enter, erase_entry, write_note, erase_note cost
+        -- write. guess costs think+write; backtrack costs think for recalling
+        -- one change (the edit follows separately). rest costs rest;
+        -- claim_finished/give_up cost declare. No action has zero cost.
+        -- spent is the sum of completed microstep costs. Choice evaluation,
+        -- observer analysis and batch aggregation add no player effort.
+        -- The costs are abstract units, not seconds. Per-method effort
+        -- emerges from actual reads, proof steps, notes, misses and repairs.
+}
+
+surface AttemptResult {
+    context attempt: Attempt
+    exposes:
+        attempt.request
+        attempt.assessment
+        attempt.sample_index
+        attempt.status
+        attempt.sheet
+        attempt.mind
+        attempt.spent
+        attempt.cursor
+        attempt.reason
+        attempt.judgement
+        for step in attempt.steps:
+            step.index
+            step.action
+            step.before_sheet
+            step.after_sheet
+            step.before_mind
+            step.after_mind
+            step.cost
+            step.observations
+            step.draws
+            step.progress
+            step.episode_failed
+
+    @guarantee ExactReplay
+        -- Identical givens, resolved profile/environment/costs/limits, seed,
+        -- model_version, catalogue_version and random_version yield identical
+        -- action order, draws, state changes, effort and outcome, disregarding
+        -- run identifiers. Record all these inputs and every consumed draw.
+        -- Draws are the randomness port's: a stream of u in [0,1), begun
+        -- from the seed, indexed from zero, the same for the same seed and
+        -- random_version. Which generator is the port's and not stated
+        -- here; a test supplies the draws through the port's fake.
+        -- A Bernoulli outcome is u<p; a uniform n-way index is
+        -- floor(u*n); weighted choice is the first cumulative interval
+        -- containing u*sum(weights), intervals closed left/open right.
+        -- Draw even for p=0 or p=1. Selection gates run note, verification,
+        -- confirmation, guess, then weighted choice when applicable;
+        -- execution draws notice, perception, recognition, inference,
+        -- entry, branch recall, then interference in increasing fact-key
+        -- order, only where the action needs that operation.
+        -- Probabilities and weights use exact specified decimal/rational
+        -- arithmetic for comparisons; no platform rounding changes a choice.
+        -- No wall clock, platform iteration order or hidden random
+        -- source may affect a run. Unsupported versions are rejected.
+        -- Canonical action order is kind declaration order, row, column,
+        -- digit, technique rank, then premise key. Compound position/digit
+        -- sets use lexicographically sorted members for this comparison.
+        -- Zero/one probabilities have no stochastic effect.
+        -- A stopped selection's uncommitted draws need not enter the trace:
+        -- replay derives the same stopping decision from the same cursor.
+
+    @guarantee ObserverIsSeparate
+        -- judge can read full provenance and exact puzzle solutions only
+        -- after the attempt ends. Solved means all 81 cells filled without
+        -- conflict and every given preserved. Erroneous means at least one
+        -- standing entry differs from the unique solution; otherwise an
+        -- unfinished grid is incomplete. A mistaken claim is not success.
+        -- Annotate each inferred/entered conclusion independently for valid
+        -- perceived reasoning, factual premise truth and correct result.
+        -- A correct result from faulty premises is not a sound deduction.
+        -- A lucky guess stays speculative. Count faults at their originating
+        -- event, separately from later wrong actions depending on that event.
+        -- Slip means actual edit differs from intended edit. Correction means
+        -- a later action removes a recorded false entry/belief, whether or not
+        -- the player knew it was false. Expose perceived correction separately.
+        -- Obstacles may be multiple; associate each with event and supporting
+        -- facts. catalogue_limit is an evaluator conclusion, not a claim
+        -- that the puzzle is unsolvable. Stopped never means unsolvable.
+
+    @guarantee CausalTrace
+        -- Immutable sequential before/after values reconstruct every physical
+        -- and mental change. Keys identify observations and conclusions;
+        -- supports refer only to earlier facts. No inference cites a future,
+        -- forgotten, uninspected or observer-only premise as available.
+        -- Retain failed searches, missed observations, evictions, rereads,
+        -- intended versus actual edits, guesses and observed contradictions.
+        -- A completed logical move reports its proof and matched catalogue
+        -- name(s); the actually attempted familiar method is distinguished
+        -- from later observer classification. Its dependency graph separates
+        -- enabling moves from search overhead; it is not an oracle policy.
+}
+
+surface AssessmentService {
+    provides:
+        Assess(request)
+
+    @guarantee DeclaredSample
+        -- valid_assessment validates the template and a nonempty list of at
+        -- most 10000 in-range seeds. Run exactly one fresh attempt per seed
+        -- occurrence, with no carry-over memory, fatigue or skill learning.
+        -- Expose the ordered seeds, repetitions and actual run count.
+        -- Repeated seeds yield repeated runs, not independent evidence.
+
+    @guarantee DistributionDefinitions
+        -- total is the declared occurrence count, solved counts objective
+        -- solved results, solve_fraction=solved/total using decimal division.
+        -- successful_effort contains spent only for solved attempts;
+        -- unsuccessful_effort contains spent only for all other attempts,
+        -- stratified by stop reason in the associated runs. Failed costs
+        -- are observed expenditure, censored with respect to solving effort.
+        -- Distribution samples retain run order; extrema and percentiles
+        -- use sorted copies. Median averages the central two for even n.
+        -- p90 is nearest rank ceil(0.9*n). All four summaries are null for
+        -- no samples; a zero solve fraction has no successful effort estimate.
+        -- Stop counts partition runs; obstacle counts may overlap. Mistakes
+        -- count originating faults, corrections/guesses/rereads/fruitless
+        -- searches count the corresponding trace events once. Dependency
+        -- depth is the longest chain of sound applied deductions, ignoring
+        -- observation/maintenance nodes; report zero when there are none.
+        -- Technique counts distinguish familiar recognition, elementary
+        -- derivation and faulty attempts; overlapping valid names of one
+        -- proof do not multiply its count. Use the attempted name, else the
+        -- lowest-rank matching name, and retain all alternatives in its trace.
+
+    @guarantee Interpretation
+        -- Comparisons name puzzle, profile, aids, budgets, all versions and
+        -- seeds. Never pool differing conditions as one profile's rating.
+        -- Report distributions/counts rather than a mandatory scalar score.
+        -- A simulated solve fraction is descriptive of these runs, not an
+        -- empirically calibrated probability for a human population.
+        -- Capacity and experience may be varied independently. Neither a
+        -- stronger profile nor more aids must win every individual seed.
+}
+
+surface AssessmentResult {
+    context assessment: Assessment
+    exposes:
+        assessment.request
+        assessment.status
+        assessment.summary
+        for run in assessment.runs:
+            run.index
+            run.attempt
+}
+
+surface Acceptance {
+    @guarantee ReplayAndIndependence
+        -- Replay one complete request twice: all trace content and results
+        -- agree. Repeat a seed in an assessment: both occurrences survive.
+        -- Cross rules_only and expert with capacities 2 and 6: repertoire
+        -- stays fixed when only capacity changes, and capacity stays fixed
+        -- when only experience changes. With no errors, a ready familiar
+        -- pattern may be recognized; an unfamiliar one requires elementary
+        -- steps and may be completed within its bounds without being learned.
+
+    @guarantee ElementaryDeductionWithinCapacity
+        -- With every error and interference rate zero, notice 1 and standard
+        -- retention, rules_only_novice on paper derives the last digit of a
+        -- valid puzzle with eighty givens, by the cell's set and by a unit's
+        -- set for that digit. No step needs more than two items live: the
+        -- coverage fact with one inspected entry, or with the pending
+        -- conclusion. The derivation completes with capacity 2, and no
+        -- episode exceeds depth one. A fact folded early may be evicted
+        -- before the conclusion without changing it. With capacity 1 the
+        -- same derivation stops at capacity_limit or forgotten, since the
+        -- set and its next premise cannot both be live. Every profile has
+        -- this route; experience adds recognition, not the rules.
+
+    @guarantee PresetsMeetTheCoarsePresets
+        -- expert_player under paper projects to technique/expert's
+        -- repertoire, capacity and marking, and beginner to
+        -- technique/novice's repertoire. Changing only ability.capacity
+        -- changes only the projected capacity, and changing only
+        -- experience.familiar only the repertoire.
+
+    @guarantee PartialNotesAndHiddenInformation
+        -- A cell with only a written 4 but no coverage claim cannot produce
+        -- a sound naked single. With a retained checked set {2,5}, writing
+        -- the 2 alone, the flag cannot be written; once both marks stand
+        -- the flag is written, and a later reread folds every mark back to
+        -- {2,5}. No error-free sequence of note edits yields a single from
+        -- the 2 alone. Reading another cell must not reveal its
+        -- candidates. Observer knowledge of an available X-Wing must not
+        -- influence choice before its relevant facts are acquired.
+        -- Manual notes can stay stale after a placement; automatic notes
+        -- update only when enabled and still require inspection.
+
+    @guarantee ErrorsRecoveryAndAblation
+        -- Force a misread, faulty inference and entry slip separately with
+        -- controlled random draws. Each has its distinct provenance and
+        -- downstream beliefs; none triggers correction without observation.
+        -- A later verification can detect and repair it at explicit cost.
+        -- A guessed solution digit is labelled a lucky guess, not deduction.
+        -- Capacity overflow evicts rather than silently enlarging memory.
+        -- With all error/interference rates zero, notice=1 and sufficient
+        -- retention, those error sources disappear. Zero biases and zero
+        -- fatigue/frustration gains remove just their respective effects.
+
+    @guarantee BoundsAndAssessment
+        -- A repetitive focus, forgotten proof, repeated rest or failed repair
+        -- still ends at a finite bound. A cost exceeding remaining effort
+        -- is not charged or partly executed. Stopping preserves its reason.
+        -- False claimed completion is unsuccessful; budget exhaustion is
+        -- not an unsolvability verdict. Zero successes yields an empty
+        -- successful distribution, not zero effort. Aggregate every declared
+        -- run and retain successful and unsuccessful traces.
+}
+
+------------------------------------------------------------
+-- Open Questions
+------------------------------------------------------------
+
+open question "Every numerical default here is a model assumption and none is calibrated: abilities, biases, coping, costs, limits and the four presets' fluency and chunk sizes. What evidence would move one, and which are fixed first? explanation/human-solving.md owns the route to validation."
+
+open question "The projection gives spans every extent, order systematic and upkeep every kind of unit, because nothing here says otherwise. Should attention_cells bound spans, should the fixations or familiar_preference make an order unsystematic, and should note_use or automatic candidates decide upkeep?"
+
+open question "The projection reads budget from limits.effort and gives fatigue the same figure so that it never bites. effort.allium's unit is a base figure per deduction and this module's is a microstep cost; are the two commensurable at all, or should budget and fatigue be left to whoever asks for a price?"
+
+open question "The presets do not quite meet. technique/novice holds three and keeps no marks; beginner holds four on paper with notes. technique/expert is unfixed; expert_player has the standard biases and projects to nearby. Should one side move, or are novice and beginner different people?"
+
+open question "rules_only projects to an empty repertoire, which reach.allium stalls on at once, though this model lets the same player derive singles by elementary reasoning. Should the projection credit a floor of techniques every rule-knower can derive, and which?"
+
+open question "PlayerProfile, Environment and the projection live here, so anything that wants a hint from reach.allium for one of these presets imports this whole module. Should the three move to a small module both import, once something needs them?"

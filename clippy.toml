@@ -1,0 +1,2 @@
+# A working minimum so `just clippy` runs; T02 finalises this file.
+allow-unwrap-in-tests = true
