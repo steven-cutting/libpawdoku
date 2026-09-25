@@ -800,7 +800,14 @@ All checks passed and the worktree is unchanged.
 just check  45.18s user 10.71s system 347% cpu 16.084 total
 ```
 
-`git status --porcelain` printed nothing afterwards.
+`git status --porcelain` printed nothing afterwards. After the ticket commit, the final
+`just check` exited 0 in **11.0 s** (`just check  43.36s user 9.18s system 479% cpu
+10.959 total`). That is the closing figure; the 16.1 s run came just before it.
+
+**Runner and taplo configuration (step 5).** `nextest-version = "0.9.146"` equals the
+`cargo-nextest = "==0.9.146"` pin in `pyproject.toml`. taplo's file list includes
+`.config/nextest.toml` (`found files total=12` in the `just initialize` log), so `**`
+enters dot-directories and `include` needed no `.config/*.toml` entry.
 
 **Coverage.** Line coverage is **100.00%** (90 of 90 lines; `lib.rs` 3, `random.rs` 87)
 after `cargo llvm-cov clean --workspace`. The first run in this worktree, before any
