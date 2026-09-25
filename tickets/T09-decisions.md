@@ -110,8 +110,13 @@ names targets as paths.
 2. Read `docs/manifest.yml` in the worktree. Its eleven `decisions/` entries are the
    authority for every file's frontmatter. Two entries differ from CONVENTIONS.md §8's
    titles and the manifest wins: 0003 is "Decision 0003: Effects behind traits" and 0008
-   is "Decision 0008: A pure no_std core" (T00 step 9). Record 0004's title and slug are
-   D01's; the file name is `0004-hook-runner-and-checkers.md` under either option.
+   is "Decision 0008: A pure no_std core" (T00 step 9). Record 0004's title is
+   "Decision 0004: Hook runner and checkers", its slug `decision_python_toolchain` and
+   its file name `0004-hook-runner-and-checkers.md` (D01). The manifest was frozen at
+   T00, so run `grep -n '0004' docs/manifest.yml` before writing anything: the row must
+   carry that title and slug, because the record cannot pass `bg-validate-docs` with a
+   different slug and this lane cannot edit the manifest. A mismatch is a T00 follow-up
+   on `main`, handed back first.
 
 3. Rules every file obeys (B's `validate_docs.py` and the hooks enforce them; run step 15
    rather than trusting a reading): 40 or more words, no `TODO`, `TBD`, `FIXME` or lorem
@@ -120,7 +125,7 @@ names targets as paths.
    reports what Pawdoku decided; the voice is G's records', which describe a choice and
    its cost in plain declarative sentences.
 
-4. The opening line of each carried record (0002, 0003, 0004 under option A, 0005), on
+4. The opening line of each carried record (0002, 0003, 0004, 0005), on
    line 11, modelled on G's line 11:
 
    ```markdown
@@ -189,17 +194,15 @@ names targets as paths.
    `docs/reference/testing.md`.
 
 8. `0004-hook-runner-and-checkers.md`: the full record text from D01's hand-back notes,
-   copied without edits except that the frontmatter equals the manifest entry. Under
-   option A the text opens with "Carried from Pawdoku's decision 0004 at `78d03cdf`" and
-   the slug is `decision_python_toolchain`; under option B the slug is
-   `decision_hook_runner` and nothing is carried. If D01's text lacks a section of the
+   copied without edits except that the frontmatter equals the manifest entry. The text
+   opens with "Carried from Pawdoku's decision 0004 at `78d03cdf`" and the slug is
+   `decision_python_toolchain`. If D01's text lacks a section of the
    shape, or links to a page the manifest does not register, stop and hand it back;
    do not repair it here.
 
 9. `0005-project-managed-allium-cli.md`, adapted from G's 0007. Keep G's lines 15-17
    (why something must check the modules), 23-26 (the two unrelated packages of the same
-   name), 30-40 (the decision and where the pin sits; `bg-install-allium` under option A,
-   `scripts/install_allium.sh` with the same four checksums under option B, per D01),
+   name), 30-40 (the decision and where the pin sits: `bg-install-allium`, per D01),
    49-52 (the lockfile cannot speak for it), 54-59 (checksums are hand-computed because
    upstream's `SHA256SUMS.txt` covers only the editor extension and language server),
    61-62 (`.tools/` stays ignored), 64-66 with the gate numbers of §4 (16 and 17), 68-81
@@ -349,7 +352,7 @@ names targets as paths.
     carrying the short title (the manifest `title` after "Decision NNNN: "). "The
     numbering", final, in place of G's lines 35-44: this series is the repository's own
     and starts at 0001; four entries were carried from Pawdoku at `78d03cdf` (0002, 0003,
-    0004 under option A, 0005), each says so under its heading and keeps the slug it had,
+    0004, 0005), each says so under its heading and keeps the slug it had,
     because the slug is what a cross-repository reference names; the game restates the
     engine's clauses and cites these records by slug; nothing here is rendered from a
     template, so no frozen inventory applies, and the next decision this repository
@@ -369,7 +372,7 @@ names targets as paths.
   realistic total is 45 to 100 lines, as G's carried records are 58 to 98.
 - Frontmatter of all eleven files equals the manifest entry key for key; H1 equals
   `title`; 0003 and 0008 carry the manifest's shorter titles.
-- Line 11 of 0002, 0003 and 0005 (and 0004 under option A) is step 4's sentence with
+- Line 11 of 0002, 0003, 0004 and 0005 is step 4's sentence with
   the right Pawdoku number (0003, 0002, 0007, 0004), and each keeps G's slug.
 - 0004 is D01's text unchanged; 0005 states that `allium-cli` is on crates.io and why it
   is still not the install path; 0007 and 0009 each name their deviation from the games'
@@ -393,8 +396,8 @@ git status --porcelain
 ```
 
 Expected: the three `just` runs exit 0 and `check-docs` reports every page valid; `ls`
-prints `11`; the loop prints four lines each beginning `*Carried from Pawdoku's decision`
-(three under option B, with 0004's line being its Context heading instead); every record
+prints `11`; the loop prints four lines each beginning `*Carried from Pawdoku's decision`;
+every record
 counts `5` sections and the index `4`; the two greps print their messages; `git status`
 lists only the eleven files and this ticket. Quote each in the hand-back notes.
 
@@ -410,11 +413,6 @@ lists only the eleven files and this ticket. Quote each in the hand-back notes.
 
 ## Open points
 
-- 0004's slug and title depend on D01, and the manifest was frozen at T00, which depends
-  on D01. So T00 must have written D01's slug into the manifest. The trap: if T00 wrote
-  a placeholder, this lane cannot fix it (the manifest is frozen) and the record cannot
-  pass `bg-validate-docs` with a different slug. Check: `grep -n '0004' docs/manifest.yml`
-  before writing anything; a mismatch is a T00 follow-up on `main`, handed back first.
 - Whether 0008 and 0009 should be one record. No: 0008 is a property of the crate that
   every consumer inherits, 0009 is a property of this repository's gate, and each has
   its own reopening condition.

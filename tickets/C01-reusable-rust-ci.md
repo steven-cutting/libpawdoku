@@ -41,7 +41,8 @@ What moves if it moves: the five jobs become `B/.github/workflows/rust-ci.yml` u
 `cache-key` per job internal; the coverage floor is the caller's `Justfile`'s); the
 composite action becomes `B/actions/setup-rust-toolchain/action.yml` with inputs for
 the cargo-binstall and just versions defaulting to CONVENTIONS.md §2's pins and the uv
-steps behind a `python` input (D01 option A). Triggers, `permissions` and `concurrency`
+steps behind a `python` input (this repository keeps the Python toolchain, decision 0004;
+a consumer without one sets it false). Triggers, `permissions` and `concurrency`
 stay in the caller (B README lines 31-34). The caller becomes G's 28-line shape plus the
 `check` aggregate job, which now needs the one call job instead of five local ones
 (CONVENTIONS.md §10): the called jobs report as `ci / rust`, `ci / coverage`,

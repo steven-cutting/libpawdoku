@@ -43,8 +43,10 @@ GitHub Packages for the `@steven-cutting` scope (G's `.npmrc`, one line), where 
 Facts to start from, each verified at execution: pyo3 with `abi3-py311` builds one
 wheel per platform rather than per Python; maturin reads a `pyproject.toml` beside the
 crate and can generate its own workflow (`maturin generate-ci github`), whose wheel
-matrix belongs in S02's `release.yml`; under D01 option A a root `pyproject.toml`
-already exists as a virtual project, so uv sees two projects. wasm-bindgen with
+matrix belongs in S02's `release.yml`; a root `pyproject.toml` already exists as a
+virtual project (decision 0004), so uv sees two projects, and the bindings crates live in
+this workspace (settled with the maintainer in D01, as decision 0001 assumed), so that is
+a real question for step 3 (b), not a hypothetical. wasm-bindgen with
 `serde-wasm-bindgen` behind the core's `serde` feature turns public types into plain
 JavaScript objects; `console_error_panic_hook` routes a panic to the console;
 wasm-pack writes the `package.json` it publishes, so shipping `specs/` is a step after
@@ -181,10 +183,6 @@ one line naming this file.
 
 ## Open points
 
-- Whether the bindings crates live in this workspace at all, or each in its own
-  repository (D01's second open point). The workspace keeps one `Cargo.lock`, one gate
-  and one CHANGELOG, at the cost of uv, maturin, wasm-pack and cargo-dist in one
-  `tools.txt`; the recommendation is the workspace, as decision 0001 assumed.
 - Whether the CLI reads the grid-string format `sudoku.allium` describes or a JSON
   shape shared with the wasm crate; a specification question for `sudoku.allium`'s
   open points, not decided here.

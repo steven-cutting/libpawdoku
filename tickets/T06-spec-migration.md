@@ -64,8 +64,7 @@ import (CONVENTIONS.md §1 fact 6): G will restate the clauses it needs and hold
 to this repository's text by test, as it holds the platform's figures today.
 
 The gate is `just check-specs` and `just analyse-specs` (CONVENTIONS.md §4), which run
-`bg-run-allium check` and `bg-run-allium analyse` under D01 option A, or the
-`scripts/run_allium.sh` port under option B; D01's hand-back names which. Read B's
+`bg-run-allium check` and `bg-run-allium analyse` (decision 0004). Read B's
 `src/biscuit_games_tooling/run_allium.py` at `6c5c07f6`: it runs the pinned binary over
 `docs/specs/`, prints the binary's output whole, parses it as back-to-back JSON objects
 (one per module, each carrying `spec_file`, `diagnostics` and `findings`), refuses a block

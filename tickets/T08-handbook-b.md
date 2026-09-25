@@ -38,11 +38,9 @@ G's thirteen source pages, each with
 are of those files at `78d03cdf`, verified on 2026-09-23; re-verify every cited range
 with `sed -n 'a,bp'` before splicing it.
 
-One thing D01 decides. Several ranges kept verbatim name B's console scripts
-(`bg-project-check`, `bg-validate-docs`, `bg-validate-agents`, `bg-run-allium`) and
-`pyproject.toml`. That is option A. Under option B the same sentences name the
-`scripts/<name>.sh` ports D01's hand-back gives, and the phrase list on the agent
-contract page has five entries, not six. "Verbatim" below means verbatim under option A.
+Several ranges kept verbatim name B's console scripts (`bg-project-check`,
+`bg-validate-docs`, `bg-validate-agents`, `bg-run-allium`) and `pyproject.toml`; that is
+what this repository runs (decision 0004), so "verbatim" below means verbatim.
 
 ## Goal
 
@@ -215,8 +213,7 @@ G: opening 11-13; Checks are read-only 15-26; Fix the cause 28-39; Unreachable i
 untested 41-51; Tests inject 53-61; The specification is the arbiter 63-66; Related
 68-72. §6 says "verbatim minus the browser example": that is 59-61, and it goes. Three
 more ranges name the frontend and would be false here, so they are adapted too (an Open
-point asks for §6's note to say so). Everything else verbatim, 17-22 with the runner's
-name per D01.
+point asks for §6's note to say so). Everything else verbatim.
 
 - 34-39: the config file is the `[workspace.lints]` table and `clippy.toml`; a rule
   wrong for this project is lowered there once, with a comment; at a call site only
@@ -259,7 +256,7 @@ secure 38-42; What the build defends 44-82; Out of scope 84-88; Reporting 90-92;
 G: opening 11-13; Setup 15-24; Dependencies 26-32; Develop 34-40; Format and repair
 42-47; Check 49-59; Documents and agents 61-74; Publish 76-80; Aggregate 82-87; Related
 89-93. Verbatim: 11-13 (`just --list` prints the live set, which is what the `default`
-recipe does, so `default` gets no row), 65-69, 71-74 (runner's name per D01), 86-87,
+recipe does, so `default` gets no row), 65-69, 71-74, 86-87,
 89-93. One row per recipe in G's `| just <recipe> | Purpose |` shape, grouped as the
 Justfile's banners group them: **Setup** (`initialize`, `check-toolchain`,
 `install-toolchain`, `install-tools`, `install-allium`, `sync`, `lock`, `lock-upgrade`,
@@ -304,7 +301,7 @@ configs in parallel: describe what `tickets/T02-rust-gate.md` steps 3, 5 and 6 s
   `.config/nextest.toml`; `tools.txt` (the one pin list for binaries no lockfile names);
   the `coverage_floor` variable in the `Justfile`; the two prek configs;
   `.markdownlint-cli2.jsonc`; `lychee.toml`; `_typos.toml` (the only typos
-  configuration); `.editorconfig`; `pyproject.toml` (option A).
+  configuration); `.editorconfig`; `pyproject.toml`.
 - Values the specifications decide: `pawdoku::SIDE` mirrors `sudoku.allium`'s
   `config.side`; a constant with no `config` entry to name is drift the other way.
 - Version pins: where each lives, never the number (step 3).
@@ -343,7 +340,7 @@ What the current suite proves 106-114; Related 116-120. Verbatim: 102-104.
 G: opening 11-14; table 16-29; allium 31-47; the missing network check 49-51; the
 workshop's network gate 53-74; What the hook gate contains 76-107; The mutating
 counterpart 109-113; In continuous integration 115-146; On `main` 148-170; Related
-172-177. Verbatim: 11-14, 31-35 (link renumbered at 36), 38-47 (runner's name per D01),
+172-177. Verbatim: 11-14, 31-35 (link renumbered at 36), 38-47,
 49-51, 78-79, 96, 157-161, 172-177. Drop 53-74, 129-146, 163-170.
 
 - The table: seventeen numbered rows in §4's order, each naming the recipe and what it
@@ -376,7 +373,7 @@ counterpart 109-113; In continuous integration 115-146; On `main` 148-170; Relat
 
 G: opening 11-16; The manifest 18-29; Frontmatter 31-48; The rules 50-71; Links that
 leave the repository 73-81; Managed and seed pages 83-96; Outside the contract 98-103;
-Related 105-109. Verbatim: 11-71 (11 per D01), 80-81, 98-109. Drop 83-96, the managed
+Related 105-109. Verbatim: 11-71, 80-81, 98-109. Drop 83-96, the managed
 and seed paragraph §6 names. 75-78 links `project/platform.md`, which does not exist
 here, so the section keeps its heading and says: no page points outward today; when one
 does, the link is to a whole page, never to a heading, for G's reason at 77-78; then
@@ -386,8 +383,8 @@ does, the link is to a whole page, never to a heading, for G's reason at 77-78; 
 
 G: opening 11-14; The four surfaces 16-26; What `AGENTS.md` must contain 28-35; What a
 skill must be 37-63; What a bridge must be 65-79; The inventory 81-94; Related 96-99.
-Verbatim: 11-35 (11 per D01; the phrase list at 31-32 has six entries under option A,
-with the honest `runes` sentence §7 gives, and five under B), 50-63, 65-79 (the heading
+Verbatim: 11-35 (the phrase list at 31-32 has six entries, with the honest `runes`
+sentence §7 gives, until C02's follow-up makes it five), 50-63, 65-79 (the heading
 is an anchor `troubleshooting.md` links to), 83-94, 96-99.
 
 - 39: fourteen canonical skills in two groups: seven the house writes (`code-review`,
@@ -439,7 +436,7 @@ Tier B. G: opening 11-13; Routine 15-32; Deploying 34-49; Rolling back 51-60; Se
   hook rev or an action SHA by hand with its version comment; 27-28. **Per toolchain
   release**: bump `rust-toolchain.toml` and `rust-version` together and re-run
   `just clippy`, because the lint set moves (§13). **Per allium release**: the pin and
-  checksums live in B's package (option A) or `scripts/install_allium.sh` (option B); a
+  checksums live in B's package; a
   moved pin re-verifies every module and invalidates every waiver (§13). Nothing updates
   any of these on its own until S01 decides.
 - Secrets: none stored, nothing to rotate; CI uses the run's own token; crates.io, when
@@ -489,8 +486,8 @@ naming `target/`, `.tools/` and a rewritten `Cargo.lock` as the usual paths), 19
   and `check-clean` as row 18.
 - No page carries a version number of the form `x.y.z`, and none carries a game-only
   word from step 3's list.
-- The verbatim ranges named above are byte-identical to G's, allowing only for the D01
-  runner names and the renumbered decision links.
+- The verbatim ranges named above are byte-identical to G's, allowing only for the
+  renumbered decision links.
 
 ## Verification
 
@@ -512,8 +509,8 @@ while read -r p a b; do
   s=$(grep -nF -- "$(head -n 1 ai_tmp/g.txt)" "docs/$p" | head -n 1 | cut -d: -f1)
   [ -n "$s" ] && sed -n "${s},$((s + n - 1))p" "docs/$p" | cmp -s - ai_tmp/g.txt && echo "$p $a-$b present"
 done <<'EOF'
-reference/quality-gates.md 43 47
-reference/documentation-contract.md 18 71
+reference/quality-gates.md 38 47
+reference/documentation-contract.md 11 71
 reference/agent-contract.md 65 79
 operations/troubleshooting.md 19 46
 EOF
@@ -524,9 +521,9 @@ Expected: `check-docs` ends with the validator's line naming every page valid; t
 is 16 (fourteen pages here plus the two T06 pages); the `diff` prints nothing (`--list`
 at commands 11 is excluded by the pattern); the gate row count is 18; the two greps print
 their `no ...` line; each verbatim range reports `present` (the loop anchors on the
-range's first line and compares positionally, so quality-gates starts at 43, after the
-runner's name at 42, and a range with a D01 name inside it is checked in two halves);
-`just check` exits 0. Quote each in the hand-back notes.
+range's first line and compares positionally, so a range that contains a renumbered
+link is checked in two halves around it); `just check` exits 0. Quote each in the
+hand-back notes.
 
 ## Hand-back notes
 

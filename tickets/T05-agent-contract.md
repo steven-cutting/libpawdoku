@@ -28,6 +28,13 @@ gives) and a 40-word body; and, in final form, the two adapters, `.claude/settin
 and all twenty-eight bridges. This ticket replaces the stubs with the final content and
 adds the two paths T00 left out: `skills-lock.json` and `allium-skill-reference/`.
 
+**C02 is a dependency of this ticket's final state.** D01 kept the Python checkers
+(decision 0004), so `AGENTS.md` carries the honest `runes` sentence CONVENTIONS.md §7
+quotes until C02 ships a `biscuit-games-tooling` release whose `REQUIRED_GUIDANCE` is
+configurable. The follow-up pull request that bumps the pin in `pyproject.toml` and adds
+`agent_guidance_drop = ["runes"]` removes the sentence and changes this ticket's third
+verification block with it, after this ticket has merged.
+
 **The trap this ticket must not walk into.** A bridge repeats its skill's frontmatter
 verbatim (`validate_agents.py` line 223 compares the two dictionaries whole), and every
 bridge is frozen at T00 (CONVENTIONS.md §11). So a change to any skill's `description`
@@ -147,8 +154,9 @@ everything from the worktree root. `G=/Users/scutting/projects/pawdoku` througho
 
 1. Create the worktree on `ticket/t05-agent-contract` from `main` (README.md "How to pick
    up a ticket"), run `just initialize`, and confirm `just check` is green before
-   changing anything. Read D01's hand-back notes for the option T00 built: two lines
-   below differ under option B and say so.
+   changing anything. Read D01's hand-back notes ("Handed back", T05): the interim
+   `runes` sentence is quoted there, and C02's follow-up removes it after this ticket
+   merges.
 2. Read `validate_agents.py` at the lines Context names and keep them open. In
    particular: the frontmatter parser splits every line between the `---` markers on its
    first colon and rejects a blank line (`invalid frontmatter line`), the two keys must
@@ -229,8 +237,8 @@ targets a page T00 stubbed, and stays.
    is decision 0009's departure from the games' "never colocated" rule at G lines
    73-75); fakes come through the randomness boundary, never a global; **Just** is the
    task runner and the only supported interface to the checks, with G's sentence on the
-   read-only and fix prek configs (lines 81-84) carried, "under `uv`" kept under option A
-   and dropped under option B. Drop G's platform bullet (lines 69-72) and its stories
+   read-only and fix prek configs (lines 81-84) carried, "under `uv`" kept. Drop G's
+   platform bullet (lines 69-72) and its stories
    bullet (76-80). Keep lines 86-88 (the four owning-page links).
 4. **Change workflow** (G lines 90-105). Keep the seven steps; step 6 becomes "Run the
    narrowest recipe that covers the change (`just fmt-check`, `just clippy`, `just test`
@@ -250,9 +258,8 @@ targets a page T00 stubbed, and stays.
 7. **External automation policy** (G lines 140-144). Verbatim, with "deploying" dropped
    from the list.
 8. **Provenance** (G lines 146-173). Replace the whole section body with the block below.
-   The last sentence is CONVENTIONS.md §7's honest `runes` sentence, present under D01
-   option A and absent under option B; the third list item likewise takes the option-B
-   wording D01's hand-back gives when that is what T00 built.
+   The last sentence is CONVENTIONS.md §7's honest `runes` sentence, required until C02
+   ships (decision 0004).
 
    ```markdown
    This repository is not rendered by Copier. Its conventions were taken by
@@ -332,13 +339,11 @@ line, including the single long line per step, stays G's.
    2. Check the prerequisites exist: rustup's cargo first on `PATH` (`just check-toolchain` says so), the pinned binaries in `.tools/bin` (nextest, llvm-cov, deny, hack, shear, taplo), the pinned checker at `.tools/bin/allium`, `Cargo.lock`, and `uv.lock`. If any is missing, run `just initialize` — it creates them, normalises formatting and installs the hook, and it never stages, commits, tags or pushes. The checker alone is `just install-allium`; it is gitignored and per-worktree, so a fresh worktree needs it before gates 3, 16 and 17 can pass.
    ```
 
-   Under option B, `uv.lock` is dropped from the list and `prek` joins the `.tools/bin`
-   parenthesis. Gates 3, 16 and 17 are `lint`, `check-specs` and `analyse-specs` in
+   Gates 3, 16 and 17 are `lint`, `check-specs` and `analyse-specs` in
    CONVENTIONS.md §4's order; `lint` needs the binary because the two spec hooks run
    inside it.
 5. `review-docs`: delete step 3 (G line 10, the managed/seed step; nothing here arrives
-   by `copier update`) and renumber G's steps 4-8 to 3-7. Under option B, step 1's
-   `bg-validate-docs` becomes the script name D01 chose.
+   by `copier update`) and renumber G's steps 4-8 to 3-7.
 6. `spec-change`: steps 1, 4 and 8 (G lines 10, 13, 17) become:
 
    ```markdown
@@ -472,8 +477,8 @@ replace the stub body with exactly this:
   `just check` is green.
 - `AGENTS.md` has G's eight headings in order, 300 or more words, the six phrases, the
   eight invariants of CONVENTIONS.md §7 with decision 0007 named in the eighth, and a
-  Provenance section naming decisions 0007, 0009 and 0010; under option A it carries the
-  `runes` sentence exactly as CONVENTIONS.md §7 quotes it, under option B it does not.
+  Provenance section naming decisions 0007, 0009 and 0010; it carries the `runes`
+  sentence exactly as CONVENTIONS.md §7 quotes it.
 - `.agents/skills/` holds exactly the fourteen names; every frontmatter is byte-identical
   to T00's; the five Allium skills `distill`, `elicit`, `tend`, `weed`, `witness` are
   `cmp`-equal to G's; `allium` and `propagate` differ from G's at one line each; the six
@@ -511,10 +516,10 @@ grep -n -i -E 'svelte|runes|npm|storybook|chromatic|copier update|src/lib|platfo
 grep -n '^## ' AGENTS.md
 ```
 
-Expected: 300 or more (about 1000); six counts of 1 or more (`runes` is 0 under option
-B, and the phrase list then no longer includes it once C02 ships); the third command
-prints exactly one line under option A (the Provenance sentence) and nothing under B;
-the headings are G's eight in G's order.
+Expected: 300 or more (about 1000); six counts of 1 or more (once C02's follow-up
+lands, `runes` is 0 and the phrase list no longer includes it); the third command
+prints exactly one line (the Provenance sentence); the headings are G's eight in G's
+order.
 
 ```sh
 ls .agents/skills .claude/skills .codex/skills
@@ -538,8 +543,8 @@ git ls-files allium-skill-reference | wc -l
 
 Expected: five `identical` lines; `allium: 2` and `propagate: 2`; for the six house
 skills, `code-review: 6`, `fix-quality: 17` (seven lines out, ten in), `plan-change: 2`,
-`project-check: 2`, `review-docs: 11` (G's steps 3-8 out, five renumbered steps in; `13`
-under option B, where step 1 changes too), `spec-change: 6`, with any other count
+`project-check: 2`, `review-docs: 11` (G's steps 3-8 out, five renumbered steps in),
+`spec-change: 6`, with any other count
 explained line by line in the hand-back notes;
 `lock identical`; `reference identical`; `23`.
 
@@ -555,11 +560,6 @@ explained line by line in the hand-back notes;
 
 ## Open points
 
-- **The `runes` sentence depends on C02.** Under D01 option A, `AGENTS.md` carries the
-  honest sentence until C02 ships a `biscuit-games-tooling` release whose
-  `REQUIRED_GUIDANCE` is configurable; the ticket that bumps the pin in `pyproject.toml`
-  drops the sentence and this ticket's third verification block changes with it. Under
-  option B the ported validator drops the phrase and the sentence never exists.
 - **Where the reference material lives.** `allium-skill-reference/` at the root is G's
   choice and decision 0010 records it. The alternative, a `docs/` subtree, would put the
   23 files inside the documentation contract's walk, where every page must be registered

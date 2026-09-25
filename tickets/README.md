@@ -16,7 +16,7 @@ authoritative; this table is a snapshot.
 
 | Id | Title | File | Depends on | Parallel with | Status |
 | --- | --- | --- | --- | --- | --- |
-| D01 | Hook runner and checkers: keep the Python toolchain or go Python-free | `D01-hook-runner.md` | none | none | open |
+| D01 | Hook runner and checkers: keep the Python toolchain or go Python-free | `D01-hook-runner.md` | none | none | done |
 | T00 | Foundation: workspace, toolchain, licence, Justfile, hooks, manifest, stubs for every path | `T00-foundation.md` | D01 | none | open |
 | T01 | GitHub repository: create, first push, settings, branch protection | `T01-github-repository.md` | T00 | T02 to T09 | open |
 | T02 | Rust quality gate: tool configs, the no_std crate skeleton, every Rust recipe green | `T02-rust-gate.md` | T00 | T01, T03 to T09 | open |
@@ -60,7 +60,7 @@ D01 ── T00 ──┬── T01 ───────────────
              ├── T07 ──────────────────┤    └── C01 (also after T04)
              ├── T08 ──────────────────┤
              └── T09 ──────────────────┘
-C02 hangs off D01 alone, and only if D01 keeps the Python checkers
+C02 hangs off D01 alone (D01 kept the Python checkers; decision 0004)
 ```
 
 The graph is acyclic: D01, then T00, then nine parallel lanes, then T11 and T10 in

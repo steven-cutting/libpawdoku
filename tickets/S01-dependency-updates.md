@@ -25,7 +25,7 @@ repository who is not a person with write access. Here the pins are more varied:
 | --- | --- | --- | --- |
 | Crate versions | `Cargo.toml` caret ranges, `Cargo.lock` the pin (decision 0007) | T02 | `cargo update` |
 | GitHub Actions | `ci.yml`, `audit.yml`, `.github/actions/setup/action.yml`, SHA plus version comment | T04 | by hand |
-| uv, Python, the B tag (D01 option A) | `pyproject.toml`, `uv.lock`, `.python-version` | T03 | `uv lock` |
+| uv, Python, the B tag | `pyproject.toml`, `uv.lock`, `.python-version` | T03 | `uv lock` |
 | The toolchain | `rust-toolchain.toml` `channel = "1.98.1"` (frozen, CONVENTIONS.md §2) | T00 follow-up | by hand, with `rust-version` and a clippy re-run (§13) |
 | Tool binaries | `tools.txt` `name@version` (frozen) | T00 follow-up | by hand |
 | Hook revisions | both prek configs, `rev:` SHA plus version comment (frozen) | T00 follow-up | by hand |

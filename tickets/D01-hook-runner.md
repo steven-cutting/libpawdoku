@@ -290,8 +290,8 @@ musl variants, two Windows zips, a `.sha256` beside each, `dist-manifest.json` a
 `j178/prek`; its `Cargo.toml` at `v0.5.3` carries no `[package.metadata.binstall]`
 table, so cargo-binstall's default `{ name }-{ target }.tar.gz` template resolves each
 asset by name. The claim holds: `prek@0.5.3` could sit in `tools.txt`. It is recorded here
-as evidence that the runner was never the lock-in, and T03 step 8e is "not applicable"
-under the option chosen.
+as evidence that the runner was never the lock-in; T03 has no step for it, because prek
+is a uv dependency under the option chosen.
 
 **prek 0.5.3 on PyPI** (the option-A pin). Checked on 2026-09-24 with
 `curl -s https://pypi.org/pypi/prek/0.5.3/json`: version `0.5.3`, nine files (eight
@@ -472,7 +472,7 @@ text:
 | §7 `AGENTS.md` | the interim sentence in Provenance, quoted under Handed back |
 | §8 record 0004 | slug `decision_python_toolchain`; title `Hook runner and checkers`; the file name `0004-hook-runner-and-checkers.md` |
 | §10 composite action | `astral-sh/setup-uv` (`version: 0.11.18`, cache on `uv.lock`) then `uv python install 3.14`, before `just sync`; T04's step 3 text is the option-A text |
-| §12 prek binstall half | verified above; T03 step 8e records "not applicable: prek is a uv dependency" |
+| §12 prek binstall half | verified above and assigned to D01; T03 has no step for it (prek is a uv dependency) |
 
 The `files` trigger for the `check-specs` and `analyse-specs` hooks, exactly:
 
@@ -535,9 +535,8 @@ written.
   uv would resolve the newest interpreter it finds, while the file pins the series so two
   machines and CI resolve the same one; T04's `uv python install 3.14` reads the same
   value. Record the reason in T07's `develop-locally.md`. Step 6 (the two `pyproject.toml`
-  comments) applies; step 7 (the four ports) does not; step 8e records "not applicable:
-  prek is a uv dependency", with the asset check above as the evidence it would have
-  gathered.
+  comments) applies; the four ports and the prek binstall check were removed from T03
+  (the asset check above is the evidence it would have gathered).
 - **T04.** The composite action keeps the `setup-uv` and `uv python install 3.14` steps
   and `just sync`; `uv.lock` is the cache key; the `documents` job needs
   `just install-allium` as §10 says.
@@ -572,6 +571,18 @@ Both open points were put to the maintainer on 2026-09-24 and answered:
 Also settled: the option itself (A, confirmed by the maintainer against the comparison
 above), and the branch name (renamed from the worktree's `D01-hook-runner` to
 `ticket/d01-hook-runner` before the commit).
+
+### Follow-up on this branch
+
+On 2026-09-24, after the decision commit, the maintainer asked for the decision to be
+propagated: every option-conditional sentence in the other tickets, `CONVENTIONS.md` and
+`README.md` was resolved to its option-A text, the placeholders T00 and T09 carried for
+record 0004's title and slug were filled in, the per-ticket items under "Handed back"
+were folded into the tickets they name, and T03 lost its two option-B steps (the four
+ports and the prek binstall check; its later steps were renumbered). That is a second
+commit on this branch. It supersedes the non-goal "No file outside this file is created
+or changed" and the last acceptance criterion, both of which were true of the decision
+commit itself.
 
 ## Open points
 

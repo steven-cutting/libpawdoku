@@ -16,14 +16,14 @@ This repository (`steven-cutting/libpawdoku`, branch `main`, one commit holding 
 `README.md` and this `tickets/` directory) becomes the Cargo workspace CONVENTIONS.md §0
 describes. `CONVENTIONS.md` is the design; read it in full before anything else, then
 `README.md` in this directory for the worktree rules, then D01's hand-back notes, which
-name the option this ticket builds (`pyproject.toml` or the `scripts/` ports) and give
-the `pyproject.toml` content under option A. This is the first build ticket: nothing else
+give the `pyproject.toml` content this ticket writes and the manifest row for record
+0004. This is the first build ticket: nothing else
 can start until it has merged to `main`, because the nine lane tickets T01 to T09 each
 replace stubs this ticket creates, and every lane's definition of done is `just check`
 green in this repository, which only this ticket can make true.
 
 Why one large ticket rather than several: the documentation contract and the agent
-contract (B's `bg-validate-docs` and `bg-validate-agents`, or D01's ports) walk every
+contract (B's `bg-validate-docs` and `bg-validate-agents`) walk every
 registered page and every skill, and the ordered gate snapshots the worktree between
 recipes. They can only be green if every path in CONVENTIONS.md §3 exists from the first
 commit in a valid shape. So this ticket ships the whole shape: the workspace and a crate
@@ -53,9 +53,8 @@ Check `git -C /Users/scutting/projects/pawdoku rev-parse --short=8 HEAD` prints
 
 Preconditions, stated and not performed (CONVENTIONS.md §2): rustup installed (a default
 toolchain is probably not required: §2, and T03 confirms); `command -v cargo` printing
-`$HOME/.cargo/bin/cargo`; cargo-binstall 1.23.0 on `PATH`; just 1.51.0; uv 0.11.18 under
-option A. If any is
-missing, stop and report it; do not install anything outside the worktree.
+`$HOME/.cargo/bin/cargo`; cargo-binstall 1.23.0 on `PATH`; just 1.51.0; uv 0.11.18. If
+any is missing, stop and report it; do not install anything outside the worktree.
 
 ## Goal
 
@@ -88,8 +87,8 @@ of a crate that has almost none.
 
 ## Files touched
 
-Every path in CONVENTIONS.md §3 except those marked T02, T03 (option B scripts), T04
-(`audit.yml`), T05 (`skills-lock.json`, `allium-skill-reference/`). Class: `final` means
+Every path in CONVENTIONS.md §3 except those marked T02, T03 (`scripts/install_tools.sh`),
+T04 (`audit.yml`), T05 (`skills-lock.json`, `allium-skill-reference/`). Class: `final` means
 no lane touches it again; `stub` means the named lane replaces it.
 
 | Path | Class | Content |
@@ -97,19 +96,18 @@ no lane touches it again; `stub` means the named lane replaces it.
 | `Cargo.toml` | skeleton -> T02 | step 4 |
 | `Cargo.lock` | generated | step 4 |
 | `rust-toolchain.toml` | final | CONVENTIONS.md §2, exact |
-| `tools.txt` | final | CONVENTIONS.md §2, exact, plus the prek line under option B |
+| `tools.txt` | final | CONVENTIONS.md §2, exact |
 | `rustfmt.toml`, `clippy.toml`, `taplo.toml`, `deny.toml`, `.config/nextest.toml` | stub -> T02 | step 5 |
 | `crates/pawdoku/Cargo.toml` | skeleton -> T02 | step 4 |
 | `crates/pawdoku/src/lib.rs` | skeleton -> T02 | step 4 |
 | `crates/pawdoku/README.md` | stub -> T10 | step 12 |
 | `LICENSE` | final | step 3 |
 | `README.md`, `CHANGELOG.md`, `SECURITY.md` | stub -> T10 | step 12 |
-| `Justfile` | final | CONVENTIONS.md §4, exact, in D01's form |
+| `Justfile` | final | CONVENTIONS.md §4, exact |
 | `.pre-commit-config.yaml`, `.pre-commit-fix.yaml` | final | CONVENTIONS.md §5 applied to G's files |
 | `.editorconfig`, `.gitattributes`, `.gitignore`, `.markdownlint-cli2.jsonc`, `lychee.toml`, `_typos.toml` | working -> T03 | CONVENTIONS.md §5's edits applied to G's files, so the hooks pass; T03 finalises the comments |
-| `pyproject.toml`, `uv.lock`, `.python-version` | working -> T03 (option A only) | D01's content; `uv lock` |
+| `pyproject.toml`, `uv.lock`, `.python-version` | working -> T03 | D01's content; `uv lock` |
 | `scripts/initialize.sh` | stub -> T03 | step 7 |
-| `scripts/project-check.sh`, `scripts/install_allium.sh`, `scripts/run_allium.sh`, `scripts/ripsecrets_redacted.sh` | working -> T03 (option B only) | D01's specification, minimal working form |
 | `.github/actions/setup/action.yml` | stub -> T04 | step 8 |
 | `.github/workflows/ci.yml` | stub -> T04 | step 8 |
 | `docs/manifest.yml`, `docs/README.md` | final | step 9 |
@@ -248,24 +246,24 @@ no lane touches it again; `stub` means the named lane replaces it.
    `deny` and `coverage` run: `rustfmt.toml` with `style_edition = "2024"` and
    `max_width = 100`; `clippy.toml` with `allow-unwrap-in-tests = true`; `taplo.toml`
    with `include = ["**/*.toml"]` and `exclude = ["target/**", ".tools/**", "ai_tmp/**",
-   ".venv/**"]` (`.venv/**` is option A's entry);
+   ".venv/**"]`;
    `deny.toml` with a `[licenses] allow = ["Apache-2.0"]` list, `[bans] wildcards =
    "deny"`, `[sources] unknown-registry = "deny"` and `allow-registry` naming crates.io
    (CONVENTIONS.md §12 asks T02 to confirm the 0.20 schema); `.config/nextest.toml` with
    `[profile.default] fail-fast = true`. Each carries a one-line comment naming T02 as
    the lane that finalises it.
 
-6. `Justfile`, exactly as CONVENTIONS.md §4 prints it, in the form D01 chose; and
-   `.pre-commit-config.yaml` and `.pre-commit-fix.yaml`, G's files with every change
-   CONVENTIONS.md §5 lists applied and nothing else (copy the SHAs and comments, do not
-   retype them). Under option A, `pyproject.toml` from D01's hand-back notes,
-   `.python-version` holding `3.14`, then `uv lock` and `uv sync --frozen`. Under option
-   B, the four scripts in the minimal working form D01 specifies.
+6. `Justfile`, exactly as CONVENTIONS.md §4 prints it; and `.pre-commit-config.yaml` and
+   `.pre-commit-fix.yaml`, G's files with every change CONVENTIONS.md §5 lists applied
+   and nothing else (copy the SHAs and comments, do not retype them). `pyproject.toml`
+   from D01's hand-back notes ("Files T00, T03 and T04 create"), `.python-version`
+   holding `3.14`, then `uv lock` (GitHub must be reachable for the git dependency) and
+   `uv sync --frozen`.
 
 7. The dotfiles, G's with CONVENTIONS.md §5's edits: `.editorconfig` (add `[*.rs]`),
    `.gitattributes`, `.gitignore` (drop the Node, Svelte, Storybook and Chromatic blocks;
    add `target/`, `*.profraw`, `lcov.info`, `mutants.out*/`; keep `.tools/` with G's
-   comment; keep or drop the Python lines per D01), `.markdownlint-cli2.jsonc`
+   comment; keep the Python lines), `.markdownlint-cli2.jsonc`
    (`ignores`), `lychee.toml` (`exclude_path`), and `_typos.toml` as §5 gives it.
    `scripts/initialize.sh`: G's script with the npm, Storybook and ruff sections removed
    and these steps in their place, in order, under `set -eu`: `just install-toolchain`;
@@ -319,7 +317,7 @@ no lane touches it again; `stub` means the named lane replaces it.
    decisions/0001-engine-as-a-library.md      Decision 0001: The engine is a library of its own          decision [maintainer, agent]               decision_engine_as_a_library
    decisions/0002-specs-are-the-source-of-truth.md  Decision 0002: Specifications decide behaviour        decision [contributor, maintainer, agent]  decision_spec_first
    decisions/0003-effects-behind-traits.md    Decision 0003: Effects behind traits                       decision [contributor, maintainer, agent]  decision_ports_and_fakes
-   decisions/0004-hook-runner-and-checkers.md Decision 0004: <D01's title>                               decision [maintainer, agent]               <D01's slug>
+   decisions/0004-hook-runner-and-checkers.md Decision 0004: Hook runner and checkers                    decision [maintainer, agent]               decision_python_toolchain
    decisions/0005-project-managed-allium-cli.md  Decision 0005: A project-managed Allium binary          decision [maintainer, agent]               decision_allium_cli
    decisions/0006-apache-2-0.md               Decision 0006: Apache-2.0                                  decision [maintainer, agent]               decision_license
    decisions/0007-dependency-policy.md        Decision 0007: Dependency policy for a library             decision [contributor, maintainer, agent]  decision_dependency_policy
@@ -370,7 +368,7 @@ no lane touches it again; `stub` means the named lane replaces it.
     `.claude/settings.json` copied byte-for-byte from G (`cmp` each). `AGENTS.md`: G's
     section headings, at least 300 words, carrying the six required phrases of
     CONVENTIONS.md §1 fact 1 in sentences that are true of this repository ("this
-    repository has no Svelte runes; ..." under option A), stating in one paragraph each
+    repository has no Svelte runes; ..."), stating in one paragraph each
     what the section will say and that T05 writes it. Fourteen skill directories under
     `.agents/skills/`: `code-review`, `fix-quality`, `plan-change`, `project-check`,
     `review-docs`, `spec-change`, `rust-change`, `allium`, `distill`, `elicit`,
@@ -404,8 +402,8 @@ no lane touches it again; `stub` means the named lane replaces it.
 
 ## Acceptance criteria
 
-- Every path in CONVENTIONS.md §3 not owned by T02, T03 (option B scripts), T04
-  (`audit.yml`) or T05 (`skills-lock.json`, `allium-skill-reference/`) exists.
+- Every path in CONVENTIONS.md §3 not owned by T02, T03 (`scripts/install_tools.sh`),
+  T04 (`audit.yml`) or T05 (`skills-lock.json`, `allium-skill-reference/`) exists.
 - `rust-toolchain.toml`, `tools.txt`, `Justfile`, `.pre-commit-config.yaml`,
   `.pre-commit-fix.yaml`, `docs/manifest.yml`, `docs/README.md`, `CLAUDE.md`,
   `.github/copilot-instructions.md`, `.claude/settings.json` and every bridge are in

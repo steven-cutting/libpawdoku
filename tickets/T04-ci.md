@@ -26,8 +26,7 @@ after it merges, pass T01's protection without an administrator bypass.
 Read first: `CONVENTIONS.md` in full (§2 for the pins, §4 for what each recipe does, §10
 for the design this ticket embeds, §11 for the lane rules, §12 for the two claims assigned
 here, §13 for the action-pin risk), then `README.md` in this directory, then T00's hand-back
-notes for the stub as it landed and for D01's option (A keeps uv; B is Python-free), which
-decides whether the composite action carries its two uv steps.
+notes for the stub as it landed.
 
 Sources, read-only, at the commits CONVENTIONS.md §0 pins:
 
@@ -81,7 +80,7 @@ Action pins, resolved read-only with `gh api repos/<owner>/<repo>/releases/lates
 | `actions/upload-artifact` | v7.0.1 | `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a` | S carries v5.0.0 |
 | `taiki-e/install-action` | v2.87.19 | `7623a79cdfecb99d681017af368ca353d9f49bb5` | |
 | `Swatinem/rust-cache` | v2.9.2 | `6323deb102c322ba6fcbdcafc7e3dddab59af2b6` | annotated tag `63fed3e2` dereferenced; pin the commit, never the tag object |
-| `astral-sh/setup-uv` | v10.2.0 | `c18668ad3cf93ea998bef934396af7bb5c839dc7` | option A only; B and S carry v9.0.0 |
+| `astral-sh/setup-uv` | v10.2.0 | `c18668ad3cf93ea998bef934396af7bb5c839dc7` | B and S carry v9.0.0 |
 | `dtolnay/rust-toolchain` | `v1` = `master` | `02cb101ec7c40f2c49e1d9714d64511d8e1b74de` | fallback only, not used; `stable` head `6bed0761d98439e5a578e2877258200ad565ba87` |
 
 ## Goal
@@ -121,7 +120,7 @@ Nothing else. Every other change is handed back.
 
 1. Create the worktree on `ticket/t04-ci` from `main` after T00 and T01 have merged
    (README.md "How to pick up a ticket"). Confirm `just check` is green on `main` before
-   touching anything, and read T00's hand-back notes for D01's option.
+   touching anything.
 
 2. Re-verify every pin in the table above:
 
@@ -138,10 +137,7 @@ Nothing else. Every other change is handed back.
    version in the comment, and the change is noted in the hand-back notes. Quote the
    `?ref=` paths in double quotes: zsh treats `?` as a glob.
 
-3. Write `.github/actions/setup/action.yml`. This is the option A text; under option B
-   the two steps marked `# [uv]` (setup-uv and `uv python install`) are dropped and the
-   description loses its "uv with its cache" clause; nothing else changes, because
-   `just sync` under B is cargo only.
+3. Write `.github/actions/setup/action.yml`:
 
    ```yaml
    name: Set up the libpawdoku toolchain
@@ -198,14 +194,13 @@ Nothing else. Every other change is handed back.
          shell: bash
          env:
            GITHUB_TOKEN: ${{ github.token }}
-       # [uv] The hook runner and the tooling package's checkers are Python
+       # The hook runner and the tooling package's checkers are Python
        # programs (decision 0004); uv runs them from uv.lock.
        - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
          with:
            version: 0.11.18
            enable-cache: true
            cache-dependency-glob: uv.lock
-       # [uv]
        - run: uv python install 3.14
          shell: bash
        # Exactly what the lockfiles say, nothing a lockfile cannot name.
@@ -483,8 +478,8 @@ Nothing else. Every other change is handed back.
 
 - `just lint` and `just check` are green in the worktree; actionlint reports nothing on
   either workflow and `check-yaml` nothing on the action.
-- The three files match the texts in steps 3 to 5 (minus the `[uv]` steps under option B),
-  and no file outside Files touched changed.
+- The three files match the texts in steps 3 to 5, and no file outside Files touched
+  changed.
 - Every `uses:` is `owner/repo@<40-hex-sha> # vX.Y.Z`, with the commit for annotated
   tags; `grep -rn 'uses:' .github | grep -v -E '@[0-9a-f]{40} # ' | grep -v './.github/actions/setup'`
   prints nothing.

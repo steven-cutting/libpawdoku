@@ -37,7 +37,7 @@ where a relative link points nowhere, so it carries none.
 Facts that shape the content (CONVENTIONS.md §0, §1, §2, §4, §10): the crate is
 `no_std` with `alloc`, `publish = false`, Apache-2.0 with no per-file headers (decision
 0006); the prerequisites are rustup (no default toolchain: T03's §12 outcome),
-cargo-binstall, just, gh and, under D01 option A, uv; `just initialize` is the one
+cargo-binstall, just, gh and uv; `just initialize` is the one
 first-run command and never stages, commits, tags or pushes; `just fix` is the only
 mutating recipe; CI pins every
 action to a SHA and runs with `contents: read`; cargo-deny bans `rand` and `getrandom`
@@ -90,7 +90,7 @@ day it is written, with the docs contract, markdownlint, typos and lychee green.
      every rule comes from `docs/specs/`, and that the core is `no_std` so it runs the
      same in a browser, in Python and on the command line.
    - `## Prerequisites`: rustup (no default toolchain: T03's §12 outcome),
-     cargo-binstall, just, gh; uv under D01 option A. One line on the pixi hazard, then
+     cargo-binstall, just, gh and uv. One line on the pixi hazard, then
      a link to `docs/how-to/develop-locally.md` for the detail.
    - `## Quick start`: a console block with `just initialize` then `just check`, and
      G's sentence adapted: what `initialize` installs (the pinned toolchain, the tool

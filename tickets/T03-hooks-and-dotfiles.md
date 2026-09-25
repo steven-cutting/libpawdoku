@@ -16,16 +16,16 @@ The hook gate (`.pre-commit-config.yaml`, run by `just lint`) and its mutating t
 (`.pre-commit-fix.yaml`, run by `just fix`) are frozen at T00 (CONVENTIONS.md §5, §11).
 They read seven configuration files that T00 created in working form so the first
 `just check` could be green: `.editorconfig`, `.gitattributes`, `.gitignore`,
-`.markdownlint-cli2.jsonc`, `lychee.toml`, `_typos.toml` and, under D01 option A,
-`pyproject.toml`. T00 also left `scripts/initialize.sh` with the cargo-binstall bootstrap
+`.markdownlint-cli2.jsonc`, `lychee.toml`, `_typos.toml` and `pyproject.toml`. T00 also
+left `scripts/initialize.sh` with the cargo-binstall bootstrap
 inline (T00 step 7). This ticket finalises those files: every gitignored path a gate
 writes is explained in G's voice, the first-run script is split so the tool install can be
 re-run on its own after a `tools.txt` bump, every shell script is shellcheck-clean, and
 the five CONVENTIONS.md §12 claims assigned to T03 are executed and recorded.
 
 Read first: `CONVENTIONS.md` in full (§2, §5, §11, §12, §13 matter most), then
-`README.md` in this directory, then T00's hand-back notes (which option D01 chose, and
-what its working dotfiles look like) and D01's hand-back notes.
+`README.md` in this directory, then T00's hand-back notes (what its working dotfiles
+look like) and D01's hand-back notes ("Handed back", T03).
 
 Sources, read-only, at the commits CONVENTIONS.md §0 pins:
 
@@ -36,10 +36,6 @@ Sources, read-only, at the commits CONVENTIONS.md §0 pins:
   (lines 4-5 the root-finding prologue, 45-58 the worktree-aware hook install, 60-61 the
   closing lines), `.pre-commit-config.yaml` (which hook reads which file),
   `pyproject.toml` lines 56-66 (the `[tool.typos]` tables that move to `_typos.toml`).
-- B = `/Users/scutting/projects/biscuit_games_tooling` at `6c5c07f6`:
-  `src/biscuit_games_tooling/install_allium.py` line 34 (`VERSION = "3.6.1"`), lines
-  51-56 (the four checksums) and 61-69 (the target table), and
-  `run_ripsecrets_redacted.py` (29 lines). Needed only under option B.
 
 Facts checked on 2026-09-23 on the maintainer's machine, each to be re-checked at the
 pinned versions during this ticket:
@@ -89,9 +85,8 @@ shellcheck-clean; and an outcome line in the hand-back notes for each §12 claim
 | `.markdownlint-cli2.jsonc`, `lychee.toml`, `_typos.toml` | working -> final | step 3 |
 | `scripts/install_tools.sh` | new | step 4; `chmod +x` before `git add` |
 | `scripts/initialize.sh` | stub -> final | step 5 |
-| `pyproject.toml` | comments only (option A) | step 6; content is D01's |
-| `.python-version` | unchanged (option A) | see Open points |
-| `scripts/project-check.sh`, `scripts/install_allium.sh`, `scripts/run_allium.sh`, `scripts/ripsecrets_redacted.sh` | working -> final (option B) | step 7 |
+| `pyproject.toml` | comments only | step 6; content is D01's |
+| `.python-version` | unchanged | kept; D01 settled why (step 6) |
 | `tickets/T03-hooks-and-dotfiles.md` | ticket | `status:` and hand-back notes |
 
 ## Steps
@@ -100,8 +95,7 @@ shellcheck-clean; and an outcome line in the hand-back notes for each §12 claim
    pick up a ticket"). Run `just check-toolchain` and `just lint` once; both must be
    green before any edit, or the fault is T00's and this ticket stops.
 
-2. The three Git-facing dotfiles. Final content, option A form; under option B delete
-   the `[*.py]` block, the `uv.lock` attribute and the four Python lines of `.gitignore`.
+2. The three Git-facing dotfiles. Final content:
 
    `.editorconfig`:
 
@@ -200,7 +194,7 @@ shellcheck-clean; and an outcome line in the hand-back notes for each §12 claim
    mutants.out*/
    ```
 
-3. The three checker configurations (option B drops `.venv` from the first two).
+3. The three checker configurations.
    `.markdownlint-cli2.jsonc`, G's rules and comments verbatim:
 
    ```jsonc
@@ -298,43 +292,28 @@ shellcheck-clean; and an outcome line in the hand-back notes for each §12 claim
    is honoured only by rustup's cargo proxy, so this refuses any other cargo before any
    tool is installed with it"); `sh scripts/install_tools.sh` ("one
    of the network downloads in the first-run path that no lockfile accounts for");
-   `just install-allium` (G's lines 32-37 comment verbatim under option A; under option B
-   "pinned and checksummed in `scripts/install_allium.sh`"); `test -f Cargo.lock || cargo
+   `just install-allium` (G's lines 32-37 comment verbatim); `test -f Cargo.lock || cargo
    generate-lockfile` ("`Cargo.lock` is committed and every gate passes `--locked`; this
    line exists for a clone whose lockfile was deleted by hand"); `just sync`;
    `just format` (G's lines 39-40 comment verbatim); then G's lines 45-61 byte for byte:
    the worktree-aware `install-hooks` block and the two closing `printf` lines.
 
-6. Option A only. `pyproject.toml`: add, above `[tool.uv]`, G's comment reshaped ("this
+6. `pyproject.toml`: add, above `[tool.uv]`, G's comment reshaped ("this
    library ships no Python; this project exists so `uv run --frozen` can provide a pinned
    prek and biscuit-games-tooling to the hooks and recipes; see
    `docs/decisions/0004-hook-runner-and-checkers.md`"), and one comment where G's
    `[tool.typos]` sat: "typos is configured in `_typos.toml`; a `[tool.typos]` here would
    be ignored". No key changes; `uv lock --check` must still pass. `.python-version`
-   stays `3.14`; see Open points.
+   stays `3.14`, kept for the reason D01 settled: `requires-python` states a floor and uv
+   would resolve the newest interpreter it finds, while the file pins the series so two
+   machines and CI resolve the same one, and T04's `uv python install 3.14` reads the
+   same value. T07 records that reason in `develop-locally.md`.
 
-7. Option B only. The four scripts T00 wrote in minimal form become final: a header
-   comment naming the B script each ports and its line numbers, shellcheck-clean, and
-   each tested by hand. `scripts/ripsecrets_redacted.sh` ports B's
-   `run_ripsecrets_redacted.py` whole: `command -v ripsecrets` or exit 1 with "ripsecrets
-   is unavailable; run just install-hooks", run with both streams to `/dev/null`, B's
-   two messages on status 1 and on any other failure, exit with ripsecrets's status.
-   `scripts/install_allium.sh` carries `3.6.1` and the four checksums from B lines 51-56
-   verbatim, resolves the target from `uname -s` and `uname -m` per B lines 61-69,
-   downloads with `curl --fail --location --max-time 300`, verifies with `shasum -a 256`
-   before extracting, and is a no-op when `.tools/bin/allium --version` reports 3.6.1.
-   `scripts/run_allium.sh` and `scripts/project-check.sh` keep D01's specification; add
-   comments only. Hand tests: `install_allium.sh` twice (the second downloads nothing);
-   `run_allium.sh check` (seven modules, empty arrays); `project-check.sh clean` on a
-   clean tree (0), after `touch ai_tmp/x` (still 0: ignored) and after `touch x`
-   (non-zero; remove `x`); `ripsecrets_redacted.sh ai_tmp/fake.txt` on a made-up
-   AWS-shaped key (exit 1, and the key text absent from the output).
-
-8. The §12 claims, each with a fenced proof and an outcome line in the hand-back notes.
+7. The §12 claims, each with a fenced proof and an outcome line in the hand-back notes.
 
    a. **binstall root, checksum, idempotence.** `rm -rf .tools && just install-tools`,
-      then `ls .tools/bin` (expected: the six `tools.txt` binaries, seven under option B,
-      and nothing under `.tools/` but `bin/` plus binstall's own metadata, whose paths are
+      then `ls .tools/bin` (expected: the six `tools.txt` binaries, and nothing under
+      `.tools/` but `bin/` plus binstall's own metadata, whose paths are
       recorded). Run `just install-tools` a second time and quote the lines that say each
       version is already installed; a second run must download nothing and exit 0. Then
       `just install-allium`, because the delete took `.tools/bin/allium` with it. For
@@ -348,10 +327,10 @@ shellcheck-clean; and an outcome line in the hand-back notes for each §12 claim
       catalog associates `Cargo.toml` with a remote schema unless told otherwise), the
       outcome is "needs a `[schema]` setting in `taplo.toml`", handed to T02.
 
-   c. **typos precedence.** Find the hook's binary: under option A
+   c. **typos precedence.** Find the hook's binary:
       `$(uv run --frozen prek cache dir)/hooks/<id>/bin/typos` where `<id>` is the
-      environment whose manifest names `crate-ci/typos`; under option B the same path
-      with bare `prek`. From the worktree root, `<typos> --dump-config - | head -20` must
+      environment whose manifest names `crate-ci/typos`. From the worktree root,
+      `<typos> --dump-config - | head -20` must
       print the `_typos.toml` exclude list. Then, in `ai_tmp/typos-precedence/`, write a
       `_typos.toml` with `[default.extend-words] alpha = "alpha"` and a `pyproject.toml`
       with `[tool.typos.default.extend-words] bravo = "bravo"`; `<typos> --dump-config -`
@@ -359,7 +338,7 @@ shellcheck-clean; and an outcome line in the hand-back notes for each §12 claim
       merges and the claim fails: record it; the design (one file) still holds because
       `pyproject.toml` carries no table.
 
-   d. **prek's Rust hooks and the default toolchain.** The cold run of step 9 answers
+   d. **prek's Rust hooks and the default toolchain.** The cold run of step 8 answers
       this. After it, `ls "$PREK_HOME/tools"` and `cat "$PREK_HOME"/hooks/rust-*/.prek-hook.json`.
       Expected, from the 0.4.12 evidence in Context: `tools/rustup/` exists and the
       manifest's `toolchain` points inside it, which means prek 0.5.3 provisions its own
@@ -369,16 +348,12 @@ shellcheck-clean; and an outcome line in the hand-back notes for each §12 claim
       wall-clock time of the ripsecrets build, the one compile in the gate. Delete
       `ai_tmp/prek-cold` only after this step has read it.
 
-   e. **prek binstall assets (option B only).** `just install-tools` in step 8a installs
-      `prek@0.5.3`; quote binstall's resolution line for it (the asset name and source).
-      Under option A, record "not applicable: prek is a uv dependency".
-
-9. Cold-cache proof of `just lint`. Never clear `~/.cache/prek` (outside the worktree).
+8. Cold-cache proof of `just lint`. Never clear `~/.cache/prek` (outside the worktree).
    Instead point prek at an empty home inside the scratch directory:
 
    ```sh
    export PREK_HOME="$PWD/ai_tmp/prek-cold"
-   uv run --frozen prek cache dir            # bare `prek` under option B; must print $PREK_HOME
+   uv run --frozen prek cache dir            # must print $PREK_HOME
    time just lint
    ls "$PREK_HOME/tools" "$PREK_HOME/hooks"
    unset PREK_HOME
@@ -392,25 +367,25 @@ shellcheck-clean; and an outcome line in the hand-back notes for each §12 claim
    `prek cache --help` and prek's README, and record the correction. Step 8d reads the
    directory before it is deleted.
 
-10. `just fix` proof. `--all-files` means tracked files, so an ignored scratch file proves
+9. `just fix` proof. `--all-files` means tracked files, so an ignored scratch file proves
     nothing. Create `scratch.toml` at the root with `[a]`, a key with no spaces around
     `=`, a trailing space and no final newline; `git add scratch.toml`; `just fix`;
     `git diff scratch.toml` must show taplo-fmt, trailing-whitespace and end-of-file-fixer
     each repaired something; then `git rm --cached -q scratch.toml && rm scratch.toml`
     and `git status --porcelain` shows no `scratch.toml` line. Then `just lint` green.
 
-11. shellcheck over every script runs inside `just lint` (the shellcheck-py hook, no
+10. shellcheck over every script runs inside `just lint` (the shellcheck-py hook, no
     `files` filter). Prove it saw the scripts: `uv run --frozen prek run --all-files
-    shellcheck --verbose` (bare `prek` under B) and quote the file list; then
+    shellcheck --verbose` and quote the file list; then
     `just check-docs` and `just check` green.
 
-12. Record every outcome, set `status: done`, commit on the ticket branch with short
+11. Record every outcome, set `status: done`, commit on the ticket branch with short
     imperative subjects. Stop before pushing.
 
 ## Acceptance criteria
 
-- The seven dotfiles match step 2 and step 3 byte for byte (option A) or with the named
-  option-B deletions; `scripts/install_tools.sh` and `scripts/initialize.sh` match steps
+- The seven dotfiles match step 2 and step 3 byte for byte;
+  `scripts/install_tools.sh` and `scripts/initialize.sh` match steps
   4 and 5; G's lines 45-61 are byte-identical inside `scripts/initialize.sh`.
 - `just lint` is green in this worktree and from an empty `PREK_HOME`; `just fix` repairs
   the tracked scratch file and leaves the tree clean; `just check-docs` and `just check`
@@ -419,8 +394,8 @@ shellcheck-clean; and an outcome line in the hand-back notes for each §12 claim
   and the second run downloads nothing.
 - Every `scripts/*.sh` is executable and shellcheck reports nothing.
 - `_typos.toml` is the configuration typos dumps from the root, and `pyproject.toml`
-  (option A) carries no `[tool.typos]`.
-- Each §12 claim of step 8 has an outcome line; a failed claim names the follow-up.
+  carries no `[tool.typos]`.
+- Each §12 claim of step 7 has an outcome line; a failed claim names the follow-up.
 - `git status --porcelain` is empty after `just check`; nothing was pushed; nothing was
   installed outside the worktree.
 
@@ -441,7 +416,7 @@ git status --porcelain
 ```
 
 Expected: the toolchain line names `1.98.1`; the second `install_tools.sh` run prints
-`cargo-binstall present` and no download; six (option B: seven) binaries listed; every
+`cargo-binstall present` and no download; six binaries listed; every
 script `executable`; the cold run prints the exported path then a hook table with every
 hook `Passed`; the dump opens with `[files]` and the six-entry `extend-exclude`; the grep
 prints `no [tool.typos]`; `toml-check` exits 0 within seconds; `check-docs` and `check`
@@ -466,8 +441,4 @@ exit 0; `git status --porcelain` prints nothing. Quote each in the hand-back not
   (its own `.ecrc` or an `exclude` in the hook's `args`, which is a frozen-file change),
   since it is excluded from markdownlint, lychee and typos alike; vendored text that
   fails `trim_trailing_whitespace` would otherwise block T05.
-- Whether `.python-version` is needed under option A when `pyproject.toml` states
-  `requires-python = ">=3.14"`. uv resolves the newest matching interpreter without it;
-  the file pins the series so two machines resolve the same one. If kept, the reason is
-  recorded in T07's `develop-locally.md`; if dropped, it is a T00 follow-up because
-  CONVENTIONS.md §3 lists it.
+

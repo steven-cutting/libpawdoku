@@ -68,11 +68,11 @@ Decisions, taken on 2026-09-23:
    proves it. Randomness is the one effect, reached through a library-owned trait for a
    seeded stream of draws; `rand` and `getrandom` are banned from the core by cargo-deny.
    No timeouts: limits are step budgets.
-6. **Whether the Python toolchain stays is decided in D01**, not here. G's decision 0004
-   keeps uv, prek and B's checkers in a repository that ships no Python; the same
-   argument holds here and pyo3 brings uv back regardless, but the maintainer asked for
-   the evaluation to be written down. Every Rust-side decision in this document is the
-   same under either outcome; §10 and §4 mark the lines that differ.
+6. **The Python toolchain stays**, decided in D01 (done 2026-09-24; decision 0004). G's
+   decision 0004 keeps uv, prek and B's checkers in a repository that ships no Python;
+   the same argument holds here and pyo3 brings uv back regardless. The maintainer asked
+   for the evaluation to be written down, and D01's hand-back notes hold it. Every
+   Rust-side decision in this document was the same under either outcome.
 7. **Tickets in this repository**, in T's format, executed by AI agents in separate
    worktrees (§11). D01 first, then T00 as one shape-complete foundation, then nine
    parallel lanes.
@@ -84,9 +84,9 @@ Facts, each verified in source, that shape the mechanism:
 1. **B's agent checker is game-shaped.** `validate_agents.py` lines 47-54 require the
    literal phrases `untrusted`, `just check`, `explicit authorization`, `ai_tmp/`,
    `docs/specs/` and **`runes`** in `AGENTS.md`, and `_project.py` lines 44-50 read the
-   package's configuration only from `pyproject.toml`. Under D01 option A, `AGENTS.md`
-   carries an honest sentence with the word until C02 ships a release that makes the list
-   configurable; under option B the ported validator drops it.
+   package's configuration only from `pyproject.toml`. `AGENTS.md` carries an honest
+   sentence with the word until C02 ships a release that makes the list configurable
+   (decision 0004).
 2. **B's docs checker is language-neutral.** `validate_docs.py` accepts kinds `project`,
    `tutorial`, `how-to`, `explanation`, `reference`, `operations`, `decision`, audiences
    `user`, `contributor`, `maintainer`, `operator`, `agent`, a 40-word minimum and
@@ -161,7 +161,7 @@ cargo-shear@1.14.0
 taplo-cli@0.10.0
 ```
 
-Under D01 option B, `prek@0.5.3` is appended. The install command is
+The install command is
 `grep -v '^#' tools.txt | xargs cargo binstall --root .tools --no-confirm --locked --disable-strategies compile`
 (§12: `--root .tools` lands binaries in `.tools/bin`; a matching version already there is
 skipped; `--disable-strategies compile` refuses a source build so an unpinnable tool fails
@@ -169,7 +169,7 @@ loudly). cargo-binstall itself is installed once per machine by
 `cargo install cargo-binstall@1.23.0 --locked` (from `scripts/install_tools.sh` when absent;
 from `taiki-e/install-action` in CI), never by a curl-pipe script.
 
-Other pins this document fixes: prek 0.5.3, uv 0.11.18 and Python 3.14 (D01 option A),
+Other pins this document fixes: prek 0.5.3, uv 0.11.18 and Python 3.14,
 allium-tools 3.6.1 with B's checksums, proptest 1.11.0, thiserror 2.0.17, serde 1.0.228
 (§12 re-verifies each on the day a ticket writes it). Every remote hook and every GitHub
 Action is pinned to a full commit SHA with a version comment (§5, §10).
@@ -180,7 +180,7 @@ rustup installed (a `stable` default toolchain is probably not needed: prek 0.4.
 environment provisions its own rustup and stable toolchain under `$PREK_HOME/tools/rustup`
 for its one `language: rust` hook, ripsecrets; §12 has T03 confirm on 0.5.3); `~/.cargo/bin` ahead of `~/.pixi/bin` on `PATH`, or
 `pixi global uninstall rust`; `command -v cargo` printing `~/.cargo/bin/cargo`;
-cargo-binstall 1.23.0; just; gh; uv under D01 option A. T00's first verification is
+cargo-binstall 1.23.0; just; gh; uv 0.11.18. T00's first verification is
 `rustup show active-toolchain` from this repository printing `1.98.1`; an executing agent
 that finds otherwise runs `rustup toolchain install` from the worktree, the one install
 T00 performs (§11), and stops if the pin still does not print.
@@ -217,10 +217,9 @@ Justfile                         T00 (frozen)
 .pre-commit-config.yaml  .pre-commit-fix.yaml   T00 (frozen)
 .editorconfig  .gitattributes  .gitignore   T00 -> T03
 .markdownlint-cli2.jsonc  lychee.toml  _typos.toml   T00 -> T03
-pyproject.toml  uv.lock  .python-version   T00 -> T03   (D01 option A only)
+pyproject.toml  uv.lock  .python-version   T00 -> T03
 scripts/initialize.sh            T00 stub -> T03
 scripts/install_tools.sh         T03
-scripts/install_allium.sh  scripts/run_allium.sh  scripts/project-check.sh  scripts/ripsecrets_redacted.sh   T03 (D01 option B only)
 .github/actions/setup/action.yml T00 stub -> T04
 .github/workflows/ci.yml         T00 one-job stub -> T04
 .github/workflows/audit.yml      T04
@@ -237,11 +236,9 @@ ai_tmp/  .tools/  target/        gitignored; never committed
 
 ## 4. `Justfile` (complete; frozen at T00)
 
-The text below is D01 option A. Under option B the four `uv run --frozen` prefixes on
-`prek`, `bg-install-allium`, `bg-run-allium`, `bg-validate-docs`, `bg-validate-agents` and
-`bg-project-check` become bare `prek` and `sh scripts/<name>.sh`, the three `uv` lines in
-`sync`, `lock`, `lock-upgrade` and `lock-check` are dropped, and the recipe list `check`
-runs moves from `pyproject.toml` into an exported variable here. D01 records which.
+The text below is frozen at T00. D01 kept the Python toolchain (decision 0004), so
+`prek` and B's console scripts run through `uv run --frozen`, and the recipe list `check`
+runs lives in `pyproject.toml`.
 
 ```just
 set positional-arguments := true
@@ -418,8 +415,7 @@ check:
     uv run --frozen bg-project-check run
 ```
 
-**Gate order** (the `recipes` list in `pyproject.toml` under option A, the exported
-variable under option B), then `check-clean`:
+**Gate order** (the `recipes` list in `pyproject.toml`), then `check-clean`:
 
 1. `check-toolchain`
 2. `lock-check`
@@ -455,8 +451,7 @@ T00 (§11).
 Changes to G's `.pre-commit-config.yaml`:
 
 - `exclude` becomes `\.git/`, `\.venv/`, `ai_tmp/`, `target/`, `\.tools/`,
-  `allium-skill-reference/`, `Cargo\.lock$`, `uv\.lock$` (option B drops `.venv` and
-  `uv.lock`).
+  `allium-skill-reference/`, `Cargo\.lock$`, `uv\.lock$`.
 - The `ruff-check`, `ruff-format-check` and `eslint` local hooks are dropped.
 - Three local hooks are added, each `language: system`, `pass_filenames: false`, with
   `entry: just <recipe>`: a git hook does not inherit the Justfile's `PATH`, so routing
@@ -469,8 +464,7 @@ Changes to G's `.pre-commit-config.yaml`:
   same call G makes by keeping `svelte-check` out of the hook.
 - `validate-docs` keeps its trigger; `validate-agents` adds `skills-lock\.json$` to its
   `files`; `check-specs` and `analyse-specs` keep `^(docs/specs/|pyproject\.toml$)`
-  under option A (the allium pin is the tooling package version there) and name
-  `scripts/install_allium\.sh$` instead under option B. Entries change per D01.
+  (the allium pin is the tooling package version, which `pyproject.toml` pins).
 - The `builtin` hygiene set is unchanged (`check-added-large-files --maxkb=768`,
   `check-case-conflict`, `check-executables-have-shebangs`, `check-json`,
   `check-merge-conflict`, `check-shebang-scripts-are-executable`, `check-toml`,
@@ -484,8 +478,7 @@ Changes to G's `.pre-commit-config.yaml`:
   shellcheck-py `745eface02aef23e168a8afb6b5737818efbea95 # v0.11.0.1`; actionlint
   `914e7df21a07ef503a81201c76d2b11c789d3fca # v1.7.12`; ripsecrets
   `7d94620933e79b8acaa0cd9e60e9864b07673d86 # v0.1.11` with entry
-  `uv run --frozen bg-ripsecrets` (option A) or `sh scripts/ripsecrets_redacted.sh`
-  (option B).
+  `uv run --frozen bg-ripsecrets`.
 
 Changes to G's `.pre-commit-fix.yaml`: the same `exclude`; `ruff-fix` and `ruff-format`
 dropped; local `cargo-fmt` (`entry: cargo fmt --all`, `pass_filenames: false`,
@@ -498,14 +491,14 @@ because it needs `--allow-dirty --allow-staged` and a full build.
 
 Config files the hooks read, each G's with the named edits (T03 owns them):
 
-- `.editorconfig`: G's, plus `[*.rs]` with `indent_size = 4`; `[*.py]` stays (option A)
-  or goes (option B). TOML stays at the 2-space default, which is taplo's.
+- `.editorconfig`: G's, plus `[*.rs]` with `indent_size = 4`; `[*.py]` stays. TOML stays
+  at the 2-space default, which is taplo's.
 - `.gitattributes`: `* text=auto eol=lf`, `Cargo.lock linguist-generated=true`,
-  `uv.lock linguist-generated=true` (option A), `allium-skill-reference/** linguist-vendored=true`.
+  `uv.lock linguist-generated=true`, `allium-skill-reference/** linguist-vendored=true`.
 - `.gitignore`: G's minus the Node, Svelte, Storybook and Chromatic blocks, plus
   `target/`, `*.profraw`, `lcov.info`, `mutants.out*/`, with G's `.tools/` comment kept
   and a comment on `target/` in the same voice. `.venv/`, `__pycache__/`, `*.py[cod]` and
-  `.ruff_cache/` stay under option A only.
+  `.ruff_cache/` stay.
 - `.markdownlint-cli2.jsonc`: G's rules verbatim; `ignores` becomes `target`, `.tools`,
   `ai_tmp`, `.venv`, `allium-skill-reference`.
 - `lychee.toml`: G's settings; `exclude_path` becomes `.git`, `.venv`, `ai_tmp`,
@@ -587,9 +580,9 @@ invariants in place of G's:
    `--locked`; `just lock-check` proves the lockfile matches. This is a stated deviation
    from the games' exact-pin invariant, recorded in decision 0007.
 
-Under D01 option A the file also carries, in Provenance, one honest sentence containing
-the word `runes` ("this repository has no Svelte runes; the games' reactivity rule does
-not apply here") until C02 ships; under option B it does not.
+The file also carries, in Provenance, one honest sentence containing the word `runes`
+("this repository has no Svelte runes; the games' reactivity rule does not apply here")
+until C02 ships (decision 0004).
 
 Skills, canonical under `.agents/skills/<name>/SKILL.md` with frontmatter of exactly
 `name` and `description` (eight or more words stating a trigger), a body that cites
@@ -625,7 +618,7 @@ Consequences, What would reopen this, Related pages.
 | 0001 | The engine is a library of its own | new | `decision_engine_as_a_library` |
 | 0002 | Specifications decide behaviour | G 0003 | `decision_spec_first` |
 | 0003 | Effects behind traits | G 0002, adapted: randomness is the one effect | `decision_ports_and_fakes` |
-| 0004 | Hook runner and checkers | D01's text | `decision_python_toolchain` (option A) or `decision_hook_runner` (option B) |
+| 0004 | Hook runner and checkers | D01's text (carried from G 0004) | `decision_python_toolchain` |
 | 0005 | A project-managed Allium binary | G 0007, adapted: `allium-cli` 3.6.1 is on crates.io (verified 2026-09-23), so the third-toolchain objection G lines 42-45 raise lapses in a Rust repository; but a source build verifies nothing and upstream publishes no checksums for the platform binaries (G lines 54-59), so B's hand-computed checksums stay the pin | `decision_allium_cli` |
 | 0006 | Apache-2.0 | new; no per-file headers | `decision_license` |
 | 0007 | Dependency policy for a library | new: caret ranges, `Cargo.lock` committed, `--locked`, cargo-deny | `decision_dependency_policy` |
@@ -720,8 +713,8 @@ the `Justfile` is frozen);
 `Swatinem/rust-cache` with `shared-key: ${{ inputs.cache-key }}`, `save-if` on `main`
 only, `cache-bin: false`; `actions/cache` on `.tools` keyed
 `${{ runner.os }}-${{ runner.arch }}-tools-${{ hashFiles('tools.txt') }}`;
-`just install-tools` with `GITHUB_TOKEN: ${{ github.token }}` on that step only; under
-option A `astral-sh/setup-uv` (`version: 0.11.18`, cache on `uv.lock`) then
+`just install-tools` with `GITHUB_TOKEN: ${{ github.token }}` on that step only;
+`astral-sh/setup-uv` (`version: 0.11.18`, cache on `uv.lock`) then
 `uv python install 3.14`; `just sync`; for the `documents` job, `just install-allium`.
 Every `uses:` is pinned to a full SHA with a version comment looked up on the day T04 is
 written (`gh api repos/<owner>/<repo>/git/ref/tags/<tag>`, dereferencing annotated tags).
@@ -748,9 +741,9 @@ administrator bypassing the gate.
   `supacode repo worktree-new --branch <branch> --base main --name <id>`; otherwise
   `git worktree add ../<id> -b <branch> main`. A ticket touches only its listed files plus
   the `status:` line of its own `tickets/<id>-*.md`.
-- **D01 before T00.** T00 creates either `pyproject.toml`, `uv.lock` and
-  `.python-version` or the `scripts/` ports, and writes the `Justfile` in one of its two
-  forms; it cannot start until D01's hand-back names which.
+- **D01 before T00.** D01 is done: T00 creates `pyproject.toml` (the content in D01's
+  hand-back notes), `uv.lock` and `.python-version`, and writes the `Justfile` as §4
+  prints it.
 - **T00 ships a shape-complete skeleton.** `bg-validate-docs` and `bg-validate-agents`
   (or their ports) can only be green if every path in §3 exists from the first commit,
   so T00 ships a stub for every file: each registered page with valid frontmatter, a
@@ -826,9 +819,10 @@ is a design change that goes back through this document.
   `pyproject.toml`), so a root `_typos.toml` is the only source. **T03.**
 - prek 0.5.3 provisions its own rustup and toolchain under `$PREK_HOME` for `language:
   rust` hooks (0.4.12 does), so no `stable` default toolchain is required of the
-  maintainer; and prek publishes release binaries that cargo-binstall can resolve (option
-  B). **T03**, and **D01** for the second half.
-- B's checkers run unchanged in a repository with no `package.json` (option A). **T00.**
+  maintainer. **T03.** The second half of the original claim, that prek publishes release
+  binaries cargo-binstall can resolve, was verified by **D01** on 2026-09-24 and is
+  recorded there as evidence only: prek is a uv dependency here.
+- B's checkers run unchanged in a repository with no `package.json`. **T00.**
 - `bg-project-check` tolerates `target/` and `.tools/` growth because both are ignored.
   **T00.**
 - `rustup toolchain install` with no arguments works on the runner's rustup (1.29.1 on
@@ -855,8 +849,8 @@ is a design change that goes back through this document.
 - **Bootstrapping cargo-binstall.** `just install-tools` cannot binstall its own
   installer; `scripts/initialize.sh` installs it with `cargo install --locked` when
   absent, which compiles it once per machine.
-- **`runes`.** Under option A `AGENTS.md` carries the honest sentence until C02 ships;
-  either way `check-agents` must be green at T00.
+- **`runes`.** `AGENTS.md` carries the honest sentence until C02 ships; `check-agents`
+  must be green at T00.
 - **Doctests and the small denominator.** nextest skips doctests and llvm-cov cannot
   measure them on stable, so the floor is a statement about unit and integration tests;
   on a tiny crate one untested branch in `random.rs` breaches 90%.

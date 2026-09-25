@@ -17,13 +17,13 @@ B's agent checker is game-shaped (CONVENTIONS.md §1 fact 1). At `6c5c07f6`,
 as a fixed tuple of six phrases `AGENTS.md` must carry (`untrusted`, `just check`,
 `explicit authorization`, `ai_tmp/`, `docs/specs/`, `runes`), and the comment above it
 (lines 43-46) says the last names "which reactivity model the components use". A Rust
-library has no components, so under D01 option A this repository's `AGENTS.md` carries
+library has no components, so this repository's `AGENTS.md` carries
 one honest sentence containing the word ("this repository has no Svelte runes; the
 games' reactivity rule does not apply here", §7) until B ships a release in which the
 list is configurable. The second constraint is `_project.py` lines 44-50: `settings()`
 reads `[tool.biscuit-games-tooling]` from `pyproject.toml` alone and returns `{}` when
-the file is missing, so a repository with no `pyproject.toml` (D01 option B, or any
-future Python-free consumer) has no configuration surface. `recipes()` (lines 53-54)
+the file is missing, so a repository with no `pyproject.toml` (any future Python-free
+consumer) has no configuration surface. `recipes()` (lines 53-54)
 and `predicates()` (lines 57-64) are the two existing keys and the pattern a third
 follows: read from `settings()`, default to today's behaviour.
 
@@ -35,8 +35,8 @@ the six phrases as the default is therefore MINOR: every existing consumer's ver
 is unchanged, the golden test (README lines 234-248) stays green without re-recording,
 and `tests/test_project.py` is where the new keys get their cases.
 
-This ticket exists only under D01 option A; under option B the validator is dropped
-or ported and the word is never required. It hangs off D01 alone, but its last step,
+This ticket proceeds: D01 kept the Python checkers and the interim sentence exists
+(D01's hand-back notes, "Handed back", C02). It hangs off D01 alone, but its last step,
 the pin bump here, cannot land before T05 has written the final `AGENTS.md`, because
 the interim sentence is T05's to remove.
 
@@ -70,7 +70,6 @@ from `biscuit-games-tooling.toml` at the repository root.
   runes.
 - Editing this repository's `AGENTS.md` on this branch: the follow-up pull request
   that bumps the pin removes the sentence, after T05.
-- Under D01 option B, anything at all.
 
 ## Files touched
 
@@ -81,13 +80,12 @@ from `biscuit-games-tooling.toml` at the repository root.
 | `B/src/biscuit_games_tooling/validate_agents.py` | other repository | the tuple becomes the default; the check reads `agent_guidance(root)`; authorisation required |
 | `B/tests/test_project.py` | other repository | cases for both keys and the fallback file; authorisation required |
 | `B/README.md`, `B/CHANGELOG.md`, `B/pyproject.toml` | other repository | two configuration rows, the fallback paragraph, the MINOR entry and version; authorisation required |
-| `pyproject.toml`, `uv.lock`, `AGENTS.md` | follow-up here, after T05 | the pin to the new tag, the relock, the sentence removed, `agent_guidance_drop = ["runes"]` added |
+| `pyproject.toml`, `uv.lock`, `AGENTS.md`, `docs/reference/agent-contract.md`, `tickets/T05-agent-contract.md` | follow-up here, after T05 | the pin to the new tag, the relock, the sentence removed, `agent_guidance_drop = ["runes"]` added; the reference page's phrase list goes from six entries to five and T05's third verification block expects no `runes` line |
 
 ## Steps
 
 1. Create the worktree on `ticket/c02-tooling-agent-contract` from `main` after D01 has
-   merged (README.md "How to pick up a ticket"). Read D01's decision; under option B,
-   set `status: done` with "not applicable under option B" and stop.
+   merged (README.md "How to pick up a ticket").
 
 2. Confirm the source lines and the tag list:
 
@@ -135,7 +133,6 @@ from `biscuit-games-tooling.toml` at the repository root.
 - If applied here: `AGENTS.md` contains no `runes`, `pyproject.toml` names the new
   tag, `uv.lock` records its commit, `just check-agents` prints the fourteen-skill line.
 - Every action on B was authorised before it was taken; the follow-up waited for T05.
-- Under option B: closed as not applicable in one sentence.
 
 ## Verification
 
