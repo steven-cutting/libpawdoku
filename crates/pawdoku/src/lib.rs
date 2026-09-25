@@ -3,7 +3,8 @@
 //! This crate is `no_std` with `alloc`: it has no clock, no threads, no filesystem and
 //! no source of randomness of its own. What it needs from the outside world it takes
 //! through traits, so that it runs the same in a browser, in Python and on the command
-//! line. See `docs/explanation/architecture.md`.
+//! line. Randomness is the one effect, and [`random`] is its boundary: a seeded stream
+//! of draws the caller supplies. See `docs/explanation/architecture.md`.
 
 #![no_std]
 
@@ -11,6 +12,8 @@ extern crate alloc;
 
 #[cfg(test)]
 extern crate std;
+
+pub mod random;
 
 /// The side of a classic sudoku grid: nine cells to a row, a column and a box.
 ///
