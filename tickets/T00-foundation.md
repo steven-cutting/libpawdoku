@@ -522,7 +522,7 @@ for the second session), except where marked.
   by compiling `taplo-cli` in the first session.
 - **uv's cache** (`~/.cache/uv`) gained the git checkout of `biscuit_games_tooling` at
   `v0.3.0` and the `prek` 0.5.3 wheel in the first session. Left in place.
-- **pixi's cache** (`~/.cache/rattler` and pixi's PyPI cache) gained the nine conda
+- **pixi's cache** (`~/Library/Caches/rattler/cache`, per `pixi info`) gained the nine conda
   packages with their transitives for `osx-arm64` and B's git checkout, from `pixi lock`
   and `pixi install`.
 - **prek's cache** (`prek cache dir`) gained the seven hook clones and their
@@ -591,13 +591,15 @@ session), then steps 14 to 16.
   (annotated, dereferenced); actions/cache `55cc8345863c7cc4c66a329aec7e433d2d1c52a9`
   v6.1.0. D02's step 10 (`just install-allium` for the `documents` job) is the line
   `ci.yml` already carries; `ci.yml` is unchanged from the first session. actionlint
-  passes on both (inside `lint`).
+  passes on `ci.yml` (its hook's trigger is `.github/workflows/`); `action.yml` parsed
+  under the builtin `check-yaml`, both inside `lint`.
 - Steps 9 to 11: `docs/manifest.yml` (37 entries: the step-9 list including
   `decisions/0011-tool-manager.md`), every stub page, `docs/README.md`,
   `docs/decisions/README.md` (eleven rows; "the next decision is 0012"). The two
   migrated pages and the seven modules were copied with `git show`; `cmp` says each is
   identical.
-- Steps 12 and 13: `README.md`, `CHANGELOG.md`, `SECURITY.md`, `crates/pawdoku/README.md`,
+- Steps 12 and 13 (the `develop-locally.md` stub's prerequisites sentence was reworded
+  to pixi in the second session): `README.md`, `CHANGELOG.md`, `SECURITY.md`, `crates/pawdoku/README.md`,
   `AGENTS.md` (524 words, G's eight headings, the six phrases), `CLAUDE.md`,
   `.github/copilot-instructions.md`, `.claude/settings.json` from G; fourteen canonical
   skill stubs; twenty-six carried bridges from G and two `rust-change` bridges with B's
@@ -650,6 +652,7 @@ CLAUDE.md identical
 sudoku identical / solver identical / technique identical / reach identical
 effort identical / lapse identical / human-solving identical
 14 14 14
+26 carried bridges identical to G's (a cmp loop over .claude/skills and .codex/skills minus rust-change)
      Summary [   0.008s] 1 test run: 1 passed, 0 skipped
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 no placeholders
