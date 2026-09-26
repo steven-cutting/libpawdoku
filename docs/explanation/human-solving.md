@@ -12,8 +12,8 @@ requires: []
 fresh Sudoku and an assessment of that puzzle for a particular profile. An attempt
 records what the person inspects, remembers, tries, misses, writes and corrects.
 Repeating it with declared seeds produces solve counts and effort distributions.
-These specifications define future simulator behaviour; no executable simulator or
-game surface exists yet.
+These specifications define future simulator behaviour. No executable simulator
+exists yet; a surface is the game's.
 
 The [strategy survey](solving-sudoku.md) supplies background.
 [technique.allium](../specs/technique.allium) owns the precise logical catalogue.
@@ -252,8 +252,9 @@ not a prediction of elapsed time.
 
 The initial version identifiers are `human-solving-1`, `technique-2` — which
 `technique.allium` declares as its `catalogue_version` — and `seeded-stream-1`.
-Draws come from the game's randomness port, as every side effect does: the port
-owns the generator and its name, and a test supplies draws through the port's fake.
+Draws come from the library's randomness boundary, the one effect the engine has: a
+caller supplies the stream, the library names the generator it ships through
+`random_version`, and a test supplies draws through the boundary's fake.
 The specification pins what a draw means — the draw order, the sampling conventions
 and that every draw is recorded — so a run replays exactly under one named stream.
 That is a reproducibility convention, not evidence that the simulation's output
