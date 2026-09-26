@@ -222,8 +222,15 @@ beside the active `1.98.1`.
 merged (pull requests #1 to #10, `main` at `3852aa7`), but no follow-up pull request
 had. Three open follow-ups changed the `Justfile`, so the maintainer chose to land them
 first, together with the text-only ones, in pull request #11 (branch `t00-followups`,
-commits `348babe` and `c8709a7`). All seven checks were green on the PR, and it merged
-as `2066be7`. The table lists every item the Handed back sections of T00 to T09 address
+commits `348babe` and `c8709a7`). Before the push, T03's proofs were re-run against the
+new recipe. `just lock-check` on the current locks exits 0 with both hashes unchanged
+(`Dry-run: lock file would not change`). With `cargo-shear` removed from
+`pyproject.toml`, it exits 1 (`lock file not up-to-date with the workspace`) and again
+leaves both hashes unchanged. With the crate's version bumped, the cargo line exits 101
+(`cannot update the lock file … because --locked was passed`). With an empty
+`CARGO_HOME`, it exits 101 (`no matching package named serde found`) and fetches
+nothing. `just check` was green on the branch. All seven checks were green on the PR,
+and it merged as `2066be7`. The table lists every item the Handed back sections of T00 to T09 address
 to `main` or to T11:
 
 | Item | From | Outcome |
@@ -233,7 +240,7 @@ to `main` or to T11:
 | The lychee warm runs under `RUSTUP_AUTO_INSTALL=0` | T03, T08 | Merged in #11 |
 | The troubleshooting sections and the quality-philosophy paragraph that go with those three | T08 | Merged in #11 |
 | CONVENTIONS.md §2 and §12 wording on prek's rustup and cargo-hack's missing checksum | T03 | Merged in #11 |
-| §12 on cargo-shear and `[workspace.dependencies]` | T02 | Merged in #11 (the §12 outcome sentence) |
+| §12 on cargo-shear and `[workspace.dependencies]` | T02 | The fact merged in #11 (the §12 outcome sentence); the decision it asks for is carried |
 | §7's `spec-change` row: steps 1, 4 and 8 | T05 | Merged in #11 |
 | `docs/README.md` names `board.allium` | T08, T12 | Merged in #11 |
 | `tickets/README.md` shows T07, T08 and T09 done | T08 | Merged in #11 |
@@ -321,8 +328,8 @@ changed: 0 (dry run; 0 would change)
 ```
 
 The script's step 3 printed its not-applicable note ("no token supplied"), and its step
-5 its note that the package is public, so no grant is needed. The protection read-back printed
-`check`. **For T10:** the repository is **public** and private vulnerability reporting
+5 its note that the package is public, so no grant is needed. The protection read-back
+printed `check`. **For T10:** the repository is **public** and private vulnerability reporting
 is **enabled**. `SECURITY.md` can name GitHub's private reporting form as the route.
 
 **Step 6, the CONVENTIONS.md §12 table.** There is one row per §12 bullet, 30 in all.
@@ -446,6 +453,10 @@ These are carried, not landed. Each has the reason it stayed out of pull request
 - **Maintainer, external.** The defects T05 found in the vendored juxt/allium material
   are for upstream. The C02 `runes` sentence goes when B's pin moves. The G hand-back
   (T06's thirteen items, confirmed by T12) belongs to a G ticket.
+- **Maintainer, `deps-unused`** (from T02). cargo-shear 1.13.4 does not flag an unused
+  `[workspace.dependencies]` entry. #11 recorded that fact in §12. Still undecided:
+  whether an inert entry is acceptable, or whether the gate needs a second check. That
+  decision belongs to whichever ticket next touches the gate.
 - **Keep in step** (T08): a lint added to `[workspace.lints]` needs a mention in
   `docs/reference/configuration.md`.
 
