@@ -43,8 +43,6 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           cache-key: rust
-      # Temporary T04 probe; removed in the next commit.
-      - run: env | grep -E '^(CONDA_PREFIX|PIXI_)' || true
       # One recipe per step, in the gate's order, so a failure names itself
       # in the step list. `check-toolchain` first: it proves the runner's
       # cargo is rustup's proxy on the pinned release before anything builds.
