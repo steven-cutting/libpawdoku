@@ -13,9 +13,9 @@ to be revisited. Each entry is numbered and never renumbered; a decision that is
 superseded is marked rather than deleted, because the reasoning is what makes the
 successor legible.
 
-These are decisions about *how* the engine is built. Decisions about *what* it does belong
-in the specifications under `docs/specs/`, and unresolved ones are recorded there as
-`open question` blocks — see [Specifications](../explanation/specifications.md).
+These are decisions about *how* this library is built. Decisions about *what* it does
+belong in the specifications under `docs/specs/`, and unresolved ones are recorded there
+as `open question` blocks — see [Specifications](../explanation/specifications.md).
 
 ## The record
 
@@ -33,13 +33,17 @@ in the specifications under `docs/specs/`, and unresolved ones are recorded ther
 | [0010](0010-skill-reference-material.md) | Skill reference material beside the skills |
 | [0011](0011-tool-manager.md) | Tool manager |
 
+Decision 0004 is superseded in part by decision 0011, which names the consequences of
+0004 it replaces and the ones that stand.
+
 ## The numbering
 
-The series is this repository's own and starts at 0001; it does not continue Pawdoku's.
-Several entries were carried from Pawdoku's decision records when the engine moved here,
-and each of those says under its heading which Pawdoku record it came from and keeps the
-topic slug it had, because the slug is what a cross-repository reference names. A new
-decision takes the next free number; the next decision is 0012.
+This series is the repository's own and starts at 0001. Four entries were carried from
+Pawdoku's decision records at `78d03cdf` when the engine moved here (0002, 0003, 0004 and
+0005); each says so under its heading and keeps the topic slug it had, because the slug
+is what a cross-repository reference names, and the game restates the engine's clauses
+and cites these records by slug. Nothing here is rendered from a template, so no frozen
+inventory of numbers applies. The next decision this repository takes is 0012.
 
 ## Writing a new one
 
