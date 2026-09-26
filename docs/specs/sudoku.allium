@@ -31,14 +31,15 @@
 --     one. solution_count below is a black box for that reason; what decides
 --     it is solver.allium's, which imports this module and is not imported.
 --   - Notes, hints, undo, timers, counts of mistakes and whatever is remembered
---     between visits. None is a rule of Sudoku.
+--     between visits. None is a rule of Sudoku. board.allium keeps the notes,
+--     the moves, undo and the check for a puzzle in play.
 --   - Whether a surface refuses, flags or merely allows a conflicting
---     placement. The rules allow it; pawdoku.allium's Play surface and the
---     modules beneath it decide what a player is shown.
+--     placement. The rules allow it; a consumer's surfaces decide what a
+--     player is shown; nothing here draws.
 --
 -- Dependencies
---   None. The rules need no figure pawdoku.allium states, so this module does
---   not import it; a module that draws the rules imports both.
+--   None. No figure a consumer's root module states is read here; a consumer
+--   that draws the rules imports this module beside its own.
 --
 -- Vocabulary
 --   One word each. Box, never block, region or subgrid. Given, never clue.
