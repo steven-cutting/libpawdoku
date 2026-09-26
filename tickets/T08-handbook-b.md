@@ -171,8 +171,10 @@ to the boundary.
   the `use` lines at `78d03cdf`: `sudoku` imports nothing; `solver` and `technique`
   import `sudoku` (solver 61, technique 86); `reach`, `effort`, `lapse` and
   `human-solving` each import `sudoku` and `technique` (57-58, 57-58, 78-79, 72-73) and
-  never each other; `random` sits beside them, used by whichever module draws. A Rust
-  module may use what its specification module imports and nothing above it.
+  never each other; `board` (G `add73be7`, migrated by T12) imports `sudoku` alone
+  (board 104) and nothing imports it; `random` sits beside them, used by whichever
+  module draws. A Rust module may use what its specification module imports and nothing
+  above it.
 - Why it matters (30-39): every model of a player is testable without the others and
   without a generator, because the only thing reaching outside is the boundary.
 - Enforcement (64-69): rustc allows a cycle between modules of one crate, so the
@@ -187,15 +189,20 @@ to the boundary.
 G: opening 11-17; What a specification is for 19-29; What the modules are 31-72; Open
 questions 74-83; What a specification is not 85-89; Related 91-96. Verbatim: 16-17,
 from "`sudoku.allium` states" at 37 through 68 except the end of 39 (below; the link at
-66 resolves here), 74-89.
+66 resolves here), 74-89. Since T12 (2026-09-25) the base is G at `add73be7`, where
+What the modules are runs 31-79, the verbatim run from 37 extends through 75 and takes
+in the `board.allium` paragraph at 40-46 (its "as `human-solving.allium` does" stays:
+the page describes that contract in the paragraphs that follow), Open questions is
+81-90, What a specification is not 92-96 and Related 98-102; every number below is the
+pin's and shifts by seven from line 40 on.
 
-- 11-14: this library's behaviour; the seven modules under `docs/specs/` that
+- 11-14: this library's behaviour; the eight modules under `docs/specs/` that
   `docs/README.md` names are the source of truth; handbook, code and tests answer to them.
 - 21-29, the "stated once" example: the side of the grid is stated once, in
   `sudoku.allium`'s `config` block; `pawdoku::SIDE` mirrors it (T00 step 4) and a doctest
   and a unit test hold the mirror, so a grid of the wrong size fails on the number rather
   than on a reviewer's eye. Same closing sentence as 28-29.
-- 33 to "present." at 37: "Seven are the library's." and nothing about a root module.
+- 33 to "present." at 37: "Eight are the library's." and nothing about a root module.
   Then 39's "a module that draws the rules imports both" loses its referent, so it takes
   §9's wording for `sudoku.allium` 40-41: a consumer that draws the rules imports this
   module beside its own.

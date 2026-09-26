@@ -74,7 +74,7 @@ line. Every page keeps the frontmatter T00 wrote, byte for byte.
 | `docs/tutorials/first-change.md` | A | `docs/tutorials/first-change.md` (91) | G's seven steps, around a clause, a test and `just check` |
 | `docs/how-to/develop-locally.md` | A | `docs/how-to/develop-locally.md` (112) | rustup, pixi, the pixi hazard, the offline first-run caveats |
 | `docs/how-to/test-and-debug.md` | B | `docs/how-to/test-and-debug.md` (75) | nextest filters, doctests, llvm-cov HTML, backtraces |
-| `docs/how-to/work-with-the-specs.md` | A | `docs/how-to/work-with-the-specs.md` (141) | Seven-module table; waiver terms verbatim; `just test` |
+| `docs/how-to/work-with-the-specs.md` | A | `docs/how-to/work-with-the-specs.md` (141; 146 at `add73be7`) | Eight-module table, `board.allium` among them; waiver terms verbatim; `just test` |
 | `docs/how-to/maintain-dependencies.md` | A | `docs/how-to/maintain-dependencies.md` (184) | Caret ranges and `Cargo.lock`; `pyproject.toml` and `pixi.lock`; `tools.txt`; hook, action and toolchain pins |
 
 ## Steps
@@ -91,7 +91,7 @@ line. Every page keeps the frontmatter T00 wrote, byte for byte.
    brief below names the lines. G's decision 0007 is this repository's
    `docs/decisions/0005-project-managed-allium-cli.md` (CONVENTIONS.md §8); every
    `0007-project-managed-allium-cli.md` link moves there with link text `decision 0005`.
-   The seven modules are valid link targets (`../specs/sudoku.allium`), as in G's map.
+   The eight modules are valid link targets (`../specs/sudoku.allium`), as in G's map.
 3. **Recipes.** A page names a `just` recipe only if CONVENTIONS.md §4 defines it. G's
    `just dev`, `just storybook`, `just frontend-*`, `just preview` and
    `just storybook-browsers` have no counterpart; each brief says what replaces them.
@@ -205,6 +205,16 @@ who is at a device."; row 24 (Play surface) is dropped; row 27 (Cell) ends "a
 consumer's surface is what draws one" in place of "the platform's play cell is what
 draws one". Compare each kept row against the module's Vocabulary section once; a row
 that contradicts the module is corrected to the module and named in the hand-back.
+
+Since T12 (2026-09-25) the base is G at `add73be7`, whose "The game" table has seven
+board rows at 36-42 (Board, Move, Undo redo, Reading back, Check, Record reopen, Upkeep)
+and edits to the Mark row at 55 and the Note, entry row at 78; `board.allium`'s
+Vocabulary section is its lines 91-102. Take the seven rows and the two edits, with two
+rewordings: the Board row's "what draws one is a rendering" becomes "what draws one is a
+consumer's", and the Record row's "What a record is made of is a store's, behind the
+storage port" becomes "What a record is made of is the caller's, as is where it is kept"
+(T12's reading: the library has no storage port). The G-numbered rows above shift by
+seven from row 36 on.
 
 "The repository" (81-91): keep Specification, Surface, Guarantee, Gate and Recipe. Row 86
 (Port) becomes "Randomness boundary | The trait `crates/pawdoku/src/random.rs` defines:
@@ -379,16 +389,20 @@ Target 400-550 words (G has 370).
 
 **`docs/how-to/work-with-the-specs.md`** (G 141 lines: intro 11-13, module table 15-29,
 Change behaviour 31-45, Handle an open question 47-56, Tooling 58-75, Diagnostics and
-waivers 77-136, Related 138-141). Keep every heading.
+waivers 77-136, Related 138-141). Keep every heading. Since T12 (2026-09-25) the base is
+G at `add73be7` (146 lines): the module table is 15-30 with `board.allium` at row 21,
+Diagnostics and waivers is 78-141 and Related 143-146; every G number below is the
+pin's, and each shifts by one from row 21 on and by five from line 120 on.
 
-- Intro (11-13): the seven Allium modules under `docs/specs/` decide what the engine
+- Intro (11-13): the eight Allium modules under `docs/specs/` decide what the engine
   does; the game's root module stays in the game and restates what it needs, held equal
   by test on the game's side (CONVENTIONS.md §1 fact 6). Keep the link to
   `../explanation/specifications.md`.
-- Module table (17-26): drop row 19 (the root module). Keep rows 20-26 with two edits:
-  row 20 ends "It imports nothing; a module that draws the rules imports it." (the words
-  "and the root" go); row 26's "drawn through the randomness port" becomes "drawn
-  through the randomness boundary". Keep 28-29.
+- Module table (17-26; 17-27 at `add73be7`): drop row 19 (the root module). Keep rows
+  20-26 with two edits: row 20 ends "It imports nothing; a module that draws the rules
+  imports it." (the words "and the root" go); row 26's "drawn through the randomness
+  port" becomes "drawn through the randomness boundary". Keep 28-29. The `board.allium`
+  row (G `add73be7` row 21) comes verbatim, after `sudoku.allium`'s.
 - Change behaviour (33-45): step 2 (35-37) loses the `tests/platformSpecs.test.ts`
   clause and gains "the game restates clauses of these modules and holds them equal by
   test on its side, so a reworded clause here is a change the game must take"; step 6
@@ -404,7 +418,11 @@ waivers 77-136, Related 138-141). Keep every heading.
   heading is line 77 and the section ends at 136, with Related pages at 138), with
   exactly one edit: the decision link at 81 moves to 0005. Everything else, including "No
   waiver is currently in the modules." (109-110) and the 3.6.1 sentences, stays word for
-  word; the `Justfile`'s `check-specs` comment points here for the terms.
+  word; the `Justfile`'s `check-specs` comment points here for the terms. G at
+  `add73be7` adds one paragraph to the section (its 120-130): `allium.field.unused`
+  misses a use inside a projection's `where` predicate, and `board.allium` answers the
+  diagnostic on `is_next_to_redo` with the invariant `WhatIsReTakenComesNext` rather
+  than a waiver. Take it verbatim; the citation of `board.allium` is true here.
 - Related pages: `../explanation/specifications.md` kept; line 141 (Accessibility, a
   dropped page) becomes `../reference/quality-gates.md`.
 
@@ -516,7 +534,8 @@ to `done`, and commit on the ticket branch with short imperative subjects.
       Verification prints nothing.
 - [ ] No page states a version a pin file states, except the two exceptions rule 4
       names; `../reference/configuration.md` is linked where a figure would otherwise be.
-- [ ] G lines 77-136 of work-with-the-specs appear word for word (two edits) under
+- [ ] G lines 78-141 at `add73be7` of work-with-the-specs (77-136 at the pin, plus the
+      `allium.field.unused` paragraph) appear word for word (two edits) under
       "Diagnostics and waivers".
 - [ ] `just check` is green in the worktree and `git status --porcelain` is empty
       afterwards.
@@ -533,7 +552,7 @@ for p in project/purpose-and-scope project/repository-map project/terminology tu
 grep -rnE 'platform\.md|accessibility\.md|component-workshop\.md|deploy-to-github-pages\.md|update-from-template\.md|0007-project-managed-allium-cli|frontend-|just dev|just preview|just storybook|npm |npx ' docs/project docs/tutorials docs/how-to || echo "no dropped targets"
 for r in $(grep -ohE 'just [a-z][a-z-]*' docs/project docs/tutorials docs/how-to -r | sort -u | cut -d' ' -f2); do just --summary | tr ' ' '\n' | grep -qx "$r" || echo "unknown recipe: $r"; done
 for p in project/purpose-and-scope project/repository-map project/terminology tutorials/first-change how-to/develop-locally how-to/test-and-debug how-to/work-with-the-specs how-to/maintain-dependencies; do diff <(git show "main:docs/$p.md" | sed -n '1,7p') <(sed -n '1,7p' "docs/$p.md") >/dev/null && echo "$p frontmatter unchanged"; done
-diff <(git -C /Users/scutting/projects/pawdoku show 78d03cdf:docs/how-to/work-with-the-specs.md | sed -n '77,137p' | sed 's/0007-project-managed-allium-cli/0005-project-managed-allium-cli/') <(awk '/^### Diagnostics and waivers/{f=1} /^## Related pages/{f=0} f' docs/how-to/work-with-the-specs.md) && echo "waiver terms verbatim"
+diff <(git -C /Users/scutting/projects/pawdoku show add73be7:docs/how-to/work-with-the-specs.md | sed -n '78,142p' | sed 's/0007-project-managed-allium-cli/0005-project-managed-allium-cli/') <(awk '/^### Diagnostics and waivers/{f=1} /^## Related pages/{f=0} f' docs/how-to/work-with-the-specs.md) && echo "waiver terms verbatim"
 just check
 git status --porcelain
 ```
