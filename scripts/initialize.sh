@@ -6,10 +6,11 @@ cd "$project_root"
 
 git rev-parse --is-inside-work-tree >/dev/null
 
-# Every later line needs prek, cargo-binstall or a `bg-*` script from the
-# environment; `--locked` refuses a lockfile that disagrees with
-# `pyproject.toml`, so a stale lock is fixed by `just lock` and committed,
-# never rewritten silently by a first run.
+# The environment first: install-tools, install-allium, format and
+# install-hooks need its cargo-binstall, `bg-*` scripts, taplo and prek; the
+# toolchain lines need only rustup. `--locked` refuses a lockfile that
+# disagrees with `pyproject.toml`, so a stale lock is fixed by `just lock` and
+# committed, never rewritten silently by a first run.
 pixi install --locked
 
 # The toolchain rust-toolchain.toml pins, with the components and targets the

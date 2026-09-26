@@ -806,6 +806,14 @@ wording.
   conflict (`git merge-tree` against `origin/ticket/t02-rust-gate`) and T02's form wins.
   `_typos.toml`'s array is 114 columns, so it stays one entry per line under T02's
   width too; both files pass `taplo fmt --check` with T02's `taplo.toml`.
+- **The `pixi install --locked` comment names the lines that need the environment.**
+  Step 4's text, "every later line needs prek, cargo-binstall or a `bg-*` script from
+  the environment", is too broad: `install-toolchain`, `check-toolchain` and
+  `cargo generate-lockfile` need only rustup. The comment instead names the four
+  recipes that need the environment, `install-tools`, `install-allium`, `format` and
+  `install-hooks`, and the tool each takes from it: cargo-binstall, `bg-*` scripts,
+  taplo and prek. Its `--locked` sentence is step 4's text unchanged. Raised by
+  Copilot's review of pull request #4.
 - **The typos grep in the Verification block is anchored.** `grep -c 'tool.typos'`
   counts the comment step 5 asks for ("a [tool.typos] here would be ignored") and
   prints 1. `grep -c '^\[tool\.typos'` asks the question the block means.
