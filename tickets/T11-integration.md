@@ -1,7 +1,7 @@
 ---
 id: T11
 title: "Integration: first green `just check` from a fresh clone and in CI, branch protection verified"
-status: open
+status: done
 depends_on: [T01, T02, T03, T04, T05, T06, T07, T08, T09]
 parallel_with: []
 branch: ticket/t11-integration
@@ -206,13 +206,258 @@ each in the hand-back notes.
 
 ## Hand-back notes
 
+Done on 2026-09-26 in the Supacode worktree `T11-integration`, against `main` at
+`2066be727c7ed728ad9c1a2a0e12e671177babdd` (the merge of pull request #11).
+
 ### What was verified, and how
+
+**Step 1, the machine and the remote.** `command -v` printed
+`~/.cargo/bin/rustup`, `~/.cargo/bin/cargo`, `~/.pixi/bin/pixi`, `~/.pixi/bin/just` and
+`/opt/homebrew/bin/gh`. `just check-toolchain` printed
+`1.98.1-aarch64-apple-darwin (overridden by '…/rust-toolchain.toml')`. The `gh repo view`
+line printed `PUBLIC main`. `rustup toolchain list` showed `stable` already installed
+beside the active `1.98.1`.
+
+**Step 2, the follow-ups.** When this ticket was picked up, all nine lanes and T12 had
+merged (pull requests #1 to #10, `main` at `3852aa7`), but no follow-up pull request
+had. Three open follow-ups changed the `Justfile`, so the maintainer chose to land them
+first, together with the text-only ones, in pull request #11 (branch `t00-followups`,
+commits `348babe` and `c8709a7`). All seven checks were green on the PR, and it merged
+as `2066be7`. The table lists every item the Handed back sections of T00 to T09 address
+to `main` or to T11:
+
+| Item | From | Outcome |
+| --- | --- | --- |
+| `lock-check`'s pixi line gains `--dry-run` | T03, T08 | Merged in #11 |
+| `lock-check`'s cargo line gains `--offline` | T08 (PR #10 review) | Merged in #11 |
+| The lychee warm runs under `RUSTUP_AUTO_INSTALL=0` | T03, T08 | Merged in #11 |
+| The troubleshooting sections and the quality-philosophy paragraph that go with those three | T08 | Merged in #11 |
+| CONVENTIONS.md §2 and §12 wording on prek's rustup and cargo-hack's missing checksum | T03 | Merged in #11 |
+| §12 on cargo-shear and `[workspace.dependencies]` | T02 | Merged in #11 (the §12 outcome sentence) |
+| §7's `spec-change` row: steps 1, 4 and 8 | T05 | Merged in #11 |
+| `docs/README.md` names `board.allium` | T08, T12 | Merged in #11 |
+| `tickets/README.md` shows T07, T08 and T09 done | T08 | Merged in #11 |
+| §6's quality-philosophy note | T08 | No change needed: the row already reads "every frontend example (browser, story, bundle) replaced", not the "verbatim minus the browser example" T08 quoted |
+| The stale 0005 sentence in `work-with-the-specs.md` | T07 | Already closed in PR #9 |
+| `audit.yml`'s first run | T04 | Already closed: green on PR #5 |
+| The T00 coverage `mkdir`; the `[LICENSE]` EditorConfig section; the 0011 stub | T00 | Already closed: landed with T00, T03 and T09 |
+| The hook-shim repair from the primary checkout | T00 | Already closed: the shim names the primary's `.pixi/envs/default/bin/prek` |
+| Everything else | several | Carried; see Handed back |
+
+**Step 3, the fresh clone.** `git clone git@github.com:steven-cutting/libpawdoku.git`
+went into the session's scratch directory, and `git rev-parse HEAD` printed
+`2066be727c7ed728ad9c1a2a0e12e671177babdd`.
+
+- `time just initialize`: exit 0, **10.5 s** wall-clock (zsh `time`: `0.84s user 0.89s
+  system 16% cpu 10.500 total`). It ran `pixi install --locked`, the no-argument
+  `rustup toolchain install`, the cargo-hack binstall (`Done in 2.257479083s`), the
+  allium 3.6.1 download, `cargo fetch --locked`, `pixi install --frozen` and
+  `cargo fmt --all`. Last came `install-hooks`, whose new line
+  `RUSTUP_AUTO_INSTALL=0 prek run lychee --files README.md` reported `Passed`. The shim
+  went into the clone's own `.git`. `git status --porcelain` afterwards: empty.
+- `time just check`: exit 0, **28.1 s** wall-clock (`98.92s user 15.34s system 406% cpu
+  28.078 total`), 18 recipes, ending `The worktree matches the check baseline.` and
+  `All checks passed and the worktree is unchanged.` Line coverage was **97.84%** (139
+  lines, 3 missed); regions 97.72%, functions 100%. `git status --porcelain`: empty.
+- The network, CONVENTIONS.md §13: `just check` again, with `HTTP_PROXY`, `HTTPS_PROXY`,
+  `http_proxy`, `https_proxy` and `ALL_PROXY` set to `http://127.0.0.1:9`. Exit 0 in
+  8.0 s (warm `target/`), with the same closing lines. Nothing in the gate reached the
+  network.
+
+These are a fresh clone's times on a warm machine (Apple silicon), not a new
+contributor's: pixi's package cache, Cargo's registry, prek's cache at `~/.cache/prek`
+and the `stable` toolchain were all present.
+
+**Step 4, CI on `main`.** Both workflows were dispatched with `gh workflow run … --ref
+main`, and both ran at `2066be7`.
+
+- `ci.yml`, run 36270382102
+  (`https://github.com/steven-cutting/libpawdoku/actions/runs/36270382102`): `success`.
+
+  ```text
+  rust       success  34 s
+  coverage   success  41 s
+  wasm       success  43 s
+  deny       success  30 s
+  documents  success  46 s
+  check      success   3 s
+  ```
+
+- `audit.yml`, run 36270383635: `success` in 34 s. The log shows `cargo deny --locked
+  check advisories` and `advisories ok`.
+- The checks API lists `check` as `success` twice for `2066be7`: once for the merge's
+  push run 36270145719 and once for this dispatch.
+- Caches in the `rust` job (the `documents` job's lines are the same with `documents`
+  in the rust-cache key). This is **the first rust-cache hit**, which T04 left to T11:
+
+  ```text
+  Cache hit for: pixi-linux-64-946edba9…
+  Restored from cache key "v0-rust-rust-Linux-x64-492f33ac-…" full match: true.
+  Cache restored from key: Linux-X64-tools-c06ff119…
+  Cache restored from key: Linux-X64-prek-204cc165…
+  Cache hit occurred on the primary key Linux-X64-prek-204cc165…, not saving cache.
+  ```
+
+  From `just lint` onward, the `documents` log has no clone, download, fetch, install or
+  build line.
+
+**Step 5, branch protection.** The script was extracted with
+`git -C /Users/scutting/projects/biscuit_games_template show
+2283589c:scripts/bootstrap_repo.sh` to `ai_tmp/bootstrap_repo.sh`. Its SHA-256 was
+`62cec7df09935f2350936c36f0891f29c9d0243e21859a83d37e47050bdb6ace`, T01's value. It was
+run with T01's arguments, `--hygiene` included, and without `--apply`:
+
+```text
+2. Protection on main requiring check
+   state: false check false false false false false
+   already
+4. Private vulnerability reporting
+   state: true
+   already
+6. Hygiene
+   state: true false false
+   already
+changed: 0 (dry run; 0 would change)
+```
+
+The script's step 3 printed its not-applicable note ("no token supplied"), and its step
+5 its note that the package is public, so no grant is needed. The protection read-back printed
+`check`. **For T10:** the repository is **public** and private vulnerability reporting
+is **enabled**. `SECURITY.md` can name GitHub's private reporting form as the route.
+
+**Step 6, the CONVENTIONS.md §12 table.** There is one row per §12 bullet, 30 in all.
+Each outcome is the one the named ticket recorded, with T11's own evidence added where
+this ticket re-observed a claim. Pull request #11 wrote "Outcome:" sentences into four
+of the bullets (rows 7, 10, 14 and 19). The rest can be closed out from this table in
+one edit.
+
+| # | Claim | Ticket | Outcome | Source |
+| --- | --- | --- | --- | --- |
+| 1 | No-argument `rustup toolchain install` installs the toolchain, components and targets | T00 | **holds**: nine components and both wasm targets in a fresh `RUSTUP_HOME` with `RUSTUP_AUTO_INSTALL=0`; the exit 1 came from the self-update check in a throwaway `CARGO_HOME` | T00 "What was verified", §12 list |
+| 2 | `wasm32v1-none` ships `rust-std` for 1.98.1; `cargo hack check` passes on an `alloc` crate | T00, T02 | **holds**: `just wasm-check` green on both targets for T00's stub and under every configuration for T02 | T00 and T02 "What was verified" |
+| 3 | `cargo update --workspace --locked` fails on drift and exits 0 otherwise | T02 | **holds**: exit 101 on a drifted copy, exit 0 on the tree; T11 re-proved it with `--offline` added (#11) | T02 "What was verified" |
+| 4 | `--fail-under-lines 90` enforces the floor; `--doctests` is still nightly-only | T02 | **holds**: exit 1 at 101 and at a real 83.33% breach; `--doctests` fails on 1.98.1 | T02 "What was verified" |
+| 5 | `cargo deny check licenses bans sources` runs offline; only `advisories` needs the network | T02 | **holds**: offline exit 0; offline `advisories` exit 1 without the database. T11's network-blocked `check` includes `deny` | T02 "What was verified" |
+| 6 | `cargo hack check --feature-powerset` gives two configurations and exits 0 | T02 | **holds, qualified**: four configurations while `default = []` was present; two once PR #3 dropped it | T02 "What was verified", "Review follow-up" |
+| 7 | `cargo shear` reads source without a build and understands `[workspace.dependencies]` | T02 | **holds, qualified**: no build and `workspace = true` understood, but 1.13.4 does not flag an unused `[workspace.dependencies]` entry | T02 "What was verified", "Handed back" |
+| 8 | `thiserror` 2 derives `core::error::Error` under `no_std`; `proptest` runs under `cfg(test)` std | T02 | **holds**: 2.0.21 compiles on `wasm32v1-none`; in-module `proptest!` passes under nextest | T02 "What was verified" |
+| 9 | The two `clippy.toml` `-in-tests` keys exist in clippy 1.98 | T02 | **holds**: no config error; a misspelt key gives "unknown field" | T02 "What was verified" |
+| 10 | `cargo binstall --root .tools` lands in `.tools/bin`, verifies checksums, skips an installed version | T03 | **holds, qualified**: location and idempotence hold; nothing is verified, because cargo-hack publishes no checksum or signature | T03 "What was verified" 6a |
+| 11 | `pixi install --locked` installs the nine conda packages and B, not `libpawdoku-tooling` | T00 | **holds** | T00 "What was verified" |
+| 12 | pixi builds B from its tag with `uv_build`; six `bg-*` scripts land in the environment's `bin` | T00 | **holds**: all six present, with the environment's Python in the shebang | T00 "What was verified" |
+| 13 | Every manifest pin resolves with `pixi search --platform linux-64` | T00 | **holds** on 2026-09-24 | T00 "What was verified" |
+| 14 | `pixi lock --check --offline` writes nothing and exits 0 on a current lock | T03 | **holds, qualified**: true of a current lock, but a stale one that solves offline was rewritten; fixed by `--dry-run` in #11, which T11 re-proved (exit 1, both hashes unchanged) | T03 "What was verified" 6e; this ticket, step 2 |
+| 15 | After `install-hooks` from an empty `PREK_HOME`, `just lint` is green with the network blocked | T03 | **holds**: all hooks passed with the proxies pointed at a closed port | T03 "What was verified" 6g |
+| 16 | `pixi run -x --frozen bg-ripsecrets` passes an awkward filename unchanged | T03 | **holds**: the argv arrives intact; the switch stays optional (carried) | T03 "What was verified" 6f |
+| 17 | `taplo lint` stays offline with no schema | T03 | **holds**: `toml-check` exit 0 with the network blocked | T03 "What was verified" 6b |
+| 18 | typos stops at the first configuration (`_typos.toml`) | T03 | **holds**: never merged with `pyproject.toml`'s table | T03 "What was verified" 6c |
+| 19 | prek 0.5.3 provisions its own rustup under `$PREK_HOME`; prek resolves through binstall | T03, D01 | **fails** (T03): prek uses the machine's rustup and the pinned 1.98.1, so no `stable` default is needed for that reason instead; the lychee warm's `stable` install is fixed in #11. D01's half **holds** | T03 "What was verified" 6d; D01 "What was verified" |
+| 20 | B's checkers run unchanged with no `package.json` | T00 | **holds** | T00 "What was verified" |
+| 21 | `bg-project-check` tolerates `target/`, `.tools/` and `.pixi/` growth | T00 | **holds**; again in T11's clone, where `check` ended "the worktree is unchanged" | T00 "What was verified"; this ticket, step 3 |
+| 22 | No-argument `rustup toolchain install` works on the runner's rustup | T04 | **holds** on image `20260920.314.1` (not the `20260907.300.1` the claim names); the runner's rustup version was not quoted | T04 "What was verified", step 8 |
+| 23 | `setup-pixi`'s activation variables are inert for cargo | T04 | **holds**: a cold build with build-script crates, no warning | T04 "What was verified", step 8 |
+| 24 | `setup-pixi` restores keyed on `pixi.lock`; `cache-write` on `main` acts like `save-if` | T04 | **holds, qualified**: the key hit on T04's two dispatches and on T11's; no run observed a save gated off on a branch, because every run hit the primary key | T04 "What was verified"; this ticket, step 4 |
+| 25 | The prek cache under `runner.temp` restores, and `lint` then shows no fetch | T04 | **holds**: hit on T04's dispatches and T11's; T11's `documents` log has no clone, download or build line from `lint` onward | T04 "What was verified"; this ticket, step 4 |
+| 26 | `Swatinem/rust-cache` with `cache-bin: false` leaves `.tools/` to `actions/cache` | T04 | **holds**: rust-cache caches the registry, git and `target`; `.tools` restores from its own key. First rust-cache hit: T11's dispatch, full match | T04 "What was verified", step 8; this ticket, step 4 |
+| 27 | The `check` aggregate reports `success` or `failure` and is listed as `check` | T04 | **holds, qualified**: the green half and the name were proved (again on `2066be7`); the red half was **not exercised**, because no gate job has failed | T04 "What was verified", step 8; this ticket, step 4 |
+| 28 | allium 3.6.1 reports no diagnostics and no findings for the migrated modules | T06 | **holds**: seven modules clean in T06, eight with `board.allium` since T12; green again in T11's clone | T06 "What was verified", step 7 |
+| 29 | `bootstrap_repo.sh` applies cleanly with no Pages and one required check | T01 | **holds**: the second apply changed nothing; T11's dry run printed `changed: 0` | T01 "What was verified"; this ticket, step 5 |
+| 30 | The `pawdoku` name is free on crates.io | S02 | `pending`: S02 has not run | none |
+
+**Step 7, placeholders**, at `2066be7` in the clone, with the ticket's exclusions:
+
+```text
+.agents/skills/propagate/SKILL.md:165:5. If the wiring is too complex or opaque to generate confidently, generate a test
+.agents/skills/propagate/SKILL.md:180:// TODO: deferred spec — InterviewerMatching.suggest
+.agents/skills/propagate/SKILL.md:280:- Cross-module tests require understanding component wiring across service boundar
+```
+
+All three are vendored Allium prose about the placeholders the `propagate` skill
+generates. None is a placeholder in this repository (see Deviations).
+
+**Step 8 and the Verification block.** The scratch clone was deleted after the commands
+below had run in it.
+
+```text
+$ git -C <scratch>/t11-clone rev-parse HEAD
+2066be727c7ed728ad9c1a2a0e12e671177babdd
+$ gh run list --workflow ci.yml --branch main --limit 1 --json conclusion --jq '.[0].conclusion'
+success
+$ gh api repos/steven-cutting/libpawdoku/branches/main/protection --jq '[.required_status_checks.checks[].context] | sort | join(",")'
+check
+$ git ls-remote --tags origin | wc -l
+       0
+$ git status --porcelain            # in the clone, after check
+```
+
+In this worktree, before the commit, `git status --porcelain` printed one line, the
+modified `tickets/T11-integration.md`.
 
 ### Deviations, and why
 
+- **The branch is `T11-integration`, not `ticket/t11-integration`.** Supacode names the
+  branch this way. It was kept, as T01, T04 and T06 kept theirs.
+- **The follow-up pull request was written in this ticket's session.** It went on its
+  own branch (`t00-followups`, pull request #11), not on this one, and the maintainer
+  authorised the push and the PR separately and merged it. This branch still changes only
+  its own ticket file. The maintainer chose to fold the text-only follow-ups into the
+  same pull request.
+- **The clone's times are on a warm machine**, as step 3 says. A cold `PREK_HOME` was
+  offered and not chosen.
+- **An extra offline proof.** Beyond the ticket's timed `just check`, a second run with
+  every proxy variable pointed at a closed port proved §13's "none in `check`".
+- **The no-`stable` half of the lychee change was not re-proved.** This machine already
+  has `stable`, so the proof would need a sandbox `RUSTUP_HOME`. It rests on T03's 6d.
+  The clone ran the new line, and it passed.
+- **Step 7 is not empty.** The three `TODO` hits are in `.agents/skills/propagate/SKILL.md`,
+  one of the seven Allium skills T05 keeps byte-identical to G for provenance. The
+  maintainer chose to carry them: they are upstream prose, not placeholders, and the
+  grep's exclusion list covers `allium-skill-reference/` but not the vendored skills.
+- **Scratch.** `ai_tmp/bootstrap_repo.sh` sits in this worktree (gitignored). The logs
+  and the clone were in the session's scratch directory, and the clone is deleted.
+
 ### Handed back
 
+These are carried, not landed. Each has the reason it stayed out of pull request #11.
+
+- **T10.** The repository is public, and private vulnerability reporting is enabled (step
+  5). `tickets/README.md` still shows T11 `open`, because this ticket changes only its
+  own file. The row goes to `done` with the next index edit.
+- **`main` follow-up, `Justfile` (frozen): `test-one` and `coverage-html`** (T07, from
+  PR #9's Codex review). An enhancement that needs recipe names and arguments decided.
+- **`main` follow-up, `.pre-commit-config.yaml` (frozen), optional: ripsecrets through
+  `pixi run -x --frozen bg-ripsecrets`** (T03). Left alone: the path form exits cleanly
+  on a mangled name, and nothing breaks without the change.
+- **Decision records.** Record 0008 line 43 still reads "`default = []`" (T02 asked T09
+  for "no default features"). Record 0011's "pixi owns every tool binary" is overstated
+  (T09 to D02). Records are final, so each needs an amendment with its reason, not a
+  silent edit.
+- **T03, the hook shim's structural fix** (from T00). A shim that resolves prek per
+  worktree was never taken, so the primary-checkout rule in `scripts/initialize.sh`
+  stands.
+- **T04, `runs-on`** (from T01). `ubuntu-latest` moves to Ubuntu 26 from
+  **2026-10-19**, and every job still says `ubuntu-latest`. Decide before then whether
+  to pin an image.
+- **Maintainer, the pickup procedure** (from T01). Supacode's `<ID>-<slug>` branch names
+  differ from §11's `ticket/<id>-<slug>`, and a secondary worktree needs a
+  network-authorised `pixi install --locked`, `just install-tools` and
+  `just install-allium` before `just check` can run. Both call for a convention
+  decision.
+- **Maintainer, external.** The defects T05 found in the vendored juxt/allium material
+  are for upstream. The C02 `runes` sentence goes when B's pin moves. The G hand-back
+  (T06's thirteen items, confirmed by T12) belongs to a G ticket.
+- **Keep in step** (T08): a lint added to `[workspace.lints]` needs a mention in
+  `docs/reference/configuration.md`.
+
 ### Open points settled
+
+- **cargo-binstall and GitHub's anonymous rate limit.** The clone's `just initialize`
+  ran with no `GITHUB_TOKEN`. Its one binstall lookup succeeded ("cargo-hack v0.6.45
+  … has been downloaded from github.com", `Done in 2.257479083s`), so no note goes to
+  `develop-locally.md`. A burst of fresh clones from one address could still hit the
+  limit. That was not tested.
+- **Coverage on the merged tree.** It clears the floor: 97.84% of 139 lines in the clone,
+  and `coverage` green in CI. No T02 test is needed.
 
 ## Open points
 
