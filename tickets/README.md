@@ -24,7 +24,7 @@ authoritative; this table is a snapshot.
 | T03 | Hooks and the language-agnostic gate: dotfiles, first-run script, the pixi environment | `T03-hooks-and-dotfiles.md` | T00, D01, D02 | T01, T02, T04 to T09 | open |
 | T04 | CI workflows: the composite setup action, five gate jobs and the audit job | `T04-ci.md` | T00, T01 | T02, T03, T05 to T09 | open |
 | T05 | Agent contract: AGENTS.md, adapters, fourteen skills, their bridges | `T05-agent-contract.md` | T00 | T01 to T04, T06 to T09 | open |
-| T06 | Specification migration: the seven engine modules, adapted, and the Allium gate | `T06-spec-migration.md` | T00 | T01 to T05, T07 to T09 | open |
+| T06 | Specification migration: the seven engine modules, adapted, and the Allium gate | `T06-spec-migration.md` | T00 | T01 to T05, T07 to T09 | done |
 | T07 | Handbook A: project, tutorial and how-to pages | `T07-handbook-a.md` | T00 | T01 to T06, T08, T09 | open |
 | T08 | Handbook B: explanation, reference and operations pages | `T08-handbook-b.md` | T00 | T01 to T07, T09 | open |
 | T09 | Decision records | `T09-decisions.md` | T00, D01, D02 | T01 to T08 | open |
