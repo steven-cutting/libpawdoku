@@ -1,7 +1,7 @@
 ---
 id: T09
 title: "Decision records"
-status: open
+status: done
 depends_on: [T00, D01, D02]
 parallel_with: [T01, T02, T03, T04, T05, T06, T07, T08]
 branch: ticket/t09-decisions
@@ -426,11 +426,138 @@ lists only the twelve files and this ticket. Quote each in the hand-back notes.
 
 ### What was verified, and how
 
+Executed on 2026-09-25 in the Supacode worktree for this ticket (branch `T09-decisions`,
+Supacode's name for `ticket/t09-decisions`), with `PATH="$HOME/.cargo/bin:$PATH"` on every
+`just` call so that `check-toolchain` saw rustup's proxy. `.pixi/envs/default` and
+`.tools/bin` already existed, so `just initialize` was not run.
+
+Step 1, the baseline `just check-docs` on the untouched stubs:
+
+```text
+markdownlint.............................................................Passed
+typos....................................................................Passed
+lychee...................................................................Passed
+bg-validate-docs
+Validated 37 pages and 38 canonical topics.
+```
+
+Step 2: `grep -n -E '0004|0011' docs/manifest.yml` printed the two rows with
+"Decision 0004: Hook runner and checkers" / `decision_python_toolchain` and
+"Decision 0011: Tool manager" / `decision_tool_manager`, so no T00 follow-up was needed.
+D01 and D02 both carry `status: done` and their hand-back notes hold the record texts.
+
+Steps 8 and 15: `diff` of D01's fenced block (lines 352-436) against `0004` and of D02's
+(lines 294-381) against `0011` printed nothing; both copies are byte-identical.
+
+Step 9, the crates.io fact re-verified on 2026-09-25 with `cargo info allium-cli`:
+
+```text
+allium-cli
+CLI for checking Allium specification files
+version: 3.6.1
+license: MIT
+rust-version: unknown
+documentation: https://docs.rs/allium-cli/3.6.1
+crates.io: https://crates.io/crates/allium-cli/3.6.1
+```
+
+`cargo search allium --limit 5` also showed that the crate named plain `allium` (0.1.3) is
+an onion-routing library; 0005's same-name paragraph gained one clause saying so.
+
+Step 17: `just check-docs` after every file matched the baseline exactly, including the
+final count `Validated 37 pages and 38 canonical topics.` `just lint` printed twenty-three
+hooks, every one `Passed`. `just check` ran the seventeen recipes in order and ended:
+
+```text
+==> just check-clean
+bg-project-check clean "$1"
+The worktree matches the check baseline.
+
+All checks passed and the worktree is unchanged.
+```
+
+Within it, `check-docs` reported the baseline count, `check-agents` reported
+`Validated AGENTS.md, 2 adapters, and 14 skills.`, and `check-specs` and `analyse-specs`
+reported eight specifications with no diagnostics and no findings.
+
+The Verification block:
+
+```text
+$ ls docs/decisions | wc -l
+12
+$ for f in docs/decisions/000[2-5]-*.md; do sed -n 11p "$f"; done
+*Carried from Pawdoku's decision 0003 at `78d03cdf`, and restated for ...
+*Carried from Pawdoku's decision 0002 at `78d03cdf`, and restated for ...
+*Carried from Pawdoku's decision 0004 at `78d03cdf`, and restated for ...
+*Carried from Pawdoku's decision 0007 at `78d03cdf`, and restated for ...
+$ for f in docs/decisions/*.md; do printf '%s %s\n' "$f" "$(grep -c '^## ' "$f")"; done
+docs/decisions/0001-engine-as-a-library.md 5
+docs/decisions/0002-specs-are-the-source-of-truth.md 5
+docs/decisions/0003-effects-behind-traits.md 5
+docs/decisions/0004-hook-runner-and-checkers.md 5
+docs/decisions/0005-project-managed-allium-cli.md 5
+docs/decisions/0006-apache-2-0.md 5
+docs/decisions/0007-dependency-policy.md 5
+docs/decisions/0008-no-std-core.md 5
+docs/decisions/0009-rust-quality-gate.md 5
+docs/decisions/0010-skill-reference-material.md 5
+docs/decisions/0011-tool-manager.md 5
+docs/decisions/README.md 4
+$ grep -rn -E 'TODO|TBD|FIXME|/Users/' docs/decisions/ || echo "no placeholders"
+no placeholders
+$ grep -L 'What would reopen this' docs/decisions/00*.md || echo "every record has the section"
+every record has the section
+$ git status --porcelain
+ M docs/decisions/0001-engine-as-a-library.md
+ ... (the twelve files under docs/decisions/)
+ M tickets/T09-decisions.md
+```
+
+A small Python loop over `docs/manifest.yml` compared lines 1-7 and the H1 of each of the
+twelve files with its manifest entry key for key: twelve `ok`, zero mismatches. The
+records run 58 to 113 lines; the index 57.
+
 ### Deviations, and why
+
+- 0004's line 11 carries a third sentence beyond step 4's two ("This repository adds the
+  Rust facts: ..."). It is D01's text, and step 8 and the Non-goals say the record is
+  copied without edits, so the sentence stays; the Verification loop only requires the
+  line to begin `*Carried from Pawdoku's decision`, which it does.
+- 0002's Decision quotes the `AGENTS.md` split as "what the *engine* should do", not G's
+  "the game". Step 6 says to keep the split "as written", and this repository's
+  `AGENTS.md` line 17 writes "engine"; the record quotes the file it names.
+- 0005 departs from step 9's keep-list in three places. G's lines 19-21 are adapted rather
+  than dropped ("Neither `Cargo.lock` nor `pixi.lock` can name it ... every other pin in
+  this repository is proved by `just lock-check`"), because they hold the only use of the
+  `[upstream]` reference and the sentence that frames the whole record, while G's "pins
+  every dependency exactly" would contradict 0007. G's line 50 compared the binary to the
+  Chromium build the story tests render in, a frontend artefact this repository lacks;
+  with the maintainer's agreement on 2026-09-25 it names cargo-hack in `.tools/bin` via
+  `tools.txt` instead, the same shape here. And the verification date is 2026-09-25, the
+  maintainer having chosen a fresh `cargo info` over citing the ticket's 2026-09-23.
+- 0005 is 113 lines, above the acceptance criteria's "realistic 45 to 100". G's 0007 was
+  98 and the crates.io argument adds a paragraph; nothing was cut to meet a guide figure.
+- Commits are on `T09-decisions`, the branch Supacode created for this worktree, rather
+  than the `branch:` field's `ticket/t09-decisions`; the same convention every earlier
+  lane in this repository followed.
 
 ### Handed back
 
+Nothing. No manifest title or slug needed changing, typos flagged no word in any record,
+and lychee resolved every relative link, so `_typos.toml` and the frozen files are
+untouched. The one cross-repository note is already on record in T06's hand-back: the
+game owes its own record for the `allium-skill-reference/` relocation; 0010 here is this
+repository's, not the game's.
+
 ### Open points settled
+
+- 0008 and 0009 stay two records, for the reason the Open points give: 0008 is a property
+  every consumer inherits, 0009 a property of this repository's gate, each with its own
+  reopening condition.
+- No separate rustup record. 0011 records the pixi/rustup split and 0009's Context states
+  the exact toolchain pin as the reason the lint set is stable.
+- typos passed over every record in `just lint` and `just check`, so no `extend-words`
+  entry is handed back to T03.
 
 ## Open points
 
