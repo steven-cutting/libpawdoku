@@ -39,9 +39,9 @@ just lock-upgrade    # move every crate to the newest version its range admits
 `pixi lock`. It is not a no-op: a dependency whose range was edited, or that is new,
 resolves to the newest version its range admits, not to the version the range names.
 `just lock-upgrade` moves every crate, transitive ones included, to the newest version
-its range admits, which under caret ranges changes plenty, and runs `pixi update`, which
-moves only transitive packages because every tool pin is exact. Read both lockfile diffs
-before accepting them.
+its range admits, which under caret ranges changes plenty, and runs `pixi update`. Every
+tool pin is exact, so that moves transitive packages and one direct one: Python, pinned
+`3.14.*`, whose patch release can move. Read both lockfile diffs before accepting them.
 
 ## Upgrading a crate
 
@@ -123,9 +123,10 @@ behind `just check` are console scripts of `biscuit-games-tooling`, which
 
 3. Run `just sync`, because the lock installs nothing, and `just install-allium`, which
    replaces the binary if the release moved its pin.
-4. On a Major release, run `just check` before committing. Otherwise the hooks that read
-   `pyproject.toml`, among them `check-specs` and `analyse-specs`, re-run the contracts and
-   the specifications on the commit.
+4. Run `just check` before committing, whatever the release level. The package supplies
+   the gate runner and the validators, and the hooks that read `pyproject.toml`, among
+   them `check-specs` and `analyse-specs`, re-run the contracts and the specifications
+   but not `lock-check` or the whole gate.
 
 A tag the package has released is never moved, so relocking without editing the tag
 changes nothing.

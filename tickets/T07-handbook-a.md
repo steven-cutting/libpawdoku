@@ -636,6 +636,11 @@ canonical topics.` and `just lint` passed every hook. After the last edit:
   (an edited or new range resolves to the newest version it admits, as T02 saw with serde
   and thiserror), and that the local `uses: ./.github/actions/setup` is the one `uses:`
   without a SHA. The terminology Record, reopen row is rephrased as two whole clauses.
+- **Codex review fixes (PR #9).** The one-test nextest commands now pass `--all-features
+  --locked`, as `just test` does. `just lock-upgrade`'s `pixi update` is said to move
+  Python's patch release, a direct pin written `3.14.*`, as well as transitive packages.
+  The tooling-package procedure now runs `just check` for every release, not only a Major
+  one, because the hooks run neither `lock-check` nor the whole gate.
 - **The order of `just initialize`.** The brief lists refusing a foreign cargo before
   installing the toolchain. `scripts/initialize.sh` runs `install-toolchain` first and
   `check-toolchain` second. Both pages follow the script.
@@ -679,6 +684,10 @@ canonical topics.` and `just lint` passed every hook. After the last edit:
 - **This ticket's Verification block.** The waiver diff needs the link-text substitution
   shown above, and the recipe loop matches the adverb "just" in prose. Both are the
   commands' limits, not the pages'. Nothing to act on unless the block is reused.
+- **`main` follow-up, `Justfile` (frozen): parameterised debugging recipes** (Codex, PR
+  #9). test-and-debug documents direct `cargo nextest` and `cargo llvm-cov report --html`
+  calls because the brief prescribes them and no recipe takes a filter. A recipe such as
+  `test-one filter` and a `coverage-html` would let the page name recipes instead.
 - No typos finding was hit, so nothing goes to T03's `_typos.toml`.
 
 ### Open points settled
@@ -692,6 +701,9 @@ canonical topics.` and `just lint` passed every hook. After the last edit:
   with a `tests` module (`a_grid_is_nine_by_nine`) at its foot, and `BOX_SIDE` does not
   exist, so no substitution was needed.
 - **The first `lint` and the network.** Settled by reading, not by an offline run.
+  During the PR #9 review, `lock-check`'s cargo line was run with every proxy pointed at
+  a dead port: `cargo update --workspace --locked` exited 0 with `Locking 0 packages` and
+  no index update. T03 (6e) showed the same for the pixi line.
   `just install-hooks` prepares every hook environment and warms lychee, and
   `scripts/initialize.sh` calls it from the primary checkout only. So after
   `just initialize` in a primary checkout the gate is offline, and in a secondary

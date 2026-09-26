@@ -17,11 +17,12 @@ just coverage    # nextest under instrumentation, with the coverage floor enforc
 just clippy      # every lint the manifests declare, as errors
 ```
 
-To iterate on one test, call nextest directly with its filter language:
+To iterate on one test, call nextest directly with its filter language, keeping the
+flags `just test` passes so the run sees the same features and cannot touch the lockfile:
 
 ```console
-cargo nextest run -p pawdoku -E 'test(name)'
-RUST_BACKTRACE=1 cargo nextest run -p pawdoku -E 'test(name)'
+cargo nextest run -p pawdoku --all-features --locked -E 'test(name)'
+RUST_BACKTRACE=1 cargo nextest run -p pawdoku --all-features --locked -E 'test(name)'
 ```
 
 The tools live in `.pixi/envs/default/bin` and `.tools/bin`, which the `Justfile` puts on
