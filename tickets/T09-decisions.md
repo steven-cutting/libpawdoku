@@ -461,8 +461,11 @@ documentation: https://docs.rs/allium-cli/3.6.1
 crates.io: https://crates.io/crates/allium-cli/3.6.1
 ```
 
-`cargo search allium --limit 5` also showed that the crate named plain `allium` (0.1.3) is
-an onion-routing library; 0005's same-name paragraph gained one clause saying so.
+`cargo info allium-parser` printed version 3.6.1, MIT, "Parser and structural validator
+for the Allium specification language", so 0005's "beside `allium-parser` 3.6.1" is also
+verified on 2026-09-25. `cargo search allium --limit 5` also showed that the crate named
+plain `allium` (0.1.3) is an onion-routing library; 0005's same-name paragraph gained one
+clause saying so.
 
 Step 17: `just check-docs` after every file matched the baseline exactly, including the
 final count `Validated 37 pages and 38 canonical topics.` `just lint` printed twenty-three
