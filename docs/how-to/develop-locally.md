@@ -17,9 +17,9 @@ requires: []
 | `just` | The task runner, and the only supported interface to the checks. `pixi global install just` provides one. Any `just` launches the recipes, because the pinned one in the environment runs every nested call and CI; `pixi run --frozen just <recipe>` is the escape hatch when no global `just` is installed. |
 | `gh` | Only for the pin-bump commands in [Maintain dependencies](maintain-dependencies.md). |
 
-Nothing else: not uv, not cargo-binstall, not a system Python. `rust-toolchain.toml` names
-the exact toolchain, its components and its two wasm targets, and rustup installs them
-the first time cargo runs here. `pyproject.toml` names every other tool and `pixi.lock`
+Nothing else: not uv, not cargo-binstall. `rust-toolchain.toml` names the exact
+toolchain, its components and its two wasm targets, and rustup installs them the first
+time cargo runs here. `pyproject.toml` names every other tool and `pixi.lock`
 pins it, with `tools.txt` the one-line exception for what conda-forge lacks.
 [Configuration](../reference/configuration.md) has each figure; this page states none.
 The page covers Ubuntu and macOS; Windows gains a section the day the command-line crate
@@ -38,7 +38,9 @@ already installed. The one-time command is upstream's:
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain stable --profile minimal
 ```
 
-Any route that ends with `rustup` on `PATH` and `command -v cargo` printing
+The `stable` default it sets is only for use outside this repository; here
+`rust-toolchain.toml` overrides it, and `--default-toolchain none` works as well. Any
+route that ends with `rustup` on `PATH` and `command -v cargo` printing
 `~/.cargo/bin/cargo` is equivalent.
 
 The second, and last, is pixi, with the installer its documentation gives:

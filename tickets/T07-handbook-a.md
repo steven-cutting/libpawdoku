@@ -588,7 +588,7 @@ canonical topics.` and `just lint` passed every hook. After the last edit:
   project/repository-map               510
   project/terminology                  2042
   tutorials/first-change               643
-  how-to/develop-locally               844
+  how-to/develop-locally               863
   how-to/test-and-debug                575
   how-to/work-with-the-specs           1668
   how-to/maintain-dependencies         1276
@@ -653,6 +653,12 @@ canonical topics.` and `just lint` passed every hook. After the last edit:
 - **purpose-and-scope** names `board.allium` beside the other seven modules, and says
   that a record is a plain value the consumer keeps, which follows T12's reading. The
   brief predates the board module.
+- **The rustup command's `--default-toolchain stable`** is kept as the brief gives it,
+  with a sentence saying the default applies only outside this repository and that
+  `--default-toolchain none` works as well, so it does not read as contradicting "no
+  default toolchain is needed". The Prerequisites sentence lists only uv and
+  cargo-binstall as not needed. T03 found that prek takes Python for some hooks from
+  the machine, so no claim about a system Python is made.
 - **develop-locally** adds a paragraph on secondary worktrees (see the open point on
   `lint` and the network), and backticks `just` in the Prerequisites row so the recipe
   loop does not read "just launches" as a recipe.
