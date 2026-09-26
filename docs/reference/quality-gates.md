@@ -20,13 +20,13 @@ is ignored.
 | 3 | `lint` | The whole hook gate passes over every file. |
 | 4 | `fmt-check` | Every Rust file is as rustfmt would write it. |
 | 5 | `toml-check` | Every TOML file is as taplo would write it, and passes taplo's lint. |
-| 6 | `clippy` | Every lint in the workspace table is clean over every target and feature, with warnings as errors. |
+| 6 | `clippy` | Every lint in the workspace table is clean over every crate target and feature, for the host platform, with warnings as errors. |
 | 7 | `features` | Every feature combination compiles. |
 | 8 | `wasm-check` | The core compiles for `wasm32-unknown-unknown`, the target wasm-bindgen uses, and for `wasm32v1-none`, which has no standard library: the proof that the core is `no_std`. |
 | 9 | `test-doc` | Every doc example compiles and passes. |
-| 10 | `coverage` | Every test passes, and line coverage is at or above the floor. |
+| 10 | `coverage` | Every unit and integration test passes, and line coverage is at or above the floor. Doctests are gate 9's. |
 | 11 | `doc` | rustdoc is warning-free under `--cfg docsrs`, intra-doc links and missing docs included. |
-| 12 | `deny` | Every dependency's licence is allowed, no banned crate is in the graph, and every source is crates.io. |
+| 12 | `deny` | Every dependency that ships has an allowed licence, no banned crate is in that graph, and every source is crates.io. Development dependencies are outside the graph. |
 | 13 | `deps-unused` | No crate declares a dependency it does not use. |
 | 14 | `check-docs` | The documentation contract holds. |
 | 15 | `check-agents` | The agent contract holds. |

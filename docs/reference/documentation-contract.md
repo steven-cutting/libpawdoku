@@ -72,8 +72,10 @@ contract does not see them; they are still valid link targets.
 
 ## Links that leave the repository
 
-One page points outward: [Modelling a human Sudoku solver](../explanation/human-solving.md)
-cites its research sources, papers and a technique catalogue, by URL. Every such link is
+Two pages point outward: [Modelling a human Sudoku solver](../explanation/human-solving.md)
+cites its research sources, papers and a technique catalogue, by URL, and
+[Decision 0005](../decisions/0005-project-managed-allium-cli.md) links the Allium tools'
+upstream repository. Every such link is
 to a whole page, never to a heading — a fragment across the boundary is checked by
 nothing on either side, and a heading renamed there would rot here silently either way.
 

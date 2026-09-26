@@ -660,6 +660,33 @@ pages against `docs/manifest.yml`: none points elsewhere.
   the agent contract (caught by the verification grep after the reference commit),
   operations pages, and this ticket.
 
+### Review follow-up (PR #10)
+
+Copilot raised six findings and Codex four. Nine were valid and are fixed on this
+branch; one was not.
+
+- **Fixed.** `layering.md`'s `sudoku` row says "every other specification module", since
+  `random` does not import it. `quality-philosophy.md` gains a paragraph after G's
+  verbatim 17-22 naming the known exception to "checks are read-only": `lock-check` on a
+  stale `pixi.lock` (G's text is unchanged; the insertion splits 11-33 into two verbatim
+  runs). The `clippy` rows in `commands.md` and `quality-gates.md` say what
+  `--all-targets` covers: crate targets on the host, not other platforms. The `coverage`
+  row says unit and integration tests, and points to gate 9 for doctests. The `deny`
+  rows say "every dependency that ships", because `exclude-dev = true`. The
+  documentation contract names both outward-linking pages: decision 0005 carries a
+  reference-style link that the first inventory's grep missed.
+- **Fixed, with a hand-back.** `commands.md` said `lock-check` is "offline by
+  construction". Tested on this branch with the network blocked through
+  `HTTPS_PROXY`/`CARGO_HTTP_PROXY` set to `127.0.0.1:9`: with the warm cache,
+  `cargo update --workspace --locked` exits 0; with an empty `CARGO_HOME`, it fails on
+  `download of config.json failed`, so it had tried the network. The page now says
+  `lock-check` and `deny` are offline once `just sync` has run.
+- **Not changed.** Codex read `specifications.md`'s "eight of the nine questions …
+  resolved; partial marking and the loads past subsets remain open" as inconsistent. It
+  is not: `technique.allium`'s Resolved Questions block answers eight of nine and names
+  "the ninth, partial marking" as open, and the loads question is a further open
+  question, not one of the nine. The sentence is G's verbatim and stays.
+
 ### Handed back
 
 - **`main` follow-up, `Justfile` (frozen), from T03, still open:** `lock-check`'s pixi
@@ -670,6 +697,10 @@ pages against `docs/manifest.yml`: none points elsewhere.
   troubleshooting's "A `stable` toolchain appears that nobody installed" section goes.
 - **`main` pull request, CONVENTIONS.md §6:** `quality-philosophy.md`'s note should read
   "verbatim minus the frontend ranges" (see Open points settled).
+- **`main` follow-up, `Justfile` (frozen), from PR #10's review:** `lock-check`'s cargo
+  line should gain `--offline`, so a cold cache fails the gate instead of fetching the
+  registry index. When it lands, `commands.md`'s "once `just sync` has run" qualifiers
+  can go.
 - **Keep in step:** `configuration.md` names every lint in `[workspace.lints]` today, so
   a lint added to the table needs a row or a mention there.
 - **`main` follow-up, `docs/README.md` (frozen):** the map still names seven modules while

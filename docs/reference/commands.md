@@ -16,8 +16,10 @@ Nine recipes reach the network: `install-toolchain`, `install-tools`, `install-a
 `install-hooks`, `sync`, `lock`, `lock-upgrade`, `audit` and `check-links-online`.
 `just initialize` runs the first five of them (`install-hooks` only from the primary
 checkout), and is the one command a fresh clone needs the network for. Nothing inside
-`just check` reaches it: `lock-check` is offline by construction, and `lint` finds every
-hook environment already prepared, because `install-hooks` prepared it. `build`, `test`,
+`just check` reaches it once `just sync` has fetched the registry index: `lock-check` and
+`deny` then answer from that cache, and `lint` finds every hook environment already
+prepared, because `install-hooks` prepared it. On a cold Cargo cache, `lock-check`'s cargo
+line fetches the index rather than failing. `build`, `test`,
 `audit` and `check-links-online` are outside `just check`, and so is every recipe that
 writes.
 
@@ -33,7 +35,7 @@ writes.
 | `just sync` | Install `Cargo.lock` and `pixi.lock` exactly as committed; never rewrites either. Run after pulling. Over the network. |
 | `just lock` | Relock both: `Cargo.lock` at the versions the manifests allow, and `pixi.lock` against `pyproject.toml`. Over the network. |
 | `just lock-upgrade` | `cargo update` and `pixi update`: move within the manifests' constraints. Over the network. |
-| `just lock-check` | Fail if a manifest and its lockfile disagree, for both lockfiles. Offline. Gate 2. |
+| `just lock-check` | Fail if a manifest and its lockfile disagree, for both lockfiles. Offline once `just sync` has run. Gate 2. |
 | `just install-hooks` | Install the read-only pre-commit gate and prepare every hook environment, so that `just lint` never fetches. Over the network. Run it from the primary checkout: every worktree shares one hooks directory, and the hook runs the environment of whichever worktree installed it. |
 
 ## Develop
@@ -58,12 +60,12 @@ writes.
 | `just lint` | The whole read-only hook gate over every file. Gate 3. |
 | `just fmt-check` | rustfmt, checking. Gate 4. |
 | `just toml-check` | taplo's formatting check and its lint over every TOML file. Gate 5. |
-| `just clippy` | Clippy over every target and feature, with warnings as errors. Gate 6. |
+| `just clippy` | Clippy over every crate target (the library, its tests, and any examples or benches) with every feature, for the host platform, with warnings as errors. The wasm targets are compiled by `wasm-check`, not linted. Gate 6. |
 | `just features` | Every feature combination compiles, through cargo-hack's powerset. Gate 7. |
 | `just wasm-check` | The core compiles for `wasm32-unknown-unknown` and for `wasm32v1-none`, which has no standard library, under every feature combination. Gate 8. |
 | `just coverage` | Every nextest test under instrumentation, with the floor of 90 per cent of lines enforced; writes `target/llvm-cov/lcov.info`. Gate 10. |
 | `just doc` | rustdoc over the workspace with warnings as errors and `--cfg docsrs`. Gate 11. |
-| `just deny` | cargo-deny's licence, ban and source checks, offline. Gate 12. |
+| `just deny` | cargo-deny's licence, ban and source checks over every dependency that ships, offline once `just sync` has run. Gate 12. |
 | `just audit` | cargo-deny's advisory check against the RustSec database. Over the network, so outside `just check`; CI runs it weekly in its own workflow. |
 | `just deps-unused` | cargo-shear: a dependency a crate declares and never uses. Gate 13. |
 

@@ -14,7 +14,7 @@ implements it may use what its specification imports and nothing above it.
 
 | Module | Imports | Imported by |
 | --- | --- | --- |
-| `sudoku` | nothing | every other module |
+| `sudoku` | nothing | every other specification module |
 | `solver` | `sudoku` | nothing |
 | `technique` | `sudoku` | `reach`, `effort`, `lapse`, `human-solving` |
 | `reach` | `sudoku`, `technique` | nothing |
