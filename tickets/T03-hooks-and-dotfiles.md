@@ -1,7 +1,7 @@
 ---
 id: T03
 title: "Hooks and the language-agnostic gate: dotfiles, first-run script, the pixi environment"
-status: open
+status: done
 depends_on: [T00, D01, D02]
 parallel_with: [T01, T02, T04, T05, T06, T07, T08, T09]
 branch: ticket/t03-hooks-and-dotfiles
@@ -465,24 +465,435 @@ nothing. Quote each in the hand-back notes.
 
 ## Hand-back notes
 
+**Done on 2026-09-25**, in one session, on the Supacode branch `T03-hooks-and-dotfiles`
+(see Deviations). Commits: `a9c30ef` (the dotfiles and checker configurations),
+`35b3bcb` (the first-run script's comments and the manifest note), and the closing
+commit with these notes. Nothing was pushed. Transcripts are in `ai_tmp/t03/`.
+
+### Actions with effects outside this worktree
+
+- **pixi's package cache** (`~/Library/Caches/rattler/cache`): read by
+  `pixi install --frozen`; it gained `ripgrep` 15.2.0 repodata and records from the
+  step 6e scratch copy, which used the network as the step allows.
+- **prek's default cache** (`~/.cache/prek`): read only (the typos and shellcheck
+  binaries of steps 6c and 9, and the hook runs of `just lint`); nothing was prepared
+  into it.
+- **A `stable` Rust toolchain was installed into `~/.rustup`**, 1.3 GB, at 16:53:20 local
+  time, by step 7's cold `install-hooks`. The ticket did not expect it; it is the
+  finding under 6d below. It was left in place: it is the maintainer's to keep or remove
+  (`rustup toolchain uninstall stable`). No default toolchain was set
+  (`rustup default` still prints "no default toolchain is configured").
+- **The session scratch directory** held the cold prek homes and a sandbox
+  `RUSTUP_HOME` (an APFS clone of the 1.98.1 toolchain) for the 6d attribution; removed
+  at the end.
+- **The shared hook shim** `/Users/scutting/projects/libpawdoku/.git/hooks/pre-commit`
+  was not touched: the cold-cache proof ran in a clone with its own `.git`
+  (maintainer's choice). SHA-256 `0c6253b3…` before and after; it still names the
+  primary checkout's prek.
+- `~/.cargo/bin` was not written to. No clone (G, T, B) was modified.
+
+Inside the worktree but gitignored: `.pixi/envs/default`, `.tools/bin` (`allium` and
+`cargo-hack`), `target/`, and `ai_tmp/` (the transcripts, the clone `ai_tmp/clone`).
+
 ### What was verified, and how
+
+Every command ran with `PATH="$HOME/.cargo/bin:$PATH"`, so `cargo` was rustup's proxy.
+
+**Step 1.** `pixi install --frozen` (1.5 s), then `just check-toolchain`
+(`1.98.1-aarch64-apple-darwin (overridden by '…/T03-hooks-and-dotfiles/rust-toolchain.toml')`).
+The first `just lint` failed only `check-specs` and `analyse-specs` ("allium is not
+installed; this project pins 3.6.1"): a fresh worktree has no `.tools/bin/allium`, which
+step 1 does not install. After `just install-allium`, `just lint` was green. Not a T00
+fault; recorded under Deviations.
+
+**Steps 2 and 3.** Each dotfile was diffed against the ticket's fence. The only
+differences are the four under Deviations: `[LICENSE]` in `.editorconfig`, `-diff` on
+the `pixi.lock` line, and taplo's layout of the two TOML arrays. `.gitignore` and
+`.markdownlint-cli2.jsonc` match byte for byte.
+
+**Step 4.** `scripts/initialize.sh`: lines 1-7 and the Allium comment (G's 32-36) are
+identical to G's (`cmp` of the extracted ranges). The `install-hooks` block against G's
+lines 45-61 differs only in the comment, reflowed for the two edits step 4 names:
+
+```text
+< # from a secondary worktree runs that worktree's virtual environment for commits
+---
+> # from a secondary worktree runs that worktree's .pixi/envs/default/bin/prek for
+…
+> # the git directory differ. The recipe also provisions every hook environment,
+> # so this is the last line of the first-run path that reaches the network.
+```
+
+**Step 5.** The five D02 comments are present. The one added line sits where G's
+`[tool.typos]` sat, above `[tool.biscuit-games-tooling]`. `pixi lock --check` prints
+"Lock-file was already up-to-date", and `taplo fmt --check pyproject.toml` passes.
+
+**CONVENTIONS.md §12 claims assigned to T03:**
+
+- **6a. binstall root, checksum, idempotence: root and idempotence hold; no checksum is
+  verified for cargo-hack.** After `rm -rf .tools && just install-tools`:
+
+  ```text
+  cargo-binstall:  WARN The package cargo-hack v0.6.45 (aarch64-apple-darwin) has been downloaded from github.com
+  cargo-binstall:  INFO   - cargo-hack => .tools/bin/cargo-hack
+  cargo-binstall:  INFO Done in 2.391679834s
+  ```
+
+  `.tools/bin` held `cargo-hack` alone. binstall's own metadata is at
+  `.tools/.crates.toml` and `.tools/binstall/crates-v1.json`, and nothing else is under
+  `.tools/`. The second run downloaded nothing and exited 0:
+
+  ```text
+  cargo-binstall:  INFO cargo-hack v0.6.45 is already installed, use --force to override
+  cargo-binstall:  INFO Done in 1.094292ms
+  ```
+
+  Then `just install-allium`; `.tools/bin` is `allium` and `cargo-hack`. The verbose
+  flag is `-v` (`--log-level debug`). A `-v` install into a scratch root logs the
+  crate's metadata as
+  `PkgMeta { pkg_url: Some("{ repo }/releases/download/v{ version }/{ name }-{ target }.tar.gz"), …, signing: None, … }`,
+  then `Downloading package url=https://github.com/taiki-e/cargo-hack/releases/download/v0.6.45/cargo-hack-aarch64-apple-darwin.tar.gz`,
+  `Download OK`, and the install. No checksum or signature line appears. cargo-hack
+  publishes no signing key, so the claim is true only vacuously: the binary is trusted
+  on TLS to GitHub and nothing else. Which binstall runs: `cargo-binstall --version`
+  is refused (`a value is required for '--version <VERSION>'`); `-V` prints `1.23.0`
+  for both the environment's and the per-machine `~/.cargo/bin` build. They are told
+  apart by `-V -v`: the environment's says `build-date: 2026-09-05`,
+  `rustc-version: 1.97.1` (conda-forge), and the per-machine one says
+  `rustc-version: 1.98.1`. `cargo binstall -V -v` with the recipe's `PATH` prints the
+  conda-forge build, so the environment's binstall is the one that runs. The recipe
+  `PATH` (`just --evaluate`) is `.pixi/envs/default/bin`, `.tools/bin`, then the
+  caller's, with `~/.cargo/bin` after both. Beware `cargo --list -v`: it prints
+  `binstall  /Users/scutting/.cargo/bin/cargo-binstall` even when a probe script
+  placed first on `PATH` is the one that runs. It reports the last match, not the one
+  cargo executes.
+- **6b. taplo lint offline: holds.**
+  `HTTP_PROXY=http://127.0.0.1:9 HTTPS_PROXY=http://127.0.0.1:9 just toml-check` exits 0
+  in 0.15 s with no schema line. Nothing for T02.
+- **6c. typos precedence: holds.** Two typos environments are in `~/.cache/prek`: G's
+  1.48.0 (rev `bee27e3a`) and this repository's 1.50.2 (rev `512fc24f`); the one used
+  is the 1.50.2 one. From the root, `typos --dump-config -` opens with `[files]` and the
+  seven-entry `extend-exclude`. In `ai_tmp/typos-precedence/`, the dump shows
+  `alpha = "alpha"` and no `bravo`. Control: with `_typos.toml` moved aside, the same
+  directory dumps `bravo = "bravo"`. So typos reads `pyproject.toml`'s table only when
+  no `_typos.toml` is found, and never merges the two.
+- **6d. prek's Rust hooks and the default toolchain: the expectation fails on 0.5.3,
+  and the lychee warm installs `stable`.** After the cold `install-hooks`,
+  `$PREK_HOME/tools` holds `go` (271 MB), `node` (empty) and `rustup` (empty). The
+  ripsecrets manifest:
+
+  ```text
+  "language": "rust", "language_version": "1.98.1",
+  "toolchain": "/Users/scutting/.rustup/toolchains/1.98.1-aarch64-apple-darwin",
+  "extra": { "channel": "stable" }
+  ```
+
+  prek's trace says why: `Using system installed rustup at /Users/scutting/.cargo/bin/rustup`,
+  `Found matching system rust name=1.98.1-aarch64-apple-darwin`, then
+  `cargo install --bins --root $PREK_HOME/hooks/rust-… --path . --locked` with that
+  toolchain's cargo. So prek 0.5.3 does not provision its own rustup when the machine
+  has one: it uses an installed toolchain, here the pinned 1.98.1, and needs no default.
+  Node and Python likewise come from the machine: Homebrew's node 26.5.1, and the
+  `pixi global` uv 0.11.18 (`~/.pixi/bin/uv`) with an already-installed Python.
+  Only Go was downloaded (`https://go.dev/dl/go1.27.1.darwin-arm64.tar.gz`). The
+  ripsecrets build, the one compile in the first-run path, took **12.7 s**
+  (23:54:22.71 to 23:54:35.46 in the trace).
+
+  The side effect: `just install-hooks`'s last line, the lychee warm, installed a
+  `stable` toolchain into `~/.rustup`. Reproduced with a sandbox `RUSTUP_HOME` holding
+  only 1.98.1: the toolchain list was unchanged after the recipe's first and second
+  lines and gained `stable-aarch64-apple-darwin` after the third. The cause is lychee's
+  own checkout: it carries `rust-toolchain.toml` with `channel = "stable"`, its hook
+  script `pushd`s into that checkout and runs cargo-binstall, and binstall calls `rustc`
+  to detect the target; rustup honours lychee's pin and auto-installs it. A bare `rustc`
+  outside any pin refuses instead ("no default is configured"). With
+  `RUSTUP_AUTO_INSTALL=0` on that line, lychee installs and passes and no toolchain
+  appears (binstall falls back to its built-in target). CI runners ship `stable`, so CI
+  is unaffected. The follow-ups are under Handed back.
+- **6e. `lock-check` offline and without writes: holds for a current lock; it rewrites
+  a stale one.** After `just sync`, `pixi.lock`'s SHA-256 was `86e30aae…` before and
+  after `HTTP_PROXY=… HTTPS_PROXY=… just lock-check`, which printed
+  `Locking 0 packages` and `✔ Lock-file was already up-to-date`, exit 0. The check
+  bites: in a scratch copy with `ripgrep = "*"` added, `pixi lock --check` exits 1 with
+  `× lock file not up-to-date with the workspace`. But it also printed
+  `✔ Updated lock file` and **rewrote the copy's `pixi.lock`**. The recipe's own form
+  does the same whenever the stale manifest can be solved offline. With `cargo-shear`
+  removed from a copy:
+
+  ```text
+  pixi lock --check --offline            exit=1  REWRITTEN
+       WARN `pixi.lock` was written from a solve restricted to locally available packages, so it may pin older versions than the channels offer.
+  pixi lock --check --offline --dry-run  exit=1  unchanged
+       i Dry-run: lock file would be updated (not written to disk)
+  ```
+
+  With `ripgrep` added, the offline form fails its solve ("not available locally") and
+  writes nothing. `--dry-run` on the current lock exits 0 with "Dry-run: lock file
+  would not change". So the recipe is read-only on a current lock, as §12 claims, and
+  not on a stale one: `check-clean` would still go red, but the working tree is left
+  with a lock solved from local packages. Follow-up under Handed back.
+- **6f. `pixi run` and hook filenames: holds.** `pixi run -x` exists on 0.81.0
+  ("Execute the command as an executable without resolving Pixi tasks"). The argv the
+  child sees:
+
+  ```text
+  $ pixi run -x --frozen python -c '…print(sys.argv[1:])…' "ai_tmp/quoting/it's a file.txt" 'a"b c'
+  ["ai_tmp/quoting/it's a file.txt", 'a"b c']
+  [True, False]
+  ```
+
+  `pixi run -x --frozen bg-ripsecrets "ai_tmp/quoting/it's a file.txt"` needs
+  `ripsecrets` on `PATH`, which prek supplies inside a hook. Outside one it exits 1
+  with "ripsecrets is unavailable; run just install-hooks". With the cached ripsecrets
+  0.1.11 on `PATH`, the clean file exits 0. With two credential-shaped lines appended,
+  it prints "ripsecrets found credential material; the matched values are suppressed"
+  and exits 1, and ripsecrets itself names `ai_tmp/quoting/it's a file.txt`. A
+  caution for whoever switches the entry: ripsecrets exits 0 for a path that does not
+  exist, so a clean exit alone never proves a filename arrived intact.
+- **6g. `lint` offline after `install-hooks`: holds.** Step 7 below: every hook
+  `Passed` with the network blocked, and prek's trace of that run has no clone,
+  download, install or build line.
+
+Context facts re-checked at the pinned versions: prek 0.5.3's help names
+`$PREK_HOME/prek.log`, and `prek cache dir` printed the exported `PREK_HOME` (so the
+variable T04 exports is right). `prek install --overwrite` ran in every `install-hooks`.
+`--hook-stage manual` parses, although `--help` shows `--stage`:
+`prek run --hook-stage manual lychee-online --files does-not-exist.md` prints
+`Lychee online (manual)…(no files to check)Skipped`, and a misspelt flag is refused.
+typos 1.50.2's help lists `--dump-config`, `--config` and `--isolated`.
+
+**Step 7, cold cache.** Run in `ai_tmp/clone`, a clone of the branch at `35b3bcb` with
+its own `.git`, after `pixi install --frozen` and `just install-allium` there. The
+ticket's `PREK_HOME="$PWD/ai_tmp/prek-cold"` cannot work: prek clones ripsecrets under
+it, and `cargo metadata` on the clone's `Cargo.toml` walks up into this repository's
+workspace:
+
+```text
+error: Failed to install hook `ripsecrets`
+  caused by: Failed to find package directory using cargo metadata
+error: current package believes it's in a workspace when it's not:
+workspace: /Users/scutting/.supacode/repos/libpawdoku/T03-hooks-and-dotfiles/Cargo.toml
+```
+
+So `PREK_HOME` went outside any Cargo workspace: the session scratch directory, as CI's
+`runner.temp` is. Then:
+
+```text
+prek cache dir: /private/tmp/claude-501/…/scratchpad/prek-cold
+prek install --overwrite --hook-type=pre-commit --prepare-hooks
+Installed Git hook at `.git/hooks/pre-commit`
+prek prepare-hooks --config .pre-commit-fix.yaml
+prek run lychee --files README.md
+lychee...................................................................Passed
+install-hooks exit=0 wall=35s
+```
+
+prek 0.5.3 prints no clone or install line at its default verbosity, so the lines come
+from `$PREK_HOME/prek.log`. A second empty home with the recipe's three lines run
+separately (19 s, 0 s, 3 s) gave:
+
+```text
+DEBUG Cloning repo … repo=https://github.com/editorconfig-checker/editorconfig-checker@675b1261…
+DEBUG Cloning repo … repo=https://github.com/DavidAnson/markdownlint-cli2@b82a6c88…
+DEBUG Cloning repo … repo=https://github.com/crate-ci/typos@512fc24f…
+DEBUG Cloning repo … repo=https://github.com/lycheeverse/lychee@2bba2716…
+DEBUG Cloning repo … repo=https://github.com/shellcheck-py/shellcheck-py@745eface…
+DEBUG Cloning repo … repo=https://github.com/rhysd/actionlint@914e7df2…
+DEBUG Cloning repo … repo=https://github.com/sirwart/ripsecrets@7d946209…
+DEBUG Downloading url=https://go.dev/dl/go1.27.1.darwin-arm64.tar.gz
+DEBUG Installed hook `typos` / `markdownlint-cli2` / `shellcheck` / `ripsecrets` / `editorconfig-checker` / `actionlint`
+```
+
+and the lychee warm: `Installing lychee@0.24.2 by cargo-binstall...`, `The package
+lychee v0.24.2 (aarch64-apple-darwin) has been downloaded from github.com`. The home
+reached 972 MB. It took 35 s, not minutes, because Node, Python and Rust came from the
+machine (6d). Then, with `HTTP_PROXY`, `HTTPS_PROXY`, `http_proxy` and `https_proxy`
+all set to `http://127.0.0.1:9`, `just lint` in the clone printed all 23 hooks
+`Passed`, exit 0 in 8 s. prek's trace of that run has only `Executing` lines, no
+clone, download or install. `lint` never fetches, lychee included.
+
+**Step 8, `just fix`.** A tracked `scratch.toml` holding `[a]` and `key=1` plus a trailing space, with
+no final newline: `taplo format … Failed - files were modified by this hook`, and
+`git diff scratch.toml` shows `-key=1` (with its trailing space), then
+`\ No newline at end of file`, then `+key = 1`.
+taplo runs first and repairs all three defects, so trailing-whitespace and
+end-of-file-fixer found nothing in it. A second tracked `scratch.txt` (a trailing space,
+no final newline) showed both: `fix end of files … Failed`,
+`trim trailing whitespace … Failed`, and the diff removes the space and adds the
+newline. `git rm --cached -q` refused both files ("staged content different from both
+the file and the HEAD"), so they were unstaged with `git restore --staged` and deleted.
+`git status --porcelain` then showed no scratch line and only the ticket's files, and
+`just lint` was green. `just fix` changed no other file.
+
+**Step 9, shellcheck.** `prek run --all-files shellcheck --verbose` prints the hook's
+id, description and duration but no file list on 0.5.3. Visibility was proved instead
+with a tracked `scripts/scratch.sh` (`echo $1`): the hook failed with
+`In scripts/scratch.sh line 2: … SC2086 (info): Double quote to prevent globbing and word splitting.`
+The file was then unstaged and deleted. The hook's own shellcheck 0.11.0, run directly
+on `scripts/*.sh`, exits 0 with no output. `scripts/initialize.sh` is the only
+`scripts/*.sh` and is executable.
+
+**The Verification block**, from this worktree (`ai_tmp/t03/verification-1.txt`). The
+`install-hooks` line is step 7's clone run above. The two listings and the dump print one
+name per line and are joined here for length.
+
+```text
+$ just check-toolchain
+1.98.1-aarch64-apple-darwin (overridden by '…/T03-hooks-and-dotfiles/rust-toolchain.toml')
+$ pixi install --frozen && pixi install --frozen
+✔ The default environment has been installed.
+✔ The default environment has been installed.
+bin listing unchanged
+$ ls -1 .pixi/envs/default/bin | grep -E '^(prek|just|cargo-|taplo|bg-)' ; ls -1 .tools/bin
+bg-install-allium bg-project-check bg-ripsecrets bg-run-allium bg-validate-agents
+bg-validate-docs cargo-binstall cargo-deny cargo-llvm-cov cargo-nextest cargo-shear
+just prek taplo
+allium cargo-hack
+scripts/initialize.sh executable
+$ "$typos_bin" --dump-config - | sed -n 1,10p     # the 1.50.2 environment
+[files]
+extend-exclude = [
+    "Cargo.lock", "pixi.lock", ".pixi/", ".tools/", "target/", "ai_tmp/", "allium-skill-reference/",
+]
+$ grep -c '^\[tool\.typos' pyproject.toml || echo "no [tool.typos]"
+0
+no [tool.typos]
+$ HTTP_PROXY=… HTTPS_PROXY=… just toml-check
+toml-check exit=0
+$ just lock-check && echo "lock current"
+✔ Lock-file was already up-to-date
+lock current
+$ just check-docs
+Validated 37 pages and 38 canonical topics.
+$ just check
+The worktree matches the check baseline.
+
+All checks passed and the worktree is unchanged.
+$ git status --porcelain
+```
+
+`just check` exited 0 in 12 s, and `git status --porcelain` printed nothing. The
+second `pixi install --frozen` printed the same line as the first and the `bin`
+listing was identical before and after. pixi 0.81.0 prints no "nothing to install"
+wording.
 
 ### Deviations, and why
 
+- **Branch.** Committed on the Supacode branch `T03-hooks-and-dotfiles`, not
+  `ticket/t03-hooks-and-dotfiles` (the maintainer's choice, 2026-09-25). The `branch:`
+  field is left as the ticket wrote it.
+- **Step 1 also ran `just install-allium`.** A fresh worktree has no `.tools/bin/allium`,
+  and `lint` runs the two spec hooks.
+- **`.editorconfig` keeps T00's `[LICENSE] indent_size = unset` block**, after
+  `[Makefile]`. Without it editorconfig-checker reports 17 errors in the Apache text
+  (T00's hand-back). The hook's `exclude` is frozen, so the exemption belongs here.
+- **`.gitattributes` adds `-diff` to the `pixi.lock` line**:
+  `pixi.lock merge=binary linguist-language=YAML linguist-generated=true -diff`. The
+  lockfile page (`https://pixi.prefix.dev/latest/workspace/lock_file/`, fetched
+  2026-09-25) says nothing about attributes. pixi's recommendation is the file
+  `pixi init` writes: `pixi init` 0.81.0 writes exactly this line under
+  `# SCM syntax highlighting & preventing 3-way merges`, from
+  `crates/pixi_api/src/workspace/init/options.rs` on `prefix-dev/pixi` `main`, where
+  `-diff` arrived in PR 4913 (merged 2025-11-12, fixing issue 4892 "Don't show
+  `pixi.lock` in regular `git diff`"). Effect: `git diff` shows "Binary files … differ"
+  for the lock, and `git diff -a` shows the text.
+- **`_typos.toml` and `lychee.toml` keep one array entry per line.** The ticket's one-line
+  arrays are 114 and 88 columns. `taplo fmt` reflows both at its default width, so
+  `toml-check` fails on them (checked in scratch against a copy of the config). Same
+  values, taplo's layout, which is also G's layout for `lychee.toml`. T02's pull request
+  (#3) sets `column_width = 100` and folds `lychee.toml` onto one line, which is step 3's
+  text. This branch leaves `lychee.toml` as T00 wrote it, so the two merge without
+  conflict (`git merge-tree` against `origin/ticket/t02-rust-gate`) and T02's form wins.
+  `_typos.toml`'s array is 114 columns, so it stays one entry per line under T02's
+  width too; both files pass `taplo fmt --check` with T02's `taplo.toml`.
+- **The `pixi install --locked` comment names the lines that need the environment.**
+  Step 4's text, "every later line needs prek, cargo-binstall or a `bg-*` script from
+  the environment", is too broad: `install-toolchain`, `check-toolchain` and
+  `cargo generate-lockfile` need only rustup. The comment instead names the four
+  recipes that need the environment, `install-tools`, `install-allium`, `format` and
+  `install-hooks`, and the tool each takes from it: cargo-binstall, `bg-*` scripts,
+  taplo and prek. Its `--locked` sentence is step 4's text unchanged. Raised by
+  Copilot's review of pull request #4.
+- **The typos grep in the Verification block is anchored.** `grep -c 'tool.typos'`
+  counts the comment step 5 asks for ("a [tool.typos] here would be ignored") and
+  prints 1. `grep -c '^\[tool\.typos'` asks the question the block means.
+- **The typos binary is chosen by rev, not `ls … | head -1`.** The default cache holds
+  G's 1.48.0 environment beside this repository's 1.50.2 one, and `head -1` can pick
+  either.
+- **Step 7's `PREK_HOME` is outside the worktree**, in the session scratch directory.
+  Any home under a Cargo workspace breaks the `language: rust` hook (above). It was
+  removed afterwards.
+- **Step 8 used a second scratch file**, `scratch.txt`, because taplo repairs everything
+  in a TOML file before the two builtin fixers run; and `git restore --staged` in place
+  of `git rm --cached`, which refuses a staged file the fixers changed.
+- **Step 9 proved shellcheck's view with a failing scratch script**, because prek 0.5.3's
+  `--verbose` prints no file list.
+
 ### Handed back
+
+- **`main` follow-up, `Justfile` (frozen): `lock-check` must not write.** Make its pixi
+  line `pixi lock --check --offline --dry-run`. Proven above: exit 1 and nothing
+  written on a stale lock, exit 0 and "lock file would not change" on a current one.
+  The recipe's comment and CONVENTIONS.md §2, §4 and §13 ("every pixi call in a gate is
+  `--frozen` or `lock --check` so none rewrites `pixi.lock`") follow.
+- **`main` follow-up, `Justfile` (frozen): the lychee warm must not install a
+  toolchain.** Make the line `-RUSTUP_AUTO_INSTALL=0 prek run lychee --files README.md`,
+  with a comment that lychee's checkout pins `stable` and its script's cargo-binstall
+  would otherwise make rustup install it. Proven in a sandbox `RUSTUP_HOME`. The same
+  auto-install would presumably fire on a commit's first lychee run if `install-hooks`
+  never ran (not tested).
+- **`main` follow-up, CONVENTIONS.md §2 and §12.** The prerequisite sentence is right
+  that no `stable` default is needed, but for a different reason than it gives. prek
+  0.5.3 uses the machine's rustup and an installed toolchain (the pinned 1.98.1), not a
+  rustup of its own under `$PREK_HOME/tools/rustup`. And with the current recipe,
+  `install-hooks` installs `stable` anyway (6d). §12's binstall claim should say that
+  cargo-hack publishes no checksum or signature, so nothing is verified. Whether prek
+  provisions its own rustup, node and uv on a machine that has none was not tested
+  (every one was present here).
+- **`main` follow-up, `.pre-commit-config.yaml` (frozen), optional:** the ripsecrets
+  entry may become `pixi run -x --frozen bg-ripsecrets` for uniformity with the four
+  script hooks (6f). Keep the path form if a clean exit on a mangled name matters,
+  since ripsecrets exits 0 for a missing path.
+- **T04.** `PREK_HOME` is the right variable on 0.5.3. It must never sit under the
+  checkout: `${{ runner.temp }}/prek` is right, and anything under the workspace breaks
+  the ripsecrets install. The cold `install-hooks` downloads Go on a runner, and Node
+  and Python only if the image lacks them. The `.tools` cache key is unaffected.
+- **T07.** `develop-locally.md`: `just initialize` installs a `stable` toolchain today
+  (the lychee warm) until the `main` follow-up lands. binstall reads the per-user
+  `~/.cargo/binstall.toml`. prek builds its Python hooks with any `uv` on `PATH`. A
+  cold `install-hooks` took 35 s on Apple silicon with node, uv and rustup present, and
+  the ripsecrets build 12.7 s.
+- **T08.** `troubleshooting.md`: `cargo --list -v` names the last `cargo-binstall` on
+  `PATH`, not the one cargo runs (use `cargo binstall -V -v`). A `PREK_HOME` inside the
+  checkout fails the ripsecrets install with "current package believes it's in a
+  workspace". An unexpected `stable` toolchain comes from the lychee warm.
+  `security-model.md`: cargo-hack is downloaded unsigned, over TLS from its GitHub
+  release. `configuration.md`: `_typos.toml` is the only typos configuration.
+- **T02.** Nothing from 6b. Its one-line `lychee.toml` stands; this branch does not touch
+  that file.
+- **Maintainer.** The `stable` toolchain in `~/.rustup` (1.3 GB) is yours to keep or
+  remove with `rustup toolchain uninstall stable`.
 
 ### Open points settled
 
+Put to the maintainer on 2026-09-25 and answered:
+
+- **Branch name:** keep the Supacode name `T03-hooks-and-dotfiles`.
+- **The cold proof and the shared shim:** run it in a scratch clone with its own
+  `.git`, so the primary's shim is never rewritten.
+- **`[*.toml]` in `.editorconfig`:** implicit, as step 2 prints it. The `[*.rs]`
+  comment names taplo as the owner of the two-space default.
+- **`.ruff_cache/`:** kept.
+- **`allium-skill-reference/` and editorconfig-checker:** needs no change. The frozen
+  top-level `exclude` of `.pre-commit-config.yaml` already lists
+  `allium-skill-reference/`, and it applies to every hook, editorconfig-checker
+  included.
+
 ## Open points
 
-- Whether `.editorconfig` should carry an explicit `[*.toml]` entry naming taplo's
-  two-space indent, or rely on the `[*]` default as written. Explicit costs a line and
-  states the owner; implicit breaks silently if `[*]` ever changes.
-- Whether `allium-skill-reference/` should also be excluded from editorconfig-checker
-  (its own `.ecrc` or an `exclude` in the hook's `args`, which is a frozen-file change),
-  since it is excluded from markdownlint, lychee and typos alike; vendored text that
-  fails `trim_trailing_whitespace` would otherwise block T05.
-- Whether `.ruff_cache/` stays in `.gitignore` (D02 left it to this ticket). Nothing in
-  this repository runs ruff, so the line is inert; keeping it costs nothing and covers a
-  future bindings crate's Python tests. Recommendation: keep it, and drop it if T08's
-  repository map has to explain it.
+- Whether prek 0.5.3 provisions its own rustup, Node and uv under `$PREK_HOME/tools` on
+  a machine that has none (every one was present here, so each came from the machine;
+  only Go was downloaded). T04's runner answers it for Linux.
+- The three `main` follow-ups above (the `lock-check` dry run, the lychee warm's
+  `RUSTUP_AUTO_INSTALL=0`, the CONVENTIONS.md wording), which T11 reconciles if they
+  have not landed.

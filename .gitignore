@@ -3,11 +3,16 @@ __pycache__/
 *.py[cod]
 .ruff_cache/
 .cache/
-.lycheecache
 .env
 .env.*
 !.env.example
 
+# lychee's link cache: `cache = true` in lychee.toml, so the offline hook
+# writes it beside the config and reads it on the next run.
+.lycheecache
+
+# Scratch for agents and maintainers alike: anything that is not a
+# deliverable goes here, never in a commit.
 ai_tmp/
 
 # Assistant state written on first use; the agent contract covers only the
@@ -15,22 +20,29 @@ ai_tmp/
 .claude/settings.local.json
 .codex/settings.local.json
 
-# Cargo's build output, and what coverage and mutation runs leave behind.
-# Ignored because `just check` snapshots the worktree between recipes, so a
-# build artefact Git can see would abort the run before any recipe's exit code
-# is read.
+# Everything cargo builds, and the coverage report the coverage recipe writes
+# under it. `just check` snapshots the worktree between recipes, so a build
+# product Git can see would abort the run before any recipe's exit code is
+# read.
 target/
-*.profraw
-lcov.info
-mutants.out*/
 
-# The pinned allium binary, installed by `just install-allium`. Ignored because
-# `just check` snapshots the worktree between recipes, so a binary Git can see
-# would abort the run before any recipe's exit code is read.
+# The pixi environment `just initialize` installs from pixi.lock: every tool
+# binary, Python, prek and the tooling package's scripts. Ignored for the same
+# reason as target/: `just check` snapshots the worktree between recipes, and
+# an environment Git can see aborts the snapshot.
+.pixi/
+
+# The pinned allium binary, installed by `just install-allium`, and the
+# binaries tools.txt pins because conda-forge lacks them, installed by
+# `just install-tools`. Ignored for the same reason as target/: a binary Git
+# can see aborts the snapshot.
 .tools/
 
-# The pixi environment `just initialize` installs: every tool binary, Python and
-# the checkers, from pixi.lock. Ignored for the same reason as .tools/: `just
-# check` snapshots the worktree between recipes, and an environment Git can see
-# would abort the run before any recipe's exit code is read.
-.pixi/
+# Raw profiles cargo-llvm-cov leaves behind when a run is interrupted before
+# it merges them, and an lcov report written anywhere but target/llvm-cov/.
+*.profraw
+lcov.info
+
+# What cargo-mutants writes if S03 adopts it; ignored now so a first run can
+# never trip the snapshot.
+mutants.out*/
