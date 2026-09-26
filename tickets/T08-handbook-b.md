@@ -196,8 +196,9 @@ the page describes that contract in the paragraphs that follow), Open questions 
 81-90, What a specification is not 92-96 and Related 98-103; every number below is the
 pin's and shifts by seven from line 40 on.
 
-- 11-14: this library's behaviour; the eight modules under `docs/specs/` that
-  `docs/README.md` names are the source of truth; handbook, code and tests answer to them.
+- 11-14: this library's behaviour; the eight modules under `docs/specs/` are the source
+  of truth (`docs/README.md`, frozen, names seven until a `main` follow-up adds
+  `board.allium`); handbook, code and tests answer to them.
 - 21-29, the "stated once" example: the side of the grid is stated once, in
   `sudoku.allium`'s `config` block; `pawdoku::SIDE` mirrors it (T00 step 4) and a doctest
   and a unit test hold the mirror, so a grid of the wrong size fails on the number rather

@@ -91,7 +91,8 @@ line. Every page keeps the frontmatter T00 wrote, byte for byte.
    brief below names the lines. G's decision 0007 is this repository's
    `docs/decisions/0005-project-managed-allium-cli.md` (CONVENTIONS.md §8); every
    `0007-project-managed-allium-cli.md` link moves there with link text `decision 0005`.
-   The eight modules are valid link targets (`../specs/sudoku.allium`), as in G's map.
+   The eight modules are valid link targets (`../specs/sudoku.allium`), as in G's map at
+   `add73be7`; this repository's `docs/README.md` still names seven (T12's follow-up).
 3. **Recipes.** A page names a `just` recipe only if CONVENTIONS.md §4 defines it. G's
    `just dev`, `just storybook`, `just frontend-*`, `just preview` and
    `just storybook-browsers` have no counterpart; each brief says what replaces them.

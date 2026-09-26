@@ -95,6 +95,9 @@ named.
 | `docs/explanation/layering.md` | The import graph gains `sudoku ── board` |
 | `docs/project/terminology.md` | The seven board rows and the Mark and Note, entry edits, reworded for a library (no "rendering", no "storage port") |
 | `tickets/T06-spec-migration.md` | Hand-back list items 1, 3, 4, 5, 6, 8 and 13 re-read against G's HEAD on the day; corrected if G moved again |
+| `tickets/T07-handbook-a.md` | Brief amended so the full pages land with the board (added on the maintainer's instruction; Deviations) |
+| `tickets/T08-handbook-b.md` | Brief amended likewise |
+| `tickets/README.md` | The T12 index row's status |
 | `tickets/T12-board-migration.md` | `status:`, the review table, hand-back notes |
 
 ## Steps
