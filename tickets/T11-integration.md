@@ -62,7 +62,9 @@ failure is diagnosed to its owning lane without being fixed on this branch.
 - One table in the hand-back notes with every CONVENTIONS.md §12 claim, its owning
   ticket and the outcome that ticket recorded, so §12 can be closed out in one edit.
 - `git status --porcelain` empty on `main` after the gate, and no `TODO`, `TBD` or
-  `FIXME` anywhere outside `tickets/` and `docs/specs/`.
+  `FIXME` anywhere outside `tickets/`, `docs/specs/` and the vendored Allium material
+  (`allium-skill-reference/` and the seven Allium skills under `.agents/skills/`, which
+  T05 keeps byte-identical to G). Amended after review; see Deviations.
 
 ## Non-goals
 
@@ -172,7 +174,7 @@ A scratch clone lives in the session's scratch directory and is deleted at the e
 7. Placeholders and cleanliness, on `main` at the SHA step 3 cloned:
 
    ```sh
-   grep -rn -E 'TODO|TBD|FIXME' --exclude-dir=.git --exclude-dir=target --exclude-dir=.tools --exclude-dir=.pixi --exclude-dir=ai_tmp --exclude-dir=tickets --exclude-dir=specs --exclude-dir=allium-skill-reference . || echo "no placeholders"
+   grep -rn -E 'TODO|TBD|FIXME' --exclude-dir=.git --exclude-dir=target --exclude-dir=.tools --exclude-dir=.pixi --exclude-dir=ai_tmp --exclude-dir=tickets --exclude-dir=specs --exclude-dir=allium-skill-reference . | grep -v -E '^(\./)?\.agents/skills/(allium|distill|elicit|propagate|tend|weed|witness)/' || echo "no placeholders"
    ```
 
 8. Delete the scratch clone. Set `status: done` and commit on the ticket branch. Stop
@@ -371,7 +373,8 @@ one edit.
 | 29 | `bootstrap_repo.sh` applies cleanly with no Pages and one required check | T01 | **holds**: the second apply changed nothing; T11's dry run printed `changed: 0` | T01 "What was verified"; this ticket, step 5 |
 | 30 | The `pawdoku` name is free on crates.io | S02 | `pending`: S02 has not run | none |
 
-**Step 7, placeholders**, at `2066be7` in the clone, with the ticket's exclusions:
+**Step 7, placeholders.** The grep as first written ran at `2066be7` in the clone and
+found three hits, all in one vendored skill:
 
 ```text
 .agents/skills/propagate/SKILL.md:165:5. If the wiring is too complex or opaque to generate confidently, generate a test
@@ -379,8 +382,10 @@ one edit.
 .agents/skills/propagate/SKILL.md:280:- Cross-module tests require understanding component wiring across service boundar
 ```
 
-All three are vendored Allium prose about the placeholders the `propagate` skill
-generates. None is a placeholder in this repository (see Deviations).
+All three are upstream prose about the placeholders the `propagate` skill generates, not
+placeholders in this repository. The amended grep in step 7 prints `no placeholders`,
+under both ugrep and `/usr/bin/grep`. It ran on this worktree, whose tree outside
+`tickets/` is identical to `2066be7` (`git diff --quiet 2066be7 HEAD -- . ':!tickets'`).
 
 **Step 8 and the Verification block.** The scratch clone was deleted after the commands
 below had run in it.
@@ -416,10 +421,15 @@ modified `tickets/T11-integration.md`.
 - **The no-`stable` half of the lychee change was not re-proved.** This machine already
   has `stable`, so the proof would need a sandbox `RUSTUP_HOME`. It rests on T03's 6d.
   The clone ran the new line, and it passed.
-- **Step 7 is not empty.** The three `TODO` hits are in `.agents/skills/propagate/SKILL.md`,
-  one of the seven Allium skills T05 keeps byte-identical to G for provenance. The
-  maintainer chose to carry them: they are upstream prose, not placeholders, and the
-  grep's exclusion list covers `allium-skill-reference/` but not the vendored skills.
+- **The placeholder criterion was narrowed after review.** The first grep found three
+  `TODO` hits in `.agents/skills/propagate/SKILL.md`, one of the seven Allium skills T05
+  keeps byte-identical to G for provenance, so they cannot be edited here. The maintainer
+  first chose to carry them as a deviation. Copilot's review of pull request #12 pointed
+  out that this still broke the Goal line as worded, so the maintainer chose to amend
+  the criterion. The grep already excluded `allium-skill-reference/`, the other half of
+  the same vendored material. The Goal line and step 7 now exclude the seven vendored
+  skills as well: the `.agents/skills/` copies only, not their bridges. The grep then
+  prints `no placeholders`.
 - **Scratch.** `ai_tmp/bootstrap_repo.sh` sits in this worktree (gitignored). The logs
   and the clone were in the session's scratch directory, and the clone is deleted.
 
