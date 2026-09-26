@@ -1,7 +1,7 @@
 ---
 id: T04
 title: "CI workflows: the composite setup action, five gate jobs and the audit job"
-status: open
+status: done
 depends_on: [T00, T01]
 parallel_with: [T02, T03, T05, T06, T07, T08, T09]
 branch: ticket/t04-ci
@@ -84,7 +84,7 @@ step 2); re-verified on the day, a moved tag recorded:
 | `actions/checkout` | v7.0.1 | `3d3c42e5aac5ba805825da76410c181273ba90b1` | as B and S |
 | `actions/cache` | v6.1.0 | `55cc8345863c7cc4c66a329aec7e433d2d1c52a9` | B carries v4.3.0; same inputs |
 | `actions/upload-artifact` | v7.0.1 | `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a` | S carries v5.0.0 |
-| `prefix-dev/setup-pixi` | v0.10.2 | step 2 | D02; `pixi-version` must satisfy the manifest's `requires-pixi` |
+| `prefix-dev/setup-pixi` | v0.10.2 | `d3f436a425481402e6a95a1d1fc10331c708cd9e` | D02; `pixi-version` must satisfy the manifest's `requires-pixi` |
 | `Swatinem/rust-cache` | v2.9.2 | `6323deb102c322ba6fcbdcafc7e3dddab59af2b6` | annotated tag `63fed3e2` dereferenced; pin the commit, never the tag object |
 | `dtolnay/rust-toolchain` | `v1` = `master` | `02cb101ec7c40f2c49e1d9714d64511d8e1b74de` | fallback only, not used; `stable` head `6bed0761d98439e5a578e2877258200ad565ba87` |
 
@@ -575,11 +575,228 @@ after the run. Quote each in the hand-back notes, with the run's URL.
 
 ### What was verified, and how
 
+Executed on 2026-09-25 (runs dated 2026-09-26 UTC) on the maintainer's machine (Apple
+silicon) in the Supacode worktree for this ticket, on branch `T04-ci` (see Deviations).
+
+**Step 1.** The worktree was fresh at `main`'s tip `52b8215`, with no `.pixi/`. With the
+maintainer's authorisation, `pixi install --locked`, `just install-tools` and
+`just install-allium` ran (cargo-hack 0.6.45 and allium 3.6.1 were already in `.tools/bin`).
+`just install-hooks` was not run, because in a secondary worktree it would repoint the
+shared pre-commit shim. The baseline `just check` on the untouched tree exited 0: "All
+checks passed and the worktree is unchanged."
+
+**Step 2, the pins.** All five `releases/latest` lookups matched the table; no tag has
+moved:
+
+```text
+actions/checkout v7.0.1 commit 3d3c42e5aac5ba805825da76410c181273ba90b1
+actions/cache v6.1.0 commit 55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+actions/upload-artifact v7.0.1 commit 043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+prefix-dev/setup-pixi v0.10.2 commit d3f436a425481402e6a95a1d1fc10331c708cd9e
+Swatinem/rust-cache v2.9.2 tag 63fed3e2fecf6f7b51dc6f043341b79ef82a9ae7
+```
+
+`git/tags/63fed3e2…` dereferences to `commit 6323deb102c322ba6fcbdcafc7e3dddab59af2b6`.
+T00's stub had pinned rust-cache to the tag object `63fed3e2`, so this ticket moves the pin
+to the commit, as the table requires. `setup-pixi`'s commit `d3f436a4…` is written into
+the action and the table. It is the same commit T00 found on 2026-09-24.
+
+**Step 6.** The three files are the texts of steps 3 to 5, extracted from this ticket with
+only the setup-pixi SHA substituted. `just lint` exited 0, including "Lint GitHub Actions
+workflow files…Passed" (actionlint) and "check yaml…Passed". `just check` then exited 0
+with "All checks passed and the worktree is unchanged." The verification greps printed:
+
+```text
+every remote action pinned
+.github/actions/setup/action.yml:70:        GITHUB_TOKEN: ${{ github.token }}
+36:    name: rust
+60:    name: coverage
+83:    name: wasm
+96:    name: deny
+112:    name: documents
+147:    name: check
+```
+
+`audit.yml`'s one job is `30:    name: audit`.
+
+**Step 7, the proof runs.** The branch was pushed and dispatched twice. The first
+dispatch ran on `606f809`, which carried the temporary probe. The second ran on
+`0e0661e`, which removes the probe. Its tree is identical to `04e3195`, the commit that
+wrote the three files (`git diff 04e3195 0e0661e` is empty).
+
+- Dispatch 1, <https://github.com/steven-cutting/libpawdoku/actions/runs/36213713627>,
+  `success`, 65 s wall-clock:
+
+  ```text
+  rust success 03:05:26Z 03:06:21Z       55 s
+  coverage success 03:05:26Z 03:06:13Z   47 s
+  deny success 03:05:26Z 03:05:59Z       33 s
+  wasm success 03:05:31Z 03:06:13Z       42 s
+  documents success 03:05:26Z 03:06:07Z  41 s
+  check success 03:06:24Z 03:06:27Z       3 s
+  ```
+
+- Dispatch 2, <https://github.com/steven-cutting/libpawdoku/actions/runs/36213824706>,
+  `success`, 66 s wall-clock:
+
+  ```text
+  rust success 03:07:34Z 03:08:25Z       51 s
+  documents success 03:07:34Z 03:08:16Z  42 s
+  coverage success 03:07:34Z 03:08:29Z   55 s
+  deny success 03:07:34Z 03:08:05Z       31 s
+  wasm success 03:07:34Z 03:08:08Z       34 s
+  check success 03:08:32Z 03:08:36Z       4 s
+  ```
+
+The jobs added up to 221 s of runner time on dispatch 1 and 217 s on dispatch 2, so about
+3.7 runner-minutes each. The timing API reports `billable … total_ms: 0` because the
+repository is public.
+
+`check` is last in both runs and started only after the five gate jobs finished.
+
+`gh workflow run audit.yml --ref T04-ci` was refused with "HTTP 404: workflow audit.yml not
+found on the default branch". A raw `POST …/actions/workflows/audit.yml/dispatches` with
+`ref=T04-ci` was refused the same way, and `actions/workflows` lists only `ci.yml`. So the
+audit proof is the `pull_request` trigger when the pull request is opened. That is a
+separately authorised action and has not been taken.
+
+Caches in the `rust` job on both dispatches. The lines were the same on each, because
+`main`'s stub runs had already saved the `.tools`, prek and pixi entries:
+
+```text
+Cache hit for: pixi-linux-64-946edba90c2ef653aa40a82f44643bd0ab60248b8a93e82211bce42138be3065
+Restored cache with key `pixi-linux-64-946edba90c2ef653aa40a82f44643bd0ab60248b8a93e82211bce42138be3065`
+Cache Key:
+    v0-rust-rust-Linux-x64-492f33ac-… (hash suffix elided: typos reads it as a word)
+No cache found.
+Cache hit for: Linux-X64-tools-c06ff119a141184425fb9cf4832314239aac4fdb75885f18f320e468892259d0
+Cache restored from key: Linux-X64-tools-c06ff119a141184425fb9cf4832314239aac4fdb75885f18f320e468892259d0
+Cache hit for: Linux-X64-prek-204cc165e714bd039d9316669a99bb2b337da0be6df7b11fa52859bb1e8c9d20
+Cache restored from key: Linux-X64-prek-204cc165e714bd039d9316669a99bb2b337da0be6df7b11fa52859bb1e8c9d20
+```
+
+- **setup-pixi** hit on both dispatches. The ticket anticipated this: `main`'s stub run
+  had saved an entry for the same `pixi.lock`.
+- **rust-cache** found no cache, as the ticket predicted, because the key prefix
+  `v0-rust-rust-…` is new and `main` holds only the stub job's `check` entry. The first
+  rust-cache hit is T11's to quote.
+- **`.tools` and prek** hit on both dispatches, not only the second, for the same reason.
+  Both post steps printed "Cache hit occurred on the primary key …, not saving cache."
+
+**Step 8, the CONVENTIONS.md §12 claims.**
+
+- **Activation variables are inert for cargo: holds.** The probe
+  `env | grep -E '^(CONDA_PREFIX|PIXI_)' || true` ran after the setup action in dispatch
+  1's `rust` job and printed:
+
+  ```text
+  PIXI_PROMPT=(libpawdoku-tooling)
+  CONDA_PREFIX=/home/runner/work/libpawdoku/libpawdoku/.pixi/envs/default
+  PIXI_PROJECT_MANIFEST=/home/runner/work/libpawdoku/libpawdoku/pyproject.toml
+  PIXI_PROJECT_NAME=libpawdoku-tooling
+  PIXI_ENVIRONMENT_NAME=default
+  PIXI_IN_SHELL=1
+  PIXI_EXE=/home/runner/.pixi/bin/pixi
+  PIXI_PROJECT_VERSION=0.1.0
+  PIXI_PROJECT_ROOT=/home/runner/work/libpawdoku/libpawdoku
+  PIXI_ENVIRONMENT_PLATFORMS=linux-64,osx-arm64
+  ```
+
+  setup-pixi also exports `CONDA_SHLVL=1` and `CONDA_DEFAULT_ENV=libpawdoku-tooling`,
+  which the probe's pattern does not match. The build compiled every dependency from
+  scratch, because rust-cache missed. That included the crates with build scripts
+  (among them `proc-macro2`, `libc`, `num-traits` and `getrandom`). It produced no warning, and
+  `clippy`, `test` and `doc` passed. `check-toolchain` passed its `case` line, so cargo
+  was rustup's proxy, and printed
+  `1.98.1-x86_64-unknown-linux-gnu (overridden by '/home/runner/work/libpawdoku/libpawdoku/rust-toolchain.toml')`.
+  `activate-environment: true` is kept, and the `$GITHUB_PATH` fallback was not needed.
+  The probe was removed by commit `0e0661e`, not by rewriting history.
+- **setup-pixi's cache is keyed on `pixi.lock` and not written off `main`: holds.** The
+  key is `pixi-linux-64-946edba9…`, and it was restored on both dispatches. The
+  `prefix-dev/setup-pixi` post step printed nothing and saved nothing on the branch, the
+  same silence rust-cache's post step shows under `save-if: false`.
+- **dtolnay/rust-toolchain reads `rust-toolchain.toml`: false, unchanged.** `master` is
+  still `02cb101ec7c40f2c49e1d9714d64511d8e1b74de`. Its `action.yml` lines 9-11 read
+  `toolchain:` / `description: Rust toolchain specification -- …` / `required: true`, and
+  lines 36-39 read `if [[ -z $toolchain ]]; then` / ``# GitHub does not enforce `required: true` inputs
+  itself. …`` / `echo "'toolchain' is a required input" >&2` / `exit 1`.
+- **rust-cache with `cache-bin: false` leaves `.tools/` alone: holds.** Its "Cache
+  Configuration" lists exactly `/home/runner/.cargo/registry`, `/home/runner/.cargo/git`
+  and `/home/runner/work/libpawdoku/libpawdoku/target`. It does not list `.tools`, `.pixi`
+  or `~/.cargo/bin`.
+- **The no-argument `rustup toolchain install` works on the runner: holds.** It printed
+  `info: syncing channel updates for 1.98.1-x86_64-unknown-linux-gnu`, then `info:
+  downloading 9 components`, then ``info: the active toolchain
+  `1.98.1-x86_64-unknown-linux-gnu` has been installed``. The `wasm` job's two steps were
+  green on both dispatches, `cargo hack check … --target wasm32-unknown-unknown` and
+  `… --target wasm32v1-none`, each finishing both powerset configurations. No
+  `rustup show` follow-up is needed. The runner image has moved since 2026-09-23: the
+  jobs ran on `ubuntu-24.04` version `20260920.314.1`, not `20260907.300.1`.
+- **The prek cache restores and `lint` fetches nothing: holds.** On dispatch 2 the cache
+  hit on `Linux-X64-prek-204cc165…`. The `install-hooks` step printed only its commands,
+  ``Installed Git hook at `.git/hooks/pre-commit` ``, and
+  `lychee…Passed`, with no clone, download or build line. The same is true on dispatch 1,
+  because the cache already hit there. The `just lint` step in `documents` shows no clone,
+  download, install, build or fetch line on either dispatch. Durations of `install-hooks`
+  per job:
+
+  | Job | Dispatch 1 | Dispatch 2 |
+  | --- | --- | --- |
+  | `rust` | 2634 ms | 664 ms |
+  | `coverage` | 341 ms | 427 ms |
+  | `deny` | 2001 ms | 339 ms |
+  | `wasm` | 428 ms | 665 ms |
+  | `documents` | 518 ms | 405 ms |
+
+  All ten are cache hits. The two slow first-dispatch values are noise, not a miss.
+- **The `check` aggregate: green half proved, red half not exercised.** No gate job failed
+  in either dispatch. The check-runs API for the dispatched commit `0e0661e2…` lists:
+
+  ```text
+  check success
+  wasm success
+  deny success
+  coverage success
+  documents success
+  rust success
+  ```
+
+  These are the six names, with no slash or prefix.
+
+**Artifacts.** `lcov` was uploaded by both dispatches with `retention-days: 7`:
+`lcov expires 2026-10-03T03:06:09Z` (run 36213713627) and `lcov expires
+2026-10-03T03:08:24Z` (run 36213824706). Each expires seven days after its run.
+
+**Other checks.** In the `documents` job, `just install-allium` ran before `just lint`. It
+printed "allium 3.6.1 is already installed", from the `.tools` cache. `check-specs` and
+`analyse-specs` each reported "7 specifications, no diagnostics and no findings".
+
 ### Deviations, and why
+
+- **The branch is `T04-ci`, not `ticket/t04-ci`.** It keeps the Supacode name because the
+  maintainer chose "keep and record", as for T01. Every `--ref` and `--branch` above uses
+  `T04-ci`.
+- **Two extra commits on the branch.** `606f809` adds the step 8 probe and `0e0661e`
+  removes it. Both were pushed so the probe could run. They cancel out, and
+  `git diff 04e3195 0e0661e` is empty.
+- **The rust-cache SHA differs from the stub, not from this ticket.** It moves from the
+  tag object `63fed3e2` to the commit `6323deb1`.
 
 ### Handed back
 
+- **`audit.yml`'s first run.** It waits for the pull request's `pull_request` trigger,
+  because GitHub will not dispatch a workflow that is absent from `main`. Opening the pull
+  request is the maintainer's call.
+- **No `main` follow-ups.** `install-toolchain` works on the runner as written.
+
 ### Open points settled
+
+- The first open point, whether the no-argument `rustup toolchain install` installs the
+  toolchain, the components and both targets on the runner's rustup: **yes.** Nine
+  components were downloaded, `check-toolchain` reported 1.98.1 from
+  `rust-toolchain.toml`, and both wasm targets compiled. No fallback is needed.
+- The other two open points, Codecov and an issue on a failed audit, stay open as the
+  ticket words them.
 
 ## Open points
 
