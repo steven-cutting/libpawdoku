@@ -384,8 +384,10 @@ found three hits, all in one vendored skill:
 
 All three are upstream prose about the placeholders the `propagate` skill generates, not
 placeholders in this repository. The amended grep in step 7 prints `no placeholders`,
-under both ugrep and `/usr/bin/grep`. It ran on this worktree, whose tree outside
-`tickets/` is identical to `2066be7` (`git diff --quiet 2066be7 HEAD -- . ':!tickets'`).
+under both ugrep and `/usr/bin/grep`. It ran on this worktree at T11's own commit
+`1e083e8`, whose tree outside `tickets/` is identical to `2066be7`
+(`git diff --quiet 2066be7 1e083e8 -- . ':!tickets'`). T10's four documents were stacked
+on the branch afterwards, and the same grep over them also prints `no placeholders`.
 
 **Step 8 and the Verification block.** The scratch clone was deleted after the commands
 below had run in it.
@@ -479,7 +481,7 @@ These are carried, not landed. Each has the reason it stayed out of pull request
   … has been downloaded from github.com", `Done in 2.257479083s`), so no note goes to
   `develop-locally.md`. A burst of fresh clones from one address could still hit the
   limit. That was not tested.
-- **Coverage on the merged tree.** It clears the floor: 97.84% of 139 lines in the clone,
+- **Coverage on `main` at `2066be7`.** It clears the floor: 97.84% of 139 lines in the clone,
   and `coverage` green in CI. No T02 test is needed.
 
 ## Open points

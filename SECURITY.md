@@ -33,8 +33,8 @@ crates.io, so there are no backports: a fix lands on `main`.
   can opt back in.
 - No network, clock, filesystem or environment access in the core. It is `no_std`, so
   none of them can even be named.
-- `Cargo.lock` committed and every gate run with `--locked`; `just lock-check` fails if a
-  manifest and its lockfile disagree.
+- `Cargo.lock` committed, and every cargo command in the gate that resolves dependencies
+  run with `--locked`; `just lock-check` fails if a manifest and its lockfile disagree.
 - `cargo deny` checks licences, bans and sources on every `just check`, and the RustSec
   advisories weekly and on every pull request.
 - `rand` and `getrandom` banned from the core, so it can never source entropy of its own.

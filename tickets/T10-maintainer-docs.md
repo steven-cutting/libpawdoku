@@ -308,6 +308,28 @@ request #12), and Codex and Copilot were asked to review again. Every finding wa
   its ticket file, which the stack made false. T11's Deviations and this ticket's now
   record the stack, and the pull request's title and description cover both tickets.
 
+Copilot's second review, of `9b92e27`, found four more issues, and all were taken:
+
+- **`tickets/T11-integration.md` lines 388 and 482.** These said the worktree's tree
+  outside `tickets/` is identical to `2066be7`, which the stack made false. They now
+  name T11's own commit, `1e083e8`, for which `git diff --quiet 2066be7 1e083e8` exits
+  0. The amended placeholder grep over the stacked tree prints `no placeholders`.
+- **`CHANGELOG.md` lines 16 and 22.** `just fix` is not the only recipe that writes;
+  `just format`, `just lock` and `just initialize` write too. The bullet now calls it
+  the safe automatic repairs. "Seventeen gates" now reads as seventeen gates and then
+  the clean-worktree proof, which matches the eighteen rows in
+  `docs/reference/quality-gates.md`. The pixi bullet now names cargo-hack and the
+  Allium checker in `.tools/bin`.
+- **`README.md` line 17** (Copilot, and Codex's review of `9b92e27`). The line said pixi
+  installs every tool, but cargo-hack and the Allium checker come from outside
+  `pixi.lock`. The line now says pixi installs its environment, and that
+  `just initialize` puts those two tools in `.tools/bin` with no lockfile naming either.
+  The Layout block splits `.pixi/` and `.tools/` to match.
+- **`SECURITY.md` line 37.** "Every gate run with `--locked`" is narrowed to every cargo
+  command that resolves dependencies, because `cargo shear` and the documentation hooks
+  take no such flag. `AGENTS.md` invariant 8 and `docs/explanation/security-model.md`
+  keep the house's shorter wording, and this ticket does not touch them.
+
 ### Handed back
 
 - **`tickets/README.md`** still shows T10 and T11 as `open`, because this ticket changes
