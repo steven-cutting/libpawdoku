@@ -1,0 +1,785 @@
+-- allium: 3
+--
+-- Board — a puzzle in play
+--
+-- Scope
+--   What stands between the rules of Sudoku and a player at a screen: one
+--   puzzle as it is being played. The board keeps the puzzle, and through it
+--   the givens, the player's digits, the conflicts and whether it is solved.
+--   To that it adds what the rules leave out and a player expects: a note in
+--   every cell, every move the player has made, so that the latest can be
+--   taken back, one taken back can be re-taken, and the board as it stood
+--   after any move can be read; one question about one cell, answered yes
+--   or no; and a record, so that a board can be written down whole and had
+--   again. It draws nothing. The rules stay sudoku.allium's, which this
+--   module imports and never restates: in play every placement and erasure
+--   enters through the Playing surface below, which puts it to the rules'
+--   own PlaceDigit and EraseDigit, and sudoku.allium's PuzzleSolving stands
+--   as the rules' own boundary, not a second way in.
+--
+-- Includes
+--   - The board: one for every puzzle set, opened as the puzzle is and laid
+--     out with one cell of its own for each cell of the grid. A record
+--     reopened sets its puzzle again, so a reopened board is opened the
+--     same way and then made whole from the record.
+--   - Notes: each cell's marks, the digits the player has written in it to
+--     say it might hold them. A mark goes only in an empty cell that is not
+--     given. Writing a mark and striking one are the player's two moves on
+--     a note, and moves in the full sense: recorded, taken back and re-taken
+--     like a placement.
+--   - Upkeep: when a digit is placed, that digit is struck from the note of
+--     every peer, always, and which notes lost it is remembered so that undo
+--     puts every struck mark back exactly. Erasing the digit gives nothing
+--     back to the peers: only undo does, and only for the placement it takes
+--     back, as on paper.
+--   - The note beneath a digit: a placed cell keeps its note, unshown, and
+--     shows it again when the digit is erased. Upkeep, undo and redo reach
+--     it; nothing else does.
+--   - Moves: every placement, erasure, written mark and struck mark, in the
+--     order made, with what each displaced. Undo takes back the latest
+--     standing move and leaves the board exactly as it stood before it; redo
+--     re-takes the latest move undone; a new move discards every move undone.
+--     Undo and redo stop when the puzzle is solved, because solved is final
+--     in the rules.
+--   - Reading back: the board as it stood once any move had been made and no
+--     later one, standing or undone, solved or not, is read from the moves
+--     and never by taking any back.
+--   - The check: the player asks whether one cell's digit is the solution's
+--     and hears yes or no, never a digit. Every check is kept, in order,
+--     beside the moves; none is a move and none is taken back. Nothing else
+--     in play consults the solution.
+--   - The record: a board written down whole, and reopened from what was
+--     written to the same board, moves, undone moves and checks included.
+--     Recording says what that must satisfy and nothing of the form a record
+--     takes or where one is kept.
+--   - Two boundaries: Playing, which says what a play surface can see of a
+--     board and what it may ask of it, and Reopening, where a board is
+--     written down and had again and which stands whether or not a board
+--     is open. Neither says how anything looks.
+--
+-- Excludes
+--   - The rules: what a unit, a peer, a conflict and solved are, and what a
+--     placement may do. sudoku.allium's, read through the puzzle and never
+--     re-decided here. The guards a move restates below are the rules' own,
+--     read from the puzzle so that a move the rules would refuse is never
+--     recorded; one guard is the board's own, that a placement changes the
+--     digit. Undo and redo write a cell's digit back to what a move the
+--     rules admitted left there; they restore states the rules reached and
+--     make no move of their own.
+--   - Where a puzzle comes from. A board opens on whatever sudoku.allium's
+--     PuzzleSetting admits, so this module has no setting surface of its own.
+--     Reopening a record puts its givens to SetPuzzle, so a reopened board
+--     too opens on what PuzzleSetting admits.
+--   - Finding the solution. solution_digit_at below is a black box for that
+--     reason, as solution_count is in sudoku.allium; solver.allium decides it
+--     and is not imported.
+--   - Hints, which are reach.allium's and stand in the context of the
+--     board's puzzle; timers; and any count read off the checks, which is
+--     the open question below.
+--   - How a record is kept, and whether one is kept at all between visits.
+--     The record is what a store is handed; the store is a port's.
+--   - Anything drawn: how a note, a given, a conflict or a check's outcome
+--     is shown, and the words a surface gives them. pawdoku.allium's Play
+--     surface and the modules beneath it decide that, and the platform's
+--     marks are theirs to translate.
+--
+-- Dependencies
+--   sudoku.allium, for Puzzle, Cell, Given, the two moves and the side of
+--   the grid. It does not import this module in return: a board reads its
+--   puzzle and the puzzle knows nothing of the board.
+--
+-- Vocabulary
+--   sudoku.allium's words stand: given, digit, unit, peer, conflict, solved.
+--   technique.allium's mark stands, a candidate as the player has it
+--   written, and human-solving.allium's note: one cell's marks. Never pencil
+--   mark, never candidate for what the player writes. To them: board, the
+--   puzzle in play with its notes, its moves and its checks. Move, one of
+--   the four things a player does to a board; standing, of a move not taken
+--   back; undone, of one that is. Undo and redo. Upkeep, the striking of a
+--   placed digit from its peers' notes, as technique.allium has it, and
+--   always whole here. Check, the player's question about one cell, which
+--   in lapse.allium is a different thing under the same word. Record, a
+--   board written down; reopen, to have it again.
+
+use "./sudoku.allium" as sudoku
+
+------------------------------------------------------------
+-- Enumerations
+------------------------------------------------------------
+
+-- The four things a player does to a board. A check is not among them: it
+-- changes nothing and is never taken back.
+enum MoveKind { place | erase | write_mark | strike_mark }
+
+------------------------------------------------------------
+-- External Entities
+------------------------------------------------------------
+
+-- A board written down. What a record is made of is nobody's here: Recording
+-- below says what writing one and reopening it must satisfy, and a store
+-- behind a port decides the rest.
+external entity Record {}
+
+------------------------------------------------------------
+-- Entities and Variants
+------------------------------------------------------------
+
+entity Board {
+    -- The puzzle in play. The givens, the digits, the conflicts and solved
+    -- are read from it and never kept a second time.
+    puzzle: sudoku/Puzzle
+
+    cells: BoardCell with board = this
+    moves: Move with board = this
+    checks: Check with board = this
+
+    standing_moves: moves where not is_undone
+    undone_moves: moves where is_undone
+
+    -- At most one each: the move undo takes back and the move redo re-takes.
+    latest_standing_moves: moves where is_latest_standing
+    next_to_redo: moves where is_next_to_redo
+
+    -- Both stop with the puzzle: solved is final in the rules, and a board
+    -- that could take a move back from a solved puzzle would un-solve it.
+    can_undo: puzzle.status = unsolved and standing_moves.count > 0
+    can_redo: puzzle.status = unsolved and undone_moves.count > 0
+}
+
+entity BoardCell {
+    board: Board
+    row: Integer
+    column: Integer
+
+    -- The puzzle's cell at this position: its digit, whether it is given,
+    -- its peers and whether it conflicts are all read from here. One cell to
+    -- a position in the rules, so this names one.
+    puzzle_cell: sudoku/Cell
+        with puzzle = this.board.puzzle and row = this.row and column = this.column
+
+    -- The note: the marks the player has written in this cell. Kept while a
+    -- digit stands in the cell and shown again when it is erased.
+    note: Set<Integer>
+
+    -- Erase and the check ask for a digit of the player's own.
+    holds_players_digit: puzzle_cell.digit != null and not puzzle_cell.is_given
+
+    -- A mark goes only where nothing stands and nothing was set.
+    accepts_marks: puzzle_cell.digit = null and not puzzle_cell.is_given
+
+    -- A note is shown while the cell is empty and waits beneath a digit.
+    shows_note: puzzle_cell.digit = null
+}
+
+entity Move {
+    board: Board
+
+    -- One to move count, in the order made. An undone move keeps its index
+    -- until a new move discards it.
+    index: Integer
+    kind: MoveKind
+    target: BoardCell
+
+    -- The digit placed, written or struck. Absent for an erasure.
+    digit: Integer?
+
+    -- What the target held before a placement or an erasure, so that undo
+    -- can put it back. Absent for a move on a note.
+    digit_before: Integer?
+
+    -- The peers whose note lost the placed digit to upkeep, so that undo can
+    -- give it back to those and no others. Empty for every other kind.
+    struck_from: Set<BoardCell>
+
+    is_undone: Boolean
+
+    is_latest_standing:
+        not is_undone and board.standing_moves.all(m => m.index <= this.index)
+    is_next_to_redo:
+        is_undone and board.undone_moves.all(m => m.index >= this.index)
+
+    -- Reading back. digit_at_move and note_at_move are black boxes: the digit
+    -- and the note cell c held once this move and no later one, standing or
+    -- undone, had been made, read off the moves from the first to this one
+    -- and never by taking any back. TheMovesReplayToTheBoard pins them to
+    -- the board itself at the latest standing move.
+    digit_after(c): digit_at_move(this, c)
+    note_after(c): note_at_move(this, c)
+}
+
+-- One question asked and answered. Kept for as long as the board is, in the
+-- order asked, beside the moves; never a move, never taken back.
+entity Check {
+    board: Board
+
+    -- One to check count, in the order asked.
+    index: Integer
+
+    -- How many moves stood when the question was asked, so that a check can
+    -- be read among the moves. A count and not a move: after an undo and a
+    -- new move the same index names a different move, and the check still
+    -- says how many stood.
+    after_move: Integer
+
+    target: BoardCell
+
+    -- The digit the question was about, as it stood; the cell may since have
+    -- changed.
+    digit: Integer
+
+    -- Whether that digit is the solution's. The solution itself is never a
+    -- field of anything here.
+    is_right: Boolean
+}
+
+------------------------------------------------------------
+-- Config
+------------------------------------------------------------
+
+config {
+    -- sudoku.allium's figure under its name, as solver.allium restates it,
+    -- so that no clause below carries a bare number.
+    side: Integer = sudoku/config.side
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+-- Opening ---------------------------------------------------
+
+rule OpenBoard {
+    when: puzzle: sudoku/Puzzle.created
+
+    -- A board comes into being with its puzzle: whatever PuzzleSetting
+    -- admits is a puzzle in play from the moment it is set.
+    ensures: Board.created(puzzle: puzzle)
+}
+
+rule LayOutBoard {
+    when: board: Board.created
+
+    -- One cell of the board for each cell of the grid, as sudoku.allium lays
+    -- the grid out. grid_positions is sudoku.allium's black box, read as it
+    -- is there. Every note starts empty: nothing is written before the
+    -- player writes it.
+    ensures:
+        for position in grid_positions(config.side):
+            BoardCell.created(
+                board: board,
+                row: position.row,
+                column: position.column,
+                note: {}
+            )
+}
+
+-- Moves -----------------------------------------------------
+
+-- Every move discards whatever was undone and takes the next index, which
+-- is one past the standing count because undone moves are always the latest.
+-- The guards restate the rules' own, read from the puzzle, so that a move
+-- the rules would refuse is never recorded: a chained stimulus the rules
+-- refused would leave the record standing.
+
+rule Place {
+    when: Place(target, digit)
+
+    requires: target.board.puzzle.status = unsolved
+    requires: not target.puzzle_cell.is_given
+    requires: digit >= 1 and digit <= config.side
+
+    -- The board's own guard, stricter than the rules': PlaceDigit lets a
+    -- cell holding the player's digit take the same one again, but a move
+    -- that changes nothing is not a move, so it is refused here and never
+    -- joins the record or discards what was undone.
+    requires: target.puzzle_cell.digit = null or target.puzzle_cell.digit != digit
+
+    -- Read before anything changes: the peers whose note holds the digit are
+    -- the ones upkeep strikes it from, hidden notes included, and no others.
+    let board = target.board
+    let index = board.standing_moves.count + 1
+    let struck = board.cells where puzzle_cell in target.puzzle_cell.peers and digit in note
+
+    -- The target's own note is kept, unshown, beneath the digit. The digit
+    -- goes into the cell by the rules' PlaceDigit and by nothing here.
+    ensures:
+        for undone in board.undone_moves:
+            not exists undone
+        Move.created(
+            board: board,
+            index: index,
+            kind: place,
+            target: target,
+            digit: digit,
+            digit_before: target.puzzle_cell.digit,
+            struck_from: struck,
+            is_undone: false
+        )
+        for peer in struck:
+            peer.note = peer.note - { digit }
+        sudoku/PlaceDigit(cell: target.puzzle_cell, digit: digit)
+}
+
+rule Erase {
+    when: Erase(target)
+
+    requires: target.board.puzzle.status = unsolved
+    requires: target.holds_players_digit
+
+    let board = target.board
+    let index = board.standing_moves.count + 1
+
+    -- The note the digit stood on is shown again once the digit is gone. The
+    -- peers' notes get nothing back: an erasure is not the reverse of a
+    -- placement, and only undo is. The digit leaves the cell by the rules'
+    -- EraseDigit and by nothing here.
+    ensures:
+        for undone in board.undone_moves:
+            not exists undone
+        Move.created(
+            board: board,
+            index: index,
+            kind: erase,
+            target: target,
+            digit: null,
+            digit_before: target.puzzle_cell.digit,
+            struck_from: {},
+            is_undone: false
+        )
+        sudoku/EraseDigit(cell: target.puzzle_cell)
+}
+
+rule WriteMark {
+    when: WriteMark(target, digit)
+
+    requires: target.board.puzzle.status = unsolved
+    requires: target.accepts_marks
+    requires: digit >= 1 and digit <= config.side
+    requires: digit not in target.note
+
+    let board = target.board
+    let index = board.standing_moves.count + 1
+
+    -- Nothing asks the mark to be true: as on paper, a player may write a
+    -- digit a placed peer rules out, and the mark is theirs to strike.
+    ensures:
+        for undone in board.undone_moves:
+            not exists undone
+        Move.created(
+            board: board,
+            index: index,
+            kind: write_mark,
+            target: target,
+            digit: digit,
+            digit_before: null,
+            struck_from: {},
+            is_undone: false
+        )
+        target.note = target.note + { digit }
+}
+
+rule StrikeMark {
+    when: StrikeMark(target, digit)
+
+    requires: target.board.puzzle.status = unsolved
+    requires: target.accepts_marks
+    requires: digit in target.note
+
+    let board = target.board
+    let index = board.standing_moves.count + 1
+
+    ensures:
+        for undone in board.undone_moves:
+            not exists undone
+        Move.created(
+            board: board,
+            index: index,
+            kind: strike_mark,
+            target: target,
+            digit: digit,
+            digit_before: null,
+            struck_from: {},
+            is_undone: false
+        )
+        target.note = target.note - { digit }
+}
+
+-- Taking back and re-taking --------------------------------
+
+rule Undo {
+    when: Undo(board)
+
+    requires: board.can_undo
+
+    -- The one move to take back, read before it is marked undone.
+    let taken_back = board.latest_standing_moves
+
+    -- By kind, the exact reverse of what the move did. A placement leaves
+    -- the cell as it stood, digit or none, and gives the digit back to every
+    -- note upkeep struck it from; an erasure puts the digit back; a written
+    -- mark is struck and a struck mark written. The cell's digit is written
+    -- back to what a move the rules admitted left there, so no rule of the
+    -- rules is asked to run again.
+    ensures:
+        for move in taken_back:
+            move.is_undone = true
+            if move.kind = place:
+                move.target.puzzle_cell.digit = move.digit_before
+                for peer in move.struck_from:
+                    peer.note = peer.note + { move.digit }
+            if move.kind = erase:
+                move.target.puzzle_cell.digit = move.digit_before
+            if move.kind = write_mark:
+                move.target.note = move.target.note - { move.digit }
+            if move.kind = strike_mark:
+                move.target.note = move.target.note + { move.digit }
+}
+
+rule Redo {
+    when: Redo(board)
+
+    requires: board.can_redo
+
+    let retaken = board.next_to_redo
+
+    -- The mirror of Undo: what the move did, done again. Nothing has moved
+    -- since it was taken back, because a new move would have discarded it,
+    -- so what it did then is exactly what it does now.
+    ensures:
+        for move in retaken:
+            move.is_undone = false
+            if move.kind = place:
+                move.target.puzzle_cell.digit = move.digit
+                for peer in move.struck_from:
+                    peer.note = peer.note - { move.digit }
+            if move.kind = erase:
+                move.target.puzzle_cell.digit = null
+            if move.kind = write_mark:
+                move.target.note = move.target.note + { move.digit }
+            if move.kind = strike_mark:
+                move.target.note = move.target.note - { move.digit }
+}
+
+-- The check -------------------------------------------------
+
+rule CheckCell {
+    when: CheckCell(target)
+
+    requires: target.board.puzzle.status = unsolved
+    requires: target.holds_players_digit
+
+    let board = target.board
+    -- Read before the check is kept, as a move's index is: one past the
+    -- checks already on the record.
+    let index = board.checks.count + 1
+
+    -- solution_digit_at is a black box: the digit the one solution of these
+    -- givens holds at this row and column. The givens are well-posed, since
+    -- SetPuzzle admits no others, so there is one solution and one digit.
+    -- solver.allium says how it is found. The answer is a yes or a no and
+    -- the digit itself goes nowhere.
+    ensures:
+        Check.created(
+            board: board,
+            index: index,
+            after_move: board.standing_moves.count,
+            target: target,
+            digit: target.puzzle_cell.digit,
+            is_right: target.puzzle_cell.digit = solution_digit_at(board.puzzle.givens, target.row, target.column)
+        )
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+-- A state is what stands once a stimulus and the rules it sets off have run,
+-- as in sudoku.allium. OpenBoard and LayOutBoard follow SetPuzzle and
+-- LayOutGrid in one such step, so a board with no cells is not a state
+-- anything sees. Three properties compare one state with the next and so are
+-- prose, on the Playing surface: that undo and redo are exact, that a note
+-- waits beneath a digit, and that a check is never taken back.
+
+invariant OneBoardToAPuzzle {
+    for a in Boards:
+        for b in Boards:
+            a != b implies a.puzzle != b.puzzle
+}
+
+invariant TheBoardIsWhole {
+    for board in Boards:
+        board.cells.count = config.side * config.side
+}
+
+invariant OneBoardCellToAPosition {
+    for a in BoardCells:
+        for b in BoardCells:
+            a != b and a.board = b.board
+                implies a.row != b.row or a.column != b.column
+}
+
+invariant MarksAreDigits {
+    for cell in BoardCells:
+        cell.note.all(d => d >= 1 and d <= config.side)
+}
+
+invariant NoMarkInAGiven {
+    for cell in BoardCells:
+        cell.puzzle_cell.is_given implies cell.note.count = 0
+}
+
+invariant MovesNeverTouchAGiven {
+    for move in Moves:
+        not move.target.puzzle_cell.is_given
+}
+
+invariant MoveIndicesRunFromOne {
+    for move in Moves:
+        move.index >= 1 and move.index <= move.board.moves.count
+}
+
+invariant MoveIndicesAreDistinct {
+    for a in Moves:
+        for b in Moves:
+            a != b and a.board = b.board implies a.index != b.index
+}
+
+invariant MovesCarryWhatTheirKindNeeds {
+    for move in Moves:
+        (move.kind = place implies move.digit != null)
+            and (move.kind = erase
+                implies move.digit = null and move.digit_before != null)
+            and ((move.kind = write_mark or move.kind = strike_mark)
+                implies move.digit != null
+                    and move.digit_before = null
+                    and move.struck_from.count = 0)
+}
+
+-- Every move after an undone one is undone: what was taken back is the tail
+-- of the record, and a new move discards the tail.
+invariant UndoneMovesAreTheLatest {
+    for move in Moves:
+        move.is_undone
+            implies move.board.moves.all(o => o.index < move.index or o.is_undone)
+}
+
+-- What redo re-takes is the move that comes right after the standing ones:
+-- the earliest undone move, whose index is one past the standing count.
+invariant WhatIsReTakenComesNext {
+    for move in Moves:
+        move.is_next_to_redo
+            implies move.index = move.board.standing_moves.count + 1
+}
+
+invariant ASolvedBoardHasNothingUndone {
+    for board in Boards:
+        board.puzzle.status = solved implies board.undone_moves.count = 0
+}
+
+-- Upkeep reaches peers and no others. That every peer's note lost the digit
+-- when it was placed is the guarantee's to say, since a mark written later
+-- may hold it again.
+invariant UpkeepStrikesPeersOfAPlacement {
+    for move in Moves:
+        move.struck_from.all(p => p.puzzle_cell in move.target.puzzle_cell.peers)
+}
+
+-- The reading at the latest standing move is the board. Absent digits are
+-- compared as absences, since a comparison with nothing is never true.
+invariant TheMovesReplayToTheBoard {
+    for move in Moves:
+        move.is_latest_standing
+            implies move.board.cells.all(c =>
+                ((move.digit_after(c) = null and c.puzzle_cell.digit = null)
+                    or move.digit_after(c) = c.puzzle_cell.digit)
+                and move.note_after(c) = c.note)
+}
+
+invariant ChecksRunFromOne {
+    for check in Checks:
+        check.index >= 1 and check.index <= check.board.checks.count
+}
+
+invariant CheckIndicesAreDistinct {
+    for a in Checks:
+        for b in Checks:
+            a != b and a.board = b.board implies a.index != b.index
+}
+
+invariant ACheckIsOnAPlayersCell {
+    for check in Checks:
+        not check.target.puzzle_cell.is_given
+}
+
+------------------------------------------------------------
+-- Contracts
+------------------------------------------------------------
+
+-- What writing a board down and having it again must satisfy. It names no
+-- form and no place: a record is whatever a store is handed, and the store
+-- is a port's.
+contract Recording {
+    write: (board: Board) -> Record
+
+    -- Reopening puts the record's givens to sudoku/SetPuzzle, so a record of
+    -- a puzzle the rules would not pose is refused, and the board OpenBoard
+    -- opens on the puzzle so set is made whole from the record: every digit,
+    -- every note shown or waiting, every move with its index and whether it
+    -- is undone, and every check as written. No move is re-made and no rule
+    -- of this module runs for what the record holds. The puzzle is a new one
+    -- with the one board OpenBoard gives it, so OneBoardToAPuzzle stands.
+    reopen: (record: Record) -> Board
+
+    @invariant ReopeningIsExact
+        -- A board reopened from the record of a board is that board: the
+        -- same puzzle with the same givens and the same digits, the same
+        -- note in every cell whether shown or waiting beneath a digit, the
+        -- same moves in the same order with the same ones undone, and the
+        -- same checks. Every reading, undo, redo and check answers on the
+        -- reopened board as it would have on the written one.
+
+    @invariant WritingChangesNothing
+        -- Writing a board down leaves it exactly as it was, and can be done
+        -- at any point, solved or not.
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+-- What a player has in front of them, and what they may do. It draws
+-- nothing: every state named here — given, conflicting, undone, right — is
+-- owed a non-colour indication and an accessible name by whatever draws it,
+-- and the words are the game's.
+surface Playing {
+    context board: Board
+
+    exposes:
+        board.puzzle.status
+        board.puzzle.is_full
+        board.puzzle.is_consistent
+        board.can_undo
+        board.can_redo
+        for cell in board.cells:
+            cell.row
+            cell.column
+            cell.puzzle_cell.digit
+            cell.puzzle_cell.is_given
+            cell.puzzle_cell.is_conflicting
+            cell.note when cell.shows_note
+        for move in board.moves:
+            move.index
+            move.kind
+            move.target
+            move.digit
+            move.is_undone
+            for cell in board.cells:
+                move.digit_after(cell)
+                move.note_after(cell)
+        for check in board.checks:
+            check.index
+            check.after_move
+            check.target
+            check.digit
+            check.is_right
+
+    provides:
+        for cell in board.cells:
+            Place(cell, digit)
+                when board.puzzle.status = unsolved and not cell.puzzle_cell.is_given
+            Erase(cell)
+                when board.puzzle.status = unsolved and cell.holds_players_digit
+            WriteMark(cell, digit)
+                when board.puzzle.status = unsolved and cell.accepts_marks
+            StrikeMark(cell, digit)
+                when board.puzzle.status = unsolved and cell.accepts_marks and cell.note.count > 0
+            CheckCell(cell)
+                when board.puzzle.status = unsolved and cell.holds_players_digit
+        Undo(board) when board.can_undo
+        Redo(board) when board.can_redo
+
+    @guarantee EveryMoveIsTheBoards
+        -- In play a digit is placed or erased through this surface and no
+        -- other, so every placement and erasure is recorded, kept up and
+        -- reversible. What the surface puts to the rules is the rules' own
+        -- move, and a move the rules would refuse is refused here first;
+        -- a placement the board refuses, the standing digit placed again,
+        -- never reaches them.
+
+    @guarantee UndoAndRedoAreExact
+        -- After undo the board stands exactly as it did before the move
+        -- taken back: every digit, every note shown or waiting, every mark
+        -- upkeep struck given back to the notes it was struck from and no
+        -- others. After redo it stands exactly as it did after that move.
+
+    @guarantee ANewMoveDiscardsWhatWasUndone
+        -- A move made while moves are undone discards every one of them:
+        -- they are gone from the record and cannot be re-taken.
+
+    @guarantee AMarkIsAMove
+        -- Writing a mark and striking one are recorded, taken back and
+        -- re-taken exactly as a placement is.
+
+    @guarantee UndoStopsWithThePuzzle
+        -- Once the puzzle is solved nothing is taken back or re-taken. What
+        -- is offered follows can_undo and can_redo and nothing else.
+
+    @guarantee EveryPastBoardIsReadable
+        -- For every move on the record, standing or undone, and whether or
+        -- not the puzzle is solved, the board as it stood once that move and
+        -- no later one had been made can be read, and reading it takes
+        -- nothing back.
+
+    @guarantee GivensNeverMove
+        -- No move targets a given cell, no note is written in one, and undo
+        -- and redo never write to one.
+
+    @guarantee ANoteWaitsBeneathADigit
+        -- A cell's note is shown while the cell is empty. A placed digit
+        -- hides it and an erasure shows it again as it was, less whatever
+        -- upkeep struck from it meanwhile. Nothing but upkeep, undo and redo
+        -- changes a note beneath a digit.
+
+    @guarantee EveryCheckIsKept
+        -- Every check stays on the record for as long as the board does, in
+        -- the order asked, and is never taken back. Its after_move is how
+        -- many moves stood when it was asked, not a reference: after an undo
+        -- and a new move, that count may name a different move.
+
+    @guarantee ACheckNeverTellsTheDigit
+        -- The answer to a check is yes or no about the digit standing in
+        -- the cell. No check reveals a digit, and a check is offered only
+        -- on a cell holding a digit of the player's own.
+
+    @guarantee TheSolutionIsNeverShown
+        -- Nothing this surface exposes is read from the solution except the
+        -- yes or no of a check the player asked for.
+}
+
+-- Where a board is written down and had again. No board is its context:
+-- reopening is how a board comes to be from a record, so this surface
+-- stands whether or not one is open, and write takes the board it writes.
+surface Reopening {
+    contracts:
+        fulfils Recording
+
+    @guarantee AReopenedBoardIsTheSameBoard
+        -- Reopening the record of a board gives a board Playing cannot tell
+        -- from the one written: the same is exposed, the same is offered,
+        -- and every move, reading and check answers the same.
+
+    @guarantee ARecordIsEnoughOnItsOwn
+        -- A record carries everything reopening needs. Nothing else is
+        -- consulted: not the store it came from, not the solution's digits,
+        -- since SetPuzzle's guard asks the solver for its verdict and nothing
+        -- more, not any other record and not a board already open, since
+        -- there need be none.
+}
+
+------------------------------------------------------------
+-- Open Questions
+------------------------------------------------------------
+
+-- Every check is kept, which invites a count: of checks made, of answers
+-- that were no. Nobody has decided whether anything is counted, or shown.
+open question "What, if anything, is counted from the checks - wrong answers, checks made - and is it shown to the player?"
