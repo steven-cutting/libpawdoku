@@ -1,7 +1,7 @@
 ---
 id: T07
 title: "Handbook A: project, tutorial and how-to pages"
-status: open
+status: done
 depends_on: [T00]
 parallel_with: [T01, T02, T03, T04, T05, T06, T08, T09]
 branch: ticket/t07-handbook-a
@@ -569,11 +569,155 @@ porcelain output is empty. Quote each in the hand-back notes.
 
 ### What was verified, and how
 
+Done 2026-09-25 on the Supacode branch `T07-handbook-a` (the ticket's `branch:` field
+says `ticket/t07-handbook-a`), from `main` at `52ed4aa`. `.pixi/envs/default` and
+`.tools/bin` were already populated, so `just initialize` was not re-run. The baseline
+on the untouched stubs was green: `just check-docs` ended `Validated 37 pages and 38
+canonical topics.` and `just lint` passed every hook. After the last edit:
+
+- `git diff --stat main -- . ':!tickets'` lists eight files, all under `docs/`
+  (`develop-locally`, `maintain-dependencies`, `test-and-debug`, `work-with-the-specs`,
+  `purpose-and-scope`, `repository-map`, `terminology`, `first-change`).
+- `just check-docs`: markdownlint, typos and lychee `Passed`, then `Validated 37 pages
+  and 38 canonical topics.`, the same line as on the stubs. `just lint`: every hook
+  `Passed`.
+- Word counts after the frontmatter, each at or above its floor:
+
+  ```text
+  project/purpose-and-scope            461
+  project/repository-map               510
+  project/terminology                  2042
+  tutorials/first-change               643
+  how-to/develop-locally               863
+  how-to/test-and-debug                575
+  how-to/work-with-the-specs           1668
+  how-to/maintain-dependencies         1276
+  ```
+
+  terminology and develop-locally run past the brief's upper targets. The first gained
+  the seven board rows and two new rows. The second gained the paragraph on secondary
+  worktrees and the corrected prek sentence.
+- The grep for dropped targets prints `no dropped targets`.
+- The recipe loop prints `unknown recipe: printed` and `unknown recipe: touched`. Both are
+  the adverb, not recipes: "the JSON it has just printed" is inside the verbatim waiver
+  section, and "What you just touched" is G's heading, which the brief keeps. Every
+  recipe the pages name is in `just --summary`. See Deviations.
+- Eight `frontmatter unchanged` lines, and every H1 equals its `title`.
+- The waiver diff as written prints one hunk, at lines 4-5. The first half is the link
+  text `decision 0005` here against `decision 0007` in G: the command's `sed` rewrites the
+  path, not the text rule 2 requires. The second is the reworded stale sentence (see
+  Deviations). Before the PR #9 review, with `s/\[decision 0007\]/[decision 0005]/`
+  added, the diff printed `waiver terms verbatim`. The expanded `allium.field.unused`
+  paragraph and every waiver term are word for word.
+- `just check`: exit 0 after 18 recipes, ending `The worktree matches the check
+  baseline.` and `All checks passed and the worktree is unchanged.`
+  `git status --porcelain` is empty.
+- The tutorial's change was run for real and then reverted (`git checkout` of
+  `crates/pawdoku/src/lib.rs`). With the test alone, `just test` fails with
+  `error[E0432]: unresolved import super::BOX_SIDE`. With the item added, nextest
+  reports `23 tests run: 23 passed` and the doctests `12 passed`, and `just clippy` and
+  `just fmt-check` are clean.
+- The pixi installer, `curl -fsSL https://pixi.sh/install.sh | sh`, was read from pixi's
+  installation page on the day (`pixi.prefix.dev/latest/installation/`, which
+  `pixi.sh/latest/installation/` redirects to).
+- Each terminology row was compared once against the eight modules' Vocabulary sections
+  (sudoku 44-47, board 91-102, solver 55-59, technique 65-84, reach 51-55, effort 50-55,
+  lapse 66-76, human-solving 53-71). No row contradicts its module. The human-solving,
+  technique, lapse and board Vocabulary sections are identical to G's at `add73be7`.
+
 ### Deviations, and why
+
+- **One sentence of the waiver section is not verbatim** (PR #9 review). G's "That
+  closes the follow-up decision 0005 left open" is false here: this repository's decision
+  0005 already records both recipes as gates and leaves no follow-up. It now reads "That
+  is what decision 0005 records". The waiver terms themselves are untouched, so the waiver
+  diff shows that one hunk alongside the link-text hunk.
+- **Other PR #9 review fixes.** maintain-dependencies now says `just lock` is not a no-op
+  (an edited or new range resolves to the newest version it admits, as T02 saw with serde
+  and thiserror), and that the local `uses: ./.github/actions/setup` is the one `uses:`
+  without a SHA. The terminology Record, reopen row is rephrased as two whole clauses.
+- **Codex review fixes (PR #9).** The one-test nextest commands now pass `--all-features
+  --locked`, as `just test` does. `just lock-upgrade`'s `pixi update` is said to move
+  Python's patch release, a direct pin written `3.14.*`, as well as transitive packages.
+  The tooling-package procedure now runs `just check` for every release, not only a Major
+  one, because the hooks run neither `lock-check` nor the whole gate.
+- **The order of `just initialize`.** The brief lists refusing a foreign cargo before
+  installing the toolchain. `scripts/initialize.sh` runs `install-toolchain` first and
+  `check-toolchain` second. Both pages follow the script.
+- **Why no default toolchain is needed** (develop-locally). The brief said prek
+  provisions its own rustup. T03's §12 outcome (6d) found the opposite on prek 0.5.3: it
+  uses the machine's rustup and the installed pinned toolchain. The brief names a
+  contrary outcome as a hand-back to this page, so the page says prek builds its Rust
+  hook with the pinned toolchain rustup already installed.
+- **Open questions** (work-with-the-specs). The brief's "a few (`effort.allium` line
+  312, `human-solving.allium` line 1280)" is not true of the merged modules: they carry
+  23, across six of the eight modules, all but `sudoku.allium` and `solver.allium`. The
+  paragraph says "more than twenty" and treats them as decisions still owed. It cites no
+  line numbers, because they drift.
+- **Line numbers in the modules.** T06 moved the `sudoku.allium` lines the brief cites
+  (Excludes is now 27-38 and `config` 134-144), so the pages name clauses and blocks
+  rather than lines.
+- **The Player row** is written "parameterized", not the brief's "parameterised", to
+  match G's Profile row two lines below it on the same page.
+- **The Fake row** keeps the brief's text and adds one sentence naming `ReplayStream`, the
+  fake `random.rs` ships.
+- **The hook-pin method** (maintain-dependencies) is G 166-172 adapted, not
+  block-quoted. The quotation's "in all three files" and its tooling-workflow example
+  describe G's managed workflows, which do not exist here. The load-bearing sentence
+  about annotated tags and the tag object is kept. The typos example writes `<tag>`
+  rather than a version (rule 4).
+- **purpose-and-scope** names `board.allium` beside the other seven modules, and says
+  that a record is a plain value the consumer keeps, which follows T12's reading. The
+  brief predates the board module.
+- **The rustup command's `--default-toolchain stable`** is kept as the brief gives it,
+  with a sentence saying the default applies only outside this repository and that
+  `--default-toolchain none` works as well, so it does not read as contradicting "no
+  default toolchain is needed". The Prerequisites sentence lists only uv and
+  cargo-binstall as not needed. T03 found that prek takes Python for some hooks from
+  the machine, so no claim about a system Python is made.
+- **develop-locally** adds a paragraph on secondary worktrees (see the open point on
+  `lint` and the network), and backticks `just` in the Prerequisites row so the recipe
+  loop does not read "just launches" as a recipe.
 
 ### Handed back
 
+- **This ticket's Verification block.** The waiver diff needs the link-text substitution
+  shown above, and the recipe loop matches the adverb "just" in prose. Both are the
+  commands' limits, not the pages'. Nothing to act on unless the block is reused.
+- **`main` follow-up, `Justfile` (frozen): parameterised debugging recipes** (Codex, PR
+  #9). test-and-debug documents direct `cargo nextest` and `cargo llvm-cov report --html`
+  calls because the brief prescribes them and no recipe takes a filter. A recipe such as
+  `test-one filter` and a `coverage-html` would let the page name recipes instead.
+- No typos finding was hit, so nothing goes to T03's `_typos.toml`.
+
 ### Open points settled
+
+- **Terminology: verbatim or paraphrase.** G's rows were kept, as recommended, with the
+  board rows and the edits the brief lists. `explanation/specifications.md` need not
+  change.
+- **Windows in develop-locally.** No. One sentence under Prerequisites says a section
+  comes the day the command-line crate brings Windows into CI.
+- **The tutorial's item.** T02 has merged. `SIDE` sits in `crates/pawdoku/src/lib.rs`,
+  with a `tests` module (`a_grid_is_nine_by_nine`) at its foot, and `BOX_SIDE` does not
+  exist, so no substitution was needed.
+- **The first `lint` and the network.** Settled by reading, not by an offline run.
+  During the PR #9 review, `lock-check`'s cargo line was run with every proxy pointed at
+  a dead port: `cargo update --workspace --locked` exited 0 with `Locking 0 packages` and
+  no index update. T03 (6e) showed the same for the pixi line.
+  `just install-hooks` prepares every hook environment and warms lychee, and
+  `scripts/initialize.sh` calls it from the primary checkout only. So after
+  `just initialize` in a primary checkout the gate is offline, and in a secondary
+  worktree the first `just lint` builds whatever the primary has not. The page is worded
+  that way.
+- **The HTML report path.** After `just coverage`, `cargo llvm-cov report --html` wrote
+  `target/llvm-cov/html/`, which holds `index.html`, `control.js`, `coverage/` and
+  `style.css`.
+- **proptest regression files and `.gitignore`.** `grep -n proptest .gitignore` on
+  `main` prints nothing, so the sentence telling you to commit them stands and T03 has
+  nothing to change.
+- **CONVENTIONS.md §6 line range.** The section runs from G line 77 to line 136 at
+  `78d03cdf`, and from 78 to 141 at `add73be7`, where Related starts at 143. Nothing to
+  hand back.
 
 ## Open points
 
