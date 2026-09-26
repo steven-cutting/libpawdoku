@@ -859,7 +859,8 @@ on `PATH`.
   `--features default,serde`, `--features default` and `--features serde`. The explicit
   `default = []` counts as a feature in the powerset, so two of the four configurations
   are redundant. `just features` and each `wasm-check` target run the same four. The two
-  the claim names are among them. Handed back below.
+  the claim names are among them. Fixed in review: see Review follow-up below, after
+  which the claim holds as worded.
 - **cargo-shear. Holds in part.** It reads source without a build. Each run took
   0.06-0.10 s, and the modification time of `target/debug` was unchanged. It also
   understands `workspace = true`: in the copy, `num-traits = { workspace = true }` added
@@ -920,20 +921,53 @@ on `PATH`.
   array across three lines. The formatted result is the final file, as step 3 says of
   `Cargo.toml`.
 
+### Review follow-up (PR #3)
+
+Copilot's review of PR #3 raised four findings. All four were valid, and all four were
+fixed on this branch; each is a deviation from the text the steps print.
+
+- **`default = []` dropped from `crates/pawdoku/Cargo.toml`.** Cargo treats a missing
+  `default` as empty, so cargo-hack's powerset no longer counts it as a feature. `just
+  features` and each `wasm-check` target now run two configurations, and the `CONVENTIONS.md`
+  §12 claim holds as worded:
+
+  ```text
+  info: running `cargo check --locked --no-default-features` on pawdoku (1/2)
+  info: running `cargo check --locked --no-default-features --features serde` on pawdoku (2/2)
+  ```
+
+- **`ReplayStream` deserialises through `ReplayStream::new`.** A private `ReplayScript`
+  with `#[serde(try_from = "ReplayScript")]` rejects a script holding `1.0` or NaN with
+  the `OutOfRange` text. Two serde-gated in-module tests drive it through serde's
+  `SeqAccessDeserializer` and `SeqDeserializer`, with no format crate. With the
+  `try_from` line removed, `deserialising_rejects_a_draw_outside_the_range` fails.
+- **`SeededStream`'s index wraps.** `self.index += 1` panicked in debug and wrapped in
+  release for a stream deserialised at index `u64::MAX`. It is now `wrapping_add(1)`: the
+  SplitMix64 state repeats every 2^64 draws, since its increment is odd, so an index
+  counted modulo 2^64 stays true, and the stream still never returns `Err`. A panic was
+  ruled out by decision 0008 and the gate's panic lints. Saturating would give many
+  draws one index, and an error would break "never returns `Err`". The unit test
+  `the_seeded_index_wraps_with_the_state` fails with `attempt to add with overflow`
+  against the old line. `ReplayStream`'s `self.index += 1` stays: it runs only after a
+  draw was found at the index, so the index is below the script's length.
+- **Module doc.** "the fake a test scripts" now reads "the fake a test uses to script
+  its draws".
+
+`just check` exited 0 in 10 s; 22 tests passed. Coverage is 98.65 % of lines in the
+llvm-cov summary. The three lines it counts as missed are in monomorphised copies of the
+test helper's generic `next_element_seed`, each of which runs one branch. The lcov file
+has no line with zero hits.
+
 ### Handed back
 
 None of these was made here. No `Justfile`, `tools.txt`, `rust-toolchain.toml` or
 `pyproject.toml` change was needed for any recipe to pass.
 
-- **`CONVENTIONS.md` §12, feature powerset (and step 10 above).** Two configurations
-  becomes four while the crate manifest declares `default = []`. The cost is a doubled
-  powerset in `features` and in each `wasm-check` target, which grows as 2^(n+1) with n
-  optional features. There are two fixes. One drops `default = []` from
-  `crates/pawdoku/Cargo.toml`: Cargo treats a missing `default` as empty, and the claim
-  then holds as written. That is a change for T02's successor, since the manifest is this
-  lane's. The other adds `--skip default` to the `features` and `wasm-check` recipes, a
-  T00 follow-up on `main`. Recommendation: the first, and correct the §12 wording to
-  match.
+- **T09, decision 0008's feature policy.** Its text reads "features `default = []` with
+  `serde` optional". The manifest now has no `[features] default` line at all (Review
+  follow-up below), which Cargo reads as the same empty default. T09 should word the
+  policy as "no default features, `serde` optional and additive", so a reader checking
+  the decision against `Cargo.toml` does not look for a line that is deliberately absent.
 - **`CONVENTIONS.md` §12 and `T00-foundation.md` line 80, cargo-shear.** cargo-shear
   1.13.4 does not report an unused `[workspace.dependencies]` entry. The premise that
   "cargo-shear flags an unused entry" in Context above and in T00 does not hold, so
@@ -963,12 +997,9 @@ None of these was made here. No `Justfile`, `tools.txt`, `rust-toolchain.toml` o
   not error. Both are quoted above and kept.
 - **cargo-shear 1.13.4** behaves as expected for crate dependencies and differs for
   workspace entries (Handed back).
-- **New, carried to S04: serde bypasses `ReplayStream`'s range check.** With the `serde`
-  feature, the derived `Deserialize` builds a `ReplayStream` without calling
-  `ReplayStream::new`, so a deserialised script can hold `1.0` or NaN. The maintainer
-  chose to record it rather than fix it here. The fix is
-  `#[serde(try_from = ...)]` through a private script type, tested with serde's own value
-  deserializers, when a binding first round-trips a `ReplayStream`.
+- **serde bypassed `ReplayStream`'s range check. Fixed in review.** First recorded here
+  for S04; the maintainer chose to fix it in PR #3 when the review raised it again. See
+  Review follow-up below.
 
 ## Open points
 

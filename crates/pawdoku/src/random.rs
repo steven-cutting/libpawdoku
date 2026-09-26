@@ -124,6 +124,9 @@ const UNIT: f64 = f64::EPSILON / 2.0;
 /// same seed yields the same draws on every IEEE 754 target, WebAssembly included. It is
 /// not a cryptographic generator; nothing in the specifications asks for one.
 ///
+/// The state repeats every 2^64 draws, and the index wraps with it, so a stream
+/// deserialised at index `u64::MAX` draws once more and reads index zero, never panics.
+///
 /// ```
 /// use pawdoku::random::{RandomStream, SeededStream};
 ///
@@ -164,7 +167,7 @@ impl RandomStream for SeededStream {
         z = (z ^ (z >> 30)).wrapping_mul(MIX_1);
         z = (z ^ (z >> 27)).wrapping_mul(MIX_2);
         let bits = z ^ (z >> 31);
-        self.index += 1;
+        self.index = self.index.wrapping_add(1);
         #[expect(
             clippy::cast_precision_loss,
             reason = "53 bits fit f64's mantissa exactly"
@@ -316,6 +319,17 @@ mod tests {
     fn nan_is_out_of_range() {
         let error = ReplayStream::new(vec![0.25, f64::NAN]).unwrap_err();
         assert!(matches!(error, RandomError::OutOfRange { index: 1, value } if value.is_nan()));
+    }
+
+    #[test]
+    fn the_seeded_index_wraps_with_the_state() {
+        let mut stream = SeededStream {
+            state: 0,
+            index: u64::MAX,
+        };
+        let u = stream.next_draw().unwrap();
+        assert!((0.0..1.0).contains(&u));
+        assert_eq!(stream.index(), 0);
     }
 
     #[test]
