@@ -419,10 +419,11 @@ pin's, and each shifts by one from row 21 on and by five from line 120 on.
   exactly one edit: the decision link at 81 moves to 0005. Everything else, including "No
   waiver is currently in the modules." (109-110) and the 3.6.1 sentences, stays word for
   word; the `Justfile`'s `check-specs` comment points here for the terms. G at
-  `add73be7` adds one paragraph to the section (its 120-130): `allium.field.unused`
-  misses a use inside a projection's `where` predicate, and `board.allium` answers the
-  diagnostic on `is_next_to_redo` with the invariant `WhatIsReTakenComesNext` rather
-  than a waiver. Take it verbatim; the citation of `board.allium` is true here.
+  `add73be7` expands the `allium.field.unused` paragraph (its 120-130) by three
+  sentences: the checker misses a use inside a projection's `where` predicate, and
+  `board.allium` answers the diagnostic on `is_next_to_redo` with the invariant
+  `WhatIsReTakenComesNext` rather than a waiver. Take the expanded paragraph verbatim;
+  the citation of `board.allium` is true here.
 - Related pages: `../explanation/specifications.md` kept; line 141 (Accessibility, a
   dropped page) becomes `../reference/quality-gates.md`.
 

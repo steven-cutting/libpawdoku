@@ -193,7 +193,7 @@ from "`sudoku.allium` states" at 37 through 68 except the end of 39 (below; the 
 What the modules are runs 31-79, the verbatim run from 37 extends through 75 and takes
 in the `board.allium` paragraph at 40-46 (its "as `human-solving.allium` does" stays:
 the page describes that contract in the paragraphs that follow), Open questions is
-81-90, What a specification is not 92-96 and Related 98-102; every number below is the
+81-90, What a specification is not 92-96 and Related 98-103; every number below is the
 pin's and shifts by seven from line 40 on.
 
 - 11-14: this library's behaviour; the eight modules under `docs/specs/` that

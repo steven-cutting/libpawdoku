@@ -252,8 +252,9 @@ Seven comment edits were applied by exact replacement, each matching once; the d
 against G names lines 6, 80, 82-84, 119-120, 619-620, 653 and 773 and nothing else, and
 the file keeps `-- allium: 3`, the `--` prefix, the bullet indent and the wrap width. The
 gate on the edited module printed the same eight blocks and the same two closing lines as
-step 2. The word search after the edits prints only the keep rows: 16, 55, 70, 83, 500,
-654, 702, 704, 755, 760 and 762.
+step 2. The word search after the edits prints only the keep rows, 16, 55, 70, 500, 654,
+702, 704, 755, 760 and 762, plus library line 83, the word "surfaces" in the adapted
+81-84 sentence.
 
 **Steps 5 and 6.** The four pages are still T00's stubs (Deviations), so each stub's one
 paragraph was edited to say eight modules and name `board.allium`; frontmatter is
@@ -297,7 +298,7 @@ All checks passed and the worktree is unchanged.
 Verdicts as in T06: **keep** (relevant to a library as written), **adapt** (relevant, but
 the wording presumes the game), **drop** (not the library's; none). Lines are G's at
 `add73be7`, which are the library's before the edits; after them 80 becomes 80-81 and
-82-84 becomes 82-83, so every later line keeps its number.
+81-84 becomes 82-84, so every later line keeps its number.
 
 `board.allium` (base: G `add73be7`)
 
@@ -362,7 +363,7 @@ the wording presumes the game), **drop** (not the library's; none). Lines are G'
 Nothing new. T06's list of thirteen items, re-read on 2026-09-25 against `add73be7`,
 already removes the eight modules together and its line numbers hold. Two notes for the
 day G performs it: `board.allium` in this repository differs from G's by the seven
-comment lines the review names, so the restated text G holds equal by test is this
+comment edits the review names, so the restated text G holds equal by test is this
 repository's; and item 13, the prototype under `prototypes/board/`, remains G's decision.
 
 ### Open points settled
