@@ -800,8 +800,12 @@ wording.
 - **`_typos.toml` and `lychee.toml` keep one array entry per line.** The ticket's one-line
   arrays are 114 and 88 columns. `taplo fmt` reflows both at its default width, so
   `toml-check` fails on them (checked in scratch against a copy of the config). Same
-  values, taplo's layout, which is also G's layout for `lychee.toml`. If T02 sets
-  `column_width` in `taplo.toml`, the one-line form becomes legal; that is T02's call.
+  values, taplo's layout, which is also G's layout for `lychee.toml`. T02's pull request
+  (#3) sets `column_width = 100` and folds `lychee.toml` onto one line, which is step 3's
+  text. This branch leaves `lychee.toml` as T00 wrote it, so the two merge without
+  conflict (`git merge-tree` against `origin/ticket/t02-rust-gate`) and T02's form wins.
+  `_typos.toml`'s array is 114 columns, so it stays one entry per line under T02's
+  width too; both files pass `taplo fmt --check` with T02's `taplo.toml`.
 - **The typos grep in the Verification block is anchored.** `grep -c 'tool.typos'`
   counts the comment step 5 asks for ("a [tool.typos] here would be ignored") and
   prints 1. `grep -c '^\[tool\.typos'` asks the question the block means.
@@ -857,8 +861,8 @@ wording.
   workspace". An unexpected `stable` toolchain comes from the lychee warm.
   `security-model.md`: cargo-hack is downloaded unsigned, over TLS from its GitHub
   release. `configuration.md`: `_typos.toml` is the only typos configuration.
-- **T02.** Nothing from 6b. `column_width` in `taplo.toml` is the lever if the one-line
-  arrays are ever wanted.
+- **T02.** Nothing from 6b. Its one-line `lychee.toml` stands; this branch does not touch
+  that file.
 - **Maintainer.** The `stable` toolchain in `~/.rustup` (1.3 GB) is yours to keep or
   remove with `rustup toolchain uninstall stable`.
 
