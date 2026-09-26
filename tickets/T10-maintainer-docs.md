@@ -266,8 +266,9 @@ matched.
 
 - **Stacked on T11, not branched from `main`.** Pull request #12 (T11) had not merged
   when this ticket was picked up, and the maintainer chose to stack this branch on
-  `T11-integration` at `1e083e8`. The two touch no common file. Until #12 merges, a pull
-  request from this branch also carries T11's commits.
+  `T11-integration` at `1e083e8`. The two touch no common file. The maintainer then chose
+  to push this commit onto `T11-integration` itself, so pull request #12 carries both
+  tickets and no separate T10 pull request exists.
 - **The branch is `ticket/t10-maintainer-docs`, as the ticket names it.** The worktree
   was made with `git worktree add` rather than by Supacode, so no rename arose.
 - **Eight modules, not seven.** T12 added `board.allium` after this ticket was written.
@@ -279,15 +280,33 @@ matched.
   READMEs describe the engine as specified and being built, not as shipped. The SECURITY
   scope bullet says "the solver, once it exists".
 - **The conda-forge item is qualified, not dropped.** Step 4 has "tool binaries pinned by
-  hash in `pixi.lock` and installed from conda-forge". Two tools come from elsewhere, and
-  SECURITY.md names both. `biscuit-games-tooling` comes from its Git tag, pinned to a
-  commit in `pixi.lock`. cargo-hack comes from its GitHub release over TLS with no
-  checksum, as `docs/explanation/security-model.md` already says.
+  hash in `pixi.lock` and installed from conda-forge". Three tools come from elsewhere,
+  and SECURITY.md names all three. `biscuit-games-tooling` comes from its Git tag, pinned
+  to a commit in `pixi.lock`. The Allium checker comes from its GitHub release, pinned by
+  version and SHA-256 in that package (decision 0005). cargo-hack comes from its GitHub
+  release over TLS with no checksum, as `docs/explanation/security-model.md` already says.
+  Step 4's separate Allium item is folded into this one.
 - **One out-of-scope line added.** "What a consumer does with the engine's output"
   follows the security model's "What is out of scope". G's private-repository paragraph
   (lines 9-11) is dropped, because the repository is public.
 - **CI's "five checks"** are written as five gate jobs behind one required `check`,
   because branch protection requires only the aggregate.
+
+### Review follow-up
+
+On the maintainer's instruction, `6829050` was pushed onto `T11-integration` (pull
+request #12), and Codex and Copilot were asked to review again. Every finding was taken:
+
+- **Codex, `SECURITY.md` line 44.** The exception list left out the Allium checker,
+  which `just initialize` downloads from its GitHub release and no lockfile names. It
+  is now the third item, pinned by version and SHA-256.
+- **Codex, `SECURITY.md` line 27.** "Anything a caller does with its own seed" was
+  broader than the security model's "how it sources the seed it passes in". Read that
+  way, it would have excluded a crash that a particular valid seed triggers. The line
+  now excludes only how the seed or entropy is sourced.
+- **Copilot, `tickets/T11-integration.md` line 414.** T11 said its branch changes only
+  its ticket file, which the stack made false. T11's Deviations and this ticket's now
+  record the stack, and the pull request's title and description cover both tickets.
 
 ### Handed back
 

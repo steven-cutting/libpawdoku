@@ -24,7 +24,7 @@ crates.io, so there are no backports: a fix lands on `main`.
 
 ## Out of scope
 
-- Anything a caller does with its own seed or source of entropy.
+- How a caller sources the seed it passes in, or its entropy.
 - What a consumer does with the engine's output.
 
 ## What this project already does
@@ -39,16 +39,19 @@ crates.io, so there are no backports: a fix lands on `main`.
   advisories weekly and on every pull request.
 - `rand` and `getrandom` banned from the core, so it can never source entropy of its own.
 - Tool binaries pinned by hash in `pixi.lock` and installed from conda-forge, and the
-  compiler installed by rustup from `rust-toolchain.toml`. Two tools come from elsewhere:
-  the `biscuit-games-tooling` package from its Git tag, pinned to a commit in `pixi.lock`,
-  and cargo-hack from its GitHub release over TLS, which publishes no checksum to verify.
+  compiler installed by rustup from `rust-toolchain.toml`. Three tools come from
+  elsewhere, and no lockfile names the last two:
+  - the `biscuit-games-tooling` package, from its Git tag, pinned to a commit in
+    `pixi.lock`;
+  - the Allium checker, from its GitHub release, pinned by version and SHA-256 in that
+    package;
+  - cargo-hack, from its GitHub release over TLS, which publishes no checksum to verify.
 - Every GitHub Action and every remote hook pinned to a commit SHA rather than a mutable
   tag.
 - Continuous integration runs with `contents: read` and holds no stored secret, only the
   token GitHub mints for each run.
 - `ripsecrets` scans every commit, with its output suppressed so a match never copies the
   matched value into a log.
-- The Allium checker pinned by version and SHA-256.
 
 The reasoning behind all of this is in
 [Security model](docs/explanation/security-model.md).

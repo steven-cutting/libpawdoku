@@ -411,9 +411,11 @@ modified `tickets/T11-integration.md`.
   branch this way. It was kept, as T01, T04 and T06 kept theirs.
 - **The follow-up pull request was written in this ticket's session.** It went on its
   own branch (`t00-followups`, pull request #11), not on this one, and the maintainer
-  authorised the push and the PR separately and merged it. This branch still changes only
-  its own ticket file. The maintainer chose to fold the text-only follow-ups into the
-  same pull request.
+  authorised the push and the PR separately and merged it. T11's own commits change only
+  its ticket file. After them, the maintainer chose to push T10 (`6829050` and its review
+  follow-up) onto this branch, so pull request #12 carries both tickets. T10's files are
+  the four root documents and its own ticket, and T10's hand-back records the stack. The
+  maintainer chose to fold the text-only follow-ups into the same pull request.
 - **The clone's times are on a warm machine**, as step 3 says. A cold `PREK_HOME` was
   offered and not chosen.
 - **An extra offline proof.** Beyond the ticket's timed `just check`, a second run with
