@@ -87,10 +87,10 @@ shebangs name the Python at the worktree's old absolute path.
 `pixi.lock` is stale against `pyproject.toml`: a pin moved in the manifest and the
 lockfile was not solved again. Run `just lock`, read the diff, and commit the lockfile.
 
-Look at `git status` first. On a stale lock, `lock-check` fails and also leaves
-`pixi.lock` rewritten from a solve restricted to the packages already on this machine,
-which can pin older versions than the channels offer. Discard that with
-`git restore pixi.lock` before running `just lock`.
+Look at `git status` first. On a stale lock, `lock-check` fails, and when the packages
+it needs are already on this machine it may also leave `pixi.lock` rewritten from that
+restricted solve, which can pin older versions than the channels offer. Discard any such
+change with `git restore pixi.lock` before running `just lock`.
 
 ## `cargo` reports that `Cargo.lock` needs to be updated but `--locked` was passed
 

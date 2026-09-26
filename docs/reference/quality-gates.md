@@ -124,8 +124,8 @@ was cancelled or was skipped. It exists so that branch protection can name one c
 never changes. A gate job added later joins its `needs`, and protection stays as it is.
 
 The mapping is not one to one. `rust` runs `test`, where the gate runs `test-doc` and
-`coverage`; `lint` runs in `documents`; and `check-clean` has no job, because a job that
-starts from a fresh checkout has nothing to compare. Past the composite setup action,
+`coverage`; `lint` runs in `documents`; and no job runs `check-clean`, since each job
+runs its recipes directly rather than through `just check`. Past the composite setup action,
 nothing in CI runs a command that does not exist in the `Justfile`.
 
 `.github/workflows/audit.yml` runs `just audit` on every pull request, weekly, and by

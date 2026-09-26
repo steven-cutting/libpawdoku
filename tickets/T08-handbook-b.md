@@ -624,7 +624,8 @@ pages against `docs/manifest.yml`: none points elsewhere.
   outranks the byte-identical criterion here.
 - **`lock-check` can rewrite `pixi.lock`.** The brief's "A first run never rewrites it
   silently" is false today: T03 proved that `pixi lock --check --offline` on a stale
-  lock exits 1 and writes a lock solved from local packages, and the `--dry-run`
+  lock exits 1 and, when the packages are available locally, writes a lock solved from
+  them (when they are not, the solve fails and writes nothing), and the `--dry-run`
   follow-up has not landed. Troubleshooting tells the reader to check `git status` and
   `git restore pixi.lock` before `just lock`.
 - **The `rand` and `getrandom` ban is on what ships.** `deny.toml` sets
@@ -669,8 +670,10 @@ pages against `docs/manifest.yml`: none points elsewhere.
   troubleshooting's "A `stable` toolchain appears that nobody installed" section goes.
 - **`main` pull request, CONVENTIONS.md §6:** `quality-philosophy.md`'s note should read
   "verbatim minus the frontend ranges" (see Open points settled).
-- **T11:** reconcile configuration.md's lint-table summary if T02's table moves; the
-  page lists every lint the table holds today.
+- **Keep in step:** `configuration.md` names every lint in `[workspace.lints]` today, so
+  a lint added to the table needs a row or a mention there.
+- **`main` follow-up, `docs/README.md` (frozen):** the map still names seven modules while
+  `specifications.md` says eight; adding `board.allium` to the map is still pending.
 - **`tickets/README.md`** is a snapshot and still shows T08 (and T09) as open; this
   ticket's Files touched does not include it, so it is left for the lane that updates
   the index.
