@@ -265,6 +265,7 @@ docs/explanation/*.md            T00 stub -> T08 (two pages T06)
 docs/reference/*.md  docs/operations/*.md   T00 stub -> T08
 docs/decisions/README.md  docs/decisions/0001..0011-*.md   T00 stub -> T09
 docs/specs/{sudoku,solver,technique,reach,effort,lapse,human-solving}.allium   T00 verbatim from G -> T06
+docs/specs/board.allium          T12 (from G at add73be7)
 tickets/                         this directory
 ai_tmp/  .tools/  .pixi/  target/   gitignored; never committed
 ```
@@ -675,7 +676,7 @@ Skills, canonical under `.agents/skills/<name>/SKILL.md` with frontmatter of exa
 | `plan-change` | G | Unchanged in shape |
 | `project-check` | G | Step 2 prerequisites (rustup, `just initialize`); gate numbers |
 | `review-docs` | G | The managed/seed step dropped |
-| `spec-change` | G | Steps 4, 7 and 8: `tests/platformSpecs.test.ts` and `just frontend-unit` become the boundary and `just test` |
+| `spec-change` | G | Steps 1, 4 and 8: `tests/platformSpecs.test.ts` and `just frontend-unit` become the boundary and `just test` |
 | `rust-change` | new | Read `AGENTS.md` and `docs/explanation/architecture.md`; the trait boundary first; derive tests from the clause; doc examples are tests; `just fmt-check`, `just clippy`, `just test`, then `just check` |
 | `allium`, `distill`, `elicit`, `propagate`, `tend`, `weed`, `witness` | G, vendored from `juxt/allium` | Five byte-for-byte; `allium/SKILL.md` line 10 (recipe names) and `propagate/SKILL.md` line 12 (`just frontend-unit`, "never colocated") edited; `skills-lock.json` copied verbatim as provenance (its hashes match no file in G and no validator reads it) |
 
@@ -897,14 +898,16 @@ is a design change that goes back through this document.
 - `cargo hack check --feature-powerset` on a crate with one optional feature (`serde`)
   produces two configurations and exits 0. **T02.**
 - `cargo shear` reads source without a build and understands `[workspace.dependencies]`.
-  **T02.**
+  **T02.** Outcome: cargo-shear 1.13.4 reports unused crate-level dependencies only, not
+  an unused `[workspace.dependencies]` entry, which stays inert until a crate names it.
 - `thiserror` 2 with `default-features = false` derives `core::error::Error` under
   `no_std`; `proptest` runs under `#[cfg(test)] extern crate std;`. **T02.**
 - The `clippy.toml` keys `allow-panic-in-tests` and `allow-indexing-slicing-in-tests`
   exist under those names in clippy 1.98. **T02.**
 - `cargo binstall --root .tools` puts binaries in `.tools/bin`, verifies release
   checksums where the crate publishes them, and skips a matching installed version (one
-  tool, cargo-hack). **T03.**
+  tool, cargo-hack). **T03.** Outcome: cargo-hack publishes no checksum or signature, so
+  nothing is verified; the binary comes unsigned over TLS from its GitHub release.
 - `pixi install --locked` on this `pyproject.toml` installs the nine conda packages and
   B, and does not try to install `libpawdoku-tooling` itself (no `[build-system]`,
   `dependencies = []`). **T00.**
