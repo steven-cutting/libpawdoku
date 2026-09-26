@@ -31,15 +31,17 @@ drifting.
 ## Update deliberately
 
 ```console
-just lock            # relock at the versions the manifests already state
-just lock-upgrade    # move to newer versions within the manifests' constraints
+just lock            # relock after a manifest edit
+just lock-upgrade    # move every crate to the newest version its range admits
 ```
 
-`just lock` relocks the workspace members against what the manifests state, then runs
-`pixi lock`. `just lock-upgrade` moves every crate to the newest version its range admits,
-which under caret ranges changes plenty, and runs `pixi update`, which moves only
-transitive packages because every tool pin is exact. Read both lockfile diffs before
-accepting them.
+`just lock` relocks the workspace against what the manifests state, then runs
+`pixi lock`. It is not a no-op: a dependency whose range was edited, or that is new,
+resolves to the newest version its range admits, not to the version the range names.
+`just lock-upgrade` moves every crate, transitive ones included, to the newest version
+its range admits, which under caret ranges changes plenty, and runs `pixi update`, which
+moves only transitive packages because every tool pin is exact. Read both lockfile diffs
+before accepting them.
 
 ## Upgrading a crate
 
@@ -165,8 +167,10 @@ commit that moves the pin — but only after `just install-allium` has actually 
 
 ## Actions in the workflows
 
-`ci.yml`, `audit.yml` and the composite `setup` action pin every `uses:` to a full commit
-SHA with its version comment, never to a tag. The same `gh api` line resolves a tag to
+`ci.yml`, `audit.yml` and the composite `setup` action pin every remote action in a
+`uses:` line to a full commit SHA with its version comment, never to a tag. The one
+exception is the local `uses: ./.github/actions/setup`, a path in this repository that
+moves with the commit that calls it. The same `gh api` line resolves a tag to
 the commit to paste. The toolchain the jobs build with is not pinned here: the setup
 action runs `just install-toolchain`, so CI reads `rust-toolchain.toml` like everyone else.
 

@@ -603,10 +603,12 @@ canonical topics.` and `just lint` passed every hook. After the last edit:
   section, and "What you just touched" is G's heading, which the brief keeps. Every
   recipe the pages name is in `just --summary`. See Deviations.
 - Eight `frontmatter unchanged` lines, and every H1 equals its `title`.
-- The waiver diff as written prints one hunk: line 5's link text is `decision 0005` here
-  and `decision 0007` in G, because the command's `sed` rewrites the path and not the
-  text that rule 2 requires. With `s/\[decision 0007\]/[decision 0005]/` added, it prints
-  `waiver terms verbatim`. The expanded `allium.field.unused` paragraph is included.
+- The waiver diff as written prints one hunk, at lines 4-5. The first half is the link
+  text `decision 0005` here against `decision 0007` in G: the command's `sed` rewrites the
+  path, not the text rule 2 requires. The second is the reworded stale sentence (see
+  Deviations). Before the PR #9 review, with `s/\[decision 0007\]/[decision 0005]/`
+  added, the diff printed `waiver terms verbatim`. The expanded `allium.field.unused`
+  paragraph and every waiver term are word for word.
 - `just check`: exit 0 after 18 recipes, ending `The worktree matches the check
   baseline.` and `All checks passed and the worktree is unchanged.`
   `git status --porcelain` is empty.
@@ -625,6 +627,15 @@ canonical topics.` and `just lint` passed every hook. After the last edit:
 
 ### Deviations, and why
 
+- **One sentence of the waiver section is not verbatim** (PR #9 review). G's "That
+  closes the follow-up decision 0005 left open" is false here: this repository's decision
+  0005 already records both recipes as gates and leaves no follow-up. It now reads "That
+  is what decision 0005 records". The waiver terms themselves are untouched, so the waiver
+  diff shows that one hunk alongside the link-text hunk.
+- **Other PR #9 review fixes.** maintain-dependencies now says `just lock` is not a no-op
+  (an edited or new range resolves to the newest version it admits, as T02 saw with serde
+  and thiserror), and that the local `uses: ./.github/actions/setup` is the one `uses:`
+  without a SHA. The terminology Record, reopen row is rephrased as two whole clauses.
 - **The order of `just initialize`.** The brief lists refusing a foreign cargo before
   installing the toolchain. `scripts/initialize.sh` runs `install-toolchain` first and
   `check-toolchain` second. Both pages follow the script.
@@ -665,10 +676,6 @@ canonical topics.` and `just lint` passed every hook. After the last edit:
 
 ### Handed back
 
-- **G's work-with-the-specs text, kept verbatim here: "That closes the follow-up
-  decision 0005 left open".** This repository's decision 0005 already records both
-  recipes as gates and leaves no follow-up open, so the sentence is slightly stale here.
-  For T11: reword it, or make it part of the waiver-terms carve-out.
 - **This ticket's Verification block.** The waiver diff needs the link-text substitution
   shown above, and the recipe loop matches the adverb "just" in prose. Both are the
   commands' limits, not the pages'. Nothing to act on unless the block is reused.

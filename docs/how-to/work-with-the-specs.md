@@ -81,8 +81,8 @@ findings on top — data flow, edge reachability, deadlocks, conflicts and invar
 ### Diagnostics and waivers
 
 Both recipes are part of `just check`, and both run as hooks in the read-only gate, so a
-commit that touches `docs/specs/` is held to them. That closes the follow-up
-[decision 0005](../decisions/0005-project-managed-allium-cli.md) left open, and it means a
+commit that touches `docs/specs/` is held to them. That is what
+[decision 0005](../decisions/0005-project-managed-allium-cli.md) records, and it means a
 worktree needs `just install-allium` before `just lint` or `just check` will pass. Both are
 clean on an untouched checkout: every module reports an empty `diagnostics` array and an
 empty `findings` array, and both recipes print one JSON block per module and exit 0.
