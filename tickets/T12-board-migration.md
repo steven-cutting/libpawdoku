@@ -1,7 +1,7 @@
 ---
 id: T12
 title: "Board migration: board.allium adapted, and the alignment with the game at add73be7"
-status: open
+status: done
 depends_on: [T06, T07, T08, T11]
 parallel_with: []
 branch: ticket/t12-board-migration
@@ -215,13 +215,173 @@ technique 2`; no "seven" that counts modules; both gates green; nothing from `gi
 
 ### What was verified, and how
 
+Run on 2026-09-25 in the Supacode worktree for this ticket, on branch `T12-board-migration`
+(see Deviations), from `main` at `cf1f702` after T06 merged, with the environment the
+maintainer had installed: `.tools/bin/allium` 3.6.1 and cargo-hack. The maintainer
+instructed that the claimed dependencies on T07, T08 and T11 be ignored and the migration
+run now; the consequences are under Deviations.
+
+**Step 1.** `git -C /Users/scutting/projects/pawdoku rev-parse --short=8 HEAD` printed
+`add73be7`, `git diff --stat add73be7 HEAD -- docs/specs/` printed nothing, and the
+library's `sudoku.allium` differed from G's only by T06's two comment hunks at 37-38 and
+41-42. Neither module has moved since the ticket was written.
+
+**Step 2.** The verbatim copy (`cmp` clean, 785 lines) was gated before any edit.
+`just check-specs` and `just analyse-specs` each printed eight blocks of the shape
+
+```json
+{"command": "check", "diagnostics": [], "findings": [], "spec_file": "docs/specs/board.allium"}
+```
+
+(the binary pretty-prints each over six lines; `board.allium` sits fourth, between
+`lapse` and `solver`) and closed:
+
+```text
+allium check: 8 specifications, no diagnostics and no findings.
+allium analyse: 8 specifications, no diagnostics and no findings.
+```
+
+**Step 3.** Every Includes and Excludes bullet of `board.allium` was read in place and has
+a row in the table below; the word search, with `\bstores?\b` added to T06's pattern, was
+run on the verbatim copy and every hit is a row. Two hits the ticket's step 4 did not name
+were found and adapted: line 653, "and the words are the game's", and line 773, "not the
+store it came from" (Deviations).
+
+**Step 4.** The maintainer chose reading (a) before the edits ran (Open points settled).
+Seven comment edits were applied by exact replacement, each matching once; the diff
+against G names lines 6, 80, 82-84, 119-120, 619-620, 653 and 773 and nothing else, and
+the file keeps `-- allium: 3`, the `--` prefix, the bullet indent and the wrap width. The
+gate on the edited module printed the same eight blocks and the same two closing lines as
+step 2. The word search after the edits prints only the keep rows: 16, 55, 70, 83, 500,
+654, 702, 704, 755, 760 and 762.
+
+**Steps 5 and 6.** The four pages are still T00's stubs (Deviations), so each stub's one
+paragraph was edited to say eight modules and name `board.allium`; frontmatter is
+byte-identical. `just check-docs`:
+
+```text
+markdownlint.............................................................Passed
+typos....................................................................Passed
+lychee...................................................................Passed
+bg-validate-docs
+Validated 37 pages and 38 canonical topics.
+```
+
+**Step 7.** T06's hand-back items 1, 3, 4, 5, 6, 8 and 13 were re-read against G's HEAD,
+`add73be7`, unmoved since T06 ran. Every item already names `board.allium` and says the
+eight modules leave together, and every G line number was derived at `add73be7`: item 4's
+table rows 20-27 with row 21 `board.allium` and item 5's paragraphs 40-46 match what this
+ticket read (module table 15-30, `board.allium` paragraph 40-46, verbatim run through 75).
+No edit was needed.
+
+**Step 8.** The verification block, in order: `add73be7`; an empty specs diff; the diff
+above; the two gate runs above; `-- allium: 3` eight times; `no waivers`; the eleven keep
+lines; `no game words`; the counts `board 1, effort 7, lapse 1, human-solving 6, solver 0,
+reach 3, technique 2, sudoku 0`; one "seven" hit, `docs/reference/quality-gates.md` 11,
+"the seventeen gates", which does not count modules (`lapse.allium` 493, "seven
+questions", is outside the `*.md` glob and does not count them either); `just check-docs`
+as quoted; `just check` as quoted below; `git status --porcelain` empty after the commits.
+
+```text
+allium analyse: 8 specifications, no diagnostics and no findings.
+
+==> just check-clean
+bg-project-check clean "$1"
+The worktree matches the check baseline.
+
+All checks passed and the worktree is unchanged.
+```
+
 ### The relevance review
+
+Verdicts as in T06: **keep** (relevant to a library as written), **adapt** (relevant, but
+the wording presumes the game), **drop** (not the library's; none). Lines are G's at
+`add73be7`, which are the library's before the edits; after them 80 becomes 80-81 and
+82-84 becomes 82-83, so every later line keeps its number.
+
+`board.allium` (base: G `add73be7`)
+
+| Lines | Clause | Verdict | Reason |
+| --- | --- | --- | --- |
+| 6 | Scope "a player at a screen" | adapt | "a player": a consumer's surface is where the screen is |
+| 21-24 | Includes "The board: one for every puzzle set..." | keep | The entity the library's board API is; a reopened board opens the same way |
+| 25-29 | "Notes: each cell's marks..." | keep | Player state the rules leave out; two of the four moves |
+| 30-34 | "Upkeep: when a digit is placed..." | keep | Deterministic; what undo must put back exactly |
+| 35-37 | "The note beneath a digit..." | keep | Observable through `shows_note`; no UI |
+| 38-43 | "Moves: every placement, erasure, written mark and struck mark..." | keep | The record undo and redo read; "solved is final" is the rules' |
+| 44-46 | "Reading back: the board as it stood..." | keep | `digit_after` and `note_after`, engine output |
+| 47-50 | "The check: the player asks whether one cell's digit is the solution's..." | keep | Kept as G has it on the maintainer's decision; the open question at 785 is carried |
+| 51-54 | "The record: a board written down whole..." | keep | Already says "nothing of the form a record takes or where one is kept", which is reading (a) |
+| 55-58 | "Two boundaries: Playing ... and Reopening ..." | keep | The library's API shape; "a play surface" is a consumer's and Allium's word |
+| 61-68 | Excludes "The rules: what a unit, a peer, a conflict and solved are..." | keep | `sudoku.allium`'s; the one board-own guard (a placement changes the digit) is stated |
+| 69-72 | "Where a puzzle comes from..." | keep | `PuzzleSetting` is the way in; no setting surface here |
+| 73-75 | "Finding the solution. solution_digit_at below is a black box..." | keep | `solver.allium` decides it and is not imported, as `solution_count` in `sudoku.allium` (Open points) |
+| 76-78 | "Hints, which are reach.allium's ...; timers; and any count read off the checks" | keep | `reach`'s, no clock, the open question |
+| 79-80 | "How a record is kept ... The record is what a store is handed; the store is a port's." | adapt | Reading (a): "The record is what a caller is handed; where it is kept is the caller's." |
+| 81-84 | "Anything drawn ... pawdoku.allium's Play surface and the modules beneath it decide that, and the platform's marks are theirs to translate." | adapt | "A consumer's surfaces decide that; nothing here draws.", as T06 reworded `sudoku.allium` 36-38 |
+| 16, 500, 654, 702, 704, 755, 760, 762 | `surface`, `Playing`, "In play" | keep | Allium's word and the surface's own name; "in play" is the state of a puzzle |
+| 55 | "what a play surface can see of a board" | keep | A consumer's surface; the boundary is what the library states |
+| 70 | "no setting surface of its own" | keep | Says the module has none |
+| 119-120 | `external entity Record` comment, "a store behind a port decides the rest" | adapt | "the caller it is handed to decides the rest, where it is kept included" |
+| 619-620 | `contract Recording` comment, "a record is whatever a store is handed, and the store is a port's" | adapt | "a record is whatever a caller is handed, and where it is kept is the caller's" |
+| 653 | `surface Playing` comment, "and the words are the game's" | adapt | "and the words are a consumer's"; a hit the ticket's step 4 did not list |
+| 773 | `ARecordIsEnoughOnItsOwn`, "not the store it came from" | adapt | "not wherever it was kept"; under reading (a) nothing presumes a store |
+| 476, 488 | `solution_digit_at`, a black box | keep | Carried; whether the Rust board reaches the solver by import or only in the implementation is the `rust-change`'s (Open points) |
+| 785 | Open question | keep | Carried, unchanged |
 
 ### Deviations, and why
 
+- **The branch is `T12-board-migration`, not `ticket/t12-board-migration`.** It keeps the
+  Supacode name, as T01, T04 and T06 did.
+- **The dependencies on T07, T08 and T11 were not waited for.** The maintainer's
+  instruction on 2026-09-25: "ignore the claimed dependencies on other tickets I want to
+  go ahead and port/migrate the board.allium spec now and update the others as well."
+  `tickets/README.md`'s graph still shows T12 after them; the row's status is what moved.
+- **The four pages were edited as stubs, not as G's pages.** Step 5 assumes T07's and
+  T08's content (a module table, an import graph, a terminology table); none exists yet.
+  On the maintainer's choice each stub's paragraph now says eight modules and names
+  `board.allium`, and the briefs in `tickets/T07-handbook-a.md` and
+  `tickets/T08-handbook-b.md` were amended so the full pages land with the board: the
+  module table and the "Diagnostics and waivers" section based on G `add73be7` (the
+  `allium.field.unused` projection paragraph included), the seven terminology rows and two
+  edits with the two rewordings step 5 names, "Eight are the library's" with the
+  `board.allium` paragraph, and `board` in the import graph. Those two tickets are other
+  lanes' files (CONVENTIONS.md §11); the same instruction is the authority.
+- **Two comment edits beyond the ticket's five,** at 653 and 773, both word-search hits
+  the ticket's step 4 did not account for. Line 653 named the game; line 773 named a
+  store inside a guarantee, which reading (a) removes.
+- **The "seven" grep.** With `--include='*.md'` it hits only `quality-gates.md` 11
+  ("seventeen gates"); the ticket's expected `lapse.allium` 493 is not a Markdown file.
+  Neither counts modules.
+- **`git diff --stat main` lists seven files and this ticket,** not the ticket's eight:
+  `tickets/T06-spec-migration.md` needed no edit (step 7), and `tickets/README.md` gains
+  the status flip.
+
 ### Handed back to pawdoku
 
+Nothing new. T06's list of thirteen items, re-read on 2026-09-25 against `add73be7`,
+already removes the eight modules together and its line numbers hold. Two notes for the
+day G performs it: `board.allium` in this repository differs from G's by the seven
+comment lines the review names, so the restated text G holds equal by test is this
+repository's; and item 13, the prototype under `prototypes/board/`, remains G's decision.
+
 ### Open points settled
+
+Each answered by the maintainer on 2026-09-25, in this session.
+
+- **A record and a reopening in a library with no persistence.** Reading (a), as
+  recommended: the record is a value the engine writes and reopens, the caller keeps it
+  wherever it likes, and no second effect trait is added. `contract Recording` and
+  `surface Reopening` stay as G has them; the three "a port's" sentences and the
+  `store` at 773 are reworded to say so. `AGENTS.md` line 13 and invariant 2 stay true.
+- **`solution_digit_at`.** Carried as a black box; the `rust-change` that builds the
+  board decides how it reaches the solver.
+- **The check itself.** Kept as G has it; the open question at 785 is carried.
+- **G's prototype.** Not this ticket's; T06's hand-back item 13 asks G. The maintainer
+  named it as background for the Rust board, which is a later ticket, not yet written.
+- **`docs/README.md` is frozen.** Untouched; it names seven modules at lines 18-24, and
+  adding `board.allium` to the paragraph and the module list is a `main` follow-up.
+- **`AGENTS.md` line 13.** Unchanged under reading (a).
 
 ## Open points
 
