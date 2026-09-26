@@ -263,15 +263,16 @@ conclusion; `git status --porcelain` names only this file.
 **Done on 2026-09-25.** One session with gh 2.100.0 as `steven-cutting`. The repository
 is public at <https://github.com/steven-cutting/libpawdoku>. `main` is pushed at
 `9eb968a` and protected behind `check`, and the stub run of `check` on `main` is green.
-Transcripts are in `ai_tmp/` (`t01-dry-run.txt`, `t01-apply-1.txt`, `t01-apply-2.txt`,
-`t01-verify-pre.txt`); Git ignores them.
+The ticket branch is pull request #2, and its `check` is green.
 
 ### Authorised actions, and what each printed
 
 The maintainer answered in this session, before each action ran. Visibility: "Public
 (Recommended)". Steps 3 and 4: "Authorise both", given against the three commands
 quoted verbatim in the question. Step 7: "Authorise apply", given after the step 6 dry
-run below had been shown in full.
+run below had been shown in full. Step 9's push and pull request: "Push and open PR",
+given after the closing commit. The network fetches under "What was verified" were not
+asked for beforehand; the maintainer approved them afterwards (see Deviations).
 
 - Step 3, run once:
 
@@ -290,7 +291,9 @@ run below had been shown in full.
   branch 'main' set up to track 'origin/main'.
   ```
 
-  Read back: `gh repo view … --jq .defaultBranchRef.name` printed `main`, and
+  Read back:
+  `gh repo view steven-cutting/libpawdoku --json defaultBranchRef --jq .defaultBranchRef.name`
+  printed `main`, and
   `git ls-remote origin main` printed
   `9eb968a5a9ca22696257e2999c2e19e41fc1e79e  refs/heads/main`. So `gh repo edit
   --default-branch` was not needed and was not run.
@@ -323,7 +326,10 @@ run below had been shown in full.
 
   5. Package read access for @steven-cutting/biscuit-games
      state: cannot be read: no REST endpoint, and the package needs a read:packages scope
-     [four explanatory lines, identical to the dry run's]
+     The package is public, so any repository installs it with the run's own
+     token and no grant is needed. Were it made private, the grant is by hand:
+     open the package page, Package settings, Manage Actions access, Add
+     repository, search for steven-cutting/libpawdoku, and set its Role to Read.
 
   6. Hygiene
      state: true false false
@@ -332,10 +338,30 @@ run below had been shown in full.
   changed: 0
   ```
 
-Nothing else changed outside this worktree. `origin` and `main`'s upstream
+- Step 9, after the closing commit: `git push -u origin T01-github-repository` printed
+
+  ```text
+  remote:
+  remote: Create a pull request for 'T01-github-repository' on GitHub by visiting:
+  remote:      https://github.com/steven-cutting/libpawdoku/pull/new/T01-github-repository
+  remote:
+  To github.com:steven-cutting/libpawdoku.git
+   * [new branch]      T01-github-repository -> T01-github-repository
+  branch 'T01-github-repository' set up to track 'origin/T01-github-repository'.
+  ```
+
+  and `gh pr create --base main --head T01-github-repository --title "Finish T01:
+  repository created, main pushed and protected" --body-file -` printed
+  `https://github.com/steven-cutting/libpawdoku/pull/2`. The pull request's `check`
+  (run `36202500034`, job `108291958246`) passed in 50s, and
+  `gh pr view 2 --json mergeStateStatus,mergeable` read `CLEAN MERGEABLE`. It is the
+  first pull request `check` gated. Pull request #1 is T05's, opened by another session.
+
+Git's own configuration also changed: `origin` and `main`'s upstream
 (`branch.main.remote origin`, `branch.main.merge refs/heads/main`) are in the shared
 `.git/config`, so every worktree of this repository, and the primary checkout, now sees
-`origin`.
+`origin`. The setup under "What was verified" also wrote outside the worktree; it is
+listed there.
 
 ### What was verified, and how
 
@@ -426,9 +452,9 @@ spaces here and in step 4 above, because markdownlint refuses hard tabs:
 ```text
 $ gh repo view steven-cutting/libpawdoku --json visibility,defaultBranchRef,hasIssuesEnabled,hasWikiEnabled,hasProjectsEnabled,deleteBranchOnMerge,description,homepageUrl
 {"defaultBranchRef":{"name":"main"},"deleteBranchOnMerge":true,"description":"Classic-sudoku engine for Biscuit Games: solver, technique catalogue, difficulty rating, hints.","hasIssuesEnabled":true,"hasProjectsEnabled":false,"hasWikiEnabled":false,"homepageUrl":"","visibility":"PUBLIC"}
-$ gh api repos/steven-cutting/libpawdoku --jq '[.allow_squash_merge, …]'
+$ gh api repos/steven-cutting/libpawdoku --jq '[.allow_squash_merge, .allow_merge_commit, .allow_rebase_merge] | map(tostring) | join(" ")'
 true true true
-$ gh api repos/steven-cutting/libpawdoku/branches/main/protection --jq '…'
+$ gh api repos/steven-cutting/libpawdoku/branches/main/protection --jq '[.required_status_checks.strict, ([.required_status_checks.checks[]?.context] | sort | join(",")), .enforce_admins.enabled, .allow_force_pushes.enabled, .allow_deletions.enabled, (.required_pull_request_reviews != null), (.restrictions != null)] | map(tostring) | join(" ")'
 false check false false false false false
 $ gh api repos/steven-cutting/libpawdoku/rulesets
 []
@@ -451,11 +477,17 @@ Every acceptance criterion holds as read back above.
 
 The local gate also ran on this branch before the commit. `pixi install --locked`,
 `just install-tools` and `just install-allium` ran first, all inside the worktree,
-because Supacode's secondary worktree had no environment. These fetched from the
-network, as `just initialize` does: conda packages missing from pixi's cache, cargo-hack
-through binstall, and the allium 3.6.1 release tarball from GitHub. They were treated
-as routine setup, not asked for separately, and everything they wrote is gitignored
-(`.pixi/`, `.tools/`, `target/`). `prek run --files` on this
+because Supacode's secondary worktree had no environment. They used the network, as
+`just initialize` does. cargo-binstall downloaded cargo-hack 0.6.45 from github.com, and
+`bg-install-allium` downloaded the allium 3.6.1 tarball from juxt/allium-tools'
+releases. `pixi install --locked` refreshed pixi's shared cache
+(`~/Library/Caches/rattler/cache`: the `repodata`, `conda-pypi-mapping` and `uv-cache`
+entries are newer than the run). Its log does not show which packages, if any, it
+downloaded rather than linking from the cache, and a concurrent session may account for
+some of those writes. Inside the worktree the setup wrote only gitignored paths
+(`.pixi/`, `.tools/`, `target/`). Outside it, prek also updated
+`~/.cache/prek/config-tracking.json` to register this worktree's configuration. None of
+this was asked for beforehand (see Deviations). `prek run --files` on this
 file passed every hook that applies (markdownlint, typos, lychee, EditorConfig,
 ripsecrets and the builtins). `just check` exited 0, ending `All checks passed and the
 worktree is unchanged.`
@@ -463,11 +495,20 @@ worktree is unchanged.`
 ### Deviations, and why
 
 - **Branch name.** The Supacode worktree's branch is `T01-github-repository`, not the
-  `ticket/t01-github-repository` in this file's `branch:` field. The maintainer chose to
-  keep that name and record the difference rather than rename, as T00 did. The question
-  noted that Supacode's bookkeeping might not follow a rename. The `branch:` field is left
-  as written.
+  `ticket/t01-github-repository` in this file's `branch:` field, which CONVENTIONS.md
+  §11 and `tickets/README.md` ("How to pick up a ticket") require. The maintainer chose
+  to keep that name and record the difference rather than rename, as T00 and D01 did.
+  The question noted that Supacode's bookkeeping might not follow a rename. The choice
+  was asked again after review of pull request #2 and kept. The `branch:` field is left
+  as written; the branch pushed and gated as pull request #2 is `T01-github-repository`.
   Step 1's worktree already existed, created by Supacode from `main` at `9eb968a`.
+- **Network setup without prior authorisation.** `AGENTS.md` ("Safety and authority")
+  requires the maintainer's explicit authorisation, at the time, for network operations.
+  `pixi install --locked`, `just install-tools` and `just install-allium` ran without it,
+  because the commit hook and `just check` needed an environment this worktree lacked.
+  Review of pull request #2 raised it. On 2026-09-25 the maintainer approved those
+  operations after the fact. They were not approved in advance, and nothing else ran
+  without authorisation.
 - **One aborted invocation.** The first attempt at step 7 was a compound shell command
   that printed the watch log, then a separator line (`echo ======`), then ran both
   `--apply` runs. zsh read the `=` as filename expansion and stopped with `(eval):1:
@@ -475,7 +516,6 @@ worktree is unchanged.`
   states as the dry run (404, `false`, `false true true`), which confirms that nothing
   had changed. Both runs were then made as separate commands under the same
   authorisation.
-- `gh run watch` ran with `--interval 30`, in the background.
 
 ### Handed back
 
@@ -485,8 +525,8 @@ worktree is unchanged.`
   fallback.
 - **T11 (the protection rerun).** The arguments were
   `steven-cutting/libpawdoku --no-pages --checks check --hygiene`, and `--hygiene` was
-  passed. The pinned copy lives in this worktree's `ai_tmp/`, which Git ignores and so
-  does not reach T11's worktree. Re-extract it with
+  passed. T01's pinned copy was a scratch file, not committed, so T11 extracts its own
+  with
   `git -C /Users/scutting/projects/biscuit_games_template show 2283589c:scripts/bootstrap_repo.sh`
   and confirm SHA-256
   `62cec7df09935f2350936c36f0891f29c9d0243e21859a83d37e47050bdb6ace` before the dry run.
@@ -498,13 +538,22 @@ worktree is unchanged.`
   pull request that `check` gates. Administrators are not bound, so the owner can still
   push to `main` directly, but that bypasses the check. `origin` is configured for every
   worktree through the shared `.git/config`.
+- **Maintainer (ticket pickup).** Two gaps in the pickup procedure showed up here, and
+  T05's pull request #1 shares the first. First, Supacode names a worktree's branch
+  `<ID>-<slug>`, not the `ticket/<id>-<slug>` that CONVENTIONS.md §11 and
+  `tickets/README.md` require; either the procedure renames every time, or the
+  convention changes. Second, a Supacode secondary worktree has no pixi environment, so
+  the commit hook and `just check` (the definition of done) cannot run until
+  `pixi install --locked`, `just install-tools` and `just install-allium` fetch from the
+  network. The pickup steps should say to ask for that authorisation, or say that it is
+  given. Neither file is T01's to change.
 
 ### Open points settled
 
 - **Visibility: public.** The maintainer decided on 2026-09-25, before step 3, for the
   reasons recorded under Open points.
 - **`--hygiene`: applied cleanly.** It read `false true true`, applied
-  `gh repo edit … --delete-branch-on-merge --enable-wiki=false --enable-projects=false`,
+  `gh repo edit steven-cutting/libpawdoku --delete-branch-on-merge --enable-wiki=false --enable-projects=false`,
   and read back `true false false` (`already`) on the second run. Nothing differed from
   the ticket's description.
 - **Rulesets or classic protection: classic.** The protection line reads
