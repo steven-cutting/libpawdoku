@@ -28,8 +28,9 @@ template departure worth a decision record", and did not write one. This is that
 ## Decision
 
 The reference material lives at `allium-skill-reference/` at the repository root, one
-directory per skill, vendored byte-for-byte with the skills and covered by the same
-`skills-lock.json`. The skills keep their upstream relative links, rewritten only in
+directory per skill, vendored byte-for-byte with the skills. `skills-lock.json` hashes
+only each `SKILL.md`, so the reference is held to upstream by the vendoring, not by the
+lock. The skills keep their upstream relative links, rewritten only in
 depth: `../../../allium-skill-reference/<skill>/` from `.agents/skills/<skill>/SKILL.md`.
 The directory is excluded from markdownlint, lychee and typos, and marked
 `linguist-vendored` in `.gitattributes`, because it is upstream's text and not this

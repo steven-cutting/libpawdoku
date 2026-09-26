@@ -22,8 +22,8 @@ this record says why they were chosen and what they cost.
 
 A list a reader can check against `Cargo.toml` and `crates/pawdoku/src/lib.rs`:
 
-- `#![no_std]` with `extern crate alloc`, and `#![forbid(unsafe_code)]` through the
-  workspace lint table, in every crate.
+- `#![no_std]` with `extern crate alloc` in the core, and `#![forbid(unsafe_code)]` in
+  every crate through the workspace lint table.
 - `cargo check --target wasm32v1-none` under the feature powerset as the mechanical proof:
   a target with no std at all, beside `wasm32-unknown-unknown`, which wasm-bindgen
   targets. `just wasm-check` runs both and is gate 8 of `just check`.
@@ -63,8 +63,10 @@ A need for a std-only API in the core: a clock, files, threads, or a hashed map 
 The answer would be an additive `std` feature or a sibling crate that holds the std-only
 part, not `std` in the core, so the reopening would be about where the line sits rather
 than whether there is one. Or rustup dropping `wasm32v1-none`, which would change the
-proof, not the decision: `wasm32-unknown-unknown` with `#![no_std]` still refuses `std`,
-and the loss would be the second, stricter witness.
+proof, not the decision: `wasm32-unknown-unknown` ships a standard library, so
+`#![no_std]` there only drops the implicit import and an explicit `std` path or a
+std-using dependency would still compile, and the proof would need another target
+without `std`.
 
 ## Related pages
 

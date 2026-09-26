@@ -543,12 +543,27 @@ records run 58 to 113 lines; the index 57.
 - Commits are on `T09-decisions`, the branch Supacode created for this worktree, rather
   than the `branch:` field's `ticket/t09-decisions`; the same convention every earlier
   lane in this repository followed.
+- After the Copilot and Codex reviews of the pull request, six records changed in prose
+  only. 0001 and 0002 count eight modules, because `board.allium` landed with T12 after
+  this ticket was written, and 0001 says the game's root module is the only one that
+  draws anything rather than the only one that "names a surface", since every Allium
+  module declares surfaces. 0006 names the LLVM exception in the allow list and no longer
+  claims that section 5 lets MIT be added without relicensing past contributions, which
+  departs from step 10's wording because the claim does not hold. 0007 says why two exact
+  pins conflict (one version per compatible range) and scopes `--locked` to the cargo
+  calls that resolve dependencies. 0008 says `no_std` is the core's and that losing
+  `wasm32v1-none` would need another std-less target, because `wasm32-unknown-unknown`
+  ships a standard library. 0010 says `skills-lock.json` hashes only each `SKILL.md`.
 
 ### Handed back
 
-Nothing. No manifest title or slug needed changing, typos flagged no word in any record,
-and lychee resolved every relative link, so `_typos.toml` and the frozen files are
-untouched. The one cross-repository note is already on record in T06's hand-back: the
+No manifest title or slug needed changing, typos flagged no word in any record, and
+lychee resolved every relative link, so `_typos.toml` and the frozen files are untouched.
+One item goes to D02: both reviewers read 0011's "pixi owns every tool binary" and "every
+pin except the compiler's is a hash in `pixi.lock`" as overstated, since cargo-hack,
+the hook revisions and the Allium checksums are pinned elsewhere. 0011 is D02's text
+copied verbatim, so the qualification belongs in D02's notes and the record together, as
+a follow-up on `main`. The one cross-repository note is already on record in T06's hand-back: the
 game owes its own record for the `allium-skill-reference/` relocation; 0010 here is this
 repository's, not the game's.
 

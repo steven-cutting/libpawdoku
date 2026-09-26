@@ -15,8 +15,9 @@ The games pin every dependency exactly. Their `AGENTS.md` invariant reads "No `^
 `just lock-check`. That is right for an application, whose manifest is the last word on
 what it runs. A library's manifest is a constraint every consumer inherits. A crate that
 writes `=1.2.3` for a dependency forbids every other crate in a consumer's tree from
-resolving a different `1.2.x`, so two such libraries in one tree cannot resolve at all,
-and the game's WebAssembly package would carry the poison to everyone downstream of it.
+resolving a different `1.2.x`, because Cargo unifies one version per compatible range, so
+two such libraries pinning different patch releases cannot share a tree at all, and the
+game's WebAssembly package would carry the poison to everyone downstream of it.
 
 Two further facts shape the mechanism. The gate runner snapshots the worktree between
 recipes and aborts on any change, so no recipe may rewrite `Cargo.lock`. And the founding
@@ -28,8 +29,8 @@ the Rust gate.
 Manifests write full `x.y.z` caret ranges, in one `[workspace.dependencies]` table that
 every crate inherits from; a crate manifest names a dependency with `workspace = true`
 and never a version of its own. `Cargo.lock` is committed and is the pin. Every cargo
-invocation in a gate carries `--locked`, so a recipe that would need to change the
-lockfile fails instead, and `just lock-check` proves the lockfile matches the manifests.
+invocation in a gate that resolves dependencies carries `--locked`, so a recipe that
+would need to change the lockfile fails instead, and `just lock-check` proves the lockfile matches the manifests.
 cargo-deny checks licences, bans and sources offline at gate 12 of `just check`, and
 checks advisories in `just audit`, which runs in CI only, because the RustSec fetch can
 fail for reasons unrelated to the diff. `cargo-shear` fails the gate on a dependency

@@ -13,7 +13,7 @@ requires: []
 ## Context
 
 This library's behaviour is written in Allium before the code that implements it: the
-seven engine modules under `docs/specs/`, which moved here from the game with it. The
+eight engine modules under `docs/specs/`, which moved here from the game with it. The
 question is whether they remain authoritative once implementation starts, or become a
 design document that quietly falls behind.
 

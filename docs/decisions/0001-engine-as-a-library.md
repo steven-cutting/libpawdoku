@@ -10,13 +10,13 @@ requires: []
 
 ## Context
 
-The classic-sudoku engine was written in the game Pawdoku, as seven Allium modules that
-specify the grid, the solver, the technique catalogue, reach, effort, lapse and the
-human-solving model, with no code behind them yet. Read clause by clause, the seven carry
-almost no game-only wording: a handful of lines name the game's Play surface or its
-randomness port, and the game's root module is the only module that names a surface at
-all. Everything else is compute: what a valid grid is, which technique applies where, how
-hard a puzzle is for a person.
+The classic-sudoku engine was written in the game Pawdoku, as eight Allium modules that
+specify the grid, the board a player works on, the solver, the technique catalogue,
+reach, effort, lapse and the human-solving model, with no code behind them yet. Read
+clause by clause, the eight carry almost no game-only wording: a handful of lines name
+the game's screens or its randomness port, and the game's root module is the only one
+that draws anything. Everything else is compute: what a valid grid is, which technique
+applies where, how hard a puzzle is for a person.
 
 That compute has more than one consumer. The game reaches it through WebAssembly in a
 browser. A command line wants it for batch analysis and for rating puzzles. Python
@@ -28,7 +28,7 @@ every decision taken for it keeps the other three cheap.
 
 The engine is a library of its own: the crate `pawdoku` in `crates/pawdoku` of this
 repository, a Cargo workspace from day one, so that the command-line, Python and
-WebAssembly crates arrive as siblings without a restructuring. The seven modules move here
+WebAssembly crates arrive as siblings without a restructuring. The eight modules move here
 with it, adapted so that nothing game-only remains; the game's root module stays in the
 game.
 
