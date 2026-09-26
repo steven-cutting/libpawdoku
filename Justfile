@@ -60,23 +60,27 @@ lock-upgrade:
     cargo update
     pixi update
 
-# Offline, like every gate recipe: an offline solve on a stale lock still
-# fails, which is the right answer.
+# Offline, like every gate recipe: a cold Cargo cache fails rather than
+# fetching the registry index (`just sync` fills it), and an offline solve on a
+# stale lock still fails, which is the right answer. --dry-run because pixi
+# would otherwise rewrite a stale lock from that restricted solve.
 lock-check:
-    cargo update --workspace --locked
-    pixi lock --check --offline
+    cargo update --workspace --locked --offline
+    pixi lock --check --offline --dry-run
 
-# The shim, then every hook environment (seven clones; Go, Node and a rustup
-# toolchain under prek's cache; the ripsecrets build), so that `just check`
-# never fetches. lychee is `language: script` and downloads its binary at first
-# run, not at prepare, so it is run once here on one Markdown file; its exit
-# status is lint's business, not this recipe's.
+# The shim, then every hook environment (seven clones; Go under prek's cache;
+# the ripsecrets build with the machine's rustup and the pinned toolchain), so
+# that `just check` never fetches. lychee is `language: script` and downloads
+# its binary at first run, not at prepare, so it is run once here on one
+# Markdown file; its exit status is lint's business, not this recipe's. Its
+# checkout pins `stable`, and its script's cargo-binstall calls rustc, so
+# without RUSTUP_AUTO_INSTALL=0 rustup would install that toolchain.
 install-hooks:
     git rev-parse --is-inside-work-tree >/dev/null
     test -x .pixi/envs/default/bin/prek || { printf '%s\n' 'the pixi environment is not installed; run just initialize first' >&2; exit 2; }
     prek install --overwrite --hook-type=pre-commit --prepare-hooks
     prek prepare-hooks --config .pre-commit-fix.yaml
-    -prek run lychee --files README.md
+    -RUSTUP_AUTO_INSTALL=0 prek run lychee --files README.md
 
 # ---------------------------------------------------------------- develop ---
 

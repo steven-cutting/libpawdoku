@@ -21,11 +21,6 @@ one whose job is repairing what a check reported. `bg-project-check`, the runner
 comparing after every recipe, so a check that rewrites a file fails the run rather than
 hiding drift.
 
-One exception is known today. On a stale `pixi.lock`, `lock-check` fails as it should,
-but its pixi line may also rewrite the lockfile from the packages already on the machine
-before the snapshot catches it. The run still fails;
-[Troubleshooting](../operations/troubleshooting.md) says how to put the file back.
-
 This is why the pre-commit configuration is split in two. `.pre-commit-config.yaml` is
 the gate and is what gets installed; `.pre-commit-fix.yaml` holds the mutating hooks and
 runs only from `just fix`.

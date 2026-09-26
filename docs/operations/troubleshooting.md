@@ -87,11 +87,6 @@ shebangs name the Python at the worktree's old absolute path.
 `pixi.lock` is stale against `pyproject.toml`: a pin moved in the manifest and the
 lockfile was not solved again. Run `just lock`, read the diff, and commit the lockfile.
 
-Look at `git status` first. On a stale lock, `lock-check` fails, and when the packages
-it needs are already on this machine it may also leave `pixi.lock` rewritten from that
-restricted solve, which can pin older versions than the channels offer. Discard any such
-change with `git restore pixi.lock` before running `just lock`.
-
 ## `cargo` reports that `Cargo.lock` needs to be updated but `--locked` was passed
 
 Every recipe passes `--locked`, so a manifest edit that the lockfile does not reflect
@@ -108,13 +103,6 @@ secondary worktree whose primary checkout never ran `just initialize`. Run
 `just install-hooks` from the primary checkout; it prepares every hook environment and
 warms the link checker. `just initialize` is where the network belongs, and `just check`
 must not need it.
-
-## A `stable` toolchain appears that nobody installed
-
-`just install-hooks` runs the link checker once to warm it, and the lychee hook's
-checkout pins `stable`: its script installs lychee through cargo-binstall, and rustup
-installs the toolchain that checkout names on the way. It is harmless and costs disk.
-`rustup toolchain uninstall stable` removes it, until the next `just install-hooks`.
 
 ## The ripsecrets hook fails to install: the package believes it is in a workspace
 

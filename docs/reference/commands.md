@@ -18,8 +18,8 @@ Nine recipes reach the network: `install-toolchain`, `install-tools`, `install-a
 checkout), and is the one command a fresh clone needs the network for. Nothing inside
 `just check` reaches it once `just sync` has fetched the registry index: `lock-check` and
 `deny` then answer from that cache, and `lint` finds every hook environment already
-prepared, because `install-hooks` prepared it. On a cold Cargo cache, `lock-check`'s cargo
-line fetches the index rather than failing. `build`, `test`,
+prepared, because `install-hooks` prepared it. On a cold Cargo cache, `lock-check` fails
+rather than fetching the index. `build`, `test`,
 `audit` and `check-links-online` are outside `just check`, and so is every recipe that
 writes.
 
@@ -35,7 +35,7 @@ writes.
 | `just sync` | Install `Cargo.lock` and `pixi.lock` exactly as committed; never rewrites either. Run after pulling. Over the network. |
 | `just lock` | Relock both: `Cargo.lock` at the versions the manifests allow, and `pixi.lock` against `pyproject.toml`. Over the network. |
 | `just lock-upgrade` | `cargo update` and `pixi update`: move within the manifests' constraints. Over the network. |
-| `just lock-check` | Fail if a manifest and its lockfile disagree, for both lockfiles. Offline once `just sync` has run. Gate 2. |
+| `just lock-check` | Fail if a manifest and its lockfile disagree, for both lockfiles. Offline, and writes neither; fails on a cold Cargo cache until `just sync` has run. Gate 2. |
 | `just install-hooks` | Install the read-only pre-commit gate and prepare every hook environment, so that `just lint` never fetches. Over the network. Run it from the primary checkout: every worktree shares one hooks directory, and the hook runs the environment of whichever worktree installed it. |
 
 ## Develop
