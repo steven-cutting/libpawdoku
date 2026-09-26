@@ -42,10 +42,10 @@
 --
 -- Excludes
 --   - Slips: a digit misread, a candidate struck by mistake, a mark never
---     written. They need chance, which this game reaches through its
---     randomness port, and they are human-solving.allium's, which draws them
---     by seed. Nothing here is drawn at random, and this model stays the
---     account of what error there is without chance.
+--     written. They need chance, which this library reaches through its
+--     randomness boundary, and they are human-solving.allium's, which draws
+--     them by seed. Nothing here is drawn at random, and this model stays
+--     the account of what error there is without chance.
 --   - Cost, which is effort.allium's, and hints, which are reach.allium's. A
 --     mistaken belief is never offered as a hint. So this model reads
 --     repertoire, capacity, spans, marking, order, fixation, upkeep and
