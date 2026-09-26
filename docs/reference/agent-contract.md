@@ -34,9 +34,9 @@ second file would be a second source of truth.
 The phrase list is a crude check and is meant to be. It does not verify that the guidance
 is good; it verifies that the six topics were not dropped in an edit.
 
-This repository has no Svelte and so no runes; `AGENTS.md` satisfies the sixth phrase with
-one honest sentence saying so, which stays until the tooling package makes the list
-configurable (decision 0004).
+The sixth phrase names the games' reactivity rule, which has nothing to govern in a Rust
+library. `AGENTS.md` satisfies it with one honest sentence saying the rule does not apply
+here, which stays until the tooling package makes the list configurable (decision 0004).
 
 ## What a skill must be
 
