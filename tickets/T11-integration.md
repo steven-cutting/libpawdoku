@@ -442,8 +442,8 @@ modified `tickets/T11-integration.md`.
 These are carried, not landed. Each has the reason it stayed out of pull request #11.
 
 - **T10.** The repository is public, and private vulnerability reporting is enabled (step
-  5). `tickets/README.md` still shows T11 `open`, because this ticket changes only its
-  own file. The row goes to `done` with the next index edit.
+  5). This ticket's own commits leave `tickets/README.md` alone. Its row went to `done`
+  together with T10's, in T10's review follow-up on the same pull request.
 - **`main` follow-up, `Justfile` (frozen): `test-one` and `coverage-html`** (T07, from
   PR #9's Codex review). An enhancement that needs recipe names and arguments decided.
 - **`main` follow-up, `.pre-commit-config.yaml` (frozen), optional: ripsecrets through

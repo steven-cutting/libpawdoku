@@ -291,6 +291,11 @@ matched.
   (lines 9-11) is dropped, because the repository is public.
 - **CI's "five checks"** are written as five gate jobs behind one required `check`,
   because branch protection requires only the aggregate.
+- **`tickets/README.md` changed.** The acceptance criteria allow nothing outside the
+  four documents and this ticket. T10 and T11 had both deferred their index rows to
+  "the next index edit". After Copilot's fourth review, the maintainer chose to make
+  that edit in this pull request, which carries both tickets. Only the two `Status` cells
+  changed.
 
 ### Review follow-up
 
@@ -335,11 +340,12 @@ raised one P3 on `README.md` line 37, and it was taken. `scripts/initialize.sh` 
 the hook only from the primary checkout and skips it in a secondary worktree, so Quick
 start now says so. The detail stays in `docs/how-to/develop-locally.md`.
 
+In the fourth round, of `39a0b27`, Codex found no major issues. Copilot made no inline
+finding. Its overview noted that `tickets/README.md` still listed T10 and T11 as
+`open`. The maintainer chose to set both rows to `done` here (see Deviations).
+
 ### Handed back
 
-- **`tickets/README.md`** still shows T10 and T11 as `open`, because this ticket changes
-  only its four documents and its own file. Both rows go to `done` with the next index
-  edit.
 - **The CHANGELOG's counts** (seventeen gates, five jobs, fourteen skills, twenty-five
   pages, eleven records) go stale when any of them changes. They describe what merged
   under `[Unreleased]` and need no edit until S02 cuts the first release entry.
