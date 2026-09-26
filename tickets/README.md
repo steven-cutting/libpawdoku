@@ -18,12 +18,12 @@ authoritative; this table is a snapshot.
 | --- | --- | --- | --- | --- | --- |
 | D01 | Hook runner and checkers: keep the Python toolchain or go Python-free | `D01-hook-runner.md` | none | none | done |
 | D02 | Tool manager: pixi owns the tools, rustup keeps the compiler | `D02-tool-manager.md` | D01 | none | done |
-| T00 | Foundation: workspace, toolchain, licence, Justfile, hooks, manifest, stubs for every path | `T00-foundation.md` | D01, D02 | none | open |
-| T01 | GitHub repository: create, first push, settings, branch protection | `T01-github-repository.md` | T00 | T02 to T09 | open |
-| T02 | Rust quality gate: tool configs, the no_std crate skeleton, every Rust recipe green | `T02-rust-gate.md` | T00 | T01, T03 to T09 | open |
-| T03 | Hooks and the language-agnostic gate: dotfiles, first-run script, the pixi environment | `T03-hooks-and-dotfiles.md` | T00, D01, D02 | T01, T02, T04 to T09 | open |
-| T04 | CI workflows: the composite setup action, five gate jobs and the audit job | `T04-ci.md` | T00, T01 | T02, T03, T05 to T09 | open |
-| T05 | Agent contract: AGENTS.md, adapters, fourteen skills, their bridges | `T05-agent-contract.md` | T00 | T01 to T04, T06 to T09 | open |
+| T00 | Foundation: workspace, toolchain, licence, Justfile, hooks, manifest, stubs for every path | `T00-foundation.md` | D01, D02 | none | done |
+| T01 | GitHub repository: create, first push, settings, branch protection | `T01-github-repository.md` | T00 | T02 to T09 | done |
+| T02 | Rust quality gate: tool configs, the no_std crate skeleton, every Rust recipe green | `T02-rust-gate.md` | T00 | T01, T03 to T09 | done |
+| T03 | Hooks and the language-agnostic gate: dotfiles, first-run script, the pixi environment | `T03-hooks-and-dotfiles.md` | T00, D01, D02 | T01, T02, T04 to T09 | done |
+| T04 | CI workflows: the composite setup action, five gate jobs and the audit job | `T04-ci.md` | T00, T01 | T02, T03, T05 to T09 | done |
+| T05 | Agent contract: AGENTS.md, adapters, fourteen skills, their bridges | `T05-agent-contract.md` | T00 | T01 to T04, T06 to T09 | done |
 | T06 | Specification migration: the seven engine modules, adapted, and the Allium gate | `T06-spec-migration.md` | T00 | T01 to T05, T07 to T09 | done |
 | T07 | Handbook A: project, tutorial and how-to pages | `T07-handbook-a.md` | T00 | T01 to T06, T08, T09 | open |
 | T08 | Handbook B: explanation, reference and operations pages | `T08-handbook-b.md` | T00 | T01 to T07, T09 | open |
