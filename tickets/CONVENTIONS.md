@@ -205,9 +205,10 @@ commit SHA with a version comment (§5, §10).
 
 ### Maintainer prerequisites (not ticket steps)
 
-rustup installed (a `stable` default toolchain is probably not needed: prek 0.4.12 in G's
-environment provisions its own rustup and stable toolchain under `$PREK_HOME/tools/rustup`
-for its one `language: rust` hook, ripsecrets; §12 has T03 confirm on 0.5.3); `~/.cargo/bin` ahead of `~/.pixi/bin` on `PATH`, or
+rustup installed (no `stable` default toolchain is needed: prek 0.5.3 builds its one
+`language: rust` hook, ripsecrets, with the machine's rustup and the pinned toolchain,
+as T03 found, and `install-hooks` runs lychee's warm under `RUSTUP_AUTO_INSTALL=0`);
+`~/.cargo/bin` ahead of `~/.pixi/bin` on `PATH`, or
 `pixi global uninstall rust`; `command -v cargo` printing `~/.cargo/bin/cargo`; pixi
 0.81.0 or newer; just (`pixi global install just`; any just launches the recipes, because
 the pinned one in the environment runs every nested call and CI; `pixi run --frozen just
@@ -264,6 +265,7 @@ docs/explanation/*.md            T00 stub -> T08 (two pages T06)
 docs/reference/*.md  docs/operations/*.md   T00 stub -> T08
 docs/decisions/README.md  docs/decisions/0001..0011-*.md   T00 stub -> T09
 docs/specs/{sudoku,solver,technique,reach,effort,lapse,human-solving}.allium   T00 verbatim from G -> T06
+docs/specs/board.allium          T12 (from G at add73be7)
 tickets/                         this directory
 ai_tmp/  .tools/  .pixi/  target/   gitignored; never committed
 ```
@@ -341,23 +343,27 @@ lock-upgrade:
     cargo update
     pixi update
 
-# Offline, like every gate recipe: an offline solve on a stale lock still
-# fails, which is the right answer.
+# Offline, like every gate recipe: a cold Cargo cache fails rather than
+# fetching the registry index (`just sync` fills it), and an offline solve on a
+# stale lock still fails, which is the right answer. --dry-run because pixi
+# would otherwise rewrite a stale lock from that restricted solve.
 lock-check:
-    cargo update --workspace --locked
-    pixi lock --check --offline
+    cargo update --workspace --locked --offline
+    pixi lock --check --offline --dry-run
 
-# The shim, then every hook environment (seven clones; Go, Node and a rustup
-# toolchain under prek's cache; the ripsecrets build), so that `just check`
-# never fetches. lychee is `language: script` and downloads its binary at first
-# run, not at prepare, so it is run once here on one Markdown file; its exit
-# status is lint's business, not this recipe's.
+# The shim, then every hook environment (seven clones; Go under prek's cache;
+# the ripsecrets build with the machine's rustup and the pinned toolchain), so
+# that `just check` never fetches. lychee is `language: script` and downloads
+# its binary at first run, not at prepare, so it is run once here on one
+# Markdown file; its exit status is lint's business, not this recipe's. Its
+# checkout pins `stable`, and its script's cargo-binstall calls rustc, so
+# without RUSTUP_AUTO_INSTALL=0 rustup would install that toolchain.
 install-hooks:
     git rev-parse --is-inside-work-tree >/dev/null
     test -x .pixi/envs/default/bin/prek || { printf '%s\n' 'the pixi environment is not installed; run just initialize first' >&2; exit 2; }
     prek install --overwrite --hook-type=pre-commit --prepare-hooks
     prek prepare-hooks --config .pre-commit-fix.yaml
-    -prek run lychee --files README.md
+    -RUSTUP_AUTO_INSTALL=0 prek run lychee --files README.md
 
 # ---------------------------------------------------------------- develop ---
 
@@ -670,7 +676,7 @@ Skills, canonical under `.agents/skills/<name>/SKILL.md` with frontmatter of exa
 | `plan-change` | G | Unchanged in shape |
 | `project-check` | G | Step 2 prerequisites (rustup, `just initialize`); gate numbers |
 | `review-docs` | G | The managed/seed step dropped |
-| `spec-change` | G | Steps 4, 7 and 8: `tests/platformSpecs.test.ts` and `just frontend-unit` become the boundary and `just test` |
+| `spec-change` | G | Steps 1, 4 and 8: `tests/platformSpecs.test.ts` and `just frontend-unit` become the boundary and `just test` |
 | `rust-change` | new | Read `AGENTS.md` and `docs/explanation/architecture.md`; the trait boundary first; derive tests from the clause; doc examples are tests; `just fmt-check`, `just clippy`, `just test`, then `just check` |
 | `allium`, `distill`, `elicit`, `propagate`, `tend`, `weed`, `witness` | G, vendored from `juxt/allium` | Five byte-for-byte; `allium/SKILL.md` line 10 (recipe names) and `propagate/SKILL.md` line 12 (`just frontend-unit`, "never colocated") edited; `skills-lock.json` copied verbatim as provenance (its hashes match no file in G and no validator reads it) |
 
@@ -892,14 +898,16 @@ is a design change that goes back through this document.
 - `cargo hack check --feature-powerset` on a crate with one optional feature (`serde`)
   produces two configurations and exits 0. **T02.**
 - `cargo shear` reads source without a build and understands `[workspace.dependencies]`.
-  **T02.**
+  **T02.** Outcome: cargo-shear 1.13.4 reports unused crate-level dependencies only, not
+  an unused `[workspace.dependencies]` entry, which stays inert until a crate names it.
 - `thiserror` 2 with `default-features = false` derives `core::error::Error` under
   `no_std`; `proptest` runs under `#[cfg(test)] extern crate std;`. **T02.**
 - The `clippy.toml` keys `allow-panic-in-tests` and `allow-indexing-slicing-in-tests`
   exist under those names in clippy 1.98. **T02.**
 - `cargo binstall --root .tools` puts binaries in `.tools/bin`, verifies release
   checksums where the crate publishes them, and skips a matching installed version (one
-  tool, cargo-hack). **T03.**
+  tool, cargo-hack). **T03.** Outcome: cargo-hack publishes no checksum or signature, so
+  nothing is verified; the binary comes unsigned over TLS from its GitHub release.
 - `pixi install --locked` on this `pyproject.toml` installs the nine conda packages and
   B, and does not try to install `libpawdoku-tooling` itself (no `[build-system]`,
   `dependencies = []`). **T00.**
@@ -912,7 +920,8 @@ is a design change that goes back through this document.
   exits 0 when the lockfile is current, the git PyPI source included. Harness: the
   recipe after `just sync`, with the lockfile's hash recorded before and after. The one
   fallback: the pixi half of `lock-check` moves to CI only, where `setup-pixi`'s
-  `locked: true` already checks it. **T03.**
+  `locked: true` already checks it. **T03.** Outcome: true of a current lock, but a stale
+  one that solves offline is rewritten, so the recipe's line gained `--dry-run`.
 - After `just install-hooks` from an empty `PREK_HOME`, `just lint` is green with the
   network blocked (`HTTP_PROXY=http://127.0.0.1:9 HTTPS_PROXY=http://127.0.0.1:9`), the
   lychee download included. Fallback: a hook that still fetches at run is named and gets
@@ -926,7 +935,9 @@ is a design change that goes back through this document.
 - prek 0.5.3 from conda-forge provisions its own rustup and toolchain under `$PREK_HOME`
   for `language: rust` hooks (0.4.12 does), so no `stable` default toolchain is required
   of the maintainer, and `prek install --prepare-hooks` does so at `install-hooks` time
-  rather than at the first `lint`. **T03.** The second half of the original claim, that
+  rather than at the first `lint`. **T03.** Outcome: prek 0.5.3 provisions no rustup
+  when the machine has one; it builds with an installed toolchain, the pinned 1.98.1, so
+  no `stable` default is needed for that reason instead. The second half of the original claim, that
   prek publishes release binaries cargo-binstall can resolve, was verified by **D01** on
   2026-09-24 and is recorded there as evidence only: prek is a pixi dependency here.
 - B's checkers run unchanged in a repository with no `package.json`. **T00.**
@@ -978,7 +989,7 @@ is a design change that goes back through this document.
 - **`--locked` and the snapshot.** Any recipe that rewrites `Cargo.lock` fails
   `check-clean`; T02 proves every recipe is read-only on a clean tree. `target/`,
   `.tools/` and `.pixi/` must be ignored before the first `just check`, and every pixi
-  call in a gate is `--frozen` or `lock --check` so none rewrites `pixi.lock`.
+  call in a gate is `--frozen` or `lock --check --dry-run` so none rewrites `pixi.lock`.
 - **The network at first run, none in `check`.** Hook clones and their toolchains, the
   pixi environment, the cargo-hack binstall, the allium download, `cargo fetch` and
   cargo-deny's advisory database all need the network; `initialize` has it, `check` must

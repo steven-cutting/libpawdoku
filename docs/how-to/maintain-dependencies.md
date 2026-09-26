@@ -24,8 +24,9 @@ ticket S01 decides how updates should arrive.
 just lock-check
 ```
 
-This runs `cargo update --workspace --locked` and `pixi lock --check --offline`. It is
-gate 2 of `just check`, so a manifest edited without relocking fails the gate rather than
+This runs `cargo update --workspace --locked --offline` and
+`pixi lock --check --offline --dry-run`, neither of which writes. It is gate 2 of
+`just check`, so a manifest edited without relocking fails the gate rather than
 drifting.
 
 ## Update deliberately
