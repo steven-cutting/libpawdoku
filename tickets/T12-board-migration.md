@@ -353,9 +353,9 @@ the wording presumes the game), **drop** (not the library's; none). Lines are G'
 - **The "seven" grep.** With `--include='*.md'` it hits only `quality-gates.md` 11
   ("seventeen gates"); the ticket's expected `lapse.allium` 493 is not a Markdown file.
   Neither counts modules.
-- **`git diff --stat main` lists seven files and this ticket,** not the ticket's eight:
-  `tickets/T06-spec-migration.md` needed no edit (step 7), and `tickets/README.md` gains
-  the status flip.
+- **`git diff --stat main` lists nine files,** not the ticket's eight: the module, the
+  four stubs, the two amended briefs, this ticket and `tickets/README.md`, which gains the
+  status flip; `tickets/T06-spec-migration.md` needed no edit (step 7).
 
 ### Handed back to pawdoku
 
