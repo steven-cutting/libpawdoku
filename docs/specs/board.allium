@@ -3,7 +3,7 @@
 -- Board — a puzzle in play
 --
 -- Scope
---   What stands between the rules of Sudoku and a player at a screen: one
+--   What stands between the rules of Sudoku and a player: one
 --   puzzle as it is being played. The board keeps the puzzle, and through it
 --   the givens, the player's digits, the conflicts and whether it is solved.
 --   To that it adds what the rules leave out and a player expects: a note in
@@ -77,11 +77,11 @@
 --     board's puzzle; timers; and any count read off the checks, which is
 --     the open question below.
 --   - How a record is kept, and whether one is kept at all between visits.
---     The record is what a store is handed; the store is a port's.
+--     The record is what a caller is handed; where it is kept is the
+--     caller's.
 --   - Anything drawn: how a note, a given, a conflict or a check's outcome
---     is shown, and the words a surface gives them. pawdoku.allium's Play
---     surface and the modules beneath it decide that, and the platform's
---     marks are theirs to translate.
+--     is shown, and the words a surface gives them. A consumer's surfaces
+--     decide that; nothing here draws.
 --
 -- Dependencies
 --   sudoku.allium, for Puzzle, Cell, Given, the two moves and the side of
@@ -116,8 +116,8 @@ enum MoveKind { place | erase | write_mark | strike_mark }
 ------------------------------------------------------------
 
 -- A board written down. What a record is made of is nobody's here: Recording
--- below says what writing one and reopening it must satisfy, and a store
--- behind a port decides the rest.
+-- below says what writing one and reopening it must satisfy, and the caller
+-- it is handed to decides the rest, where it is kept included.
 external entity Record {}
 
 ------------------------------------------------------------
@@ -616,8 +616,8 @@ invariant ACheckIsOnAPlayersCell {
 ------------------------------------------------------------
 
 -- What writing a board down and having it again must satisfy. It names no
--- form and no place: a record is whatever a store is handed, and the store
--- is a port's.
+-- form and no place: a record is whatever a caller is handed, and where it
+-- is kept is the caller's.
 contract Recording {
     write: (board: Board) -> Record
 
@@ -650,7 +650,7 @@ contract Recording {
 -- What a player has in front of them, and what they may do. It draws
 -- nothing: every state named here — given, conflicting, undone, right — is
 -- owed a non-colour indication and an accessible name by whatever draws it,
--- and the words are the game's.
+-- and the words are a consumer's.
 surface Playing {
     context board: Board
 
@@ -770,7 +770,7 @@ surface Reopening {
 
     @guarantee ARecordIsEnoughOnItsOwn
         -- A record carries everything reopening needs. Nothing else is
-        -- consulted: not the store it came from, not the solution's digits,
+        -- consulted: not wherever it was kept, not the solution's digits,
         -- since SetPuzzle's guard asks the solver for its verdict and nothing
         -- more, not any other record and not a board already open, since
         -- there need be none.
