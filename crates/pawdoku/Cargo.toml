@@ -17,7 +17,6 @@ publish.workspace = true
 workspace = true
 
 [features]
-default = []
 serde = ["dep:serde"]
 
 [dependencies]

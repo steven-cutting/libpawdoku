@@ -3,8 +3,8 @@
 //! A [`RandomStream`] is a stream of draws in `[0, 1)`, begun from a seed, indexed from
 //! zero, the same for the same seed and [`RANDOM_VERSION`]. The caller chooses the
 //! implementation: [`SeededStream`] is the generator the library ships, and
-//! [`ReplayStream`] is the fake a test scripts. How a draw becomes a decision is the
-//! consuming module's arithmetic, not this module's.
+//! [`ReplayStream`] is the fake a test uses to script its draws. How a draw becomes a
+//! decision is the consuming module's arithmetic, not this module's.
 //!
 //! ```
 //! use pawdoku::random::{RandomStream, SeededStream};
@@ -190,11 +190,37 @@ impl RandomStream for SeededStream {
 /// # Ok::<(), RandomError>(())
 /// ```
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(try_from = "ReplayScript")
+)]
 #[non_exhaustive]
 pub struct ReplayStream {
     draws: alloc::vec::Vec<f64>,
     index: u64,
+}
+
+/// A [`ReplayStream`] as serialised, checked by [`ReplayStream::new`] on the way in, so
+/// a deserialised script cannot hold a draw the boundary forbids.
+#[cfg(feature = "serde")]
+#[derive(serde::Deserialize)]
+struct ReplayScript {
+    draws: alloc::vec::Vec<f64>,
+    index: u64,
+}
+
+#[cfg(feature = "serde")]
+impl TryFrom<ReplayScript> for ReplayStream {
+    type Error = RandomError;
+
+    fn try_from(script: ReplayScript) -> Result<Self, RandomError> {
+        let stream = Self::new(script.draws)?;
+        Ok(Self {
+            index: script.index,
+            ..stream
+        })
+    }
 }
 
 impl ReplayStream {
@@ -317,6 +343,61 @@ mod tests {
         assert!(format!("{seeded:?}").starts_with("SeededStream"));
         assert!(format!("{replay:?}").starts_with("ReplayStream"));
         assert!(format!("{error:?}").starts_with("Exhausted"));
+    }
+
+    /// Feeds a serialised `ReplayStream`, a sequence of `draws` then `index`, to a
+    /// deserializer, through serde's own value deserializers: no format crate needed.
+    #[cfg(feature = "serde")]
+    fn deserialise_replay(
+        draws: vec::Vec<f64>,
+        index: u64,
+    ) -> Result<ReplayStream, serde::de::value::Error> {
+        use serde::Deserialize;
+        use serde::de::value::{Error, SeqAccessDeserializer, SeqDeserializer};
+        use serde::de::{DeserializeSeed, IntoDeserializer, SeqAccess};
+
+        struct Fields(Option<vec::Vec<f64>>, Option<u64>);
+
+        impl<'de> SeqAccess<'de> for Fields {
+            type Error = Error;
+
+            fn next_element_seed<T: DeserializeSeed<'de>>(
+                &mut self,
+                seed: T,
+            ) -> Result<Option<T::Value>, Error> {
+                if let Some(draws) = self.0.take() {
+                    return seed
+                        .deserialize(SeqDeserializer::new(draws.into_iter()))
+                        .map(Some);
+                }
+                self.1
+                    .take()
+                    .map(|index| seed.deserialize(index.into_deserializer()))
+                    .transpose()
+            }
+        }
+
+        ReplayStream::deserialize(SeqAccessDeserializer::new(Fields(Some(draws), Some(index))))
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn deserialising_keeps_a_valid_script_and_its_index() {
+        let mut stream = deserialise_replay(vec![0.25, 0.5], 1).unwrap();
+        assert_eq!(stream.index(), 1);
+        assert_eq!(stream.next_draw(), Ok(0.5));
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn deserialising_rejects_a_draw_outside_the_range() {
+        assert_eq!(
+            deserialise_replay(vec![0.5, 1.0], 0)
+                .unwrap_err()
+                .to_string(),
+            "draw 1 of the replay script is 1, outside [0, 1)"
+        );
+        assert!(deserialise_replay(vec![f64::NAN], 0).is_err());
     }
 
     proptest! {
