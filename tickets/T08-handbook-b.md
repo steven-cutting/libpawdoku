@@ -1,7 +1,7 @@
 ---
 id: T08
 title: "Handbook B: explanation, reference and operations pages"
-status: open
+status: done
 depends_on: [T00]
 parallel_with: [T01, T02, T03, T04, T05, T06, T07, T09]
 branch: ticket/t08-handbook-b
@@ -559,11 +559,173 @@ hand-back notes.
 
 ### What was verified, and how
 
+Executed on 2026-09-25 on the maintainer's machine (Apple silicon) in the Supacode
+worktree for this ticket, on branch `T08-handbook-b` (see Deviations). T02, T03, T04,
+T05, T06, T09 and T12 had merged before work began, so every page describes the merged
+files rather than the tickets' predictions: the `Justfile` (identical to CONVENTIONS.md
+§4), the root and crate manifests, `clippy.toml`, `deny.toml`, `rustfmt.toml`,
+`taplo.toml`, `.config/nextest.toml`, `pyproject.toml`, `tools.txt`, both prek
+configurations, `ci.yml`, `audit.yml`, the setup action, `random.rs`, `lib.rs` and the
+two integration tests. Facts about branch protection come from T01's hand-back; the
+troubleshooting and security findings addressed to T08 come from T03's.
+
+**Before editing.** `command -v cargo` printed `~/.cargo/bin/cargo`. `just check-docs`
+on the stubs: `Validated 37 pages and 38 canonical topics.` Every stub's frontmatter
+equals its `docs/manifest.yml` row. G's page lengths match the ticket at both pins (all
+at `78d03cdf`; specifications is 103 lines at `add73be7`).
+
+**`missing_docs` under `just doc` (api.md's claim).** In a scratch copy under `ai_tmp/`,
+with the doc comment removed from `pawdoku::SIDE`, the `doc` recipe's line exited 101
+with `missing documentation for a constant` (`-D missing-docs` implied by
+`-D warnings`), and the `clippy` recipe's line failed the same way. The page states both.
+
+**Verification block**, run as written except that the verbatim loop ran under `sh`,
+because the maintainer's zsh has `noclobber` and refuses the loop's `> ai_tmp/g.txt`:
+
+```text
+$ just check-docs
+Validated 37 pages and 38 canonical topics.
+$ ls docs/explanation docs/reference docs/operations | grep -c '\.md$'
+16
+$ diff <(just --summary ...) <(grep ... docs/reference/commands.md ...)
+(no output)
+$ grep -cE '^\| [0-9]+ \|' docs/reference/quality-gates.md
+18
+$ grep -rnE '<x.y.z>' docs/explanation docs/reference docs/operations || echo "no versions"
+no versions
+$ grep -rniE '<game words>' ... || echo "no game words"
+no game words
+reference/quality-gates.md 38-47 present
+reference/documentation-contract.md 11-71 present
+reference/agent-contract.md 65-79 present
+operations/troubleshooting.md 19-46 present
+$ just check
+Validated 37 pages and 38 canonical topics.
+Validated AGENTS.md, 2 adapters, and 14 skills.
+All checks passed and the worktree is unchanged.
+```
+
+`commands.md` has 33 recipe rows. Beyond the loop's four ranges, a script checked every
+verbatim range this ticket names, 38 of them across ten pages, as a contiguous block in
+the page: all present. A second script resolved every relative link on the fourteen
+pages against `docs/manifest.yml`: none points elsewhere.
+
 ### Deviations, and why
+
+- **Branch.** Committed on the Supacode branch `T08-handbook-b`, not
+  `ticket/t08-handbook-b`, as T01, T03 and T04 did. The `branch:` field is left as the
+  ticket wrote it.
+- **No `default = []`.** T02 dropped the line in PR #3's review, and Cargo reads its
+  absence as an empty default. Architecture, configuration and api say "no default
+  features; `serde` optional and additive" and name no line.
+- **Gate numbers in a verbatim range.** G's quality-gates line 31 reads "Gates 10 and
+  11"; here the specification gates are 16 and 17, so the page says so. The rest of
+  31-35 is verbatim. The Goal ("no sentence true of the game and false of the library")
+  outranks the byte-identical criterion here.
+- **`lock-check` can rewrite `pixi.lock`.** The brief's "A first run never rewrites it
+  silently" is false today: T03 proved that `pixi lock --check --offline` on a stale
+  lock exits 1 and, when the packages are available locally, writes a lock solved from
+  them (when they are not, the solve fails and writes nothing), and the `--dry-run`
+  follow-up has not landed. Troubleshooting tells the reader to check `git status` and
+  `git restore pixi.lock` before `just lock`.
+- **The `rand` and `getrandom` ban is on what ships.** `deny.toml` sets
+  `exclude-dev = true`, and proptest depends on both crates. Security-model and
+  configuration say so, or "banned" would read false against `cargo tree`.
+- **Nine recipes reach the network, not eight.** `install-toolchain` downloads through
+  rustup when a component or target is missing, so `commands.md` lists it with the
+  brief's eight.
+- **The vendored skills are not all byte for byte, and the lock pins nothing.** The brief
+  says seven skills "vendored byte for byte … pinned by hash". `cmp` against G shows
+  `allium` and `propagate` each differ (CONVENTIONS.md §7 records the two edited lines),
+  and T05 found that the lock's hashes match no file. The page says "five byte for byte,
+  two with one edited line" and that `skills-lock.json` records their source.
+- **One outward-linking page, not none.** The brief's "no page points outward today" is
+  false: `explanation/human-solving.md` (T06) cites papers and a technique catalogue by
+  URL, none with a fragment. The section names that page instead.
+- **The `runes` sentence avoids a game word.** A first wording said "no Svelte", which the
+  verification grep rejects; the page instead says the sixth phrase names the games'
+  reactivity rule, which has nothing to govern here.
+- **`mod_module_files`.** The brief says it "keeps one file per module". The lint bans
+  `mod.rs`, so the pages say that.
+- **Real names.** The pages name `RandomStream`, `SeededStream`, `ReplayStream`,
+  `RandomError` and `RANDOM_VERSION`, which T02 created, instead of generic wording. No
+  version string is copied.
+- **No specification line numbers on a page.** The brief's sentence after G's Open
+  questions cites `effort.allium` 312 and `human-solving.allium` 1280; the page names the
+  two modules only, because a line number in prose rots at the next edit.
+- **Verbatim splices that start or end mid-line.** Specifications' run from "`sudoku.allium`
+  states" (G line 37) keeps G's line breaks, so the lines at the two seams run longer
+  than their neighbours. markdownlint's MD013 is off, and the text is G's.
+- **Commit shape.** Five commits: explanation pages, reference pages, a one-line reword of
+  the agent contract (caught by the verification grep after the reference commit),
+  operations pages, and this ticket.
+
+### Review follow-up (PR #10)
+
+Copilot raised six findings and Codex four. Nine were valid and are fixed on this
+branch; one was not.
+
+- **Fixed.** `layering.md`'s `sudoku` row says "every other specification module", since
+  `random` does not import it. `quality-philosophy.md` gains a paragraph after G's
+  verbatim 17-22 naming the known exception to "checks are read-only": `lock-check` on a
+  stale `pixi.lock` (G's text is unchanged; the insertion splits 11-33 into two verbatim
+  runs). The `clippy` rows in `commands.md` and `quality-gates.md` say what
+  `--all-targets` covers: crate targets on the host, not other platforms. The `coverage`
+  row says unit and integration tests, and points to gate 9 for doctests. The `deny`
+  rows say "every dependency that ships", because `exclude-dev = true`. The
+  documentation contract names both outward-linking pages: decision 0005 carries a
+  reference-style link that the first inventory's grep missed.
+- **Fixed, with a hand-back.** `commands.md` said `lock-check` is "offline by
+  construction". Tested on this branch with the network blocked through
+  `HTTPS_PROXY`/`CARGO_HTTP_PROXY` set to `127.0.0.1:9`: with the warm cache,
+  `cargo update --workspace --locked` exits 0; with an empty `CARGO_HOME`, it fails on
+  `download of config.json failed`, so it had tried the network. The page now says
+  `lock-check` and `deny` are offline once `just sync` has run.
+- **Not changed.** Codex read `specifications.md`'s "eight of the nine questions …
+  resolved; partial marking and the loads past subsets remain open" as inconsistent. It
+  is not: `technique.allium`'s Resolved Questions block answers eight of nine and names
+  "the ninth, partial marking" as open, and the loads question is a further open
+  question, not one of the nine. The sentence is G's verbatim and stays.
 
 ### Handed back
 
+- **`main` follow-up, `Justfile` (frozen), from T03, still open:** `lock-check`'s pixi
+  line should gain `--dry-run`. When it lands, the second paragraph of troubleshooting's
+  `pixi.lock` section (the `git restore` step) goes.
+- **`main` follow-up, `Justfile` (frozen), from T03, still open:** the lychee warm in
+  `install-hooks` should run under `RUSTUP_AUTO_INSTALL=0`. When it lands,
+  troubleshooting's "A `stable` toolchain appears that nobody installed" section goes.
+- **`main` pull request, CONVENTIONS.md §6:** `quality-philosophy.md`'s note should read
+  "verbatim minus the frontend ranges" (see Open points settled).
+- **`main` follow-up, `Justfile` (frozen), from PR #10's review:** `lock-check`'s cargo
+  line should gain `--offline`, so a cold cache fails the gate instead of fetching the
+  registry index. When it lands, `commands.md`'s "once `just sync` has run" qualifiers
+  can go.
+- **Keep in step:** `configuration.md` names every lint in `[workspace.lints]` today, so
+  a lint added to the table needs a row or a mention there.
+- **`main` follow-up, `docs/README.md` (frozen):** the map still names seven modules while
+  `specifications.md` says eight; adding `board.allium` to the map is still pending.
+- **`tickets/README.md`** is a snapshot and still shows T08 (and T09) as open; this
+  ticket's Files touched does not include it, so it is left for the lane that updates
+  the index.
+
 ### Open points settled
+
+- **A generated list of public items in `reference/api.md`:** no, as recommended. The page
+  says how to build rustdoc, where it lands, and what the API promises.
+- **Windows in troubleshooting:** no, as recommended; CI is Ubuntu only until
+  `crates/pawdoku-cli` exists.
+- **§6's "verbatim minus the browser example":** three further ranges (34-39, 48-51,
+  55-56) named the frontend and were adapted as the brief says. Confirmed; the wording
+  change is handed back above.
+- **proptest regression files:** committed. There is no `.gitignore` entry for
+  `proptest-regressions/`, and none exists yet because no property test has failed.
+  `testing.md` says they are committed.
+- **The prek subcommand that clears its cache:** `prek cache clean` ("Remove all prek
+  cached data"); `prek cache gc` removes only unused repositories and environments, and
+  `prek cache dir` prints the location. Checked with `prek cache --help` on prek from the
+  pixi environment. Troubleshooting uses `pixi run --frozen prek cache clean`, then
+  `just install-hooks`.
 
 ## Open points
 
