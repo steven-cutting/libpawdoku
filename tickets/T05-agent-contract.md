@@ -673,6 +673,14 @@ already carries G's `mis` allowlist, which the non-excluded Allium skills need.
   "publishing a crate" no longer fit G's line breaks; the words are otherwise G's.
   "deploying" stays in that list, because the step names only the one substitution
   there; it is dropped from External automation policy, as that step says.
+- **`project-check` step 2 differs from the text Steps prescribe.** Copilot's review of
+  pull request 1 found that the prescribed line told an agent to run `just initialize`
+  whenever a prerequisite is missing, although the command downloads and `AGENTS.md`
+  requires explicit authorization for each network operation (G carries the same
+  contradiction). At the maintainer's choice on 2026-09-25 the line now says the
+  command is a network operation that needs authorization first, unless the task
+  already grants it (a ticket's Prepare step does), and that `just install-allium`
+  falls under the same rule. It is still one line, so `project-check: 2` holds.
 - **Branch name.** Supacode created the worktree on `T05-agent-contract`, not the
   `branch:` field's `ticket/t05-agent-contract`. Asked on 2026-09-25, the maintainer
   chose to keep the Supacode name, so the `branch:` field above is not the branch this
@@ -724,6 +732,26 @@ already carries G's `mis` allowlist, which the non-excluded Allium skills need.
   `crates/pawdoku/src/random.rs` (T02 step 7 creates it) and `AGENTS.md` names
   `audit.yml` (T04). Both are code spans, so no gate checks them today; they must land
   at those paths.
+- **Upstream defects in the vendored Allium material (for `juxt/allium`).** Copilot's
+  review of pull request 1 raised twelve findings against files this ticket keeps
+  byte-identical to G. At the maintainer's choice they are recorded, not patched, so
+  the `cmp` and blob-id checks and the lock's provenance stay true. Verified defects:
+  `distill/worked-examples.md` line 811 calls `userRepository`, which the example never
+  declares; lines 818 and 843 pass a document id to `findAllIncludingDeleted`, whose
+  parameter (line 768) is a workspace id; `witness/SKILL.md` check 6 names four
+  convergence conditions and omits the empty `uncovered_obligations` that
+  `driving-the-loop.md` line 137 requires, while check 3 tolerates explained uncovered
+  obligations; and `migration-v2-to-v3.md` lines 110-112 declare `deleted -> active`
+  beside `terminal: deleted`. The other findings are design critiques rather than
+  defects: optional `phase`, `open_questions` and routing fields in five result schemas
+  and `phases` in `trace-entry.schema.json`, although the skills say those fields are
+  always emitted; `tests.failed` and "a fresh `distill` finds nothing new" in the
+  convergence formula (line 137), which no typed record carries; and a witness verdict
+  of PASS while some checks are INCONCLUSIVE. Filing them upstream is an external
+  action for the maintainer. One further finding, that `allium/SKILL.md` line 18
+  ("integration and end-to-end tests (not unit tests)") contradicts decision 0009, was
+  judged not a defect: it says what a specification generates, not where unit tests
+  may live.
 - **C02 follow-up, unchanged.** The `runes` sentence closes Provenance, as CONVENTIONS.md
   §7 quotes it; it goes when the B pin moves (Context).
 
