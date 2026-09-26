@@ -30,6 +30,7 @@ authoritative; this table is a snapshot.
 | T09 | Decision records | `T09-decisions.md` | T00, D01, D02 | T01 to T08 | open |
 | T11 | Integration: first green `just check` from a fresh clone and in CI, branch protection verified | `T11-integration.md` | T01 to T09 | none | open |
 | T10 | Maintainer docs: README, CHANGELOG, SECURITY | `T10-maintainer-docs.md` | T11 | none | open |
+| T12 | Board migration: board.allium adapted, and the alignment with the game at add73be7 | `T12-board-migration.md` | T06, T07, T08, T11 | none | open |
 
 Spike tickets. Each weighs options and ends in a recommendation; none blocks the build and
 none is picked up before T11.
@@ -58,14 +59,14 @@ D01 ── D02 ── T00 ──┬── T01 ───────────�
                     ├── T04 (needs T01's remote) ┤
                     ├── T05 ──────────────────┼── T11 ── T10
                     ├── T06 ──────────────────┤    ├── S01, S02, S03, S04
-                    ├── T07 ──────────────────┤    └── C01 (also after T04)
-                    ├── T08 ──────────────────┤
+                    ├── T07 ──────────────────┤    ├── T12 (also after T06, T07, T08)
+                    ├── T08 ──────────────────┤    └── C01 (also after T04)
                     └── T09 ──────────────────┘
 C02 hangs off D01 alone (D01 kept the Python checkers; decision 0004)
 ```
 
 The graph is acyclic: D01, then D02, then T00, then nine parallel lanes, then T11 and T10
-in sequence. T04 needs the remote T01 creates before its proof run, but its files can be
+in sequence. T12 follows T11 because it edits pages T07 and T08 own. T04 needs the remote T01 creates before its proof run, but its files can be
 written in parallel with T01.
 
 ## How to pick up a ticket
