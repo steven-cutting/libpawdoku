@@ -1,7 +1,7 @@
 ---
 id: T10
 title: "Maintainer docs: README, CHANGELOG, SECURITY"
-status: open
+status: done
 depends_on: [T11]
 parallel_with: []
 branch: ticket/t10-maintainer-docs
@@ -185,13 +185,125 @@ links`; every page valid; the four documents and this file.
 
 ## Hand-back notes
 
+Done on 2026-09-26 in the worktree `../T10-maintainer-docs` on branch
+`ticket/t10-maintainer-docs`, stacked on `T11-integration` at `1e083e8` (see Deviations).
+
 ### What was verified, and how
+
+**Step 1.** The worktree was created with `git worktree add`. The maintainer authorised
+the network, so `pixi install --locked`, `just install-tools` (cargo-hack 0.6.45) and
+`just install-allium` (allium 3.6.1) ran there. `just sync && just check-docs` was then
+green on the untouched stubs: markdownlint, typos and lychee `Passed`, and
+`Validated 37 pages and 38 canonical topics.`
+
+**Steps 2 to 5, the facts the documents state.** Each claim was read from the tree on
+the day, not carried from the ticket:
+
+- Code: `lib.rs` exports `random` and `SIDE`, and nothing else. There is no solver,
+  rating or hint code yet, so both READMEs say the engine is built one specified module
+  at a time and the crate so far holds the randomness boundary. `docs/specs/` holds
+  eight modules.
+- Counts: there are fourteen skills under `.agents/skills/`. CONVENTIONS.md §6 counts
+  twenty-five handbook pages, and there are eleven records under `docs/decisions/`.
+  `ci.yml` has five gate jobs (`rust`, `coverage`, `wasm`, `deny`, `documents`) behind
+  the aggregate `check`. `audit.yml` runs on `pull_request` and on a Monday 06:00 UTC
+  cron. The `Justfile`'s `check` runs the seventeen gates `pyproject.toml` lists.
+- `forbid(unsafe_code)`: `unsafe_code = "forbid"` is in `[workspace.lints.rust]`.
+- `deny.toml`: it bans `getrandom` and `rand` (wrappers `pawdoku-cli` only) and
+  `openssl-sys`; `[sources]` allows only the crates.io index.
+- SHA pins: every `uses:` in both workflows and in `.github/actions/setup/action.yml`
+  (setup-pixi, rust-cache, actions/cache twice) is pinned to a commit SHA. So is every
+  remote `rev:` in `.pre-commit-config.yaml`.
+- Tokens and permissions: both workflows declare `contents: read`. The only token is
+  `${{ github.token }}` in the setup action.
+- Tool pins: `pixi.lock` pins `biscuit-games-tooling` as
+  `?tag=v0.3.0#6c5c07f6…`. Decision 0005 records the Allium binary pinned by version
+  and SHA-256.
+
+**Step 6, the Verification block** (run before the ticket edit):
+
+```text
+$ grep -n '^## ' README.md
+11:## Prerequisites
+26:## Quick start
+37:## Check your work
+47:## Layout
+61:## Documentation
+73:## How the game will use it
+80:## Boundaries
+$ grep -c '^- ' CHANGELOG.md
+10
+$ grep -n 'commits/main' CHANGELOG.md
+33:[Unreleased]: https://github.com/steven-cutting/libpawdoku/commits/main/
+$ grep -n -E '\]\(|http' crates/pawdoku/README.md || echo "crate README has no links"
+crate README has no links
+$ just check-docs
+markdownlint.............................................................Passed
+typos....................................................................Passed
+lychee...................................................................Passed
+bg-validate-docs
+Validated 37 pages and 38 canonical topics.
+$ git status --porcelain
+ M CHANGELOG.md
+ M README.md
+ M SECURITY.md
+ M crates/pawdoku/README.md
+```
+
+`CHANGELOG.md` has exactly one `##` heading. `crates/pawdoku/README.md` is 15 lines.
+
+`time just check`: exit 0 in 26.6 s (`93.19s user 14.09s system 403% cpu 26.597
+total`), 18 recipes, 22 tests passed. Line coverage was 97.84% (139 lines, 3 missed). The
+run ended with `The worktree matches the check baseline.` and `All checks passed and the
+worktree is unchanged.` That run preceded this ticket edit. `just check` was run again on the
+committed tree: exit 0 in 6.6 s with a warm `target/`, and the same two closing lines.
+
+`README.md` repeats no paragraph of `docs/project/purpose-and-scope.md`. Four phrases
+from its opening paragraph were searched for with `grep -F` in that page, and none
+matched.
 
 ### Deviations, and why
 
+- **Stacked on T11, not branched from `main`.** Pull request #12 (T11) had not merged
+  when this ticket was picked up, and the maintainer chose to stack this branch on
+  `T11-integration` at `1e083e8`. The two touch no common file. Until #12 merges, a pull
+  request from this branch also carries T11's commits.
+- **The branch is `ticket/t10-maintainer-docs`, as the ticket names it.** The worktree
+  was made with `git worktree add` rather than by Supacode, so no rename arose.
+- **Eight modules, not seven.** T12 added `board.allium` after this ticket was written.
+  The README's Layout says eight. The CHANGELOG folds it into the migration bullet, which
+  keeps the count at ten. Leaving it out would have made the entry untrue of what
+  merged.
+- **Written true of the day.** Step 2 asks for a paragraph on what the engine is (solver,
+  techniques, rating, hints). The crate holds only the randomness boundary, so both
+  READMEs describe the engine as specified and being built, not as shipped. The SECURITY
+  scope bullet says "the solver, once it exists".
+- **The conda-forge item is qualified, not dropped.** Step 4 has "tool binaries pinned by
+  hash in `pixi.lock` and installed from conda-forge". Two tools come from elsewhere, and
+  SECURITY.md names both. `biscuit-games-tooling` comes from its Git tag, pinned to a
+  commit in `pixi.lock`. cargo-hack comes from its GitHub release over TLS with no
+  checksum, as `docs/explanation/security-model.md` already says.
+- **One out-of-scope line added.** "What a consumer does with the engine's output"
+  follows the security model's "What is out of scope". G's private-repository paragraph
+  (lines 9-11) is dropped, because the repository is public.
+- **CI's "five checks"** are written as five gate jobs behind one required `check`,
+  because branch protection requires only the aggregate.
+
 ### Handed back
 
+- **`tickets/README.md`** still shows T10 and T11 as `open`, because this ticket changes
+  only its four documents and its own file. Both rows go to `done` with the next index
+  edit.
+- **The CHANGELOG's counts** (seventeen gates, five jobs, fourteen skills, twenty-five
+  pages, eleven records) go stale when any of them changes. They describe what merged
+  under `[Unreleased]` and need no edit until S02 cuts the first release entry.
+
 ### Open points settled
+
+- **Timings in the README: no.** The README states none. The figures stay in T11's
+  hand-back, and `docs/operations/troubleshooting.md` is their home if they are wanted.
+- **`include_str!` for the crate README: no.** The crate-level doc comment in `lib.rs`
+  stays hand-written, as T00 and T02 left it. S02 may revisit this at publication.
 
 ## Open points
 

@@ -1,9 +1,88 @@
 # libpawdoku
 
-`libpawdoku` is the classic-sudoku engine behind the Biscuit Games game Pawdoku: a Rust
-library that solves, rates and explains sudoku puzzles, specified in Allium under
-`docs/specs/` and built as the `no_std` crate in `crates/pawdoku`. The work that sets this
-repository up is broken into tickets under `tickets/`, each executed on its own branch.
-This file is a placeholder for the first commit; ticket T10 writes the rest of it once
-the handbook and the gate are complete. Until then, the handbook starts at
-[the documentation map](docs/README.md).
+The classic-sudoku engine behind Pawdoku, a Biscuit Games game: a Rust library.
+
+The engine is a solver, a catalogue of the techniques a person solves with, a difficulty
+rating and hints, built on a model of a human solver. Every rule comes from the
+specifications in `docs/specs/`, and the code is built from them one module at a time;
+today the crate holds the randomness boundary, and the modules follow it. The core is
+`no_std`, so the same code will run in a browser, in Python and on the command line.
+
+## Prerequisites
+
+Four tools, and nothing else: not uv, not cargo-binstall.
+
+- **rustup**, with no default toolchain needed, because `rust-toolchain.toml` chooses the
+  one used here. `~/.cargo/bin` must come ahead of `~/.pixi/bin` on `PATH`.
+- **pixi**, 0.81.0 or newer, which installs every other tool from `pixi.lock`.
+- **just**, from `pixi global install just`. Any just launches the recipes, because the
+  pinned one in the environment runs every nested call and CI.
+- **gh**, only for the pin-bump commands.
+
+A cargo from `pixi global`, Homebrew or a Linux distribution ignores
+`rust-toolchain.toml`, and `just check-toolchain` refuses it.
+[Develop locally](docs/how-to/develop-locally.md) has the detail and the remedy.
+
+## Quick start
+
+```console
+just initialize
+just check
+```
+
+`just initialize` installs the pixi environment, the pinned toolchain, cargo-hack and the
+Allium checker into `.tools/bin`, and the pre-commit hook. It never stages, commits, tags
+or pushes.
+
+## Check your work
+
+```console
+just fix      # the safe automatic repairs; unlike any check, it modifies files
+just check    # every gate, read-only, proving the worktree is unchanged
+```
+
+`just --list` prints every recipe. Each one is described in
+[Commands](docs/reference/commands.md).
+
+## Layout
+
+```text
+crates/pawdoku/      The engine; src/random.rs is its one effect boundary
+docs/                The handbook
+docs/specs/          Eight Allium modules — the source of truth for behaviour
+tickets/             The work that set this repository up, one ticket per branch
+pyproject.toml       The tool manifest, pinned by pixi.lock
+rust-toolchain.toml  The compiler pin
+tools.txt            The one tool conda-forge lacks
+.pixi/ .tools/       Installed tools, ignored by Git
+target/              Build output, ignored by Git
+```
+
+## Documentation
+
+Start at [the documentation map](docs/README.md).
+
+- [Purpose and scope](docs/project/purpose-and-scope.md) — what the engine is, and is not
+- [Make your first change](docs/tutorials/first-change.md) — clone to green gate
+- [Architecture](docs/explanation/architecture.md) — how a portable engine with one effect fits together
+- [Specifications](docs/explanation/specifications.md) — why behaviour is written down first
+- [API reference](docs/reference/api.md) — the rustdoc, and how it is built
+
+Engineering conventions and the agent working agreement are in [AGENTS.md](AGENTS.md).
+
+## How the game will use it
+
+The game will consume the engine through a WebAssembly package that also ships the
+specification text, so the game can hold the clauses it restates equal to this
+repository's by test. That package, a command line and Python bindings are planned as
+sibling crates in this workspace, and spike S04 decides their shape.
+
+## Boundaries
+
+Behaviour is decided in `docs/specs/`, not in code. When the two disagree, the
+specification is right and the code is a defect. Changing what the engine does means
+changing a specification first.
+
+The crate is `publish = false` and has no release yet; spike S02 decides how the first
+one is cut. The library is licensed Apache-2.0, in [LICENSE](LICENSE) at the root, with
+no per-file headers.
