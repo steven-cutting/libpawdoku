@@ -36,8 +36,9 @@
 --     them. Each answers differently what a limit does, several of their
 --     open questions name the answer given here, and they stay without
 --     chance.
---   - The random generator. Draws come from this game's randomness port;
---     what this module states is how a draw becomes a decision.
+--   - The random generator. Draws come from the library's randomness
+--     boundary: a caller supplies the stream; what this module states is
+--     how a draw becomes a decision.
 --
 -- Dependencies
 --   sudoku.allium owns the rules; technique.allium owns logical techniques
@@ -473,8 +474,9 @@ config {
     -- technique.allium's, restated as its figures are elsewhere.
     catalogue_version: String = technique/config.catalogue_version
 
-    -- Names the randomness port's seeded stream. The generator is the
-    -- port's; a different generator is a different name.
+    -- Names the seeded stream the randomness boundary supplies. The
+    -- generator is the library's, named here so a different one is a
+    -- different name.
     random_version: String = "seeded-stream-1"
 }
 
@@ -1093,10 +1095,10 @@ surface AttemptResult {
         -- model_version, catalogue_version and random_version yield identical
         -- action order, draws, state changes, effort and outcome, disregarding
         -- run identifiers. Record all these inputs and every consumed draw.
-        -- Draws are the randomness port's: a stream of u in [0,1), begun
-        -- from the seed, indexed from zero, the same for the same seed and
-        -- random_version. Which generator is the port's and not stated
-        -- here; a test supplies the draws through the port's fake.
+        -- Draws are the randomness boundary's: a stream of u in [0,1),
+        -- begun from the seed, indexed from zero, the same for the same seed
+        -- and random_version. Which generator is the library's to name, not
+        -- stated here; a test supplies the draws through the boundary's fake.
         -- A Bernoulli outcome is u<p; a uniform n-way index is
         -- floor(u*n); weighted choice is the first cumulative interval
         -- containing u*sum(weights), intervals closed left/open right.

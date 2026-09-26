@@ -1,7 +1,7 @@
 ---
 id: T06
 title: "Specification migration: the seven engine modules, adapted, and the Allium gate"
-status: open
+status: done
 depends_on: [T00]
 parallel_with: [T01, T02, T03, T04, T05, T07, T08, T09]
 branch: ticket/t06-spec-migration
@@ -433,6 +433,134 @@ gates green; nothing from `git status`.
 
 ### What was verified, and how
 
+Run on 2026-09-25 in the Supacode worktree for this ticket, on branch `T06-spec-migration`
+(see Deviations), with the environment the maintainer had installed with `just initialize`
+before the ticket started: the pixi environment, `.tools/bin/allium` 3.6.1 and cargo-hack.
+The ticket itself ran no install step. G's clone stood at `add73be7`,
+so every pinned read used `git -C /Users/scutting/projects/pawdoku show 78d03cdf:<path>`.
+
+**Step 1.** Nine `identical` lines on the untouched tree:
+
+```text
+sudoku identical
+solver identical
+technique identical
+reach identical
+effort identical
+lapse identical
+human-solving identical
+solving-sudoku identical
+human-solving identical
+```
+
+`git -C /Users/scutting/projects/pawdoku rev-parse --short=8 HEAD` printed `add73be7`, and
+`git diff --stat 78d03cdf add73be7 -- docs/ AGENTS.md pyproject.toml .agents/
+.pre-commit-config.yaml` showed that of the nine files only `docs/specs/sudoku.allium`
+had moved: one hunk at G lines 33-35 that adds "board.allium keeps the notes, the moves,
+undo and the check for a puzzle in play." G also added `docs/specs/board.allium` (785
+lines, importing `./sudoku.allium` alone) and its decision 0011. The maintainer's
+decisions on that are under Deviations and Open points settled.
+
+**Step 2.** The gate on the verbatim copies, `.tools/bin/allium --version` first:
+
+```text
+allium 3.6.1 (language versions: 1, 2, 3)
+allium check: 7 specifications, no diagnostics and no findings.
+allium analyse: 7 specifications, no diagnostics and no findings.
+```
+
+**Step 3.** The relevance review: every module's Includes and Excludes block was read in
+full and every bullet maps to a row in the table below; every row now carries a reason,
+and no verdict changed except by addition (the `sudoku.allium` row for lines 33-35, which
+is G's post-pin sentence). The word search over the edited modules prints exactly the hits
+step 3 lists, shifted where the table says, and nothing else: `reach` 44 and 375,
+`human-solving` 31, 1111 and 1112, `sudoku` 7, 8, 19, 29, 36, 37 and 197, plus the
+seventeen `surface` declaration lines. `grep -n board docs/specs/*.allium` adds `sudoku` 34
+(the kept G sentence), `human-solving` 84, 841 and 875 and `technique` 903 and 1015, all
+of which say "board" for the grid a person looks at, not for a module.
+
+**Step 4.** The randomness boundary is re-homed and not weakened: `random_version` on
+`AttemptRequest` and `PolicyInput`, the default `"seeded-stream-1"`, `value Draw`, the
+three `draws` fields and every clause of `ExactReplay` other than the four comment lines
+step 5 names are byte-identical to G's; `git diff main -- docs/specs/human-solving.allium`
+shows the three comment hunks and nothing else.
+
+**Steps 5 and 6.** The eight edits were applied by exact multi-line replacement of the
+ticket's before-blocks with its after-blocks, each matching exactly once. `sudoku.allium`
+was first replaced by G's `add73be7` text (`cmp` clean), so its two edits sit at lines
+36-38 and 41-42. The frontmatter of both pages is unchanged; every link in both pages
+resolves inside this handbook, as step 6 lists.
+
+**Step 7.** The gate on the edited modules. `just check-specs`:
+
+```text
+bg-run-allium check
+{"command": "check", "diagnostics": [], "findings": [], "spec_file": "docs/specs/effort.allium"}
+{"command": "check", "diagnostics": [], "findings": [], "spec_file": "docs/specs/reach.allium"}
+{"command": "check", "diagnostics": [], "findings": [], "spec_file": "docs/specs/lapse.allium"}
+{"command": "check", "diagnostics": [], "findings": [], "spec_file": "docs/specs/solver.allium"}
+{"command": "check", "diagnostics": [], "findings": [], "spec_file": "docs/specs/technique.allium"}
+{"command": "check", "diagnostics": [], "findings": [], "spec_file": "docs/specs/human-solving.allium"}
+{"command": "check", "diagnostics": [], "findings": [], "spec_file": "docs/specs/sudoku.allium"}
+allium check: 7 specifications, no diagnostics and no findings.
+```
+
+`just analyse-specs`:
+
+```text
+bg-run-allium analyse
+{"command": "analyse", "diagnostics": [], "findings": [], "spec_file": "docs/specs/effort.allium"}
+{"command": "analyse", "diagnostics": [], "findings": [], "spec_file": "docs/specs/reach.allium"}
+{"command": "analyse", "diagnostics": [], "findings": [], "spec_file": "docs/specs/lapse.allium"}
+{"command": "analyse", "diagnostics": [], "findings": [], "spec_file": "docs/specs/solver.allium"}
+{"command": "analyse", "diagnostics": [], "findings": [], "spec_file": "docs/specs/technique.allium"}
+{"command": "analyse", "diagnostics": [], "findings": [], "spec_file": "docs/specs/human-solving.allium"}
+{"command": "analyse", "diagnostics": [], "findings": [], "spec_file": "docs/specs/sudoku.allium"}
+allium analyse: 7 specifications, no diagnostics and no findings.
+```
+
+The binary prints each block pretty-printed over six lines; they are joined here for
+reading. CONVENTIONS.md §12's claim for T06 is met.
+
+**Step 8.** Both acceptance greps printed nothing (`no game words`); no other lane's page
+under `docs/explanation/` hits, so nothing is handed to T11 on that account.
+`git diff --stat main` lists `docs/explanation/human-solving.md`,
+`docs/specs/human-solving.allium`, `docs/specs/lapse.allium`, `docs/specs/sudoku.allium`,
+`tickets/README.md`, `tickets/T06-spec-migration.md` and `tickets/T12-board-migration.md`:
+not "the nine files above and this ticket", because the five verbatim files cannot appear
+in a diff, and two ticket files are added on the maintainer's instruction (Deviations).
+
+**Step 9.** The verification block, in order: `add73be7` (the clone moved; `git show` was
+used); `allium 3.6.1 (language versions: 1, 2, 3)`; the two gate runs above;
+`-- allium: 3` seven times; `no waivers`; `no game words`; open questions
+`effort 7, human-solving 6, lapse 1, reach 3, solver 0, sudoku 0, technique 2`; the five
+`identical` lines (`solver`, `technique`, `reach`, `effort`, `solving-sudoku`); the diff
+stat above; `just check-docs` and `just check` as quoted here:
+
+```text
+prek run --all-files markdownlint-cli2 typos lychee
+markdownlint.............................................................Passed
+typos....................................................................Passed
+lychee...................................................................Passed
+bg-validate-docs
+Validated 37 pages and 38 canonical topics.
+```
+
+```text
+==> just check-clean
+bg-project-check clean "$1"
+The worktree matches the check baseline.
+
+All checks passed and the worktree is unchanged.
+```
+
+`git status --porcelain` printed nothing after the commits below.
+
+The nineteen open questions, present and unchanged, by module and library line:
+`technique.allium` 1160, 1162; `reach.allium` 421, 423, 425; `effort.allium` 304, 306,
+308, 310, 312, 314, 316; `lapse.allium` 531; `human-solving.allium` 1272, 1274, 1276,
+1278, 1280, 1282 (G's 1270-1280, shifted by the two comment expansions).
+
 ### The relevance review
 
 Pre-filled from the modules at `78d03cdf`; the executing agent confirms or changes each
@@ -440,7 +568,8 @@ verdict in place and states the reason for any change. Verdicts: **keep** (relev
 library as written), **adapt** (relevant, but the wording presumes the game), **drop**
 (not the library's; none proposed).
 
-`sudoku.allium`
+`sudoku.allium` (base: G `add73be7`, one line longer than the pin from line 34 on; the
+Lines column is the library's after the edits)
 
 | Lines | Clause | Verdict | Reason |
 | --- | --- | --- | --- |
@@ -450,13 +579,13 @@ library as written), **adapt** (relevant, but the wording presumes the game), **
 | 19-20 | "Play: placing a digit in a cell..." | keep | `PlaceDigit` and `EraseDigit` are what a hint reads (`reach` `BeginHint`); "Play" is the act, not G's surface (Open points) |
 | 21-22 | "The outcome: a puzzle is solved when..." | keep | `PuzzleSolved` |
 | 23-25 | "Two boundaries, PuzzleSetting and PuzzleSolving..." | keep | The library's API shape: where stimuli come from and what is visible; "Neither says anything of how it looks" |
-| 28-29 | Excludes "Variants: other sizes..." | keep | Still excluded |
+| 28-29 | Excludes "Variants: other sizes..." | keep | Still excluded; a variant is a different engine |
 | 30-32 | "How a setter finds givens, how hard..." | keep | `solver.allium`'s and the models' |
-| 33-34 | "Notes, hints, undo, timers, counts of mistakes..." | keep | None is a rule; hints are `reach`'s, the rest a consumer's |
-| 35-37 | "Whether a surface refuses, flags or merely allows..." | adapt | Names `pawdoku.allium`'s `Play` surface (step 5) |
-| 40-41 | Dependencies "None. The rules need no figure pawdoku.allium states..." | adapt | Names the root module (step 5) |
+| 33-35 | "Notes, hints, undo, timers, counts of mistakes...", ending, since G's `add73be7`, "board.allium keeps the notes, the moves, undo and the check for a puzzle in play." | keep | None is a rule; hints are `reach`'s, the rest a consumer's. The `board.allium` sentence is G's addition after the pin, kept verbatim on the maintainer's decision of 2026-09-25: a forward reference to the module T12 migrates, so the name resolves once T12 lands |
+| 36-38 | "Whether a surface refuses, flags or merely allows..." | adapt | Named `pawdoku.allium`'s `Play` surface; now "a consumer's surfaces decide what a player is shown; nothing here draws" (step 5) |
+| 41-42 | Dependencies "None. The rules need no figure pawdoku.allium states..." | adapt | Named the root module; now "No figure a consumer's root module states is read here" (step 5) |
 | 7-8, 29 | Scope "the game as it is played on paper"; "a different game" | keep | Sudoku the game and its variants, not Pawdoku |
-| 324-328 | Comment on `PuzzleSolving`: "the module that draws them owes a non-colour indication and an accessible name" | keep | An obligation on whoever draws, true wherever that module lives (Open points) |
+| 325-329 | Comment on `PuzzleSolving`: "the module that draws them owes a non-colour indication and an accessible name" | keep | An obligation on whoever draws, true wherever that module lives (Open points) |
 
 `solver.allium` (no game words; verbatim)
 
@@ -464,8 +593,8 @@ library as written), **adapt** (relevant, but the wording presumes the game), **
 | --- | --- | --- | --- |
 | 16-17 | Includes "The search: one for each set of givens..." | keep | The verdict is the library's first deliverable |
 | 18-20 | "Branches: a grid of candidates each..." | keep | Observable shape of the search |
-| 21-23 | "Propagation: a placed digit leaves..." | keep | |
-| 24-26 | "Contradiction: a cell with no candidate..." | keep | |
+| 21-23 | "Propagation: a placed digit leaves..." | keep | Observable: the singles the search owes before it guesses, which a consumer's tests can see in the branch count |
+| 24-26 | "Contradiction: a cell with no candidate..." | keep | When a branch ends; the three conditions are the engine's, not a UI's |
 | 27-29 | "What makes the search quick and can be seen..." | keep | Guarantees a consumer may rely on |
 | 30-31 | "Two boundaries: Solving ... and SearchResult" | keep | The library API: `Solve(givens)` in, verdict and solutions out |
 | 34-36 | Excludes "How any of it is stored or made fast..." | keep | The implementation's, as it should be for Rust |
@@ -473,23 +602,23 @@ library as written), **adapt** (relevant, but the wording presumes the game), **
 | 39-41 | "Deductions past singles..." | keep | `technique.allium`'s |
 | 42-45 | "Steps a person could follow, hints, and how hard..." | keep | The models' |
 | 46-47 | "Finding givens, and solving from a puzzle in play." | keep | Generation is out of scope for the library today |
-| 48 | "Variants, as sudoku.allium excludes them." | keep | |
+| 48 | "Variants, as sudoku.allium excludes them." | keep | Follows `sudoku.allium` |
 
 `technique.allium` (no game words; verbatim)
 
 | Lines | Clause | Verdict | Reason |
 | --- | --- | --- | --- |
 | 26-28 | Includes "The supported catalogue in ladder order..." | keep | The catalogue is the library's core |
-| 29-31 | "The grid a technique is read from..." | keep | |
-| 32-34 | "Twenty-nine techniques, through basic fish..." | keep | |
+| 29-31 | "The grid a technique is read from..." | keep | The grid type every model and a consumer's hint request hand the engine |
+| 32-34 | "Twenty-nine techniques, through basic fish..." | keep | The catalogue guarantees are the engine's test obligations |
 | 35-36 | "Deductions: one for each place a technique holds..." | keep | The library's output type for a step |
 | 37-40 | "The profile: repertoire, capacity, spans, marking, order, fixation, upkeep, budget, fatigue and patience, and two presets" | keep | What rating and hinting read; marking and fixation are player description, not UI (Open points) |
 | 43-44 | Excludes "Which deduction a player takes..." | keep | The models' |
 | 45-49 | "Keeping candidates true..." | keep | What `lapse` varies |
 | 50-52 | "Finned, sashimi and other complex fish..." | keep | Deferred families stay deferred |
-| 53-54 | "Chance. Nothing here is drawn at random..." | keep | |
-| 55-56 | "How a grid is stored, how deductions are found quickly..." | keep | |
-| 57 | "Variants, as sudoku.allium excludes them." | keep | |
+| 53-54 | "Chance. Nothing here is drawn at random..." | keep | Only `human-solving` reaches the randomness boundary; this module needs no effect |
+| 55-56 | "How a grid is stored, how deductions are found quickly..." | keep | The Rust implementation's, as it should be |
+| 57 | "Variants, as sudoku.allium excludes them." | keep | Follows `sudoku.allium` |
 | 106-108, 115-117 | `enum Marking`, `enum Fixation` | keep | Read by the Profile |
 | 288-289 | "A hint over unverified player entries cannot assert this premise." | keep | Engine semantics of `uniqueness_promised` |
 | 971 | "Labels are logical values, not a requirement to display colour." | keep | Already says it is not UI |
@@ -499,137 +628,208 @@ library as written), **adapt** (relevant, but the wording presumes the game), **
 
 | Lines | Clause | Verdict | Reason |
 | --- | --- | --- | --- |
-| 21-22 | Includes "The run: one for each rating or hint..." | keep | |
-| 23-24 | "Sight: the four ways a profile hides..." | keep | |
-| 25-27 | "Choice: a systematic player takes..." | keep | |
+| 21-22 | Includes "The run: one for each rating or hint..." | keep | One run per rating or hint request; the library's entry points for both |
+| 23-24 | "Sight: the four ways a profile hides..." | keep | `technique.allium`'s predicates, engine semantics of a profile |
+| 25-27 | "Choice: a systematic player takes..." | keep | A deterministic choice rule the implementation must follow |
 | 28-29 | "Steps: the deductions taken, in order..." | keep | The trace a rating reads; the one step a hint is |
 | 30-31 | "Three boundaries: Rating and Hinting ... and RunResult" | keep | The library API for rating and hinting |
 | 34-35 | Excludes "Cost..." | keep | `effort`'s |
 | 36-40 | "Error and guessing..." | keep | `lapse`'s |
 | 41-43 | "Which of several equally preferred deductions..." | keep | Deterministic tie-breaking |
 | 44 | "How a hint is worded or shown, and anything a surface draws." | keep | Already excludes the UI; "a hint pitched at them" (12) is engine output |
-| 45 | "Chance..." | keep | |
+| 45 | "Chance..." | keep | Deterministic: the same profile and digits give the same run, which is what a consumer's tests rely on |
 | 375 | "Where a hint is asked for: the surface a puzzle is played on." | keep | A consumer's surface is exactly that (Open points) |
-| 397 | "It draws nothing and words nothing." | keep | |
+| 397 | "It draws nothing and words nothing." | keep | The `RunResult` surface is engine output; a consumer words the hint |
 | 421, 423, 425 | Open questions | keep | Carried |
 
 `effort.allium` (no game words; verbatim)
 
 | Lines | Clause | Verdict | Reason |
 | --- | --- | --- | --- |
-| 26-28 | Includes "The run: one for each pricing..." | keep | |
+| 26-28 | Includes "The run: one for each pricing..." | keep | One run per pricing request; the library's entry point |
 | 29-30 | "Price: a base figure for the technique..." | keep | Open figures; nothing built on them (Scope 18-20) |
-| 31-32 | "Escalation: a step from beyond the profile..." | keep | |
+| 31-32 | "Escalation: a step from beyond the profile..." | keep | The flag a rating reads; what a puzzle beyond a profile costs |
 | 33-35 | "What a rating reads: the dearest step, the total..." | keep | The `PricedRun` surface |
-| 38-41 | Excludes "Missing and erring..." | keep | |
+| 38-41 | Excludes "Missing and erring..." | keep | `reach`'s and `lapse`'s; the field list says which Profile fields this model reads |
 | 42 | "Hints..." | keep | `reach`'s |
 | 43 | "Time. A price is effort and no clock is read." | keep | Matches the `no_std` core: no clock |
-| 44 | "Chance, and which of several equally cheap..." | keep | |
+| 44 | "Chance, and which of several equally cheap..." | keep | Deterministic; tie-breaking is the implementation's |
 | 304-316 | Seven open questions, 312 among them | keep | Carried; the maintainer is not asked to answer them here (Open points) |
 
 `lapse.allium`
 
 | Lines | Clause | Verdict | Reason |
 | --- | --- | --- | --- |
-| 24-28 | Includes "Where error comes from..." | keep | |
-| 29-30 | "Upkeep: after a placement..." | keep | |
-| 31-32 | "Four kinds of step..." | keep | |
-| 33-34 | "Choice: the deduction taken..." | keep | |
-| 35-37 | "Being stuck..." | keep | |
-| 38-39 | "The guess: in a cell with the fewest marks..." | keep | |
-| 40-41 | "The run, which ends solved, or abandoned..." | keep | |
-| 44-48 | Excludes "Slips: a digit misread..." | adapt | "this game reaches through its randomness port" (step 5) |
-| 49-52 | "Cost, which is effort.allium's, and hints..." | keep | |
-| 53-56 | "A faulty repair, and a contradiction that must be looked for." | keep | |
-| 57-60 | "Which of several equal deductions..." | keep | |
+| 24-28 | Includes "Where error comes from..." | keep | The ground of the model, and a property the engine must hold (`OnlyAGuessIsEverWrong`) |
+| 29-30 | "Upkeep: after a placement..." | keep | The partial upkeep this model varies; engine semantics of `Profile.upkeep` |
+| 31-32 | "Four kinds of step..." | keep | The step kinds a rating counts |
+| 33-34 | "Choice: the deduction taken..." | keep | The same choice rule as `reach`; deterministic |
+| 35-37 | "Being stuck..." | keep | When this player takes stock; model behaviour, no UI |
+| 38-39 | "The guess: in a cell with the fewest marks..." | keep | A deterministic guess; no chance |
+| 40-41 | "The run, which ends solved, or abandoned..." | keep | The outcome a consumer reads from `TackledRun` |
+| 44-48 | Excludes "Slips: a digit misread..." | adapt | "this game reaches through its randomness port" became "this library reaches through its randomness boundary" (step 5) |
+| 49-52 | "Cost, which is effort.allium's, and hints..." | keep | `effort`'s and `reach`'s; says which Profile fields this model reads |
+| 53-56 | "A faulty repair, and a contradiction that must be looked for." | keep | `human-solving`'s |
+| 57-60 | "Which of several equal deductions..." | keep | Deterministic tie-breaking is the implementation's |
 | 531 | Open question | keep | Carried |
 
-`human-solving.allium`
+`human-solving.allium` (lines are G's at `78d03cdf`; in the library the two comment
+expansions at 39-40 and 476-477 shift everything after each by one line, so `ExactReplay`'s
+port sentences are 1098-1101, the platform sentences 1111-1113 and the open questions
+1272-1282)
 
 | Lines | Clause | Verdict | Reason |
 | --- | --- | --- | --- |
 | 18 | Includes "Independent cognitive ability, learned expertise, biases and coping." | keep | Simulation inputs |
-| 19 | "Separate physical sheet, bounded mental state, and observer judgement." | keep | |
+| 19 | "Separate physical sheet, bounded mental state, and observer judgement." | keep | The state an attempt keeps and the assessment role that reads it; the observer is a role in the model, not a UI |
 | 20 | "Explicit microsteps, effort, provenance, seeds and finite budgets." | keep | Budgets are step budgets, as the core requires |
 | 21 | "Manual/automatic notes, highlighting, feedback and uniqueness premise." | keep | The modelled conditions the simulated person solves under, an input (`Environment`, 164-171, default `paper` at 497-500), not the consumer's UI (Open points) |
-| 22 | "Named pattern recognition, bounded elementary reasoning, and guesses." | keep | |
-| 23 | "Within-attempt fatigue, frustration and rest..." | keep | |
-| 24 | "Four provisional experience presets..." | keep | |
-| 25-27 | "The projection from this module's description..." | keep | |
+| 22 | "Named pattern recognition, bounded elementary reasoning, and guesses." | keep | Model behaviour |
+| 23 | "Within-attempt fatigue, frustration and rest..." | keep | Within-attempt state driven by effort spent, never by a clock |
+| 24 | "Four provisional experience presets..." | keep | Presets are inputs a consumer picks by name |
+| 25-27 | "The projection from this module's description..." | keep | The bridge that lets one player run through the other three models |
 | 30 | Excludes "Runtime/UI implementation, persistence, puzzle generation and hints." | keep | Exactly the library's exclusions |
 | 31 | "Importing in-progress games, Sudoku variants, or learning across games." | keep | "games" are puzzles in play |
-| 32-33 | "Diagnoses, intelligence scores, predictions in minutes..." | keep | |
-| 34 | "An exhaustive expert repertoire or an unbounded solution search." | keep | |
-| 35-38 | "Changing reach, effort or lapse into this model..." | keep | |
-| 39-40 | "The random generator. Draws come from this game's randomness port" | adapt | Step 5 |
+| 32-33 | "Diagnoses, intelligence scores, predictions in minutes..." | keep | Still excluded; a library promises none of them either |
+| 34 | "An exhaustive expert repertoire or an unbounded solution search." | keep | Bounded by step budgets, as invariant 2 requires |
+| 35-38 | "Changing reach, effort or lapse into this model..." | keep | Each model stays its own; the import graph stays as drawn |
+| 39-40 | "The random generator. Draws come from this game's randomness port" | adapt | Step 5; now "the library's randomness boundary: a caller supplies the stream" |
 | 43-50 | Dependencies, including "An explicitly enabled feedback aid may reveal only the queried entry's error signal." | keep | Engine semantics of the aid |
-| 476-478 | `random_version` comment | adapt | Step 5 |
+| 476-478 | `random_version` comment | adapt | Step 5; the field and its default are unchanged |
 | 890-906 | `AidsChangeTheEnvironment` | keep | What each aid reveals to the simulated player; a consumer maps its aids onto these (Open points) |
-| 1096-1099 | `ExactReplay`, the port sentences | adapt | Step 5 |
+| 1096-1099 | `ExactReplay`, the port sentences | adapt | Step 5; the stream contract (seed, index from zero, same for the same seed and `random_version`) is unchanged |
 | 1109-1111 | "no platform rounding"; "No wall clock, platform iteration order or hidden random source" | keep | The computing platform; the clause is the `no_std` contract in the spec's own words |
 | 1270-1280 | Six open questions | keep | Carried |
 
 ### Deviations, and why
 
+- **The branch is `T06-spec-migration`, not `ticket/t06-spec-migration`.** It keeps the
+  Supacode name because the maintainer chose "keep and record", as for T01 and T04.
+- **`sudoku.allium`'s base is G `add73be7`, not `78d03cdf`.** G added one sentence after
+  the pin, at its lines 34-35: "board.allium keeps the notes, the moves, undo and the check
+  for a puzzle in play." On 2026-09-25 the maintainer chose to rebase the library's copy on
+  G's current text and to keep that sentence verbatim, with a follow-up ticket (T12) that
+  migrates `board.allium` here, so the name it uses resolves once T12 lands. Consequences:
+  the module is one line longer than the ticket's line numbers assume, the two step-5 edits
+  sit at 36-38 and 41-42, step 1's identity holds against the pin before the rebase and
+  against `add73be7` after it, and the review table carries the sentence as a keep. The
+  six other modules and the two pages are unchanged between the two G commits, so nothing
+  else moved.
+- **Two files outside Files touched.** `tickets/T12-board-migration.md` is new and
+  `tickets/README.md` gains one index row and one graph line, on the maintainer's
+  instruction of 2026-09-25: "create a follow up ticket to port/migrate board.allium here
+  and make any other alignment updates as well." No frozen file is touched; the
+  `docs/README.md` mention of an eighth module is a `main` follow-up T12 records.
+- **`git diff --stat main` lists seven files, not nine plus the ticket.** The ticket's
+  wording counts the verbatim files, which by construction are absent from any diff.
+- **The environment was installed by the maintainer** with `just initialize` in this
+  worktree before the ticket started, so `just install-allium` (step 2) was not run by the
+  ticket; `.tools/bin/allium --version` was checked instead.
+
 ### Handed back to pawdoku
 
 Performed by a later G ticket, separately authorised, never by this one. G paths and
-line numbers at `78d03cdf`; the executing agent corrects any that G has since moved.
+line numbers are at `add73be7`, G's HEAD on 2026-09-25, re-derived from the `78d03cdf`
+numbers the ticket was written against; where a number moved, the pinned one follows in
+parentheses. Because T12 migrates `board.allium` too, G performs this list once, after
+T12 has landed, so that the eight modules leave together.
 
 1. Delete `docs/specs/sudoku.allium`, `solver.allium`, `technique.allium`,
-   `reach.allium`, `effort.allium`, `lapse.allium`, `human-solving.allium`, and
-   `docs/explanation/solving-sudoku.md` and `docs/explanation/human-solving.md`.
-2. `docs/manifest.yml` lines 50-51: remove the two entries (and the trailing comma on
-   line 48).
-3. `docs/README.md` lines 15-28: rewrite the specifications paragraph so that it is
-   rooted at `pawdoku.allium`, says the engine's seven modules live in
-   `steven-cutting/libpawdoku` under `docs/specs/` and are restated here and held equal
-   by test, and drops the six links; lines 84-87: remove the two bullets under "This
-   game" (the heading may stay for pages the game adds later).
+   `reach.allium`, `effort.allium`, `lapse.allium`, `human-solving.allium` and, once T12
+   has landed, `board.allium`; and `docs/explanation/solving-sudoku.md` and
+   `docs/explanation/human-solving.md`. Not before T12: `board.allium` line 104 is
+   `use "./sudoku.allium" as sudoku`, and `prototypes/board/sudoku.py` and `board.py`
+   (decision 0011) model both modules, so deleting `sudoku.allium` alone breaks G's
+   `check-specs` and its prototype gate.
+2. `docs/manifest.yml` lines 51-52 (was 50-51): remove the two entries, and the trailing
+   comma on line 49 (was 48), which now ends the decision 0011 entry.
+3. `docs/README.md` lines 15-29 (was 15-28): rewrite the specifications paragraph so that
+   it is rooted at `pawdoku.allium`, says the engine's eight modules live in
+   `steven-cutting/libpawdoku` under `docs/specs/` and are restated here and held equal by
+   test, and drops the eight links (`sudoku`, `board`, `solver`, `technique`, `reach`,
+   `effort`, `lapse`, `human-solving`); lines 85-88 (was 84-87): remove the two bullets
+   under "This game" (the heading at line 80 may stay for pages the game adds later).
 4. `docs/how-to/work-with-the-specs.md` lines 11-12: "the root module named after its
    slug, and the modules the game adds beside it" becomes the root module alone, with a
-   sentence naming where the engine's are; table rows 20-26 deleted, leaving row 19;
-   step 2 at line 37 gains "and a restated engine clause is held to libpawdoku's text
-   the same way".
+   sentence naming where the engine's are; table rows 20-27 (was 20-26; row 21 is
+   `board.allium`) deleted, leaving row 19; step 2 at line 38 (was 37), "held to the
+   platform's text by `tests/platformSpecs.test.ts`", gains "and a restated engine clause
+   is held to libpawdoku's text the same way". The paragraph G added at lines 120-130 on
+   `allium.field.unused` and a projection's `where` predicate cites `board.allium` as its
+   example; it stays true of the checker and may keep the citation or cite libpawdoku's
+   copy.
 5. `docs/explanation/specifications.md` line 12 ("rooted at the module named after this
-   game" stays true); lines 33-68: "Eight are the game's today" becomes one, the
-   paragraph on `sudoku.allium` and `solver.allium` (37-43) and the paragraph "Five more
-   say how a person solves" (45-68) become a short account of where the engine's live
-   and that the text is shared truth across two repositories until S04 ships the specs
-   in the wasm package (CONVENTIONS.md §13); line 95: remove the link to
-   `human-solving.md`.
-6. `docs/project/terminology.md` lines 17-19, 36, 44, 59-71: the engine words stay
-   (the game uses them) but the sentences that say which module owns each now say the
-   module is libpawdoku's; line 96: remove the link to `../explanation/human-solving.md`.
-7. `AGENTS.md` lines 170-173: the deviations list "none yet" gains "The engine's
-   specifications live in `steven-cutting/libpawdoku`, restated here and held equal by
-   test (decision 0011)"; invariant 1 (lines 30-32) may say the engine's rules are
-   libpawdoku's `docs/specs/`.
-8. `docs/specs/pawdoku.allium` Scope lines 9-11: "The rules of the game are
-   sudoku.allium's, a module beside this one that imports nothing. How those rules are
-   drawn is still to be specified, in modules that import both." becomes "The rules of
-   the game are the engine's, specified in libpawdoku's sudoku.allium, restated here
-   where needed and held equal by test, not imported. How those rules are drawn is still
-   to be specified."; Dependencies lines 27-29 add that the engine's seven modules are
-   held equal by test for the same reason as the platform's three.
-9. `.agents/skills/spec-change/SKILL.md` line 10 ("a clause the platform states is
-   owned by `@steven-cutting/biscuit-games` and only restated here") and line 13 gain
-   the engine as a second owner held by test.
-10. Two decisions G owes, numbered from 0011 (G's `docs/decisions/README.md` line 44):
-    "The engine lives in libpawdoku" and the `allium-skill-reference/` relocation that
-    G's commit `189348e` called "a template departure worth a decision record" and did
-    not write.
-11. `pyproject.toml` lines 63-66, the `[tool.typos.default.extend-words] mis = "mis"`
-    allowlist: at `78d03cdf` the hyphenated `mis-` uses are in
+   game" stays true); lines 33-75 (was 33-68): "Nine are the game's today" (was "Eight")
+   becomes one, and the paragraphs on `sudoku.allium` (37-39), `board.allium` (40-46),
+   `solver.allium` (47-51) and "Five more say how a person solves" (52-75) become a short
+   account of where the engine's live and that the text is shared truth across two
+   repositories until S04 ships the specs in the wasm package (CONVENTIONS.md §13); line
+   102 (was 95): remove the link to `human-solving.md`.
+6. `docs/project/terminology.md` lines 17-19 (now naming `board.allium` too), the board
+   rows 36-42, the `solver.allium` row at 43 (was 36), the `technique.allium` rows from 51
+   (was 44) and the model rows from 66 (was 59): the engine words stay (the game uses
+   them) but the sentences that say which module owns each now say the module is
+   libpawdoku's; line 103 (was 96): remove the link to `../explanation/human-solving.md`.
+7. `AGENTS.md` lines 170-176 (was 170-173): the deviations list, which now names decision
+   0011, gains "The engine's specifications live in `steven-cutting/libpawdoku`, restated
+   here and held equal by test (decision 0012)"; invariant 1 (lines 30-32, unchanged) may
+   say the engine's rules are libpawdoku's `docs/specs/`.
+8. `docs/specs/pawdoku.allium` Scope lines 9-11 and Dependencies 27-29, unchanged at
+   `add73be7`: "The rules of the game are sudoku.allium's, a module beside this one that
+   imports nothing. How those rules are drawn is still to be specified, in modules that
+   import both." becomes "The rules of the game are the engine's, specified in
+   libpawdoku's sudoku.allium and board.allium, restated here where needed and held equal
+   by test, not imported. How those rules are drawn is still to be specified.";
+   Dependencies add that the engine's eight modules are held equal by test for the same
+   reason as the platform's three.
+9. `.agents/skills/spec-change/SKILL.md` line 10 ("a clause the platform states is owned
+   by `@steven-cutting/biscuit-games` and only restated here") and line 13 gain the engine
+   as a second owner held by test. Unchanged at `add73be7`.
+10. Two decisions G owes, numbered from **0012** (was 0011: G wrote 0011, "Executable
+    models of specifications", after the pin, and its `docs/decisions/README.md` line 45
+    says a decision the game takes is numbered 0011 onward): "The engine lives in
+    libpawdoku" and the `allium-skill-reference/` relocation that G's commit `189348e`
+    called "a template departure worth a decision record" and did not write.
+11. `pyproject.toml` lines 94-97 (was 63-66), the `[tool.typos.default.extend-words]
+    mis = "mis"` allowlist: the hyphenated `mis-` uses are in
     `allium-skill-reference/allium/actioning-findings.md` line 64 and
-    `recommended-loops.md` line 63, not in the seven modules or the two pages, so the
-    migration does not change whether it is needed; G decides.
-12. `.pre-commit-config.yaml` lines 60-65 and the `analyse-specs` hook: unchanged;
-    `pawdoku.allium` stays, so `docs/specs/` is not empty and the `check-specs` gate
-    still has something to walk. The restatement test itself, and how the engine's text
-    reaches G (the wasm package shipping `specs/`), are S04's.
+    `recommended-loops.md` line 63, not in the modules or the two pages, so the migration
+    does not change whether it is needed; G decides.
+12. `.pre-commit-config.yaml` lines 60-72 (was 60-65), the `check-specs` and
+    `analyse-specs` hooks: unchanged; `pawdoku.allium` stays, so `docs/specs/` is not
+    empty and the gate still has something to walk. The restatement test itself, and how
+    the engine's text reaches G (the wasm package shipping `specs/`), are S04's.
+13. New since the pin: `prototypes/board/` (decision 0011) is a Python model of
+    `board.allium` and `sudoku.allium`, gated by `just proto-typecheck` and
+    `just proto-test`. When the two modules leave G, G decides whether the model follows
+    them (a libpawdoku ticket after T12), stays in G against the restated text, or is
+    deleted as decision 0011's "What would reopen this" foresees. T12's Open points carry
+    the question from this side.
 
 ### Open points settled
+
+Each answered by the maintainer on 2026-09-25, in this session.
+
+- **`human-solving.allium`'s environment and feedback model.** Keep, as pre-filled: the
+  six `Environment` fields, the default `paper` and `AidsChangeTheEnvironment` are inputs
+  to `Simulate`, not a surface's concern. No field is removed.
+- **`technique.allium`'s marking and fixation.** Keep, as pre-filled.
+- **Hint wording.** Keep verbatim, including `reach.allium` 375; `reach.allium` stays
+  byte-identical to G's.
+- **`effort.allium`'s open figures.** Carried, none answered; the seven questions are at
+  lines 304-316 as at the pin.
+- **`Play`-adjacent vocabulary in `sudoku.allium`.** Keep all four; the accessibility
+  sentence at 325-329 (was 324-328) stays as written.
+- **A single player on a single device.** Re-checked over the edited modules: no module
+  names a device, a browser or storage; `human-solving.allium` 1111-1113 says "platform"
+  in the computing sense; the only "screen" is `sudoku.allium` 8, "stated without a
+  screen". Nothing presumes one player on one device.
+- **A thin root module.** Not now, as recommended; nothing changed.
+- **The acceptance grep over `docs/explanation/*.md`.** Printed nothing on 2026-09-25;
+  the other lanes' stubs carry no game words. Nothing for T11.
+- **G's move past the pin (new).** The library's `sudoku.allium` follows G's `add73be7`
+  and keeps the `board.allium` sentence; T12 migrates `board.allium` and aligns the pages
+  G changed. The other seven files are unchanged between the two G commits.
 
 ## Open points
 

@@ -18,18 +18,19 @@ authoritative; this table is a snapshot.
 | --- | --- | --- | --- | --- | --- |
 | D01 | Hook runner and checkers: keep the Python toolchain or go Python-free | `D01-hook-runner.md` | none | none | done |
 | D02 | Tool manager: pixi owns the tools, rustup keeps the compiler | `D02-tool-manager.md` | D01 | none | done |
-| T00 | Foundation: workspace, toolchain, licence, Justfile, hooks, manifest, stubs for every path | `T00-foundation.md` | D01, D02 | none | open |
-| T01 | GitHub repository: create, first push, settings, branch protection | `T01-github-repository.md` | T00 | T02 to T09 | open |
-| T02 | Rust quality gate: tool configs, the no_std crate skeleton, every Rust recipe green | `T02-rust-gate.md` | T00 | T01, T03 to T09 | open |
-| T03 | Hooks and the language-agnostic gate: dotfiles, first-run script, the pixi environment | `T03-hooks-and-dotfiles.md` | T00, D01, D02 | T01, T02, T04 to T09 | open |
-| T04 | CI workflows: the composite setup action, five gate jobs and the audit job | `T04-ci.md` | T00, T01 | T02, T03, T05 to T09 | open |
-| T05 | Agent contract: AGENTS.md, adapters, fourteen skills, their bridges | `T05-agent-contract.md` | T00 | T01 to T04, T06 to T09 | open |
-| T06 | Specification migration: the seven engine modules, adapted, and the Allium gate | `T06-spec-migration.md` | T00 | T01 to T05, T07 to T09 | open |
+| T00 | Foundation: workspace, toolchain, licence, Justfile, hooks, manifest, stubs for every path | `T00-foundation.md` | D01, D02 | none | done |
+| T01 | GitHub repository: create, first push, settings, branch protection | `T01-github-repository.md` | T00 | T02 to T09 | done |
+| T02 | Rust quality gate: tool configs, the no_std crate skeleton, every Rust recipe green | `T02-rust-gate.md` | T00 | T01, T03 to T09 | done |
+| T03 | Hooks and the language-agnostic gate: dotfiles, first-run script, the pixi environment | `T03-hooks-and-dotfiles.md` | T00, D01, D02 | T01, T02, T04 to T09 | done |
+| T04 | CI workflows: the composite setup action, five gate jobs and the audit job | `T04-ci.md` | T00, T01 | T02, T03, T05 to T09 | done |
+| T05 | Agent contract: AGENTS.md, adapters, fourteen skills, their bridges | `T05-agent-contract.md` | T00 | T01 to T04, T06 to T09 | done |
+| T06 | Specification migration: the seven engine modules, adapted, and the Allium gate | `T06-spec-migration.md` | T00 | T01 to T05, T07 to T09 | done |
 | T07 | Handbook A: project, tutorial and how-to pages | `T07-handbook-a.md` | T00 | T01 to T06, T08, T09 | open |
 | T08 | Handbook B: explanation, reference and operations pages | `T08-handbook-b.md` | T00 | T01 to T07, T09 | open |
 | T09 | Decision records | `T09-decisions.md` | T00, D01, D02 | T01 to T08 | open |
 | T11 | Integration: first green `just check` from a fresh clone and in CI, branch protection verified | `T11-integration.md` | T01 to T09 | none | open |
 | T10 | Maintainer docs: README, CHANGELOG, SECURITY | `T10-maintainer-docs.md` | T11 | none | open |
+| T12 | Board migration: board.allium adapted, and the alignment with the game at add73be7 | `T12-board-migration.md` | T06, T07, T08, T11 | none | open |
 
 Spike tickets. Each weighs options and ends in a recommendation; none blocks the build and
 none is picked up before T11.
@@ -58,14 +59,14 @@ D01 ── D02 ── T00 ──┬── T01 ───────────�
                     ├── T04 (needs T01's remote) ┤
                     ├── T05 ──────────────────┼── T11 ── T10
                     ├── T06 ──────────────────┤    ├── S01, S02, S03, S04
-                    ├── T07 ──────────────────┤    └── C01 (also after T04)
-                    ├── T08 ──────────────────┤
+                    ├── T07 ──────────────────┤    ├── T12 (also after T06, T07, T08)
+                    ├── T08 ──────────────────┤    └── C01 (also after T04)
                     └── T09 ──────────────────┘
 C02 hangs off D01 alone (D01 kept the Python checkers; decision 0004)
 ```
 
 The graph is acyclic: D01, then D02, then T00, then nine parallel lanes, then T11 and T10
-in sequence. T04 needs the remote T01 creates before its proof run, but its files can be
+in sequence. T12 follows T11 because it edits pages T07 and T08 own. T04 needs the remote T01 creates before its proof run, but its files can be
 written in parallel with T01.
 
 ## How to pick up a ticket
