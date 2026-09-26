@@ -32,9 +32,10 @@ just initialize
 just check
 ```
 
-`just initialize` installs the pixi environment, the pinned toolchain, cargo-hack and the
-Allium checker into `.tools/bin`, and the pre-commit hook. It never stages, commits, tags
-or pushes.
+`just initialize` installs the pixi environment, the pinned toolchain, and cargo-hack and
+the Allium checker into `.tools/bin`. From the primary checkout it also installs the
+pre-commit hook, which every worktree shares; in a secondary worktree it says so and
+skips that step. It never stages, commits, tags or pushes.
 
 ## Check your work
 

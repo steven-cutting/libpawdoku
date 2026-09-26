@@ -330,6 +330,11 @@ Copilot's second review, of `9b92e27`, found four more issues, and all were take
   take no such flag. `AGENTS.md` invariant 8 and `docs/explanation/security-model.md`
   keep the house's shorter wording, and this ticket does not touch them.
 
+In the third round, of `c09dcca`, Copilot recommended approval with no findings. Codex
+raised one P3 on `README.md` line 37, and it was taken. `scripts/initialize.sh` installs
+the hook only from the primary checkout and skips it in a secondary worktree, so Quick
+start now says so. The detail stays in `docs/how-to/develop-locally.md`.
+
 ### Handed back
 
 - **`tickets/README.md`** still shows T10 and T11 as `open`, because this ticket changes
