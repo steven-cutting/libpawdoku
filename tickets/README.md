@@ -28,8 +28,8 @@ authoritative; this table is a snapshot.
 | T07 | Handbook A: project, tutorial and how-to pages | `T07-handbook-a.md` | T00 | T01 to T06, T08, T09 | done |
 | T08 | Handbook B: explanation, reference and operations pages | `T08-handbook-b.md` | T00 | T01 to T07, T09 | done |
 | T09 | Decision records | `T09-decisions.md` | T00, D01, D02 | T01 to T08 | done |
-| T11 | Integration: first green `just check` from a fresh clone and in CI, branch protection verified | `T11-integration.md` | T01 to T09 | none | open |
-| T10 | Maintainer docs: README, CHANGELOG, SECURITY | `T10-maintainer-docs.md` | T11 | none | open |
+| T11 | Integration: first green `just check` from a fresh clone and in CI, branch protection verified | `T11-integration.md` | T01 to T09 | none | done |
+| T10 | Maintainer docs: README, CHANGELOG, SECURITY | `T10-maintainer-docs.md` | T11 | none | done |
 | T12 | Board migration: board.allium adapted, and the alignment with the game at add73be7 | `T12-board-migration.md` | T06, T07, T08, T11 | none | done |
 
 Spike tickets. Each weighs options and ends in a recommendation; none blocks the build and

@@ -1,7 +1,7 @@
 ---
 id: T10
 title: "Maintainer docs: README, CHANGELOG, SECURITY"
-status: open
+status: done
 depends_on: [T11]
 parallel_with: []
 branch: ticket/t10-maintainer-docs
@@ -185,13 +185,177 @@ links`; every page valid; the four documents and this file.
 
 ## Hand-back notes
 
+Done on 2026-09-26 in the worktree `../T10-maintainer-docs` on branch
+`ticket/t10-maintainer-docs`, stacked on `T11-integration` at `1e083e8` (see Deviations).
+
 ### What was verified, and how
+
+**Step 1.** The worktree was created with `git worktree add`. The maintainer authorised
+the network, so `pixi install --locked`, `just install-tools` (cargo-hack 0.6.45) and
+`just install-allium` (allium 3.6.1) ran there. `just sync && just check-docs` was then
+green on the untouched stubs: markdownlint, typos and lychee `Passed`, and
+`Validated 37 pages and 38 canonical topics.`
+
+**Steps 2 to 5, the facts the documents state.** Each claim was read from the tree on
+the day, not carried from the ticket:
+
+- Code: `lib.rs` exports `random` and `SIDE`, and nothing else. There is no solver,
+  rating or hint code yet, so both READMEs say the engine is built one specified module
+  at a time and the crate so far holds the randomness boundary. `docs/specs/` holds
+  eight modules.
+- Counts: there are fourteen skills under `.agents/skills/`. CONVENTIONS.md §6 counts
+  twenty-five handbook pages, and there are eleven records under `docs/decisions/`.
+  `ci.yml` has five gate jobs (`rust`, `coverage`, `wasm`, `deny`, `documents`) behind
+  the aggregate `check`. `audit.yml` runs on `pull_request` and on a Monday 06:00 UTC
+  cron. The `Justfile`'s `check` runs the seventeen gates `pyproject.toml` lists.
+- `forbid(unsafe_code)`: `unsafe_code = "forbid"` is in `[workspace.lints.rust]`.
+- `deny.toml`: it bans `getrandom` and `rand` (wrappers `pawdoku-cli` only) and
+  `openssl-sys`; `[sources]` allows only the crates.io index.
+- SHA pins: every `uses:` in both workflows and in `.github/actions/setup/action.yml`
+  (setup-pixi, rust-cache, actions/cache twice) is pinned to a commit SHA. So is every
+  remote `rev:` in `.pre-commit-config.yaml`.
+- Tokens and permissions: both workflows declare `contents: read`. The only token is
+  `${{ github.token }}` in the setup action.
+- Tool pins: `pixi.lock` pins `biscuit-games-tooling` as
+  `?tag=v0.3.0#6c5c07f6…`. Decision 0005 records the Allium binary pinned by version
+  and SHA-256.
+
+**Step 6, the Verification block** (run before the ticket edit):
+
+```text
+$ grep -n '^## ' README.md
+11:## Prerequisites
+26:## Quick start
+37:## Check your work
+47:## Layout
+61:## Documentation
+73:## How the game will use it
+80:## Boundaries
+$ grep -c '^- ' CHANGELOG.md
+10
+$ grep -n 'commits/main' CHANGELOG.md
+33:[Unreleased]: https://github.com/steven-cutting/libpawdoku/commits/main/
+$ grep -n -E '\]\(|http' crates/pawdoku/README.md || echo "crate README has no links"
+crate README has no links
+$ just check-docs
+markdownlint.............................................................Passed
+typos....................................................................Passed
+lychee...................................................................Passed
+bg-validate-docs
+Validated 37 pages and 38 canonical topics.
+$ git status --porcelain
+ M CHANGELOG.md
+ M README.md
+ M SECURITY.md
+ M crates/pawdoku/README.md
+```
+
+`CHANGELOG.md` has exactly one `##` heading. `crates/pawdoku/README.md` is 15 lines.
+
+`time just check`: exit 0 in 26.6 s (`93.19s user 14.09s system 403% cpu 26.597
+total`), 18 recipes, 22 tests passed. Line coverage was 97.84% (139 lines, 3 missed). The
+run ended with `The worktree matches the check baseline.` and `All checks passed and the
+worktree is unchanged.` That run preceded this ticket edit. `just check` was run again on the
+committed tree: exit 0 in 6.6 s with a warm `target/`, and the same two closing lines.
+
+`README.md` repeats no paragraph of `docs/project/purpose-and-scope.md`. Four phrases
+from its opening paragraph were searched for with `grep -F` in that page, and none
+matched.
 
 ### Deviations, and why
 
+- **Stacked on T11, not branched from `main`.** Pull request #12 (T11) had not merged
+  when this ticket was picked up, and the maintainer chose to stack this branch on
+  `T11-integration` at `1e083e8`. The two touch no common file. The maintainer then chose
+  to push this commit onto `T11-integration` itself, so pull request #12 carries both
+  tickets and no separate T10 pull request exists.
+- **The branch is `ticket/t10-maintainer-docs`, as the ticket names it.** The worktree
+  was made with `git worktree add` rather than by Supacode, so no rename arose.
+- **Eight modules, not seven.** T12 added `board.allium` after this ticket was written.
+  The README's Layout says eight. The CHANGELOG folds it into the migration bullet, which
+  keeps the count at ten. Leaving it out would have made the entry untrue of what
+  merged.
+- **Written true of the day.** Step 2 asks for a paragraph on what the engine is (solver,
+  techniques, rating, hints). The crate holds only the randomness boundary, so both
+  READMEs describe the engine as specified and being built, not as shipped. The SECURITY
+  scope bullet says "the solver, once it exists".
+- **The conda-forge item is qualified, not dropped.** Step 4 has "tool binaries pinned by
+  hash in `pixi.lock` and installed from conda-forge". Three tools come from elsewhere,
+  and SECURITY.md names all three. `biscuit-games-tooling` comes from its Git tag, pinned
+  to a commit in `pixi.lock`. The Allium checker comes from its GitHub release, pinned by
+  version and SHA-256 in that package (decision 0005). cargo-hack comes from its GitHub
+  release over TLS with no checksum, as `docs/explanation/security-model.md` already says.
+  Step 4's separate Allium item is folded into this one.
+- **One out-of-scope line added.** "What a consumer does with the engine's output"
+  follows the security model's "What is out of scope". G's private-repository paragraph
+  (lines 9-11) is dropped, because the repository is public.
+- **CI's "five checks"** are written as five gate jobs behind one required `check`,
+  because branch protection requires only the aggregate.
+- **`tickets/README.md` changed.** The acceptance criteria allow nothing outside the
+  four documents and this ticket. T10 and T11 had both deferred their index rows to
+  "the next index edit". After Copilot's fourth review, the maintainer chose to make
+  that edit in this pull request, which carries both tickets. Only the two `Status` cells
+  changed.
+
+### Review follow-up
+
+On the maintainer's instruction, `6829050` was pushed onto `T11-integration` (pull
+request #12), and Codex and Copilot were asked to review again. Every finding was taken:
+
+- **Codex, `SECURITY.md` line 44.** The exception list left out the Allium checker,
+  which `just initialize` downloads from its GitHub release and no lockfile names. It
+  is now the third item, pinned by version and SHA-256.
+- **Codex, `SECURITY.md` line 27.** "Anything a caller does with its own seed" was
+  broader than the security model's "how it sources the seed it passes in". Read that
+  way, it would have excluded a crash that a particular valid seed triggers. The line
+  now excludes only how the seed or entropy is sourced.
+- **Copilot, `tickets/T11-integration.md` line 414.** T11 said its branch changes only
+  its ticket file, which the stack made false. T11's Deviations and this ticket's now
+  record the stack, and the pull request's title and description cover both tickets.
+
+Copilot's second review, of `9b92e27`, found four more issues, and all were taken:
+
+- **`tickets/T11-integration.md` lines 388 and 482.** These said the worktree's tree
+  outside `tickets/` is identical to `2066be7`, which the stack made false. They now
+  name T11's own commit, `1e083e8`, for which `git diff --quiet 2066be7 1e083e8` exits
+  0. The amended placeholder grep over the stacked tree prints `no placeholders`.
+- **`CHANGELOG.md` lines 16 and 22.** `just fix` is not the only recipe that writes;
+  `just format`, `just lock` and `just initialize` write too. The bullet now calls it
+  the safe automatic repairs. "Seventeen gates" now reads as seventeen gates and then
+  the clean-worktree proof, which matches the eighteen rows in
+  `docs/reference/quality-gates.md`. The pixi bullet now names cargo-hack and the
+  Allium checker in `.tools/bin`.
+- **`README.md` line 17** (Copilot, and Codex's review of `9b92e27`). The line said pixi
+  installs every tool, but cargo-hack and the Allium checker come from outside
+  `pixi.lock`. The line now says pixi installs its environment, and that
+  `just initialize` puts those two tools in `.tools/bin` with no lockfile naming either.
+  The Layout block splits `.pixi/` and `.tools/` to match.
+- **`SECURITY.md` line 37.** "Every gate run with `--locked`" is narrowed to every cargo
+  command that resolves dependencies, because `cargo shear` and the documentation hooks
+  take no such flag. `AGENTS.md` invariant 8 and `docs/explanation/security-model.md`
+  keep the house's shorter wording, and this ticket does not touch them.
+
+In the third round, of `c09dcca`, Copilot recommended approval with no findings. Codex
+raised one P3 on `README.md` line 37, and it was taken. `scripts/initialize.sh` installs
+the hook only from the primary checkout and skips it in a secondary worktree, so Quick
+start now says so. The detail stays in `docs/how-to/develop-locally.md`.
+
+In the fourth round, of `39a0b27`, Codex found no major issues. Copilot made no inline
+finding. Its overview noted that `tickets/README.md` still listed T10 and T11 as
+`open`. The maintainer chose to set both rows to `done` here (see Deviations).
+
 ### Handed back
 
+- **The CHANGELOG's counts** (seventeen gates, five jobs, fourteen skills, twenty-five
+  pages, eleven records) go stale when any of them changes. They describe what merged
+  under `[Unreleased]` and need no edit until S02 cuts the first release entry.
+
 ### Open points settled
+
+- **Timings in the README: no.** The README states none. The figures stay in T11's
+  hand-back, and `docs/operations/troubleshooting.md` is their home if they are wanted.
+- **`include_str!` for the crate README: no.** The crate-level doc comment in `lib.rs`
+  stays hand-written, as T00 and T02 left it. S02 may revisit this at publication.
 
 ## Open points
 
