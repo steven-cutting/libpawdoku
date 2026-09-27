@@ -706,16 +706,38 @@ estimated_size: S
 > pages, run `just check-docs`. (6) Record each proof's outcome and the branch names Renovate
 > used, then `just check`, `status: done`.
 >
+> **If the app is refused (the fallback).** The same ticket, on a different rail.
+> Files: `.github/dependabot.yml` as S01 drafted it (a new path under `.github/`, a T00
+> follow-up all the same) in place of `renovate.json`, and the same two pages, with the
+> manual routine S01 wrote for what Dependabot misses. Activation is the file itself
+> landing on `main`: its push, its opening and its merge are the three separately
+> authorised actions, and no app is installed. Proof, one Dependabot pull request per
+> ecosystem, each through the five checks: `cargo` moving `Cargo.lock` and no range
+> (`increase-if-necessary` on the bare `"1.0.228"` form is the open question);
+> `github-actions` moving a SHA and its comment in `ci.yml` and, through the second
+> `directories` entry, in the composite action; `rust-toolchain` moving `channel`, then
+> finished by hand with `rust-version` and `just clippy` on the bot's branch, with
+> authorisation asked for that push; `pre-commit` moving a rev and rewriting its
+> `# vX.Y.Z` comment in place, with the markdownlint rev in `.pre-commit-fix.yaml` moved on
+> the same branch by hand, again asking first, and lychee shown to be ignored. The
+> no-update exception applies as above. Acceptance on this rail: each of the four passed
+> `check` or is proven for extraction by Dependabot's own detected list on the repository's
+> Insights page; the two pages name Dependabot and the routine; no app is installed and no
+> secret exists.
+>
 > **Acceptance.** Every proof pull request in step 4 passed `check`; where one failed, the
 > manager was adjusted and a later pull request from the adjusted manager passed, because
 > these combinations were deferred to this ticket precisely for being unproven, and an
 > explained failure is not a proof. Two named exceptions, each with its passing path in
 > step 4: the pixi pull request passes either by the app's relock or by the hand relock on
 > its branch, and the notes say which, because `allowedUnsafeExecutions` is not this
-> repository's to set; and any manager with no update available while T18 runs (the
-> tooling tag until B releases, and any other pin that happens to be current) is proven
-> for extraction by its detected-dependencies entry, with its update half recorded as
-> pending the next release rather than as done, so a current pin cannot block the ticket. The
+> repository's to set; and any single dependency or location a proof names that has no update available
+> while T18 runs (the tooling tag until B releases; the composite action's pins while
+> `ci.yml`'s move; markdownlint while another hook moves; any pin that happens to be
+> current) is proven for extraction by its detected-dependencies entry, with its update
+> half recorded as pending the next release rather than as done. The exception is judged
+> per dependency and per file named in step 4, not per manager, so one current pin cannot
+> block a proof that another pin in the same manager can carry. The
 > two pages no longer say nothing moves; the app is installed on this repository alone; no
 > token is stored anywhere.
 
