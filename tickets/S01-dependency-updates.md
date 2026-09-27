@@ -477,7 +477,11 @@ item; the pixi manager stays on only as a dashboard notice until the relock is p
   ],
   "rangeStrategy": "update-lockfile",
   "automerge": false,
-  "lockFileMaintenance": { "enabled": true, "schedule": ["* 0-3 * * 1"] },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["* 0-3 * * 1"],
+    "dependencyDashboardApproval": true
+  },
   "pre-commit": { "enabled": false },
   "packageRules": [
     { "matchManagers": ["cargo"], "groupName": "crates" },
@@ -553,8 +557,10 @@ Why each line. `config:recommended` brings the dashboard and the monorepo groups
 cargo's default written down, so the caret ranges stay and only `Cargo.lock` moves within
 them (decision 0007); `automerge: false` is also the default written down, because the
 "a person's merge" guarantee in step 4 rests on it; `lockFileMaintenance` moves the transitive closure of both lockfiles
-weekly, in a pull request of its own, on the same cron window written directly, because
-the nested object takes lock-file options, not `extends`. The native `pre-commit` manager stays off because it
+weekly, in a pull request of its own that Renovate never groups with anything, on the same
+cron window written directly, because the nested object takes lock-file options, not
+`extends`; it is held for dashboard approval because it rewrites `pixi.lock` as well as
+`Cargo.lock`, and the pixi relock is the unproven step. The native `pre-commit` manager stays off because it
 would read the revs as tags and misfire; the regex manager owns both files. Crates and
 actions each group into one pull request a week. The toolchain group and the tooling package
 wait for approval on the dashboard, because each is a deliberate release: the toolchain
@@ -699,8 +705,9 @@ estimated_size: S
 > that has no update pending; confirm on the day that the hosted app renders it), and
 > list the pending updates. After the step 4 proofs comes the activation: a pull request
 > that removes the `:dependencyDashboardApproval` line, so the crates and actions groups
-> flow weekly while the per-rule approvals for the toolchain, pixi and the tooling package
-> stay. Its push, its opening and its merge are three separately authorised actions
+> flow weekly, and those two alone, while the per-rule approvals for the toolchain, pixi,
+> the pixi bootstrap pair, the tooling package and lock-file maintenance stay, each of
+> those opening only on a maintainer's click. Its push, its opening and its merge are three separately authorised actions
 > (CONVENTIONS.md §11), each asked for on its own; the merge is a person's.
 > (4) Proof, one pull request per manager, each opened by a dashboard approval and taken
 > through the five checks: a `crates` group that moves `Cargo.lock` and no range; a `github actions` group
