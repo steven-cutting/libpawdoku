@@ -656,8 +656,9 @@ estimated_size: S
 > to T. If not, the hand-back notes record that the "a person's merge" guarantee rests
 > on Renovate's automerge staying off, which `renovate.json` writes as
 > `"automerge": false`. Then `renovate.json` lands on `main` through a T00 follow-up pull
-> request (a new root path, CONVENTIONS.md §11; its push and pull request are the usual
-> separately authorised actions) **before** the app is installed, as S01 drafted it plus
+> request (a new root path, CONVENTIONS.md §11; its push, its opening and its merge are
+> three separately authorised actions, each asked for on its own, as for the activation
+> below) **before** the app is installed, as S01 drafted it plus
 > one line: `":dependencyDashboardApproval"` in `extends`, which holds every update for
 > approval from the dashboard ("To require manual approval for all updates, add the
 > `:dependencyDashboardApproval` presets to the `extends` array", Renovate's dashboard
@@ -696,9 +697,12 @@ estimated_size: S
 > moves with it (if it does not, relock by hand on the bot's branch with
 > `pixi update <name>` and, **with authorisation asked for that push**, push under your own
 > name so the pull request passes `check`; record that the hosted app does not relock, and
-> leave the rule as the notice it then is); one approved toolchain group, finished by hand with `rust-version` and
-> `just clippy` on the bot's branch, **with authorisation asked for that push** as for the
-> pixi relock; and the first
+> leave the rule as the notice it then is); one approved toolchain group: on a patch release the bot's pull request carries
+> `channel` alone, which is correct; on a minor release it must carry `rust-version` too,
+> and if it does not, the regex manager is adjusted and a later bot pull request that does
+> is the proof, never a hand edit standing in for the manager. What is finished by hand on
+> the bot's branch is `just clippy` alone, **with authorisation asked for that push** as
+> for the pixi relock; and the first
 > `lockFileMaintenance` pull request, which must show `pixi.lock` regenerated or untouched,
 > never deleted, because that mode "deletes the lock file and runs the relevant package
 > manager" and the unsafe-execution rule is documented for manifest edits, not for
