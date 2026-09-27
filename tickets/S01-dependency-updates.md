@@ -498,6 +498,12 @@ item; the pixi manager stays on only as a dashboard notice until the relock is p
       "groupName": "pixi bootstrap",
       "dependencyDashboardApproval": true
     },
+    { "matchDepNames": ["cargo-hack"], "dependencyDashboardApproval": true },
+    {
+      "matchFileNames": [".pre-commit-config.yaml", ".pre-commit-fix.yaml"],
+      "groupName": "hook revs",
+      "dependencyDashboardApproval": true
+    },
     { "matchDepNames": ["lycheeverse/lychee"], "enabled": false }
   ],
   "customManagers": [
@@ -568,7 +574,11 @@ moves the lint set and the package moves the checker and every module's verifica
 pixi rule turns the manager into a notice: no branch is created until a person approves
 one from the dashboard, and T18 approves exactly one to learn whether the hosted app
 relocks `pixi.lock`; if it does not, the approvals stop and the notice is what the
-maintainer acts on with `pixi update <name>`. The pixi bootstrap pair moves together, as the how-to
+maintainer acts on with `pixi update <name>`. The `tools.txt` line is held for approval because cargo-hack is
+the one download nothing verifies beyond the transport (step 4), and the hook revs are
+held, as one group, because a hook is code the gate runs on every commit; both are
+matched by the documented `matchDepNames` and `matchFileNames`, not by the undocumented
+`custom.regex` in `matchManagers`. The pixi bootstrap pair moves together, as the how-to
 requires: the github-actions manager reads `pixi-version` on the setup-pixi step under the
 depName `prefix-dev/pixi`, the regex manager reads the `requires-pixi` floor under the
 same name, and the rule groups them into one pull request held for approval (the shared
@@ -706,8 +716,8 @@ estimated_size: S
 > list the pending updates. After the step 4 proofs comes the activation: a pull request
 > that removes the `:dependencyDashboardApproval` line, so the crates and actions groups
 > flow weekly, and those two alone, while the per-rule approvals for the toolchain, pixi,
-> the pixi bootstrap pair, the tooling package and lock-file maintenance stay, each of
-> those opening only on a maintainer's click. Its push, its opening and its merge are three separately authorised actions
+> the pixi bootstrap pair, the tooling package, the `tools.txt` line, the hook revs and
+> lock-file maintenance stay, each of those opening only on a maintainer's click. Its push, its opening and its merge are three separately authorised actions
 > (CONVENTIONS.md §11), each asked for on its own; the merge is a person's.
 > (4) Proof, one pull request per manager, each opened by a dashboard approval and taken
 > through the five checks: a `crates` group that moves `Cargo.lock` and no range; a `github actions` group
