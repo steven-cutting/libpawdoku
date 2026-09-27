@@ -237,7 +237,10 @@ rewrites the range for one outside it, which is decision 0007's shape: the range
 floor consumers inherit, and a major is a diff to read. The worked example uses an explicit
 `^1.0.0`; how the bare `"1.0.228"` form the manifests use is rewritten is not stated, a
 T18 proof item. Transitive crates are reachable: `allow` with `dependency-type: indirect`
-lists "bundler, pip, composer, cargo, gomod, uv". Source:
+lists "bundler, pip, composer, cargo, gomod, uv", and `dependency-type: all` is supported
+by every package manager: "All explicitly defined dependencies. For `bundler`, `pip`,
+`composer`, `cargo`, `gomod`, `uv`, also the dependencies of direct dependencies." (re-read
+2026-09-27 when a review doubted it). Source:
 <https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference>.
 
 (b) **pixi.** Dependabot: no. `pixi`, `pixi.lock` and `[tool.pixi]` appear nowhere in the
