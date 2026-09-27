@@ -715,8 +715,12 @@ estimated_size: S
 > follow-up all the same) in place of `renovate.json`, and the same two pages, with the
 > manual routine S01 wrote for what Dependabot misses. Activation is the file itself
 > landing on `main`: its push, its opening and its merge are the three separately
-> authorised actions, and no app is installed. Proof, one Dependabot pull request per
-> ecosystem, each through the five checks: `cargo` moving `Cargo.lock` and no range
+> authorised actions, and no app is installed. That merge is, knowingly, the
+> authorisation for Dependabot to open its weekly pull requests, one per ecosystem on the
+> file's schedule, because GitHub opens them the moment the file is on the default branch
+> and offers no held-for-approval state; the maintainer is told so before the merge, and
+> the agent itself opens nothing. Proof, one Dependabot pull request per ecosystem, each
+> through the five checks: `cargo` moving `Cargo.lock` and no range
 > (`increase-if-necessary` on the bare `"1.0.228"` form is the open question);
 > `github-actions` moving a SHA and its comment in `ci.yml` and, through the second
 > `directories` entry, in the composite action; `rust-toolchain` moving `channel`, then
