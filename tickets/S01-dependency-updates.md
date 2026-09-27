@@ -69,7 +69,7 @@ Mend app**, because it is the only option that reaches the frozen pins; otherwis
 
 | Option | Reaches | Misses | Cost to adopt | Trust surface | Fits decision 0007 |
 | --- | --- | --- | --- | --- | --- |
-| Dependabot | crates: `Cargo.lock` alone in range, the range only when a release falls outside it (`increase-if-necessary`); action SHAs with their comments, the composite action through a second `directories` entry (source); the toolchain `channel`; the hook revs in `.pre-commit-config.yaml` with the existing comment style (source) | every pixi pin and `pixi.lock`, the B tag, `tools.txt`, `rust-version`, `pixi-version`, the rev in `.pre-commit-fix.yaml`, allium | one `.github/dependabot.yml` with four ecosystems (a new path: T00 follow-up); no app | bot branches in the base repository with a read-only token and no secrets; no app | yes: verified, `increase-if-necessary` refreshes the lockfile in range and rewrites the range only out of range (the bare `"1.0.228"` form: T14 proof) |
+| Dependabot | crates: `Cargo.lock` alone in range, the range only when a release falls outside it (`increase-if-necessary`); action SHAs with their comments, the composite action through a second `directories` entry (source); the toolchain `channel`; the hook revs in `.pre-commit-config.yaml` with the existing comment style (source) | every pixi pin and `pixi.lock`, the B tag, `tools.txt`, `rust-version`, `pixi-version`, the rev in `.pre-commit-fix.yaml`, allium | one `.github/dependabot.yml` with four ecosystems (a new path: T00 follow-up); no app | bot branches in the base repository with a read-only token and no secrets; no app | yes: verified, `increase-if-necessary` refreshes the lockfile in range and rewrites the range only out of range (the bare `"1.0.228"` form: T15 proof) |
 | Renovate | the above natively (cargo's default is `update-lockfile`; actions with comments and the composite; the toolchain), plus `pixi-version`; through regex managers `tools.txt`, `rust-version` grouped with the toolchain, the B tag and the hook revs in both prek files; the pixi tool pins as dashboard notices | allium checksums; the `pixi.lock` relock until the hosted app's `allowedUnsafeExecutions` is proven (undocumented, default off); the B tag through the pixi manager, which skips `tag` | the Mend app (authorisation), `renovate.json` (a new path: T00 follow-up), four regex managers written and proven | the same, plus an app holding write access to contents, workflows, issues and pull requests | yes: verified, `update-lockfile` is cargo's default and keeps the ranges |
 | None | nothing | everything | the routine already in `docs/operations/maintenance.md` | none | yes, by hand |
 
@@ -217,7 +217,7 @@ two of them now have a Dependabot ecosystem, as (f) and (g) record.
 
 **Step 3.** Every answer names the page it came from and was read on 2026-09-26. Where the
 documentation was silent and the answer came from the bot's source on GitHub, the answer
-says "source"; T14 proves each such answer with a real pull request before anything relies
+says "source"; T15 proves each such answer with a real pull request before anything relies
 on it.
 
 (a) **Dependabot `cargo` on caret ranges with a committed lockfile.** The choice exists.
@@ -233,7 +233,7 @@ the range, while `increase-if-necessary` refreshes `Cargo.lock` for an in-range 
 rewrites the range for one outside it, which is decision 0007's shape: the range stays the
 floor consumers inherit, and a major is a diff to read. The worked example uses an explicit
 `^1.0.0`; how the bare `"1.0.228"` form the manifests use is rewritten is not stated, a
-T14 proof item. Transitive crates are reachable: `allow` with `dependency-type: indirect`
+T15 proof item. Transitive crates are reachable: `allow` with `dependency-type: indirect`
 lists "bundler, pip, composer, cargo, gomod, uv". Source:
 <https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference>.
 
@@ -273,7 +273,7 @@ Dependabot will search the `/.github/workflows` directory, as well as the
 `.github/actions/setup/` is outside that sentence and no page says how to reach it; the
 file fetcher lists YAML files in any non-root directory it is given, so
 `directories: ["/", "/.github/actions/*"]` (globbing is supported by `directories`, not
-`directory`) should fetch it (source, T14 proof item). Local
+`directory`) should fetch it (source, T15 proof item). Local
 `uses: ./.github/actions/setup` references are ignored, rightly: they are not pins.
 Sources:
 <https://docs.github.com/en/code-security/reference/supply-chain-security/supported-ecosystems-and-repositories>,
@@ -315,7 +315,7 @@ Renovate's native `pre-commit` manager recognises a SHA rev only as
 `# v3.11.1` form. A regex manager capturing `currentDigest` and `currentValue` with an
 `autoReplaceStringTemplate` is the documented set of building blocks; the exact combination
 is not shown as an example, and the comment shapes here are `v3.11.1`, `v0.11.0.1` (four
-components), `v1.7.12` and `lychee-v0.24.2`, so the hook manager is a T14 proof item.
+components), `v1.7.12` and `lychee-v0.24.2`, so the hook manager is a T15 proof item.
 Sources: <https://docs.renovatebot.com/modules/manager/regex/>,
 <https://docs.renovatebot.com/configuration-options/#custommanagers>,
 <https://docs.renovatebot.com/modules/datasource/rust-version/>,
@@ -388,7 +388,7 @@ Sources: <https://docs.renovatebot.com/configuration-options/#schedule>,
 Account and repository state, read with `gh` on the day. `gh api /user/installations`
 answered 403 ("You must authenticate with an access token authorized to a GitHub App in
 order to list installations"), so whether the Mend app is installed on the account cannot
-be read from `gh`; T14's authorisation step reads it at github.com/settings/installations
+be read from `gh`; T15's authorisation step reads it at github.com/settings/installations
 instead. On the repository, `gh pr list --state all --author app/renovate` and
 `--author app/dependabot` each count 0, Dependabot alerts answer 404,
 `automated-security-fixes` reports `enabled: false`, and branch protection on `main`
@@ -404,13 +404,18 @@ or signature, so nothing verifies it beyond the transport" (T03's §12 outcome, 
 assumed; setup-pixi with `locked: true` and `just sync`, which install what `pixi.lock` and
 `Cargo.lock` name by hash and refuse a lockfile that disagrees with its manifest; and
 `just install-hooks`, which clones the hook revs. `main` takes nothing without a green
-`check` and a person's merge. What Renovate adds that Dependabot does not is the app
-itself: write access to contents, workflows, issues and pull requests on the repository,
-held by Mend, which is the one trust a bot branch extends beyond a person's.
+`check`, and that context is bound to the GitHub Actions app, so no other app can report
+it. Protection requires no review, though, so "a person's merge" is policy, not something
+protection enforces: an app holding pull-request and contents write could merge its own
+green pull request, and Renovate's automerge is off by default. T15 either requires one
+approving review on `main` before the app is installed or records that the guarantee rests
+on automerge staying off. What Renovate adds that Dependabot does not is the app itself:
+write access to contents, workflows, issues and pull requests on the repository, held by
+Mend, which is the one trust a bot branch extends beyond a person's.
 
 The sentence for `docs/how-to/maintain-dependencies.md`, replacing "Nothing updates either
 lockfile for you. There is no Dependabot or Renovate here until ticket S01 decides how
-updates should arrive." in its opening paragraph, once T14 lands:
+updates should arrive." in its opening paragraph, once T15 lands:
 
 > Renovate proposes the moves, on a Monday branch of its own: `Cargo.lock` within the
 > caret ranges, action SHAs with their comments, the toolchain with `rust-version`, the
@@ -456,7 +461,7 @@ routine below for what it misses. The maintainer said on 2026-09-26 that they ar
 the app; that settles which draft is primary, and the paragraph above is what the evidence
 says about the size of the difference.
 
-The `renovate.json` draft. Every regex manager and the pixi approval rule is a T14 proof
+The `renovate.json` draft. Every regex manager and the pixi approval rule is a T15 proof
 item; the pixi manager stays on only as a dashboard notice until the relock is proven.
 
 ```json
@@ -535,7 +540,7 @@ actions each group into one pull request a week. The toolchain group and the too
 wait for approval on the dashboard, because each is a deliberate release: the toolchain
 moves the lint set and the package moves the checker and every module's verification. The
 pixi rule turns the manager into a notice: no branch is created until a person approves
-one from the dashboard, and T14 approves exactly one to learn whether the hosted app
+one from the dashboard, and T15 approves exactly one to learn whether the hosted app
 relocks `pixi.lock`; if it does not, the approvals stop and the notice is what the
 maintainer acts on with `pixi update <name>`. Lychee is off because `LYCHEE_VERSION` in
 both argument lists must match its rev comment and its tag prefix is `lychee-v`, so it
@@ -560,7 +565,7 @@ updates:
       crates:
         patterns: ["*"]
   - package-ecosystem: github-actions
-    # The second entry reaches the composite action; T14 proves it.
+    # The second entry reaches the composite action; T15 proves it.
     directories: ["/", "/.github/actions/*"]
     schedule:
       interval: weekly
@@ -592,7 +597,7 @@ Python's patch), `tools.txt`, `rust-version` on the toolchain pull request's bra
 together with the clippy fixes, the rev in `.pre-commit-fix.yaml` on the same branch as
 the hook pull request that moves markdownlint-cli2, lychee with its `LYCHEE_VERSION`, the
 `pixi-version` and `requires-pixi` pair, and the tooling package's tag when B releases.
-The `ignore` dependency-name form for a pre-commit hook is a T14 proof item.
+The `ignore` dependency-name form for a pre-commit hook is a T15 proof item.
 
 The second Open point, settled the same way under either bot: the toolchain stays in the
 updater. With Renovate it waits for dashboard approval and arrives as one pull request
@@ -603,18 +608,18 @@ new lint set finds, and pushes onto the bot's branch under their own name. A red
 job on that branch before they do is expected, and the how-to will say so, so it does not
 read as a regression.
 
-**Step 6.** The follow-up build ticket, drafted for `tickets/T14-renovate.md`. It is not
+**Step 6.** The follow-up build ticket, drafted for `tickets/T15-renovate.md`. It is not
 created here (Files touched names one file); the agent that opens it copies this block and
 adds the index row.
 
 ```yaml
 ---
-id: T14
+id: T15
 title: "Renovate: the Mend app, renovate.json, and the pages that said nothing moves"
 status: open
 depends_on: [S01]
 parallel_with: []
-branch: ticket/t14-renovate
+branch: ticket/t15-renovate
 estimated_size: S
 ---
 ```
@@ -632,8 +637,14 @@ estimated_size: S
 > `docs/operations/maintenance.md` (the closing "Nothing here moves on its own" paragraph
 > and the Monthly entry); `tickets/README.md` (the index row); this ticket's `status:`.
 >
-> **Steps.** (1) **Authorisation required:** the maintainer installs the Mend Renovate app
-> from github.com/apps/renovate on `steven-cutting/libpawdoku` only, and records the
+> **Steps.** (1) **Authorisation required, twice.** First the maintainer decides whether
+> `main` gains a required approving review (a protection change through T's
+> `bootstrap_repo.sh` or `gh api`), because the `check` context is bound to GitHub Actions
+> but nothing stops an app with pull-request write from merging its own green pull request;
+> if not, the hand-back notes record that the "a person's merge" guarantee rests on
+> Renovate's automerge staying off, and `renovate.json` says `"automerge": false`
+> explicitly. Then the maintainer installs the Mend Renovate app from
+> github.com/apps/renovate on `steven-cutting/libpawdoku` only, and records the
 > permissions it asked for in the hand-back notes; if refused, switch to the fallback and
 > skip the dashboard steps. (2) Add `renovate.json` as S01 drafted it, validated with
 > `npx --yes --package renovate renovate-config-validator renovate.json` (a
@@ -697,9 +708,10 @@ All checks passed and the worktree is unchanged.
   `ticket/s01-dependency-updates` the frontmatter names; Supacode names the branch after
   the worktree (`--name`), as every earlier ticket's notes record. The `branch:` field is
   left as written.
-- **T12 became T14.** Step 6 names the follow-up `T12`; that id was taken by the board
-  migration after this ticket was written, and S02 already claims `T13`. The maintainer
-  chose `T14` on 2026-09-26 so S02 keeps its number.
+- **T12 became T15.** Step 6 names the follow-up `T12`; that id was taken by the board
+  migration after this ticket was written, S02 already claims `T13` and S03 claims `T14`.
+  The maintainer chose the next free id on 2026-09-27, after Codex's review caught the
+  S03 collision in a first draft numbered `T14`.
 - **T's C04 has not shipped.** At the template repository's HEAD, `2283589c`, C04 is still
   `status: open` and depends on C01; no sibling repository (poodl, the hub, the template,
   the tooling package, the game) carries a `renovate.json` or `dependabot.yml`. The first
@@ -716,7 +728,7 @@ All checks passed and the worktree is unchanged.
   because it alone reaches the frozen pins; step 5 gives the smaller, true reason and the
   condition it rests on.
 - **Source-labelled answers.** Where a documentation page was silent, the bot's source on
-  GitHub was read and the answer is marked "source" and listed as a T14 proof item. The
+  GitHub was read and the answer is marked "source" and listed as a T15 proof item. The
   ticket asked for documentation; a documented "no answer" is recorded as such rather than
   filled from memory.
 - **The Mend app's presence could not be read from `gh`.** The installations endpoint
@@ -726,7 +738,7 @@ All checks passed and the worktree is unchanged.
 
 ### Handed back
 
-- **To T14** (drafted above): the four regex managers, the pixi approval rule, the
+- **To T15** (drafted above): the four regex managers, the pixi approval rule, the
   Dependabot `directories` entry and the `ignore` form, each a proof item because the
   documentation shows the building blocks and not the combination; the two page edits;
   the `tickets/README.md` row.
@@ -736,7 +748,7 @@ All checks passed and the worktree is unchanged.
   SHA only in the `# frozen: <version>` form, so the house preset needs either a regex
   manager like the one drafted here or Dependabot's `pre-commit` ecosystem, which does read
   the plain comment. The pixi finding does not apply to the games, which use uv.
-- **To the how-to page, via T14:** the lychee coupling (`LYCHEE_VERSION` must move with
+- **To the how-to page, via T15:** the lychee coupling (`LYCHEE_VERSION` must move with
   the rev comment, so no bot moves lychee) and the markdownlint rev that lives in both prek
   files are facts the page states in passing; once a bot moves the other hooks they become
   the exceptions the page must name.
@@ -756,6 +768,9 @@ All checks passed and the worktree is unchanged.
 ## Open points settled
 
 ## Open points
+
+Both are settled; the answers are under "Open points settled" above, and the questions
+stay here as written, the shape every finished ticket keeps.
 
 - Whether T's C04 ships a house preset first; if so the recommendation collapses to
   "consume it" and the Rust regex managers become a C04 hand-back.
