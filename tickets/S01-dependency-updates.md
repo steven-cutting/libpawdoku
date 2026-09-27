@@ -644,10 +644,16 @@ estimated_size: S
 > and the Monthly entry); `tickets/README.md` (the index row); this ticket's `status:`.
 >
 > **Steps.** (1) **Authorisation required, and the order matters.** First the maintainer
-> decides whether `main` gains a required approving review (a protection change through
-> T's `bootstrap_repo.sh` or `gh api`), because the `check` context is bound to GitHub
-> Actions but nothing stops an app with pull-request write from merging its own green pull
-> request; if not, the hand-back notes record that the "a person's merge" guarantee rests
+> decides whether `main` gains a required approving review, because the `check` context is
+> bound to GitHub Actions but nothing stops an app with pull-request write from merging
+> its own green pull request. If so, the change is a `gh api` PUT to
+> `repos/steven-cutting/libpawdoku/branches/main/protection` that repeats the current
+> payload (T01's, with `check` bound to app 15368 and `enforce_admins: false`) and sets
+> `required_pull_request_reviews` to `{ "required_approving_review_count": 1 }`; not T's
+> pinned `bootstrap_repo.sh`, whose PUT sends `required_pull_request_reviews: null` and
+> would remove the requirement, so T11's "already, changed: 0" re-run of that script
+> would then report a change until the script gains review support, which T18 hands back
+> to T. If not, the hand-back notes record that the "a person's merge" guarantee rests
 > on Renovate's automerge staying off, which `renovate.json` writes as
 > `"automerge": false`. Then `renovate.json` lands on `main` through a T00 follow-up pull
 > request (a new root path, CONVENTIONS.md §11; its push and pull request are the usual
