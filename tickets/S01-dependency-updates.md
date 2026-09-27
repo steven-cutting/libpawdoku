@@ -118,8 +118,9 @@ Mend app**, because it is the only option that reaches the frozen pins; otherwis
 
 4. Settle the trust surface for a bot branch (the five jobs with `contents: read`;
    `setup-pixi` installing a bumped `pixi.lock` by hash; `just install-tools`
-   binstalling a bumped `tools.txt` line under cargo-binstall's checksum verification,
-   T03's §12 outcome). Write the sentence `docs/how-to/maintain-dependencies.md` will
+   binstalling a bumped `tools.txt` line over TLS with no checksum to verify, T03's §12
+   outcome; this step first said "under cargo-binstall's checksum verification", amended
+   at hand-back). Write the sentence `docs/how-to/maintain-dependencies.md` will
    carry.
 
 5. Weigh the options and decide. If Renovate: draft `renovate.json` in the hand-back
@@ -144,7 +145,8 @@ Mend app**, because it is the only option that reaches the frozen pins; otherwis
 - Exactly one option is recommended, with its condition stated, and the follow-up
   draft names its files and authorisation steps.
 - The sentence for `docs/how-to/maintain-dependencies.md` is written.
-- `git status --porcelain` on the ticket branch lists only this file.
+- `git status --porcelain` on the ticket branch lists only this file (amended at hand-back:
+  and `tickets/README.md` from the review follow-up on, as Files touched records).
 
 ## Verification
 
@@ -613,8 +615,8 @@ job on that branch before they do is expected, and the how-to will say so, so it
 read as a regression.
 
 **Step 6.** The follow-up build ticket, drafted for `tickets/T18-renovate.md`. It is not
-created here (Files touched names one file); the agent that opens it copies this block and
-adds the index row.
+created here (this spike's Files touched has no ticket file for it); the agent that opens
+it copies this block and adds the index row.
 
 ```yaml
 ---
@@ -641,29 +643,35 @@ estimated_size: S
 > `docs/operations/maintenance.md` (the closing "Nothing here moves on its own" paragraph
 > and the Monthly entry); `tickets/README.md` (the index row); this ticket's `status:`.
 >
-> **Steps.** (1) **Authorisation required, twice.** First the maintainer decides whether
-> `main` gains a required approving review (a protection change through T's
-> `bootstrap_repo.sh` or `gh api`), because the `check` context is bound to GitHub Actions
-> but nothing stops an app with pull-request write from merging its own green pull request;
-> if not, the hand-back notes record that the "a person's merge" guarantee rests on
-> Renovate's automerge staying off, and `renovate.json` says `"automerge": false`
-> explicitly. Then the maintainer installs the Mend Renovate app from
-> github.com/apps/renovate on `steven-cutting/libpawdoku` only, and records the
-> permissions it asked for in the hand-back notes. That installation is, knowingly, the
-> authorisation for the app to open its onboarding pull request, and the onboarding merge
-> in step 3 is the authorisation for its weekly pull requests thereafter; a pull request
-> held on the dashboard opens only on the maintainer's own approval click, which is its
-> authorisation. The agent itself opens nothing. If the app is refused, switch to the
-> fallback and skip the dashboard steps. (2) Add `renovate.json` as S01 drafted it. Its validation is
-> Renovate's own: the onboarding pull request reports configuration errors, and the
-> dashboard carries a config-validation warning while any remain. No ad hoc `npx` run: if
-> a local validator is wanted, it is a `Justfile` recipe outside `just check`, beside
-> `check-links-online` and `audit` which also need the network, at a pinned renovate
-> version, with node supplied by a pixi pin (a frozen-file change, so a T00 follow-up).
+> **Steps.** (1) **Authorisation required, and the order matters.** First the maintainer
+> decides whether `main` gains a required approving review (a protection change through
+> T's `bootstrap_repo.sh` or `gh api`), because the `check` context is bound to GitHub
+> Actions but nothing stops an app with pull-request write from merging its own green pull
+> request; if not, the hand-back notes record that the "a person's merge" guarantee rests
+> on Renovate's automerge staying off, which `renovate.json` writes as
+> `"automerge": false`. Then `renovate.json`, as S01 drafted it, lands on `main` through a
+> T00 follow-up pull request (a new root path, CONVENTIONS.md §11; its push and pull
+> request are the usual separately authorised actions) **before** the app is installed,
+> because Renovate reads an existing configuration on the default branch at onboarding and
+> otherwise generates its own, which the onboarding merge would activate instead of the
+> draft. Its validation is Renovate's own: the onboarding pull request reports
+> configuration errors, and the dashboard carries a config-validation warning while any
+> remain. No ad hoc `npx` run: if a local validator is wanted, it is a `Justfile` recipe
+> outside `just check`, beside `check-links-online` and `audit` which also need the
+> network, at a pinned renovate version, with node supplied by a pixi pin (a frozen-file
+> change, so the same T00 follow-up). (2) **Authorisation required:** the maintainer
+> installs the Mend Renovate app from github.com/apps/renovate on
+> `steven-cutting/libpawdoku` only, and records the permissions it asked for in the
+> hand-back notes. That installation is, knowingly, the authorisation for the app to open
+> its onboarding pull request, and the onboarding merge in step 3 is the authorisation for
+> its weekly pull requests thereafter; a pull request held on the dashboard opens only on
+> the maintainer's own approval click, which is its authorisation. The agent itself opens
+> nothing. If the app is refused, switch to the fallback and skip the dashboard steps.
 > (3) **Authorisation required:** merging Renovate's onboarding pull request is a write to
 > `main` that installing the app did not authorise; stop, show the maintainer what it
-> lists, and merge only on their word. The dashboard issue should then name cargo,
-> github-actions, rust-toolchain, pixi (held for approval) and the four regex managers.
+> lists (it should show the draft, not a generated configuration), and merge only on
+> their word. The dashboard issue should then name cargo, github-actions, rust-toolchain,
+> pixi (held for approval) and the four regex managers.
 > (4) Proof, one pull request per manager, each through the five
 > checks: a `crates` group that moves `Cargo.lock` and no range; a `github actions` group
 > that moves a SHA and its comment in `ci.yml` and in the composite action; the
@@ -674,9 +682,9 @@ estimated_size: S
 > newer than `v0.3.0` on 2026-09-27, so if none arrives during T18 the update half is
 > recorded as pending B, not as done); one approved pixi pin, to learn whether `pixi.lock`
 > moves with it (if it does not, relock by hand on the bot's branch with
-> `pixi update <name>`, push under your own name so the pull request passes `check`,
-> record that the hosted app does not relock, and leave the rule as the notice it then
-> is); one approved toolchain group, finished by hand with `rust-version` and
+> `pixi update <name>` and, **with authorisation asked for that push**, push under your own
+> name so the pull request passes `check`; record that the hosted app does not relock, and
+> leave the rule as the notice it then is); one approved toolchain group, finished by hand with `rust-version` and
 > `just clippy` on the bot's branch; and the first
 > `lockFileMaintenance` pull request, which must show `pixi.lock` regenerated or untouched,
 > never deleted, because that mode "deletes the lock file and runs the relevant package
