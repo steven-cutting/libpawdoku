@@ -738,8 +738,9 @@ estimated_size: S
 > half recorded as pending the next release rather than as done. The exception is judged
 > per dependency and per file named in step 4, not per manager, so one current pin cannot
 > block a proof that another pin in the same manager can carry. The
-> two pages no longer say nothing moves; the app is installed on this repository alone; no
-> token is stored anywhere.
+> two pages no longer say nothing moves; on the Renovate rail the app is installed on this
+> repository alone, and on the fallback rail no app is installed at all; no token is stored
+> anywhere on either.
 
 **Step 7.** The verification block, in order:
 
