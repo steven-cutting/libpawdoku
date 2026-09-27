@@ -743,10 +743,13 @@ estimated_size: S
 > is the proof, never a hand edit standing in for the manager. What is finished by hand on
 > the bot's branch is `just clippy` alone, **with authorisation asked for that push** as
 > for the pixi relock; and the first
-> `lockFileMaintenance` pull request, which must show `pixi.lock` regenerated or untouched,
-> never deleted, because that mode "deletes the lock file and runs the relevant package
-> manager" and the unsafe-execution rule is documented for manifest edits, not for
-> maintenance. (5) Rewrite the two
+> approved `lockFileMaintenance` run, which either opens a pull request that shows
+> `pixi.lock` regenerated or untouched, never deleted (that mode "deletes the lock file and
+> runs the relevant package manager" and the unsafe-execution rule is documented for
+> manifest edits, not for maintenance), or, when both lockfiles already hold their newest
+> admissible resolutions, opens nothing, in which case the proof is the Renovate job log
+> for that run on the Mend developer portal showing lock-file maintenance attempted with no
+> diff, quoted in the notes. (5) Rewrite the two
 > pages, run `just check-docs`. (6) Record each proof's outcome and the branch names Renovate
 > used, then `just check`, `status: done`.
 >
@@ -769,8 +772,10 @@ estimated_size: S
 > `# vX.Y.Z` comment in place, with the markdownlint rev in `.pre-commit-fix.yaml` moved on
 > the same branch by hand, again asking first, and lychee shown to be ignored. The
 > no-update exception applies as above. Acceptance on this rail: each of the four passed
-> `check` or is proven for extraction by Dependabot's own detected list on the repository's
-> Insights page; the two pages name Dependabot and the routine; no app is installed and no
+> `check` or, when an ecosystem has no update available, is proven by that ecosystem's
+> most recent Dependabot update job under the repository's Insights, Dependabot tab: the
+> job succeeded and its log names the file and the pin it parsed, quoted in the notes (the
+> dependency graph does not show these ecosystems' detections, so it is not the proof); the two pages name Dependabot and the routine; no app is installed and no
 > secret exists.
 >
 > **Acceptance.** Every proof pull request in step 4 passed `check`; where one failed, the
