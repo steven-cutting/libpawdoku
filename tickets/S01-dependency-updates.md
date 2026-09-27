@@ -70,7 +70,7 @@ Mend app**, because it is the only option that reaches the frozen pins; otherwis
 | Option | Reaches | Misses | Cost to adopt | Trust surface | Fits decision 0007 |
 | --- | --- | --- | --- | --- | --- |
 | Dependabot | crates: `Cargo.lock` alone in range, the range only when a release falls outside it (`increase-if-necessary`); action SHAs with their comments, the composite action through a second `directories` entry (source); the toolchain `channel`; the hook revs in `.pre-commit-config.yaml` with the existing comment style (source) | every pixi pin and `pixi.lock`, the B tag, `tools.txt`, `rust-version`, `pixi-version`, the rev in `.pre-commit-fix.yaml`, allium | one `.github/dependabot.yml` with four ecosystems (a new path: T00 follow-up); no app | bot branches in the base repository with a read-only token and no secrets; no app | yes: verified, `increase-if-necessary` refreshes the lockfile in range and rewrites the range only out of range (the bare `"1.0.228"` form: T18 proof) |
-| Renovate | the above natively (cargo's default is `update-lockfile`; actions with comments and the composite; the toolchain), plus `pixi-version`; through regex managers `tools.txt`, `rust-version` grouped with the toolchain, the B tag and the hook revs in both prek files; the pixi tool pins as dashboard notices | allium checksums; the `pixi.lock` relock until the hosted app's `allowedUnsafeExecutions` is proven (undocumented, default off); the B tag through the pixi manager, which skips `tag` | the Mend app (authorisation), `renovate.json` (a new path: T00 follow-up), four regex managers written and proven | the same, plus an app holding write access to contents, workflows, issues and pull requests | yes: verified, `update-lockfile` is cargo's default and keeps the ranges |
+| Renovate | the above natively (cargo's default is `update-lockfile`; actions with comments and the composite; the toolchain), plus `pixi-version`; through regex managers `tools.txt`, `rust-version` grouped with the toolchain, the B tag and the hook revs in both prek files; the pixi tool pins as dashboard notices | allium checksums; the `pixi.lock` relock until the hosted app's `allowedUnsafeExecutions` is proven (undocumented, default off); the B tag through the pixi manager, which skips `tag` | the Mend app (authorisation), `renovate.json` (a new path: T00 follow-up), five regex managers written and proven | the same, plus an app holding write access to contents, workflows, issues and pull requests | yes: verified, `update-lockfile` is cargo's default and keeps the ranges |
 | None | nothing | everything | the routine already in `docs/operations/maintenance.md` | none | yes, by hand |
 
 ## Non-goals
@@ -489,6 +489,11 @@ item; the pixi manager stays on only as a dashboard notice until the relock is p
     },
     { "matchManagers": ["pixi"], "dependencyDashboardApproval": true },
     { "matchDepNames": ["biscuit-games-tooling"], "dependencyDashboardApproval": true },
+    {
+      "matchDepNames": ["prefix-dev/pixi"],
+      "groupName": "pixi bootstrap",
+      "dependencyDashboardApproval": true
+    },
     { "matchDepNames": ["lycheeverse/lychee"], "enabled": false }
   ],
   "customManagers": [
@@ -520,6 +525,15 @@ item; the pixi manager stays on only as a dashboard notice until the relock is p
     },
     {
       "customType": "regex",
+      "description": "requires-pixi is the floor that moves with pixi-version in the setup action",
+      "managerFilePatterns": ["/^pyproject\\.toml$/"],
+      "matchStrings": ["requires-pixi = \">=(?<currentValue>\\d+\\.\\d+\\.\\d+)\""],
+      "depNameTemplate": "prefix-dev/pixi",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
       "description": "hook revs in both prek configs: a full SHA with the release tag as its comment",
       "managerFilePatterns": ["/^\\.pre-commit-config\\.yaml$/", "/^\\.pre-commit-fix\\.yaml$/"],
       "matchStrings": [
@@ -548,9 +562,12 @@ moves the lint set and the package moves the checker and every module's verifica
 pixi rule turns the manager into a notice: no branch is created until a person approves
 one from the dashboard, and T18 approves exactly one to learn whether the hosted app
 relocks `pixi.lock`; if it does not, the approvals stop and the notice is what the
-maintainer acts on with `pixi update <name>`. Lychee is off because `LYCHEE_VERSION` in
-both argument lists must match its rev comment and its tag prefix is `lychee-v`, so it
-moves by hand. The hook regex excludes lychee's shape by its `v\d+` start, and its match
+maintainer acts on with `pixi update <name>`. The pixi bootstrap pair moves together, as the how-to
+requires: the github-actions manager reads `pixi-version` on the setup-pixi step under the
+depName `prefix-dev/pixi`, the regex manager reads the `requires-pixi` floor under the
+same name, and the rule groups them into one pull request held for approval (the shared
+depName is a T18 proof item). Lychee is off because `LYCHEE_VERSION` in both argument
+lists must match its rev comment and its tag prefix is `lychee-v`, so it moves by hand. The hook regex excludes lychee's shape by its `v\d+` start, and its match
 string carries the four-space indent the two files use.
 
 The fallback `.github/dependabot.yml` draft, taken only if the app is refused:
@@ -677,7 +694,7 @@ estimated_size: S
 > nothing, and each pull request in step 4 opens only on the maintainer's own approval
 > click, which is its authorisation. If the app is refused, switch to the fallback and
 > skip the dashboard steps. (3) Read the dashboard: it should name cargo, github-actions,
-> rust-toolchain, pixi and the four regex managers among the detected dependencies (the
+> rust-toolchain, pixi and the five regex managers among the detected dependencies (the
 > dashboard's detected-dependencies section is the extraction proof for every manager
 > that has no update pending; confirm on the day that the hosted app renders it), and
 > list the pending updates. After the step 4 proofs comes the activation: a pull request
@@ -689,7 +706,10 @@ estimated_size: S
 > through the five checks: a `crates` group that moves `Cargo.lock` and no range; a `github actions` group
 > that moves a SHA and its comment in `ci.yml` and in the composite action; the
 > `tools.txt` line; a hook rev in `.pre-commit-config.yaml` and the markdownlint rev in
-> both files; the tooling-tag manager, proven for extraction by the dashboard's
+> both files; the pixi bootstrap pair, one approved pull request moving `pixi-version` in the
+> setup action and the `requires-pixi` floor together (if the two arrive under different
+> depNames, the rule is adjusted and a later bot pull request that carries both is the
+> proof); the tooling-tag manager, proven for extraction by the dashboard's
 > detected-dependencies section naming `biscuit-games-tooling v0.3.0` under it, and for
 > the update by a dashboard-approved pull request at B's next release (B has no tag
 > newer than `v0.3.0` on 2026-09-27, so if none arrives during T18 the update half is
@@ -795,11 +815,12 @@ before each commit named two files; `just check` was green before each.
   migration after this ticket was written, S02 claims `T13`, S03 claims `T14` and S04
   claims `T15` to `T17`. `T18` is the first id no spike names, chosen on 2026-09-27 after
   the reviews caught collisions in drafts numbered `T14` and then `T15`.
-- **Four regex managers, not three.** Step 5 asks for three (`tools.txt`, `channel`,
+- **Five regex managers, not three.** Step 5 asks for three (`tools.txt`, `channel`,
   `rev:`). The toolchain needs none, because Renovate has a native `rust-toolchain`
-  manager, but `rust-version` in `Cargo.toml` and the B tag each need one, and the hook
-  revs need one because the native `pre-commit` manager misreads them; so the draft has
-  four and the T18 proof list names all four.
+  manager, but `rust-version` in `Cargo.toml`, the B tag and the `requires-pixi` floor
+  (which must move with `pixi-version`) each need one, and the hook revs need one because
+  the native `pre-commit` manager misreads them; so the draft has five and the T18 proof
+  list names all five.
 - **Two files, not one.** Files touched named this ticket alone, and the first commit
   changed nothing else. The review follow-up also set S01's row in `tickets/README.md` to
   `done`, as T10 and T11 did in theirs; the Files touched table carries the row and the
@@ -830,7 +851,7 @@ before each commit named two files; `just check` was green before each.
 
 ### Handed back
 
-- **To T18** (drafted above): the four regex managers, the pixi approval rule, the
+- **To T18** (drafted above): the five regex managers, the pixi approval rule, the
   Dependabot `directories` entry and the `ignore` form, each a proof item because the
   documentation shows the building blocks and not the combination; the two page edits;
   the `tickets/README.md` row.
