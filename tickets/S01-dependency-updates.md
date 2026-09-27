@@ -475,7 +475,7 @@ item; the pixi manager stays on only as a dashboard notice until the relock is p
   ],
   "rangeStrategy": "update-lockfile",
   "automerge": false,
-  "lockFileMaintenance": { "enabled": true, "extends": ["schedule:earlyMondays"] },
+  "lockFileMaintenance": { "enabled": true, "schedule": ["* 0-3 * * 1"] },
   "pre-commit": { "enabled": false },
   "packageRules": [
     { "matchManagers": ["cargo"], "groupName": "crates" },
@@ -537,7 +537,8 @@ Why each line. `config:recommended` brings the dashboard and the monorepo groups
 cargo's default written down, so the caret ranges stay and only `Cargo.lock` moves within
 them (decision 0007); `automerge: false` is also the default written down, because the
 "a person's merge" guarantee in step 4 rests on it; `lockFileMaintenance` moves the transitive closure of both lockfiles
-weekly, in a pull request of its own. The native `pre-commit` manager stays off because it
+weekly, in a pull request of its own, on the same cron window written directly, because
+the nested object takes lock-file options, not `extends`. The native `pre-commit` manager stays off because it
 would read the revs as tags and misfire; the regex manager owns both files. Crates and
 actions each group into one pull request a week. The toolchain group and the tooling package
 wait for approval on the dashboard, because each is a deliberate release: the toolchain
@@ -648,8 +649,12 @@ estimated_size: S
 > Renovate's automerge staying off, and `renovate.json` says `"automerge": false`
 > explicitly. Then the maintainer installs the Mend Renovate app from
 > github.com/apps/renovate on `steven-cutting/libpawdoku` only, and records the
-> permissions it asked for in the hand-back notes; if refused, switch to the fallback and
-> skip the dashboard steps. (2) Add `renovate.json` as S01 drafted it. Its validation is
+> permissions it asked for in the hand-back notes. That installation is, knowingly, the
+> authorisation for the app to open its onboarding pull request, and the onboarding merge
+> in step 3 is the authorisation for its weekly pull requests thereafter; a pull request
+> held on the dashboard opens only on the maintainer's own approval click, which is its
+> authorisation. The agent itself opens nothing. If the app is refused, switch to the
+> fallback and skip the dashboard steps. (2) Add `renovate.json` as S01 drafted it. Its validation is
 > Renovate's own: the onboarding pull request reports configuration errors, and the
 > dashboard carries a config-validation warning while any remain. No ad hoc `npx` run: if
 > a local validator is wanted, it is a `Justfile` recipe outside `just check`, beside
@@ -663,9 +668,16 @@ estimated_size: S
 > checks: a `crates` group that moves `Cargo.lock` and no range; a `github actions` group
 > that moves a SHA and its comment in `ci.yml` and in the composite action; the
 > `tools.txt` line; a hook rev in `.pre-commit-config.yaml` and the markdownlint rev in
-> both files; one approved pixi pin, to learn whether `pixi.lock` moves with it (if it does
-> not, record it and leave the rule as a notice); one approved toolchain group, finished
-> by hand with `rust-version` and `just clippy` on the bot's branch; and the first
+> both files; the tooling-tag manager, proven for extraction by the onboarding pull
+> request's detected-dependencies list naming `biscuit-games-tooling v0.3.0` under it, and
+> for the update by a dashboard-approved pull request at B's next release (B has no tag
+> newer than `v0.3.0` on 2026-09-27, so if none arrives during T18 the update half is
+> recorded as pending B, not as done); one approved pixi pin, to learn whether `pixi.lock`
+> moves with it (if it does not, relock by hand on the bot's branch with
+> `pixi update <name>`, push under your own name so the pull request passes `check`,
+> record that the hosted app does not relock, and leave the rule as the notice it then
+> is); one approved toolchain group, finished by hand with `rust-version` and
+> `just clippy` on the bot's branch; and the first
 > `lockFileMaintenance` pull request, which must show `pixi.lock` regenerated or untouched,
 > never deleted, because that mode "deletes the lock file and runs the relevant package
 > manager" and the unsafe-execution rule is documented for manifest edits, not for
@@ -676,8 +688,13 @@ estimated_size: S
 > **Acceptance.** Every proof pull request in step 4 passed `check`; where one failed, the
 > manager was adjusted and a later pull request from the adjusted manager passed, because
 > these combinations were deferred to this ticket precisely for being unproven, and an
-> explained failure is not a proof. The two pages no longer say nothing moves; the app is
-> installed on this repository alone; no token is stored anywhere.
+> explained failure is not a proof. Two named exceptions, each with its passing path in
+> step 4: the pixi pull request passes either by the app's relock or by the hand relock on
+> its branch, and the notes say which, because `allowedUnsafeExecutions` is not this
+> repository's to set; and the tooling-tag manager's update half may be recorded as
+> pending B's next release when no newer tag exists, with its extraction half proven. The
+> two pages no longer say nothing moves; the app is installed on this repository alone; no
+> token is stored anywhere.
 
 **Step 7.** The verification block, in order:
 
