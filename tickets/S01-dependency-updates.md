@@ -679,10 +679,11 @@ estimated_size: S
 > rust-toolchain, pixi and the four regex managers among the detected dependencies (the
 > dashboard's detected-dependencies section is the extraction proof for every manager
 > that has no update pending; confirm on the day that the hosted app renders it), and
-> list the pending updates. After the step 4 proofs, **authorisation required** once
-> more: a pull request that removes the `:dependencyDashboardApproval` line, so the
-> crates and actions groups flow weekly while the per-rule approvals for the toolchain,
-> pixi and the tooling package stay. That is the activation, and it is a person's merge.
+> list the pending updates. After the step 4 proofs comes the activation: a pull request
+> that removes the `:dependencyDashboardApproval` line, so the crates and actions groups
+> flow weekly while the per-rule approvals for the toolchain, pixi and the tooling package
+> stay. Its push, its opening and its merge are three separately authorised actions
+> (CONVENTIONS.md §11), each asked for on its own; the merge is a person's.
 > (4) Proof, one pull request per manager, each opened by a dashboard approval and taken
 > through the five checks: a `crates` group that moves `Cargo.lock` and no range; a `github actions` group
 > that moves a SHA and its comment in `ci.yml` and in the composite action; the
@@ -696,7 +697,8 @@ estimated_size: S
 > `pixi update <name>` and, **with authorisation asked for that push**, push under your own
 > name so the pull request passes `check`; record that the hosted app does not relock, and
 > leave the rule as the notice it then is); one approved toolchain group, finished by hand with `rust-version` and
-> `just clippy` on the bot's branch; and the first
+> `just clippy` on the bot's branch, **with authorisation asked for that push** as for the
+> pixi relock; and the first
 > `lockFileMaintenance` pull request, which must show `pixi.lock` regenerated or untouched,
 > never deleted, because that mode "deletes the lock file and runs the relevant package
 > manager" and the unsafe-execution rule is documented for manifest edits, not for
@@ -710,8 +712,10 @@ estimated_size: S
 > explained failure is not a proof. Two named exceptions, each with its passing path in
 > step 4: the pixi pull request passes either by the app's relock or by the hand relock on
 > its branch, and the notes say which, because `allowedUnsafeExecutions` is not this
-> repository's to set; and the tooling-tag manager's update half may be recorded as
-> pending B's next release when no newer tag exists, with its extraction half proven. The
+> repository's to set; and any manager with no update available while T18 runs (the
+> tooling tag until B releases, and any other pin that happens to be current) is proven
+> for extraction by its detected-dependencies entry, with its update half recorded as
+> pending the next release rather than as done, so a current pin cannot block the ticket. The
 > two pages no longer say nothing moves; the app is installed on this repository alone; no
 > token is stored anywhere.
 
