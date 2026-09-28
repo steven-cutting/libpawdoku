@@ -85,6 +85,7 @@ artefact and is never required.
 | Path | Class | Change |
 | --- | --- | --- |
 | `tickets/S03-bench-fuzz-mutants.md` | ticket | the evidence, the recommendations, the drafted follow-up; `status: done` |
+| `tickets/README.md` | ticket index | S03's row set to `done` (added in the first review round; see Deviations) |
 
 ## Steps
 
@@ -339,6 +340,34 @@ github.com", so on Apple silicon the binary runs under Rosetta.
   commands reaches the fuzz crate's Rust: it is not a workspace member, so it has no
   workspace lints, clippy and `cargo fmt --all` skip it, and the `fmt-check` hook matches
   only `crates/`.
+- **Bringing the fuzz crate into the gate (first review round, 2026-09-28).** Reviewers
+  asked how invariant 4 would reach the fuzz crate. The maintainer chose a lint table in
+  `fuzz/Cargo.toml` plus `--manifest-path` runs in the gate. It was proved offline on a
+  fresh `git archive HEAD` copy with no cargo-fuzz binary. The copy got the root
+  `exclude = ["fuzz"]`, a hand-written `fuzz/Cargo.toml` with
+  `[lints.rust] unsafe_code = "forbid"` and `non_ascii_idents = "forbid"`, and one
+  `fuzz_target!` feeding `ReplayStream::new`. libfuzzer-sys 0.4.13's macro expands to two
+  `#[no_mangle]` functions (`src/lib.rs` lines 251 and 260, source), which `unsafe_code`
+  covers when they are written in the crate itself. On the expansion it did not fire:
+
+  ```text
+  $ cargo generate-lockfile --offline --manifest-path fuzz/Cargo.toml
+       Locking 17 packages to latest Rust 1.98.1 compatible versions
+  $ cargo clippy --manifest-path fuzz/Cargo.toml --all-targets --locked --offline -- -D warnings
+      Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.84s
+  $ cargo fmt --manifest-path fuzz/Cargo.toml --check                  # exit 0
+  $ cargo update --workspace --locked --offline --manifest-path fuzz/Cargo.toml   # exit 0
+  ```
+
+  The 2.84 s was a cold build of the fuzz crate's target directory. It includes
+  libfuzzer-sys's build script compiling libFuzzer's C++ through `cc` (26 objects and
+  `libfuzzer.a`), so every gate run that lints the fuzz crate needs a C++ compiler.
+  Both negative controls failed as they should:
+  - An `unsafe {}` planted in the target: "error: usage of an `unsafe` block", exit 101.
+  - A dependency added to `fuzz/Cargo.toml` without relocking: "cannot update the lock
+    file … because --locked was passed", exit 101.
+
+  The root `cargo update --workspace --locked --offline` still exited 0 beside it.
 - **Components.** None is documented for building or running. Only `cargo fuzz coverage`
   needs `llvm-tools-preview`. libfuzzer-sys 0.4.13 compiles libFuzzer with the system C++
   compiler through `cc` (its `build.rs`, source).
@@ -421,7 +450,7 @@ makes the release assets irrelevant. It was run as
   nightly --profile minimal` leaves `rust-toolchain.toml` alone. The command writes to
   `RUSTUP_HOME`, but that is inference, and the command was not run here: no nightly was
   installed. Open point 1 (below) removes nightly from every recipe and job, so no
-  follow-up depends on it.
+  follow-up depends on it. Deviations records this as the one part of (e) left open.
 
 **Step 3. The workload, on the tree as it is.**
 
@@ -744,48 +773,120 @@ a grid lands on `main`.
 >     workspace manifest;
 >   - write `libfuzzer-sys` as a full caret range (`"0.4.13"`), with the decision 0007
 >     note. That note (T02 hand-back): outside the workspace, `publish = false`, never
->     shipped, and locked by its own lockfile.
+>     shipped, and locked by its own lockfile;
+>   - add the lint table below, because invariant 4 holds in every crate. An excluded
+>     package is its own root, so `lints.workspace = true` cannot reach the root's
+>     `[workspace.lints]`. The table repeats that table's two `forbid` levels, and S03
+>     proved it builds with `fuzz_target!` (hand-back notes, (c)):
+>
+>     ```toml
+>     # Invariant 4 in a crate outside the workspace, which cannot inherit
+>     # [workspace.lints]: the root table's forbid levels, repeated.
+>     [lints.rust]
+>     unsafe_code = "forbid"
+>     non_ascii_idents = "forbid"
+>     ```
+>
 > - **`fuzz/Cargo.lock`** (new, committed). The generated `.gitignore` does not ignore
->   it. It sits outside `lock-check` and every gate's `--locked`, so the recipe checks it
->   first.
+>   it. `sync` and `lock-check` cover it, as the `Justfile` bullet below describes.
 > - **`tools.txt`** (T00 follow-up on `main`). Add `cargo-fuzz@0.13.2`, because
 >   conda-forge does not carry it. The release publishes no checksum, which is
->   cargo-hack's standing in CONVENTIONS.md §12. The macOS archive is x86_64 only and runs
->   under Rosetta on Apple silicon. Every CI job's setup then downloads it.
-> - **`Justfile`** (T00 follow-up on `main`). In the develop section:
+>   cargo-hack's standing in CONVENTIONS.md §12. The macOS archive is x86_64 only. On
+>   Apple silicon, `just initialize` only downloads it, but `just fuzz` runs it under
+>   Rosetta 2, so Rosetta becomes a macOS prerequisite for fuzzing alone (Documentation,
+>   below). Every CI job's setup then downloads it.
+> - **`Justfile`** (T00 follow-up on `main`). Existing recipes gain a line for the
+>   fuzz crate, so that the gate proves it exactly as it proves the workspace, and no new
+>   gate entry is added. `sync`'s comment, "Both lockfiles", names three:
+>
+>   ```just
+>   sync:
+>       cargo fetch --locked
+>       cargo fetch --locked --manifest-path fuzz/Cargo.toml
+>       pixi install --frozen
+>
+>   lock:
+>       cargo update --workspace
+>       cargo update --workspace --manifest-path fuzz/Cargo.toml
+>       pixi lock
+>
+>   lock-check:
+>       cargo update --workspace --locked --offline
+>       cargo update --workspace --locked --offline --manifest-path fuzz/Cargo.toml
+>       pixi lock --check --offline --dry-run
+>
+>   # cargo fmt --all skips the fuzz crate, which is outside the workspace.
+>   fmt-check:
+>       cargo fmt --all --check
+>       cargo fmt --manifest-path fuzz/Cargo.toml --check
+>
+>   # The fuzz crate is outside the workspace, so --workspace skips it, and its own
+>   # lint table (invariant 4) holds only if something compiles it. libfuzzer-sys's
+>   # build script compiles libFuzzer's C++ through cc, so this line makes a C++
+>   # compiler a prerequisite of the gate.
+>   clippy:
+>       cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+>       cargo clippy --manifest-path fuzz/Cargo.toml --all-targets --locked -- -D warnings
+>   ```
+>
+>   `lock-upgrade` gains the same `--manifest-path` line after `cargo update`. `fix` and
+>   `format` gain `cargo fmt --manifest-path fuzz/Cargo.toml` and the matching
+>   `cargo clippy … --fix` line. In the develop section:
 >
 >   ```just
 >   # Fuzzing, by hand: nondeterministic, so never a gate. On the pinned stable
 >   # toolchain without a sanitizer: AddressSanitizer needs nightly, and the core
->   # forbids unsafe code. cargo-fuzz takes no --locked, so the fetch proves
->   # fuzz/Cargo.lock first. --target because cargo-fuzz defaults to the triple it
->   # was built for, and its macOS binary is x86_64. The fetch reaches the network
->   # when the cache lacks a crate, since just sync covers the root lock only.
+>   # forbids unsafe code. cargo-fuzz takes no --locked and would rewrite a stale
+>   # fuzz/Cargo.lock, so the fetch refuses one first; after just sync it finds
+>   # every crate in the cache. --target because cargo-fuzz defaults to the triple
+>   # it was built for, and its macOS binary is x86_64.
 >   fuzz target seconds="300":
 >       cargo fetch --locked --manifest-path fuzz/Cargo.toml
 >       cargo fuzz run --sanitizer none --target "$(rustc -vV | sed -n 's/^host: //p')" "$1" -- -max_total_time="$2"
 >   ```
 >
+> - **`.pre-commit-config.yaml`** (T03 hand-back). The `fmt-check` hook's `files:` is
+>   `^(crates/.*\.rs|rustfmt\.toml)$`. It becomes `^((crates|fuzz)/.*\.rs|rustfmt\.toml)$`,
+>   so that a commit touching only a fuzz target still runs the recipe.
 > - **`.github/workflows/fuzz.yml`** (new). It has the shape of T14's `mutants.yml`: a
 >   weekly `schedule` and `workflow_dispatch`, `contents: read`, and the setup action. A
 >   `matrix` of target names runs `just fuzz <target> 300`, then `actions/upload-artifact`
->   of `fuzz/artifacts/<target>` under `if: failure()`. The corpus starts empty on each
->   run. Caching `fuzz/corpus` is the refinement, if runs stop finding coverage.
+>   of `fuzz/artifacts/<target>` under `if: failure()`. The matrix sets
+>   `strategy: fail-fast: false`. Without it, the first target that crashes cancels its
+>   siblings before their 300 s and their uploads, and a run that finds one crash leaves
+>   the other parsers unfuzzed. The corpus starts empty on each run. Caching
+>   `fuzz/corpus` is the refinement, if runs stop finding coverage.
 > - **Unchanged.** `taplo.toml`: taplo walks `fuzz/Cargo.toml`, which is taplo-clean.
 >   `.gitignore`: the generated `fuzz/.gitignore` covers target, corpus, artifacts and
 >   coverage.
 > - **Documentation.**
->   - `docs/reference/testing.md`: a "Fuzzing" section, including that the fuzz crate
->     sits outside the workspace lints, clippy and `cargo fmt --all`.
->   - `docs/reference/commands.md`: the `just fuzz` row.
+>   - `docs/reference/testing.md`: a "Fuzzing" section. It says that the fuzz crate sits
+>     outside the workspace and its lint table, and carries its own `forbid` table.
+>     `clippy`, `fmt-check` and `lock-check` reach it by `--manifest-path`.
+>   - `docs/reference/quality-gates.md`: the `lock-check`, `fmt-check` and `clippy` rows
+>     name the fuzz crate.
+>   - `docs/reference/commands.md`: the `just fuzz` row, and the `sync`, `lock`,
+>     `lock-upgrade` and `lock-check` rows, which name the fuzz lockfile too.
+>   - `docs/how-to/develop-locally.md`: two rows in Prerequisites. A C++ compiler, which
+>     the gate needs for libfuzzer-sys's build script: Xcode's command-line tools on
+>     macOS, and `g++` on Ubuntu, which the runner image carries. And Rosetta 2 on Apple
+>     silicon, for `just fuzz` only (`softwareupdate --install-rosetta`), because the
+>     cargo-fuzz binary is x86_64.
 >   - `docs/reference/configuration.md`: the `tools.txt` row, today "one line, cargo-hack".
 >   - `docs/project/repository-map.md`: the new top-level `fuzz/`.
 >   - `docs/how-to/maintain-dependencies.md`: that `fuzz/Cargo.lock` and the `tools.txt`
 >     line move too.
 >   - `CHANGELOG.md` and the index row.
 >
-> **Before starting.** Re-check that `--sanitizer none` still builds on the pin. It is
-> the implementation's behaviour, documented only in cargo-fuzz's unmerged PR #440.
+> **Before starting.**
+>
+> - Re-check that `--sanitizer none` still builds on the pin. It is the implementation's
+>   behaviour, documented only in cargo-fuzz's unmerged PR #440.
+> - Re-check whether a later cargo-fuzz release publishes an `aarch64-apple-darwin`
+>   archive. If one does, drop the Rosetta row, and drop the macOS reason from the
+>   recipe's `--target` comment.
+> - Re-run the offline proof in S03's (c) with the real target: the lint table and the
+>   `fuzz_target!` expansion under `just clippy`, and a planted `unsafe {}` failing it.
 
 **Step 6.** `status: done`, and one commit on the ticket branch. Nothing is pushed.
 
@@ -834,6 +935,25 @@ count: 19 tests, or 22 with `--all-features`.
 - **`just initialize` ran in this worktree** at the maintainer's direction, so that
   `cargo nextest list` and the commit hook have their tools. It changed no tracked file.
   Being a secondary worktree, it skipped `install-hooks`.
+- **Step 2(e) is answered in part.** Recorded: the runner image's Rust, rustup and the
+  missing nightly, and rustup's override precedence, with sources. Not run: whether
+  `rustup toolchain install nightly --profile minimal` inside a job leaves
+  `rust-toolchain.toml` alone. That it does is inference, because the command writes to
+  `RUSTUP_HOME`. No nightly was installed. The maintainer's choice of the stable path
+  (open point 1) removed nightly from every recipe and job, so nothing depends on the
+  answer. The acceptance criterion "Answers (a) to (e) are recorded" holds with this one
+  stated exception. A follow-up that brings nightly back runs the command first.
+- **Two files, not one.** Files touched named this ticket alone. The first review round
+  noted that S03's row in `tickets/README.md` still read `open`. S01 and S02 each set
+  their row after review, so the row is set to `done`, and the Files touched table
+  carries it. The acceptance criterion that `git status --porcelain` lists only this
+  file held for the first commit.
+- **The fuzzing draft gained gate lines in the first review round.** The draft first left
+  the fuzz crate outside every gate command. Reviewers pointed out that invariant 4 then
+  did not reach it, and that `fuzz/Cargo.lock` could go stale with `check` green. The
+  maintainer chose to bring it in. It gets its own `forbid` table, and `--manifest-path`
+  lines go in the recipes that Handed back lists under T00. That was proved in (c). It
+  costs the gate a C++ compiler.
 
 ### Handed back
 
@@ -842,18 +962,20 @@ count: 19 tests, or 22 with `--all-features`.
   from open point 2.
 - **To the benchmark and fuzzing tickets** (drafted above, each on its trigger): the
   dependencies, the layout, the recipes and the workflow.
-- **To T00 follow-ups on `main`:** the `mutants`, `bench` and `fuzz` recipes; the
-  cargo-mutants pin in `pyproject.toml` and `pixi.lock`; and the `cargo-fuzz@0.13.2`
-  line in `tools.txt`.
+- **To T00 follow-ups on `main`:** the `mutants`, `bench` and `fuzz` recipes; the fuzz
+  crate's `--manifest-path` lines in `sync`, `lock`, `lock-upgrade`, `lock-check`,
+  `format`, `fix`, `fmt-check` and `clippy`; the cargo-mutants pin in `pyproject.toml`
+  and `pixi.lock`; and the `cargo-fuzz@0.13.2` line in `tools.txt`.
 - **To T02:** `divan` in `[workspace.dependencies]` and the crate's dev-dependencies and
-  `[[bench]]`; `exclude = ["fuzz"]` in `[workspace]`; and `libfuzzer-sys` in the fuzz
-  crate. Each carries its decision 0007 note above.
-- **To T03:** the `mutants.out*/` comment in `.gitignore`.
+  `[[bench]]`; `exclude = ["fuzz"]` in `[workspace]`; and `libfuzzer-sys` and the
+  `[lints.rust]` table in the fuzz crate. Each dependency carries its decision 0007 note
+  above.
+- **To T03:** the `mutants.out*/` comment in `.gitignore`, and `fuzz/` in the
+  `fmt-check` hook's `files:` pattern in `.pre-commit-config.yaml`.
 - **To T18:** once `fuzz/` exists, the dependency updater needs `/fuzz` as a second cargo
   directory, and T14's pin joins the pixi manifest it already watches.
-- **To the index:** nothing. S03's row in `tickets/README.md` still reads `open`, because
-  Files touched names this file alone. S02 set its own row in its first review round,
-  and so can this ticket.
+- **To the index:** nothing. S03's row in `tickets/README.md` was set to `done` in the
+  first review round (Deviations).
 
 ### Open points settled
 
