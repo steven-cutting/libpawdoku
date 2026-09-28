@@ -720,7 +720,10 @@ estimated_size: S
 > that removes the `:dependencyDashboardApproval` line, so the crates and actions groups
 > flow weekly, and those two alone, while the per-rule approvals for the toolchain, pixi,
 > the pixi bootstrap pair, the tooling package, the `tools.txt` line, the hook revs and
-> lock-file maintenance stay, each of those opening only on a maintainer's click. Its push, its opening and its merge are three separately authorised actions
+> lock-file maintenance stay, each of those opening only on a maintainer's click. The two page rewrites of step 5 ride in this
+> same pull request, so no commit on `main` has the updater active while the pages still
+> say nothing moves; on the fallback rail they ride with `.github/dependabot.yml` for the
+> same reason. Its push, its opening and its merge are three separately authorised actions
 > (CONVENTIONS.md §11), each asked for on its own; the merge is a person's.
 > (4) Proof, one pull request per manager, each opened by a dashboard approval and taken
 > through the five checks. One rule for the whole step, stated once so it need not be
@@ -771,7 +774,8 @@ estimated_size: S
 > (`"pixi": { "lockFileMaintenance": { "enabled": false } }`) through a configuration pull
 > request under the first rule, so `Cargo.lock` maintenance continues and `pixi.lock` moves
 > by hand as the how-to already describes. (5) Rewrite the two
-> pages, run `just check-docs`. (6) Record each proof's outcome and the branch names Renovate
+> pages, in the activation pull request of step 3 (or the fallback's file pull request),
+> and run `just check-docs` there. (6) Record each proof's outcome and the branch names Renovate
 > used, then `just check`, `status: done`.
 >
 > **If the app is refused (the fallback).** The same ticket, on a different rail.
@@ -788,8 +792,9 @@ estimated_size: S
 > (`increase-if-necessary` on the bare `"1.0.228"` form is the open question);
 > `github-actions` moving a SHA and its comment in `ci.yml` and, through the second
 > `directories` entry, in the composite action; `rust-toolchain` moving `channel`, then
-> finished by hand with `rust-version` and `just clippy` on the bot's branch, with
-> authorisation asked for that push; `pre-commit` moving a rev and rewriting its
+> finished by hand on the bot's branch with `just clippy` and, only when the release is a
+> minor, `rust-version` (a patch release leaves `1.98` correct, as on the other rail),
+> with authorisation asked for that push; `pre-commit` moving a rev and rewriting its
 > `# vX.Y.Z` comment in place, with the markdownlint rev in `.pre-commit-fix.yaml` moved on
 > the same branch by hand, again asking first, and lychee shown to be ignored. The
 > no-update exception applies as above. Acceptance on this rail: each of the four passed
