@@ -432,9 +432,11 @@ updates should arrive." in its opening paragraph, once T18 lands:
 > `just install-tools` fetching the `tools.txt` line over TLS with nothing but the
 > transport to verify it, and setup-pixi and `just sync` installing what the two lockfiles
 > name by hash; `main` still takes nothing without a green `check` and your merge, so read
-> the diff as you would anyone's. The app holds write access to this repository's
-> contents, workflows, issues and pull requests, which is the one trust it is given that a
-> contributor's branch is not.
+> the diff as you would anyone's. The app holds write access to this repository's checks,
+> commit statuses, contents, issues, pull requests and workflows, the full list being on
+> the security-model page (`docs/explanation/security-model.md`; T18 writes the sentence into
+> the how-to as a relative link there, where lychee allows one), which is the one trust it
+> is given that a contributor's branch is not.
 
 If the fallback is taken, the same paragraph with "Dependabot" for "Renovate", "`Cargo.lock`
 within the caret ranges, and a range itself when a release falls outside it, which is the
@@ -714,7 +716,11 @@ estimated_size: S
 > its own green pull request. If so, the change is a `gh api` PUT to
 > `repos/steven-cutting/libpawdoku/branches/main/protection` that repeats the current
 > payload (T01's, with `check` bound to app 15368 and `enforce_admins: false`) and sets
-> `required_pull_request_reviews` to `{ "required_approving_review_count": 1 }`; not T's
+> `required_pull_request_reviews` to `{ "required_approving_review_count": 1 }`, run
+> immediately before the merge of the pull request that rewords
+> `docs/reference/quality-gates.md`, so that page is stale for the length of one merge
+> and no longer (that pull request is prepared and green first, the PUT is its own
+> authorised action, and its merge is the next one); not T's
 > pinned `bootstrap_repo.sh`, whose PUT sends `required_pull_request_reviews: null` and
 > would remove the requirement, so T11's "already, changed: 0" re-run of that script
 > would then report a change until the script gains review support, which T18 hands back
