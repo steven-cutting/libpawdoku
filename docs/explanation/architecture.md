@@ -79,9 +79,13 @@ and `tests/api_bounds.rs` holds it at compile time.
 
 ## What is not here
 
-No I/O, no clock, no threads, no `rand`, no network, no persistence, no user interface,
-and no puzzle generation for now. Those are not deferred; they are out of scope, as
-[Purpose and scope](../project/purpose-and-scope.md) records.
+No I/O, no clock, no threads, no `rand`, no network, no persistence and no user
+interface. Those are excluded by design, as
+[Purpose and scope](../project/purpose-and-scope.md) records. Puzzle generation is not
+among them: generation is a planned module, `generation.allium`, specified before it is
+built and today a skeleton of scope, config and open questions; whether puzzles are made
+on the device, ahead of time, or both is open
+([decision 0012](../decisions/0012-generation-and-dev-time-judges.md)).
 
 ## Related pages
 

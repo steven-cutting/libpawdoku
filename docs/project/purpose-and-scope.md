@@ -38,7 +38,12 @@ module states is not the engine's yet, however obvious it looks.
   record of a puzzle in play holds, as a plain value; a consumer keeps what it wants kept,
   where it wants it kept.
 - **No puzzle generation yet.** How a setter finds givens is excluded from
-  `sudoku.allium`; generation is a later module, specified before it is built.
+  `sudoku.allium`. Generation is a planned module, `generation.allium`, specified before
+  it is built and today a skeleton of scope, config and open questions; whether puzzles
+  are made on the device, ahead of time, or both is open
+  ([decision 0012](../decisions/0012-generation-and-dev-time-judges.md)). What a
+  generated puzzle is held to is in
+  [Puzzle design objectives](../explanation/puzzle-design.md).
 - **No variants.** Other sizes, irregular boxes, diagonals, cages and overlapping grids
   are each a different game, and `sudoku.allium` excludes them by name.
 - **No clock, threads, filesystem or network.** The core is `no_std`, so they are

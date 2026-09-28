@@ -52,7 +52,7 @@ just check    # every gate, read-only, proving the worktree is unchanged
 ```text
 crates/pawdoku/      The engine; src/random.rs is its one effect boundary
 docs/                The handbook
-docs/specs/          Eight Allium modules — the source of truth for behaviour
+docs/specs/          Nine Allium modules — the source of truth for behaviour
 tickets/             The work that set this repository up, one ticket per branch
 pyproject.toml       The pixi manifest, pinned by pixi.lock
 rust-toolchain.toml  The compiler pin

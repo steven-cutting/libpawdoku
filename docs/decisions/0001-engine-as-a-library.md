@@ -29,7 +29,8 @@ every decision taken for it keeps the other three cheap.
 The engine is a library of its own: the crate `pawdoku` in `crates/pawdoku` of this
 repository, a Cargo workspace from day one, so that the command-line, Python and
 WebAssembly crates arrive as siblings without a restructuring. The eight modules move here
-with it, adapted so that nothing game-only remains; the game's root module stays in the
+with it, adapted so that nothing game-only remains, and a ninth, `generation.allium`, is
+the first specified here rather than carried; the game's root module stays in the
 game.
 
 Two alternatives were considered. A TypeScript engine inside the game was the path of

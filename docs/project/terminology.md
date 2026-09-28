@@ -16,8 +16,9 @@ them loosely is how a review ends up arguing about vocabulary instead of behavio
 The rows below are drawn from the modules' own Vocabulary sections, each of which picks
 one word where the literature of Sudoku has several. The Sudoku terms are
 `sudoku.allium`'s, the solving terms are `solver.allium`'s, the terms of a puzzle in play
-are `board.allium`'s, and the terms of a person solving are `technique.allium`'s and its
-four models': `reach.allium`, `effort.allium`, `lapse.allium` and `human-solving.allium`.
+are `board.allium`'s, the terms of a person solving are `technique.allium`'s and its
+four models': `reach.allium`, `effort.allium`, `lapse.allium` and `human-solving.allium`,
+and the terms of a setter that is a program are `generation.allium`'s.
 When a row and a module disagree, the module is right and the row is corrected.
 
 | Term | Meaning |
@@ -70,6 +71,8 @@ When a row and a module disagree, the module is right and the row is corrected.
 | Run | One player model put to one set of digits. It looks, steps and looks again. Each model has its own; `human-solving.allium` calls its run an attempt and its step a microstep. `Rate`, `Price`, `Tackle` and `Simulate` ask for one of each. |
 | Step | A deduction taken; in `lapse.allium` also a check, a guess or a repair. |
 | See, stall | In `reach.allium`: a deduction the profile does not hide is seen, and a run that sees nothing in an unfilled grid stalls. |
+| Hook, cascade | In a run: a step that stands above the routine steps around it, and the steps it lets loose. `generation.allium`'s words; what makes a step a hook, and how a cascade is counted, are `reach.allium`'s open questions, and no cutoff is settled. |
+| Technique contract | What a generated candidate is held to before it is kept, stated against a profile: a profile plus a ceiling, or a required set and a forbidden set. Which of the two is `generation.allium`'s open question. |
 | Price, escalation | In `effort.allium`: what a step costs this player, and a step taken from beyond their profile. |
 | Check, repair | In `lapse.allium`: bringing every mark up to date, taken only while some mark is stale, and returning the grid to how it stood before a wrong guess. |
 | Attempt | In `human-solving.allium`: one fresh puzzle, resolved profile, environment, budgets, versions and seed, carried through to a stopping reason and independent judgement. |

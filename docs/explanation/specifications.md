@@ -9,7 +9,7 @@ requires: []
 # Specifications
 
 This library's behaviour is written down, in a formal language, before it is built. The
-eight Allium modules under `docs/specs/` are the source of truth for what the engine
+nine Allium modules under `docs/specs/` are the source of truth for what the engine
 does. This handbook, the code and the tests all answer to them.
 
 The procedure is in [Work with the specifications](../how-to/work-with-the-specs.md).
@@ -26,7 +26,7 @@ is testable.
 
 ## What the modules are
 
-Eight are the library's. `sudoku.allium` states the rules of classic Sudoku — the grid, what a setter
+Nine are the library's. `sudoku.allium` states the rules of classic Sudoku — the grid, what a setter
 may pose, what a player may do and when a puzzle is solved — and nothing about how any
 of it looks, so it imports nothing; a consumer that draws the rules imports this module
 beside its own.
@@ -66,6 +66,16 @@ no contradiction in sight should withdraw it. `effort.allium` remains coarse and
 which name the answer `human-solving.allium` gives where it gives one. Its [owning explanation](human-solving.md) states the
 research basis and provisional parameter choices. These are behavioural contracts
 for a future simulator; passing the Allium gates is not an empirical validation.
+
+The ninth, `generation.allium`, is the first module written here rather than carried
+from the game, and the only one that stands on a model: it says how a setter that is a
+program finds givens, drawing a solution grid through the randomness boundary and
+removing givens by symmetry orbit until what is left is well-posed and solvable within a
+technique contract, under a step budget. It is a skeleton, scope, config and open
+questions with no trigger, because every figure it would state is a product decision
+nobody has taken; [Puzzle design objectives](puzzle-design.md) says what it is for and
+[decision 0012](../decisions/0012-generation-and-dev-time-judges.md) why it is the
+engine's.
 
 The game's root module, `pawdoku.allium`, stays in the game. Allium has no
 cross-repository import, so the game restates the clauses it needs and holds them equal

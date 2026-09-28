@@ -20,7 +20,9 @@ is [`technique.allium`](specs/technique.allium)'s, with four models of a player 
 it: [`reach.allium`](specs/reach.allium), [`effort.allium`](specs/effort.allium),
 [`lapse.allium`](specs/lapse.allium) and
 [`human-solving.allium`](specs/human-solving.allium), the one with chance in it: bounded
-cognition, fallible attempts and repeated assessment. Those files are not part of this
+cognition, fallible attempts and repeated assessment. How a setter that is a program
+finds givens is [`generation.allium`](specs/generation.allium)'s, today a skeleton of
+scope, config and open questions. Those files are not part of this
 handbook; they are its subject. Start at Specifications, under Understand, to see how the
 two relate. The game's root module, `pawdoku.allium`, stays in the game and restates what
 it needs.
@@ -75,3 +77,6 @@ handbook's own, and came with the specifications they are cited by.
   programs solve one, and the background to [`solver.allium`](specs/solver.allium).
 - [Modelling a human Sudoku solver](explanation/human-solving.md) — cognitive limits,
   experience, mistakes, parameter presets and profile-relative assessment.
+- [Puzzle design objectives](explanation/puzzle-design.md) — what a designed puzzle is
+  asked to be, which of those asks the specifications already meet, and which are open;
+  the ground for [`generation.allium`](specs/generation.allium).

@@ -8,7 +8,7 @@ requires: []
 
 # Work with the specifications
 
-The eight Allium modules under `docs/specs/` decide what the engine does. The game's root
+The nine Allium modules under `docs/specs/` decide what the engine does. The game's root
 module stays in the game and restates what it needs of these, held equal by test on the
 game's side. This page is the procedure;
 [Specifications](../explanation/specifications.md) is the reasoning.
@@ -25,6 +25,7 @@ game's side. This page is the procedure;
 | `effort.allium` | The player model in which a limit makes a deduction dear: the price of a step, escalation past the profile, and a puzzle priced end to end. Coarse: the figures are open questions. Same imports as `reach.allium`. |
 | `lapse.allium` | The player model in which a limit leads to error: upkeep of marks, checks, guesses and repairs, rated by steps and by the count of each kind, asked for by `Tackle`. Coarse and deterministic, with the record of how its open questions were resolved. Same imports as `reach.allium`. |
 | `human-solving.allium` | Bounded attention and memory, independent experience, fallible beliefs and notes, explicit effort and seeded attempts, plus profile-relative repeated assessment. The fourth player model and the one with chance in it, drawn through the randomness boundary. Owns its finer profile, four presets and the projection onto `technique.allium`'s profile. Same imports as `reach.allium`. |
+| `generation.allium` | How a setter that is a program finds givens: a solution grid drawn through the randomness boundary, givens removed by symmetry orbit until the puzzle is well-posed and solvable within a technique contract, under a step budget. A skeleton today: scope, config and open questions, no triggers. It imports `sudoku.allium`, `solver.allium`, `technique.allium` and `reach.allium`, and nothing imports it. |
 
 Each module opens with `Scope`, `Includes` and `Excludes`. If your change falls under
 another module's `Excludes`, it belongs there.
