@@ -70,7 +70,7 @@ Mend app**, because it is the only option that reaches the frozen pins; otherwis
 | Option | Reaches | Misses | Cost to adopt | Trust surface | Fits decision 0007 |
 | --- | --- | --- | --- | --- | --- |
 | Dependabot | crates: `Cargo.lock` alone in range, the range only when a release falls outside it (`increase-if-necessary`); action SHAs with their comments, the composite action through a second `directories` entry (source); the toolchain `channel`; the hook revs in `.pre-commit-config.yaml` with the existing comment style (source) | every pixi pin and `pixi.lock`, the B tag, `tools.txt`, `rust-version`, `pixi-version`, the rev in `.pre-commit-fix.yaml`, allium | one `.github/dependabot.yml` with four ecosystems (a new path: T00 follow-up); no app | bot branches in the base repository with a read-only token and no secrets; no app | yes: verified, `increase-if-necessary` refreshes the lockfile in range and rewrites the range only out of range (the bare `"1.0.228"` form: T18 proof) |
-| Renovate | the above natively (cargo's default is `update-lockfile`; actions with comments and the composite; the toolchain), plus `pixi-version`; through regex managers `tools.txt`, `rust-version` grouped with the toolchain, the B tag and the hook revs in both prek files; the pixi tool pins as dashboard notices | allium checksums; the `pixi.lock` relock until the hosted app's `allowedUnsafeExecutions` is proven (undocumented, default off); the B tag through the pixi manager, which skips `tag` | the Mend app (authorisation), `renovate.json` (a new path: T00 follow-up), five regex managers written and proven | the same, plus an app holding write access to contents, workflows, issues and pull requests | yes: verified, `update-lockfile` is cargo's default and keeps the ranges |
+| Renovate | the above natively (cargo's default is `update-lockfile`; actions with comments and the composite; the toolchain), plus `pixi-version`; through regex managers `tools.txt`, `rust-version` grouped with the toolchain, the B tag and the hook revs in both prek files; the pixi tool pins as dashboard notices | allium checksums; the `pixi.lock` relock until the hosted app's `allowedUnsafeExecutions` is proven (undocumented, default off); the B tag through the pixi manager, which skips `tag` | the Mend app (authorisation), `renovate.json` (a new path: T00 follow-up), five regex managers written and proven | the same, plus an app holding write access to checks, commit statuses, contents, issues, pull requests and workflows | yes: verified, `update-lockfile` is cargo's default and keeps the ranges |
 | None | nothing | everything | the routine already in `docs/operations/maintenance.md` | none | yes, by hand |
 
 ## Non-goals
@@ -416,7 +416,7 @@ protection enforces: an app holding pull-request and contents write could merge 
 green pull request, and Renovate's automerge is off by default. T18 either requires one
 approving review on `main` before the app is installed or records that the guarantee rests
 on automerge staying off. What Renovate adds that Dependabot does not is the app itself:
-write access to contents, workflows, issues and pull requests on the repository, held by
+write access to checks, commit statuses, contents, issues, pull requests and workflows on the repository, held by
 Mend, which is the one trust a bot branch extends beyond a person's.
 
 The sentence for `docs/how-to/maintain-dependencies.md`, replacing "Nothing updates either
@@ -697,7 +697,8 @@ estimated_size: S
 > for at installation: read on Dependabot alerts, administration and metadata, and read and
 > write on checks, code (contents), commit statuses, issues, pull requests and workflows,
 > as recorded in step 3's hand-back and re-read from the installation screen on the day,
-> in the activation pull request beside the other two pages; if the maintainer requires a review on `main`, `docs/reference/quality-gates.md`,
+> written with the landing in step 1 so the trust boundary is on record before the app is
+> installed, and revised with the activation if the screen showed anything different; if the maintainer requires a review on `main`, `docs/reference/quality-gates.md`,
 > whose branch-protection paragraph says no review is required and changes in the same
 > pull request as the protection change is recorded; `tickets/README.md` (the index row);
 > this ticket's `status:`.
@@ -759,7 +760,8 @@ estimated_size: S
 > bot at work while they still say nothing moves: with the landing in step 1 they describe
 > the held mode (Renovate lists what is pending on its dashboard, nothing opens without an
 > approval click, and the proofs of step 4 are those clicks), and in this activation pull
-> request they take the weekly wording and the security-model entry; on the fallback rail
+> request they take the weekly wording (the security-model entry having landed with the
+> configuration, before the app); on the fallback rail
 > one rewrite rides with `.github/dependabot.yml`, because that rail has no held mode. Its
 > push, its opening and its merge are three separately authorised actions
 > (CONVENTIONS.md §11), each asked for on its own; the merge is a person's.
