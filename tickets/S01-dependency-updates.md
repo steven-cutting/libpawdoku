@@ -690,6 +690,14 @@ estimated_size: S
 > `docs/operations/maintenance.md` (the closing "Nothing here moves on its own" paragraph
 > and the Monthly entry); `tickets/README.md` (the index row); this ticket's `status:`.
 >
+> **Reads.** The dashboard issue, the pull requests, the Actions runs and, on the fallback
+> rail, the Dependabot job logs are read with read-only `gh` calls, which are network
+> operations under AGENTS.md; the maintainer authorises them once, for this ticket, at its
+> start, as S01's were on 2026-09-26, and the notes record that grant. The Renovate job log
+> on the Mend developer portal sits behind a login the agent does not hold, so the
+> maintainer reads it and pastes the lines the proof needs, or reads them aloud into the
+> notes; the agent never asks for those credentials.
+>
 > **Steps.** (1) **Authorisation required, and the order matters.** First the maintainer
 > decides whether `main` gains a required approving review, because the `check` context is
 > bound to GitHub Actions but nothing stops an app with pull-request write from merging
