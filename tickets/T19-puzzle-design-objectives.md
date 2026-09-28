@@ -1451,7 +1451,10 @@ running `just check-links-online` at the start of the session.
   rewrote "ALS" to "ALSO" on the first run, so `_typos.toml` now allows the word,
   a file the Non-goals do not name. The same rewrite had reached the report as
   received in this ticket when it was first committed; its seven occurrences are
-  restored to "ALS".
+  restored to "ALS". Two more `product` rows, deliberate layout and novelty, landed
+  on the page alone; both now also cite the where-puzzles-are-made question and
+  decision 0012, which hold the decision they hang on, so every `product` row points
+  at an open question as the class key requires.
 
 ### Handed back
 
