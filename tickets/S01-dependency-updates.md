@@ -563,7 +563,8 @@ item; the pixi manager stays on only as a dashboard notice until the relock is p
 Why each line. `:dependencyDashboardApproval` is the landing form: it holds every update
 for a dashboard click, so the file can sit on `main` before the app is installed without
 the app opening anything, and T18's activation pull request is the one that removes this
-line and nothing else. `config:recommended` brings the dashboard and the monorepo groups;
+line, changing nothing else in the configuration, alongside the two page rewrites that
+ride in it. `config:recommended` brings the dashboard and the monorepo groups;
 `helpers:pinGitHubActionDigests` keeps every action a SHA; `schedule:earlyMondays` is
 `* 0-3 * * 1`, one window a week, the cron form the docs recommend. `update-lockfile` is
 cargo's default written down, so the caret ranges stay and only `Cargo.lock` moves within
