@@ -731,7 +731,13 @@ estimated_size: S
 > `.github/dependabot.yml`) on `main`, made through a pull request whose push, opening and
 > merge are each separately authorised under CONVENTIONS.md §11, exactly as the landing in
 > step 1 and the activation in step 3 are; and every other write outside the worktree that
-> this ticket names, each dashboard click included, is authorised on its own. The proofs: a `crates` group that moves `Cargo.lock` and no range, or, when
+> this ticket names, each dashboard click included, is authorised on its own. A second
+> rule, for `pixi.lock`: any bot branch that edits `pyproject.toml` (a pixi pin, the
+> tooling tag, the `requires-pixi` floor) or runs lock-file maintenance may leave
+> `pixi.lock` stale, because the hosted app's relock is the unproven step; wherever that
+> happens, the passing path is the hand relock on the bot's branch, `pixi update <name>`
+> for one pin or `pixi lock` for maintenance, pushed with authorisation asked for that
+> push, and the notes record which branches needed it. The proofs: a `crates` group that moves `Cargo.lock` and no range, or, when
 > a release has fallen outside a range, the range as well, which under `update-lockfile` is
 > the `replace` fallback and a diff to read, not a failure; a `github actions` group
 > that moves a SHA and its comment in `ci.yml` and in the composite action; the
@@ -741,7 +747,9 @@ estimated_size: S
 > depNames, the rule is adjusted and a later bot pull request that carries both is the
 > proof); the tooling-tag manager, proven for extraction by the dashboard's
 > detected-dependencies section naming `biscuit-games-tooling v0.3.0` under it, and for
-> the update by a dashboard-approved pull request at B's next release (B has no tag
+> the update by a dashboard-approved pull request at B's next release, which moves the
+> `tag` in `pyproject.toml` and, because `pixi.lock` records the commit behind the tag,
+> needs the relock rule above to pass `lock-check` (B has no tag
 > newer than `v0.3.0` on 2026-09-27, so if none arrives during T18 the update half is
 > recorded as pending B, not as done); one approved pixi pin, to learn whether `pixi.lock`
 > moves with it (if it does not, relock by hand on the bot's branch with
@@ -759,7 +767,12 @@ estimated_size: S
 > manifest edits, not for maintenance), or, when both lockfiles already hold their newest
 > admissible resolutions, opens nothing, in which case the proof is the Renovate job log
 > for that run on the Mend developer portal showing lock-file maintenance attempted with no
-> diff, quoted in the notes. (5) Rewrite the two
+> diff, quoted in the notes. If the run leaves `pixi.lock` stale, the relock rule above
+> applies; if it deletes `pixi.lock` without regenerating it, the branch is not pushed to
+> by hand but closed, and lock-file maintenance is turned off for the pixi manager alone
+> (`"pixi": { "lockFileMaintenance": { "enabled": false } }`) through a configuration pull
+> request under the first rule, so `Cargo.lock` maintenance continues and `pixi.lock` moves
+> by hand as the how-to already describes. (5) Rewrite the two
 > pages, run `just check-docs`. (6) Record each proof's outcome and the branch names Renovate
 > used, then `just check`, `status: done`.
 >
