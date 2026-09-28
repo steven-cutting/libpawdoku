@@ -86,6 +86,7 @@ repository. The starting recommendation: **cargo-release**, with
 | Path | Class | Change |
 | --- | --- | --- |
 | `tickets/S02-release-and-publishing.md` | ticket | the evidence, the recommendation, the drafted follow-up; `status: done` |
+| `tickets/README.md` | ticket index | S02's row set to `done` (added in the first review round; see Deviations) |
 
 ## Steps
 
@@ -624,8 +625,11 @@ own version, tagged `<crate>-v<version>`: `pawdoku-v0.1.0` now, `pawdoku-wasm-vโ
 - **What cargo-release needs.** `shared-version` stays at its default, `false`. The
   per-crate prefix is already the default for a member under `crates/`, and the scheme
   never changes when the second crate arrives.
-- **Each binding crate** keeps `publish = false` for crates.io from the workspace default
-  and carries its own `[package.metadata.release]` when S04 designs it.
+- **Each binding crate** writes `publish.workspace = true` (or `publish = false`) in its
+  own manifest. Cargo applies a `[workspace.package]` field to a member only when the
+  member names it with `<field>.workspace = true`, so a member that leaves `publish` out
+  is publishable. Each binding crate also carries its own `[package.metadata.release]`
+  when S04 designs it.
 - **What stays with S04.** Registry mechanics (maturin's wheel matrix, wasm-pack and npm
   provenance, cargo-dist), and whether a binding crate's own CHANGELOG lives beside it.
 
@@ -687,8 +691,13 @@ estimated_size: M
 >   The local step never publishes and never pushes: the release commit reaches `main`
 >   through a pull request, and the tag is pushed by hand.
 > - **`crates/pawdoku/Cargo.toml`.** Delete `publish.workspace = true`. The workspace's
->   `publish = false` stays as the default every future crate inherits. Add the crate's
->   `[package.metadata.release]`:
+>   `publish = false` stays, but it is not a default. Cargo applies a
+>   `[workspace.package]` field to a member only when the member writes
+>   `<field>.workspace = true`, and a member that leaves `publish` out is publishable. So
+>   deleting the line is what makes `pawdoku` publishable, and every future crate that
+>   must stay off crates.io writes `publish.workspace = true` or `publish = false` in its
+>   own manifest; T13 says so in `docs/reference/configuration.md` if that page describes
+>   the workspace table. Add the crate's `[package.metadata.release]`:
 >
 >   ```toml
 >   pre-release-replacements = [
@@ -707,8 +716,13 @@ estimated_size: M
 >   `publish` with `environment: release` and `permissions: id-token: write, contents:
 >   read`. It concurrency-groups on the tag with no cancelling. It runs `actions/checkout`
 >   (the SHA `ci.yml` pins, with `persist-credentials: false`) and the composite setup
->   action, then `just check-toolchain`, then a step that fails unless the tag equals
->   `pawdoku-v` plus the manifest version from `cargo metadata --locked`. The next step
+>   action, then `just check-toolchain`. Two guards come next, before any token exists:
+>   a step that runs `git fetch --no-tags origin main` and fails unless
+>   `git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD` succeeds, so only a commit
+>   that reached `main` through a checked pull request can be published; and a step that
+>   fails unless the tag equals `pawdoku-v` plus the manifest version from
+>   `cargo metadata --locked`. These checks live inside the workflow a tag starts, so they
+>   back up the platform controls in step 4 and do not replace them. The next step
 >   is `rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5`
 >   with `id: auth`, which runs first so every tag proves the OIDC exchange. Then a step
 >   that asks `https://crates.io/api/v1/crates/pawdoku/<version>` (with a User-Agent)
@@ -721,8 +735,11 @@ estimated_size: M
 > - **A `semver` job**, in `.github/workflows/ci.yml` and not in `check`'s `needs`. It
 >   checks out with `fetch-depth: 0`, takes the baseline from
 >   `git describe --tags --match 'pawdoku-v*' --abbrev=0`, and prints a notice and exits
->   0 when there is none. It runs `cargo semver-checks -p pawdoku --baseline-rev
->   <tag>`, from `cargo-semver-checks = "==0.50.0"` added to `pyproject.toml` and
+>   0 when there is none. Before 1.0 a break is allowed with a minor bump, so the job
+>   reports and never blocks; at 1.0 it joins `check`'s `needs` (CONVENTIONS.md ยง10), and
+>   T13 writes that trigger into the "Cut a release" section so the 1.0 release carries
+>   it. It runs `cargo semver-checks -p pawdoku --baseline-rev <tag>`, from
+>   `cargo-semver-checks = "==0.50.0"` added to `pyproject.toml` and
 >   `pixi.lock` (on conda-forge for both platforms on 2026-09-27). The job needs a recipe,
 >   which makes it a T00 follow-up (below). If that follow-up has not merged, the job
 >   waits and T13 says so.
@@ -769,13 +786,20 @@ estimated_size: M
 >    on the merge commit and not on a stale local `main`, then `cargo release tag -p
 >    pawdoku --execute`, then `cargo publish -p pawdoku --locked` from that commit with a
 >    crates.io token scoped `publish-new` and `publish-update`.
-> 4. Configure trusted publishing on crates.io: the publisher (`steven-cutting`,
+> 4. Protect the trigger before any publisher exists. Create the GitHub environment
+>    `release` with the maintainer as a required reviewer and deployments limited to
+>    tags matching `pawdoku-v*`. Add a tag ruleset on `refs/tags/pawdoku-v*` that
+>    restricts creation, update and deletion to the maintainer (the bypass list). Without
+>    both, anyone who can push a matching tag makes the auth action mint a crates.io token.
+>    Record both settings, read back with `gh api`, in the notes.
+> 5. Configure trusted publishing on crates.io: the publisher (`steven-cutting`,
 >    `libpawdoku`, `release.yml`, environment `release`), then "Require trusted
 >    publishing for all new versions". Revoke the token.
-> 5. Push the tag: `git push origin pawdoku-v0.1.0`. `release.yml` runs, the auth step
->    proves the exchange, the existence check skips the publish, and the job is green.
-> 6. Watch docs.rs build 0.1.0 for both targets in `[package.metadata.docs.rs]`.
-> 7. Optionally, prove the path that matters: cut 0.1.1 the same way with step 3's
+> 6. Push the tag: `git push origin pawdoku-v0.1.0`. `release.yml` waits for the
+>    environment's approval, then the auth step proves the exchange, the existence check
+>    skips the publish, and the job is green.
+> 7. Watch docs.rs build 0.1.0 for both targets in `[package.metadata.docs.rs]`.
+> 8. Optionally, prove the path that matters: cut 0.1.1 the same way with step 3's
 >    token publish removed, and read `trustpub_data` from the API. Otherwise the next
 >    real release is the proof, and the notes say so.
 >
@@ -785,12 +809,15 @@ estimated_size: M
 > - the token publish;
 > - the trusted-publisher configuration and the trusted-only setting;
 > - revoking the token;
-> - creating the GitHub environment `release`, with deployment limited to tags matching
->   `pawdoku-v*`, and optionally a tag ruleset limiting who may create
->   `refs/tags/pawdoku-v*` (the repository has no rulesets and one environment,
->   `copilot`, on 2026-09-27);
+> - creating the GitHub environment `release` (required reviewer, deployments limited to
+>   `pawdoku-v*` tags) and the tag ruleset on `refs/tags/pawdoku-v*`, both before the
+>   publisher is configured; neither is optional (the repository has no rulesets and one
+>   environment, `copilot`, on 2026-09-27);
 > - each push and each pull request;
-> - pushing the tag.
+> - pushing the tag;
+> - approving each `release.yml` deployment in the `release` environment. This is the
+>   publish itself, a separate decision from the tag push (AGENTS.md, "Safety and
+>   authority"), and the required reviewer makes the platform ask for it every time.
 >
 > **Acceptance and proof.**
 >
@@ -798,6 +825,9 @@ estimated_size: M
 > - docs.rs shows a green build for 0.1.0.
 > - The first `release.yml` run is green, with the auth step's token exchange in its log.
 > - `trustpub_only` is `true` on the crate.
+> - The `release` environment has a required reviewer and a `pawdoku-v*` deployment rule,
+>   and the tag ruleset is active, both read back with `gh api` before the publisher was
+>   configured.
 > - The token no longer appears on the maintainer's crates.io tokens page.
 > - Either 0.1.1 carries `trustpub_data.repository: steven-cutting/libpawdoku`, or the
 >   notes record that the first trusted publish is still to come.
@@ -861,6 +891,19 @@ $ git status --porcelain
   maintainer's machine, not a `release.yml` run, because crates.io cannot configure a
   publisher before a crate exists (step 3). And `release.yml` needs `id-token: write`
   but not `contents: write` unless it makes a GitHub Release, which the draft leaves out.
+- **Two files, not one.** Files touched named this ticket alone, and the first commit
+  changed nothing else. Copilot's summary of the first review round asked for S02's row
+  in `tickets/README.md`, and S01 took the same step after its review, so the row is set
+  to `done` and the Files touched table carries it. The acceptance criterion that
+  `git status --porcelain` lists only this file held for the first commit.
+- **The first review round tightened the T13 draft.** Copilot and Codex both found that
+  deleting `publish.workspace = true` was described as leaving an inherited default,
+  which Cargo does not have: every crate that must stay off crates.io now has to say so
+  itself. Both also found the publish trigger too weak. The environment's required
+  reviewer and the tag ruleset are mandatory before the publisher is configured, each
+  deployment approval is its own authorisation, and the workflow refuses a tagged commit
+  that is not in `main`'s history. The `semver` job's move into `check`'s `needs` at 1.0
+  is now written into T13.
 - **More than the ticket named was run.** The replacements were executed, not only
   dry-run, and cargo-semver-checks was run against a real break. Both happened in a
   scratch clone with no remote, because the replacements' correctness was the one thing a
@@ -879,9 +922,8 @@ $ git status --porcelain
   and npm registry mechanics, and whether each crate keeps its own CHANGELOG. From the
   survey: every Python project starts a release with a person and publishes from CI, and
   twelve of the thirteen CI publishers use OIDC.
-- **To the index:** S02's row in `tickets/README.md` still says `open`. It is not edited
-  here, because this ticket's Files touched and acceptance criteria name only this file.
-  The maintainer or T13 sets it.
+- **To the index:** nothing. S02's row in `tickets/README.md` was set to `done` in the
+  first review round (Deviations).
 
 ### Open points settled
 
