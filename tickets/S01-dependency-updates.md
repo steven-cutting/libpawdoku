@@ -478,7 +478,8 @@ item; the pixi manager stays on only as a dashboard notice until the relock is p
   "extends": [
     "config:recommended",
     "helpers:pinGitHubActionDigests",
-    "schedule:earlyMondays"
+    "schedule:earlyMondays",
+    ":dependencyDashboardApproval"
   ],
   "rangeStrategy": "update-lockfile",
   "automerge": false,
@@ -559,7 +560,10 @@ item; the pixi manager stays on only as a dashboard notice until the relock is p
 }
 ```
 
-Why each line. `config:recommended` brings the dashboard and the monorepo groups;
+Why each line. `:dependencyDashboardApproval` is the landing form: it holds every update
+for a dashboard click, so the file can sit on `main` before the app is installed without
+the app opening anything, and T18's activation pull request is the one that removes this
+line and nothing else. `config:recommended` brings the dashboard and the monorepo groups;
 `helpers:pinGitHubActionDigests` keeps every action a SHA; `schedule:earlyMondays` is
 `* 0-3 * * 1`, one window a week, the cron form the docs recommend. `update-lockfile` is
 cargo's default written down, so the caret ranges stay and only `Cargo.lock` moves within
@@ -694,11 +698,11 @@ estimated_size: S
 > `"automerge": false`. Then `renovate.json` lands on `main` through a T00 follow-up pull
 > request (a new root path, CONVENTIONS.md §11; its push, its opening and its merge are
 > three separately authorised actions, each asked for on its own, as for the activation
-> below) **before** the app is installed, as S01 drafted it plus
-> one line: `":dependencyDashboardApproval"` in `extends`, which holds every update for
+> below) **before** the app is installed, as S01 drafted it, whose
+> `extends` already carries `":dependencyDashboardApproval"`, which holds every update for
 > approval from the dashboard ("To require manual approval for all updates, add the
 > `:dependencyDashboardApproval` presets to the `extends` array", Renovate's dashboard
-> page). The order and the extra line exist because a configuration committed to the
+> page). The order and that line exist because a configuration committed to the
 > default branch is how Renovate documents manual onboarding: installing the app then
 > processes the repository at once, with no onboarding pull request to gate it, so the
 > held-for-approval state is what stands in for that gate. Validation is Renovate's own:
