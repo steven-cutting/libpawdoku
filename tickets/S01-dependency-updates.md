@@ -685,10 +685,12 @@ estimated_size: S
 > **Files touched.** `renovate.json` (new; a new root path, so a T00 follow-up pull request
 > on `main` under CONVENTIONS.md §11, and `.github/dependabot.yml` instead if the fallback
 > is taken); `docs/how-to/maintain-dependencies.md` (the opening paragraph, with S01's
-> sentence, plus a section "What the updater proposes and what stays manual", and a note
-> that a red `rust` job on a toolchain pull request is the lint set moving);
-> `docs/operations/maintenance.md` (the closing "Nothing here moves on its own" paragraph
-> and the Monthly entry); on the Renovate rail, `docs/explanation/security-model.md`, which
+> sentence, plus a section "What the updater proposes and what stays manual", a note that a
+> red `rust` job on a toolchain pull request is the lint set moving, and its "The toolchain"
+> section reworded so `rust-version` moves with `channel` only on a minor release, a patch
+> leaving `1.98` correct); `docs/operations/maintenance.md` (the closing "Nothing here moves
+> on its own" paragraph, the Monthly entry, and its "Per toolchain release" entry reworded
+> the same minor-only way); on the Renovate rail, `docs/explanation/security-model.md`, which
 > owns the trust model and gains the app as a named holder of the permissions it asked
 > for at installation: read on Dependabot alerts, administration and metadata, and read and
 > write on checks, code (contents), commit statuses, issues, pull requests and workflows,
@@ -747,10 +749,13 @@ estimated_size: S
 > that removes the `:dependencyDashboardApproval` line, so the crates and actions groups
 > flow weekly, and those two alone, while the per-rule approvals for the toolchain, pixi,
 > the pixi bootstrap pair, the tooling package, the `tools.txt` line, the hook revs and
-> lock-file maintenance stay, each of those opening only on a maintainer's click. The page rewrites of step 5, the security-model page among
-> them, ride in this same pull request, so no commit on `main` has the updater active while the pages still
-> say nothing moves; on the fallback rail they ride with `.github/dependabot.yml` for the
-> same reason. Its push, its opening and its merge are three separately authorised actions
+> lock-file maintenance stay, each of those opening only on a maintainer's click. The pages change twice, so that no commit on `main` has a
+> bot at work while they still say nothing moves: with the landing in step 1 they describe
+> the held mode (Renovate lists what is pending on its dashboard, nothing opens without an
+> approval click, and the proofs of step 4 are those clicks), and in this activation pull
+> request they take the weekly wording and the security-model entry; on the fallback rail
+> one rewrite rides with `.github/dependabot.yml`, because that rail has no held mode. Its
+> push, its opening and its merge are three separately authorised actions
 > (CONVENTIONS.md §11), each asked for on its own; the merge is a person's.
 > (4) Proof, one pull request per manager, each opened by a dashboard approval and taken
 > through the five checks. One rule for the whole step, stated once so it need not be
@@ -798,12 +803,15 @@ estimated_size: S
 > for that run on the Mend developer portal showing lock-file maintenance attempted with no
 > diff, quoted in the notes. If the run leaves `pixi.lock` stale, the relock rule above
 > applies; if it deletes `pixi.lock` without regenerating it, the branch is not pushed to
-> by hand but closed, and lock-file maintenance is turned off for the pixi manager alone
-> (`"pixi": { "lockFileMaintenance": { "enabled": false } }`) through a configuration pull
-> request under the first rule, so `Cargo.lock` maintenance continues and `pixi.lock` moves
+> by hand but closed, and lock-file maintenance is turned off for the pixi manager alone, through a
+> `packageRules` entry with `matchManagers: ["pixi"]`, `matchUpdateTypes:
+> ["lockFileMaintenance"]` and `enabled: false` (the documented form; `lockFileMaintenance`
+> is a top-level option and is not nested under a manager), in a configuration pull request
+> under the first rule, so `Cargo.lock` maintenance continues and `pixi.lock` moves
 > by hand as the how-to already describes. (5) Rewrite the
-> pages named under Files touched, in the activation pull request of step 3 (or the
-> fallback's file pull request), and run `just check-docs` there. (6) Record each proof's outcome and the branch names Renovate
+> pages named under Files touched twice as step 3 describes, held-mode wording with the
+> landing and weekly wording with the activation (once, with the file, on the fallback
+> rail), and run `just check-docs` in each of those pull requests. (6) Record each proof's outcome and the branch names Renovate
 > used, then `just check`, `status: done`.
 >
 > **If the app is refused (the fallback).** The same ticket, on a different rail.
