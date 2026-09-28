@@ -819,10 +819,12 @@ estimated_size: S
 > `# vX.Y.Z` comment in place, with the markdownlint rev in `.pre-commit-fix.yaml` moved on
 > the same branch by hand, again asking first, and lychee shown to be ignored. The
 > no-update exception applies as above. Acceptance on this rail: each of the four passed
-> `check` or, when an ecosystem has no update available, is proven by that ecosystem's
-> most recent Dependabot update job under the repository's Insights, Dependabot tab: the
-> job succeeded and its log names the file and the pin it parsed, quoted in the notes (the
-> dependency graph does not show these ecosystems' detections, so it is not the proof); the two pages name Dependabot and the routine; no app is installed and no
+> `check` or, for any pin or file a proof names that has no update available (judged per
+> pin and per file, as on the other rail, so a current composite action does not block the
+> `github-actions` proof that `ci.yml` carries), is proven by that ecosystem's most recent
+> Dependabot update job under the repository's Insights, Dependabot tab: the job succeeded
+> and its log names that file and that pin as parsed, quoted in the notes (the dependency
+> graph does not show these ecosystems' detections, so it is not the proof); the two pages name Dependabot and the routine; no app is installed and no
 > secret exists.
 >
 > **Acceptance.** Every proof pull request in step 4 passed `check`; where one failed, the
