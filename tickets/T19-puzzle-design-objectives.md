@@ -1423,6 +1423,15 @@ running `just check-links-online` at the start of the session.
   states a fact and changes no rule, and it is one line to revert if the maintainer
   would rather it went to `main` separately. The file is not in Files touched, so
   `git status` lists one path beyond that table.
+- **The third review round (Codex, Copilot, 2026-09-28)**, three findings, no rule.
+  `generation.allium`'s contract question no longer says a stall means a step outside
+  the repertoire was needed: the check is a solved run at or below the ceiling, a stall
+  fails it and has no cause assigned, since `StalledIsNotUnsolvable` speaks for the
+  profile alone and the missing step may be a family the catalogue defers.
+  `human-solving.allium`'s question names `AssessmentSummary` as the owner of
+  `solve_fraction` and `AssessmentDetail` as the owner of the distributions. The page's
+  level-mapping table gives the intermediate row ranks 5 to 12 and the advanced row
+  13 to 23, since the quads sit at 11 and 12.
 
 ### Handed back
 
