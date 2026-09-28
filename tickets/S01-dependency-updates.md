@@ -725,7 +725,13 @@ estimated_size: S
 > lock-file maintenance stay, each of those opening only on a maintainer's click. Its push, its opening and its merge are three separately authorised actions
 > (CONVENTIONS.md §11), each asked for on its own; the merge is a person's.
 > (4) Proof, one pull request per manager, each opened by a dashboard approval and taken
-> through the five checks: a `crates` group that moves `Cargo.lock` and no range, or, when
+> through the five checks. One rule for the whole step, stated once so it need not be
+> repeated at each mention: wherever a proof says "the manager is adjusted" or "the rule
+> is adjusted", that adjustment is a change to `renovate.json` (or, on the fallback rail,
+> `.github/dependabot.yml`) on `main`, made through a pull request whose push, opening and
+> merge are each separately authorised under CONVENTIONS.md §11, exactly as the landing in
+> step 1 and the activation in step 3 are; and every other write outside the worktree that
+> this ticket names, each dashboard click included, is authorised on its own. The proofs: a `crates` group that moves `Cargo.lock` and no range, or, when
 > a release has fallen outside a range, the range as well, which under `update-lockfile` is
 > the `replace` fallback and a diff to read, not a failure; a `github actions` group
 > that moves a SHA and its comment in `ci.yml` and in the composite action; the
