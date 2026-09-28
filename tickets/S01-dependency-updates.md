@@ -463,8 +463,8 @@ and Renovate edits the manifest but relocks `pixi.lock` only if the hosted app p
 `pixi lock`, which is undocumented. Renovate can at least list them.
 
 **Recommended: Renovate, on the condition that the maintainer installs the Mend app on
-this repository, accepting an app that holds write access to its contents, workflows,
-issues and pull requests in exchange for those five pins and a dashboard that shows every
+this repository, accepting an app that holds write access to its checks, commit statuses,
+contents, issues, pull requests and workflows in exchange for those five pins and a dashboard that shows every
 pending pixi tool release.** If that trade is refused, the fallback is Dependabot with
 four ecosystems and no app, which is much stronger than the ticket assumed, plus the manual
 routine below for what it misses. The maintainer said on 2026-09-26 that they are open to
