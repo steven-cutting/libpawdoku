@@ -1,7 +1,7 @@
 ---
 id: T19
 title: "Puzzle design objectives: the research report in the docs, the gaps in the specs, and the generation module's skeleton"
-status: open
+status: done
 depends_on: [T06, T08, T12]
 parallel_with: []
 branch: ticket/t19-puzzle-design-objectives
@@ -1314,13 +1314,152 @@ the third listing at least one block per module; the fourth empty of module coun
 
 ## Hand-back notes
 
+Executed on 2026-09-28 on the Supacode worktree branch `game-design-research`, which
+carries this ticket's commits over `main` at `ffcdca0`; the `branch:` field names the
+ticket branch by convention and the worktree's name differs, as every Supacode lane's
+does. `.tools/bin/allium` already existed, so `just install-allium` was not run and no
+network was used for it. The maintainer authorised opening the report's sources and
+running `just check-links-online` at the start of the session.
+
 ### What was verified, and how
+
+- **Baseline.** `just check` green on the untouched worktree before any edit
+  (`allium analyse: 8 specifications, no diagnostics and no findings.` and
+  `All checks passed and the worktree is unchanged.`).
+- **The skeleton lands.** The pinned checker (3.6.1) accepts a module with `use`
+  lines, a `config` block, open questions and no rule, entity or trigger: a minimal
+  probe passed both spec recipes before the header was written, so the T20 fallback
+  was not needed. The two config figures, `step_budget` and `candidate_limit`, are
+  declared without defaults, which the language reference permits ("mandatory, no
+  default"), because a default would be a figure this ticket's Non-goals forbid
+  deciding.
+- **Spec gates**, after the skeleton and the six open questions in the four modules:
+  `allium check: 9 specifications, no diagnostics and no findings.` and
+  `allium analyse: 9 specifications, no diagnostics and no findings.` No waiver.
+- **Docs gate.** `just check-docs`: markdownlint, typos and offline lychee passed;
+  `Validated 39 pages and 40 canonical topics.`
+- **Sources.** Each report source was opened on 2026-09-28. Pelánek 2014
+  (arXiv 1403.7373, already in the table); Nishikawa and Toda 2020 (Algorithms 13(7),
+  171; the MDPI page returns 403 to a fetch, the arXiv record 2005.14098 opens and is
+  the link); McGuire, Tugemann and Civario 2012 (arXiv 1201.0749); Sweetser and Wyeth
+  2005 (the ACM DOI returns 403, the QUT ePrints record opens and is the link); Ryan,
+  Rigby and Przybylski 2006 (the Springer DOI resolves and is the link). Nikoli's
+  English site, Snyder's about page and a Grandmaster Puzzles post describing a
+  classic designed with a narrow solving path, the WPF Grand Prix site and Studio
+  Goya's Cracking the Cryptic page all opened and are linked from the page's source
+  table. Snyder's "Friday Puzzle Series" could not be opened and is dropped from that
+  table.
+- **`just check-links-online`.** Every link this ticket added passed. The recipe
+  exits 1 on one pre-existing link this ticket did not touch:
+  `[403] https://doi.org/10.1080/17470216008416717 (at 100:3)` in
+  `human-solving.md`, the Wason 1960 row, whose SAGE landing page refuses the
+  checker. Tail: `🔍 368 Total (in 2s 760ms) 🔗 130 Unique ✅ 367 OK 🚫 1 Error
+  🔀 2 Redirects`. Handed back below.
+- **The objective map's citations.** A script printed the text at every `file:line`
+  the closing table cites and each was read against what the row says; the lines
+  the ticket cited at `ffcdca0` had not moved, because every spec edit appends to the
+  end of its module, and every new citation (the open questions, the config, the
+  evidence rows, the two scope pages) was computed from the tree at build time.
+- **Acceptance greps.** `rg -n 'citeturn|\bclue' docs/explanation/puzzle-design.md`
+  returns only the cleaning rule that says "clue" is not used and the two paper
+  titles; `rg -n '\beight\b' docs README.md` returns no current module count (the
+  remaining hits are historical: the eight that moved from the game, in decisions
+  0001 and 0002, and technique.allium's "eight of the nine questions").
+- **Full gate.** `just check` tail quoted under Handed back once run: `==> just check-clean` ... `The worktree matches the check baseline.` ... `All checks passed and the worktree is unchanged.`, after `allium analyse: 9 specifications, no diagnostics and no findings.` and `Validated 39 pages and 40 canonical topics.`; every recipe from `check-toolchain` to `analyse-specs` green, `test-doc` 11 passed.
+- **The whole diff was read** before this hand-back was written.
 
 ### Deviations, and why
 
+- **The page's title is "Puzzle design objectives"**, the topic's name, not the
+  report's; the report's own title is quoted in the page's first paragraph. The ticket
+  fixed the path and the topic slug and left the title to the executing agent.
+- **The received report is cleaned by script**, from the ticket's appendix, with every
+  transformation asserted against the text: heading levels, the two flowcharts, the
+  three formulas, the vocabulary, the four captions, the sentence about minutes, and
+  the source links. One sentence was reworded beyond the rules because the mechanical
+  replacement produced "Given given positions": it now reads "For a set of positions
+  and a chosen strategy set, they study whether an assignment of givens to those
+  positions can be generated". The phrase "minimum-clue theorem" became "the theorem
+  on the fewest givens" for the same reason.
+- **Decisions 0001 and 0002 keep "eight"** where they describe the eight modules that
+  moved from the game, which is still true; 0001 gains a clause naming the ninth as
+  the first specified here. 0002 is not in Files touched and is not edited. The
+  acceptance criterion "no page says eight modules where there are nine" is read as a
+  current count, which no page now states.
+- **`docs/explanation/layering.md`** gains more than the one table row the ticket
+  named: the "Imported by" cells of `solver`, `technique` and `reach` now name
+  `generation`, because the table would otherwise contradict its own new row, and a
+  sentence in the prose says `generation` is the one module that stands on a model.
+- **The evidence table** links Sweetser and Wyeth to QUT ePrints and Nishikawa and
+  Toda to arXiv rather than to their publishers' DOIs, because both publisher pages
+  refuse the link checker (403) and the contract says a link that nothing can check is
+  worse than none.
+- **One row was added to the objective map** that the ticket's map missed: redundant
+  givens, a given that is logically unnecessary but makes the opening less forbidding,
+  which the report calls experiential value and which no module asks a generator to
+  keep. Class product; it lands on the page and as an acceptance question for T20.
+- **The player-level row** lands on the page alone, with a mapping table of the
+  report's four levels against the ladder families and both preset families, and adds
+  no open question about two more deterministic presets: `human-solving.allium`'s
+  existing presets question already holds that decision, as the ticket's Open points
+  say.
+
 ### Handed back
 
+- **`docs/reference/documentation-contract.md`** says "Two pages point outward" and
+  names them. Three do now: `puzzle-design.md` links its verified sources to whole
+  pages, as the ticket asked. The contract page is a Non-goal of this ticket, so the
+  sentence is handed back as a one-line follow-up on `main`.
+- **The Wason 1960 link** in `human-solving.md` (`https://doi.org/10.1080/17470216008416717`)
+  fails `just check-links-online` with 403 from SAGE. Not this ticket's row; a
+  maintainer follow-up to swap it for a page the checker can open, or to accept 403
+  for that host in `lychee.toml`.
+- **T20, the generation module.** Depends on T19 and on the solver's Rust ticket.
+  Writes `generation.allium`'s triggers, guarantees and fixtures on the skeleton
+  landed here: drawing a solution grid through the randomness boundary (a full grid
+  with no conflict, the same for the same seed); removal by orbit under the chosen
+  symmetry scheme; the acceptance run, the candidate put to `solver.allium`'s
+  `Solving` for its verdict and to `reach.allium`'s `Rate` for the target profile;
+  shortcut suppression as the module's open question resolves it; the step budget and
+  the candidate limit, with what a budget exhausted reports; a replay guarantee in
+  `SameInputSameRun`'s shape; whether a floor of redundant givens per level is kept
+  (the map's added row); and fixtures. Every `open question` the skeleton carries is
+  either answered in that ticket by the maintainer, or left standing with the trigger
+  written so that the answer is a config figure.
+- **T21, pacing measures.** Depends on T19 and on a solver in Rust. In
+  `reach.allium`, deterministic: a `Step` records the steps whose placements or
+  strikes its proof rests on (dependency edges); then routine-run length between
+  hooks, cascade size after a step and dependency length as values of a run, exposed
+  on `RunResult`, with the hook cutoff decided by the maintainer from the candidates
+  the open question names. `human-solving.allium`'s `AssessmentDetail` reads the same
+  three so that the seeded and deterministic models report pacing in one vocabulary.
+  `technique.allium`'s hook-and-cascade question is answered in the same change,
+  because the answer decides which module owns the definition.
+- **S05, a development-time judge.** A spike. Depends on T19 and S04. What a judge is
+  asked: the report's eight rubric dimensions (challenge fit, fairness, pacing,
+  elegance, novelty, visual aesthetics, aha quality, finish) as independent typed
+  answers, never a sum. What it is shown: serialised `RunResult`, `PricedRun`,
+  `TackledRun` and `AssessmentSummary` plus the givens, which makes their shapes API
+  the pipeline depends on. How its verdicts are used: to tune generation `config` and
+  the technique contract, or to select a curated set. Where the pipeline lives: S04's
+  Python crate is the candidate. Jev is one candidate judge among others; nothing at
+  runtime, per decision 0012.
+- **Fixtures.** The four study puzzles on the page (32, 32, 29 and 25 givens as the
+  report states them) are candidates for `technique.allium`'s `AdvancedExamples`
+  once `solver.rs` exists and has verified each one's well-posedness and stated path.
+  A note for that Rust ticket, not a ticket of its own; if a grid fails either check
+  it is dropped from the page in the same change.
+
 ### Open points settled
+
+None of the five below was settled; each is recorded where the ticket said it would
+be. Where puzzles are made: `generation.allium`'s first open question and decision
+0012. Pacing targets: `reach.allium`'s pacing question poses the measures and
+`generation.allium`'s pacing question asks whether the thresholds are obligations or
+config. Symmetry as input or property: `generation.allium`'s symmetry question asks
+both, and whether asymmetric givens are ever kept. The study puzzles: carried on the
+page as unverified, handed to the solver's Rust ticket above. Presets: mapped on the
+page, nothing changed, `human-solving.allium`'s question stands.
 
 ## Open points
 

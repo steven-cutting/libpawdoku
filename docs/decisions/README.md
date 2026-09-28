@@ -32,6 +32,7 @@ as `open question` blocks — see [Specifications](../explanation/specifications
 | [0009](0009-rust-quality-gate.md) | The Rust quality gate |
 | [0010](0010-skill-reference-material.md) | Skill reference material beside the skills |
 | [0011](0011-tool-manager.md) | Tool manager |
+| [0012](0012-generation-and-dev-time-judges.md) | Generation is the engine's; judges are development-time only |
 
 Decision 0004 is superseded in part by decision 0011, which names the consequences of
 0004 it replaces and the ones that stand.
@@ -43,7 +44,7 @@ Pawdoku's decision records at `78d03cdf` when the engine moved here (0002, 0003,
 0005); each says so under its heading and keeps the topic slug it had, because the slug
 is what a cross-repository reference names, and the game restates the engine's clauses
 and cites these records by slug. Nothing here is rendered from a template, so no frozen
-inventory of numbers applies. The next decision this repository takes is 0012.
+inventory of numbers applies. The next decision this repository takes is 0013.
 
 ## Writing a new one
 

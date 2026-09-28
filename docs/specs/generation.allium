@@ -1,0 +1,109 @@
+-- allium: 3
+--
+-- Generation — how a setter that is a program finds givens
+--
+-- Scope
+--   How a setter that is a program finds givens: a solution grid drawn
+--   through the randomness boundary, givens removed under a symmetry until
+--   the puzzle is well-posed and solvable within a stated technique
+--   contract, under a step budget. sudoku.allium says what a setter may
+--   pose and nothing of how it finds it; solver.allium says whether what it
+--   found is well-posed; reach.allium says whether a profile gets through
+--   it. This module is where those three are put to work to make a puzzle
+--   rather than to judge one, and it answers to all three.
+--   This module is a skeleton. Its scope, its config and its open questions
+--   are stated; its triggers, guarantees and fixtures are not, and nothing
+--   should be built on it until they are. The questions below are product
+--   decisions, and each is recorded so that whoever writes the triggers does
+--   not answer it by accident.
+--   Source: docs/explanation/puzzle-design.md, for what a designed puzzle
+--   is asked to be and which of those asks the engine can measure.
+--
+-- Includes
+--   - The solution grid: a full grid with no conflict, drawn through the
+--     randomness boundary from a seed, the same grid for the same seed.
+--   - Removal: givens taken away from the full grid one orbit of a symmetry
+--     scheme at a time, so that the givens left keep the scheme.
+--   - Acceptance: the givens left are put to solver.allium for their
+--     verdict and to reach.allium's Rate for the target profile, and a
+--     candidate is kept only when the verdict is one and the run ends
+--     solved within the technique contract.
+--   - Limits: a step budget on the search and a limit on the candidates
+--     tried, both figures and never a clock, and what a search that spends
+--     either reports.
+--   - Replay: the same seed, the same profile and the same config give the
+--     same givens, as every other module gives the same run.
+--
+-- Excludes
+--   - Rating and hints. What a profile makes of a puzzle is reach.allium's,
+--     and this module only asks it.
+--   - Deciding well-posedness. solver.allium gives the verdict; this module
+--     only asks for it.
+--   - Where puzzles are made: ahead of time into a set a consumer carries,
+--     on the device that poses them, or both. Open, below. The module is
+--     written so that it can run anywhere under a step budget.
+--   - Any judge. Whether a puzzle is elegant, novel or looks deliberate is
+--     judged by a person or by a development-time tool over what this
+--     module and the models expose; nothing here names, calls or waits on
+--     one (docs/decisions/0012-generation-and-dev-time-judges.md).
+--   - Chance beyond the boundary. Every draw comes through the randomness
+--     boundary the library owns, and nothing here sources entropy.
+--   - How a full grid is drawn quickly, how candidates are stored, and
+--     which of several equally acceptable candidates is kept.
+--
+-- Dependencies
+--   sudoku.allium, for Given and what a setter may pose; solver.allium, for
+--   the verdict; technique.allium, for the profile a contract is stated
+--   against; reach.allium, for the run a candidate is accepted on.
+--
+-- Vocabulary
+--   sudoku.allium's, technique.allium's and reach.allium's words stand:
+--   given, never clue; well-posed; profile; run, step, stall. To them:
+--   symmetry scheme, a rule that pairs positions of the grid with each
+--   other; orbit, the positions a scheme pairs together, which are removed
+--   or kept as one; technique contract, what a candidate is held to before
+--   it is kept, stated in terms of technique.allium's profile; hook, a step
+--   that stands above the routine steps around it in a run; cascade, the
+--   steps a hook lets loose. Hook and cascade are named here as terms and
+--   not measured here: what makes a step a hook, and how a cascade is
+--   counted, are reach.allium's open questions.
+
+use "./sudoku.allium" as sudoku
+use "./solver.allium" as solver
+use "./technique.allium" as technique
+use "./reach.allium" as reach
+
+------------------------------------------------------------
+-- Config
+------------------------------------------------------------
+
+config {
+    box_side: Integer = sudoku/config.box_side
+    side: Integer = sudoku/config.side
+
+    -- The most steps a search may take before it stops and says so. A step
+    -- here is one look, removal or acceptance run, counted and never timed;
+    -- the figure is the caller's, and what a spent budget reports is an
+    -- open question below.
+    step_budget: Integer
+
+    -- The most candidate sets of givens a search may put to acceptance
+    -- before it stops and says so. The caller's, as above.
+    candidate_limit: Integer
+}
+
+------------------------------------------------------------
+-- Open Questions
+------------------------------------------------------------
+
+open question "Where puzzles are made. A set generated ahead of time and carried by the consumer, generation on the device that poses the puzzle, or both. The step budget a search can afford, and whether shortcut suppression (dear, below) is run at all, depend on the answer; a set made ahead of time can also be judged by a development-time tool, and a puzzle made on the device cannot. The maintainer's decision, recorded in decision 0012 as open."
+
+open question "The symmetry schemes and the default. Rotation by a half turn is the convention, and under it the centre cell is an orbit of its own, so removing it changes the count of givens by one where every other orbit changes it by two. Which schemes are offered (half-turn rotation, quarter-turn rotation, the two diagonals, horizontal and vertical reflection, none), is a scheme something a search is asked for or something it reports of what it made, or both, and are asymmetric givens ever kept? Symmetry ranks below well-posedness and the technique contract: a candidate is never kept for its shape when its run fails."
+
+open question "The technique contract's shape. A profile plus a ceiling: the target profile's run must end solved and its hardest step must sit at or below a named rank. Or a required set and a forbidden set: some techniques must appear in the run and some must not. One Rate run for the profile checks the first, since a stall means a step outside the repertoire was needed and a technique outside the repertoire never appears in a run (LimitsOnlyHide). It does not show that a required technique was needed, only that it was used, and it cannot show that no other route avoids it; that is the next question."
+
+open question "Shortcut suppression: a candidate whose intended hook can be bypassed by a simpler route. Rating again with the intended technique taken out of the repertoire, which LimitsOnlyHide makes clean, ends stalled or solved. Solved says a route without it exists, and the candidate is rejected or its givens moved. Stalled says this profile's route in this order needs it, not that every route does: StalledIsNotUnsolvable speaks for the profile alone, and reach.allium's monotonicity question says a strike one order takes can close off what another needed. Is one run enough, are several profiles and orders rated, and is a search that spends its budget reported as inconclusive rather than as either?"
+
+open question "The pacing a candidate must show before it is kept. The length of the routine runs between hooks, the size of the cascade after a hook, the length of the dependency chain before the centrepiece and the shape of the closing steps are all read from reach.allium's RunResult once its pacing question is answered. Are the thresholds a candidate must meet obligations of this module per profile, or figures in this config that a consumer sets? And the report's per-level ranges for the count of givens (roughly 36 to 45, 30 to 37, 26 to 33 and 22 to 30 for its four levels) are construction starting points and never a rating: is a range a config figure, a hint to removal, or nothing this module states?"
+
+open question "What a spent budget reports. A search that reaches step_budget or candidate_limit with no candidate accepted has found nothing wrong with the puzzle it did not finish; it says the budget ran out. Is that an outcome of its own, reported with the best candidate so far and how far its acceptance got, or a refusal with nothing to show?"
