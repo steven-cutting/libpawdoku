@@ -38,7 +38,7 @@ none is picked up before T11.
 | Id | Title | File | Depends on | Status |
 | --- | --- | --- | --- | --- |
 | S01 | Spike: dependency updates, Dependabot, Renovate or none | `S01-dependency-updates.md` | T11 | done |
-| S02 | Spike: release and publishing, cargo-release or release-plz, crates.io, lifting publish = false | `S02-release-and-publishing.md` | T11 | open |
+| S02 | Spike: release and publishing, cargo-release or release-plz, crates.io, lifting publish = false | `S02-release-and-publishing.md` | T11 | done |
 | S03 | Spike: benchmarks, fuzzing and mutation testing | `S03-bench-fuzz-mutants.md` | T11 | open |
 | S04 | Spike: bindings and CLI groundwork, pawdoku-cli, pawdoku-py, pawdoku-wasm | `S04-bindings-and-cli.md` | T11, T06 | open |
 

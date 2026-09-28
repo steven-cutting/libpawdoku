@@ -1,7 +1,7 @@
 ---
 id: S02
 title: "Spike: release and publishing, cargo-release or release-plz, crates.io, lifting publish = false"
-status: open
+status: done
 depends_on: [T11]
 parallel_with: []
 branch: ticket/s02-release-and-publishing
@@ -86,6 +86,7 @@ repository. The starting recommendation: **cargo-release**, with
 | Path | Class | Change |
 | --- | --- | --- |
 | `tickets/S02-release-and-publishing.md` | ticket | the evidence, the recommendation, the drafted follow-up; `status: done` |
+| `tickets/README.md` | ticket index | S02's row set to `done` (added in the first review round; see Deviations) |
 
 ## Steps
 
@@ -176,13 +177,774 @@ link definition T10 wrote; one line naming this file.
 
 ### What was verified, and how
 
+Run on 2026-09-27 (US Pacific) in the Supacode worktree for this ticket, on branch
+`S02-release-and-publishing.md` (see Deviations), from `main` at `ffcdca0` after S01 had
+merged. The session straddled midnight UTC, so commands stamped 2026-09-28 UTC belong to
+the same run. Nothing was tagged, published, configured on crates.io or GitHub, or
+installed into the repository.
+
+The maintainer authorised these read-only network uses on the day: the crates.io name
+checks (`cargo search`, and `curl` with a User-Agent); the documentation of crates.io,
+cargo-release, release-plz and cargo-semver-checks; `gh api` reads (repository contents,
+tags, releases, and this repository's branch protection and environments); `pixi search`;
+and tool installs into the session's scratch directory only. The maintainer ran
+`just initialize` in this worktree themselves. One further read happened inside that
+grant and is stated here so nobody has to find it: cargo-release's dry run in the
+worktree fetches the crates.io sparse index (`index.crates.io`) to see whether the
+version is already published.
+
+The worktree before any step:
+
+```text
+$ git rev-parse --short HEAD origin/main
+ffcdca0
+ffcdca0
+$ git status --porcelain
+$ git rev-parse 'HEAD^{tree}'
+e2e5eb4c7e2046ce865af739768bbc3814a04543
+```
+
+**Step 1.** The worktree existed before the ticket ran (Deviations).
+
+**Step 2. The names: all four are free, and the §12 claim held on 2026-09-27.**
+
+```text
+$ cargo search pawdoku --limit 5
+$ curl -sS -A 'libpawdoku-S02 (github.com/steven-cutting/libpawdoku)' https://crates.io/api/v1/crates/pawdoku | head -c 400
+{"errors":[{"detail":"crate `pawdoku` does not exist"}]}
+$ cargo search pawdoku-cli --limit 5
+$ curl -sS -A '…' https://crates.io/api/v1/crates/pawdoku-cli | head -c 400
+{"errors":[{"detail":"crate `pawdoku-cli` does not exist"}]}
+$ cargo search pawdoku-py --limit 5
+$ curl -sS -A '…' https://crates.io/api/v1/crates/pawdoku-py | head -c 400
+{"errors":[{"detail":"crate `pawdoku-py` does not exist"}]}
+$ cargo search pawdoku-wasm --limit 5
+$ curl -sS -A '…' https://crates.io/api/v1/crates/pawdoku-wasm | head -c 400
+{"errors":[{"detail":"crate `pawdoku-wasm` does not exist"}]}
+```
+
+Every `cargo search` printed nothing and exited 0. To show that an empty result means
+"no match" and not a broken search, a control run of `cargo search sudoku --limit 3`
+listed `sudoku = "0.8.0"`, `sudoku-cli = "0.2.0"` and `sudoku-plus = "0.1.4"` "and 117
+crates more". A name stays free only until someone takes it, and nothing reserves it
+before a first publish (step 3).
+
+**Step 3. Trusted publishing: the first publish needs a token.** Sources were read on
+2026-09-27. "docs" marks an official page, and "source" marks code or an `action.yml`.
+
+- **No publisher before the crate exists (docs).** The Prerequisites on
+  <https://crates.io/docs/trusted-publishing> read: "Your crate must already be published
+  to crates.io (initial publish requires an API token)". RFC 3691
+  (<https://rust-lang.github.io/rfcs/3691-trusted-publishing-cratesio.html>) says: "A
+  _Trusted Publisher Configuration_ can only be created after an initial manual publishing
+  of a crate". It lists creating one "in a `PENDING` state, prior to the initial
+  publishing of a crate" only under Future Possibilities. The crates.io repository at
+  `d72a34e` has no pending-publisher code (source). release-plz's quickstart names the
+  token scopes for that first publish: "`publish-new` and `publish-update`".
+- **Afterwards (docs and source).** The crates.io page says to test trusted publishing and
+  then "remove the API token from your repository secrets". The crates.io update of
+  2026-01-21 (<https://blog.rust-lang.org/2026/01/21/crates-io-development-update>) adds
+  a per-crate setting, "Require trusted publishing for all new versions". The settings
+  page (source) says of it: "When enabled, new versions can only be published through
+  configured trusted publishers. Publishing with API tokens will be rejected." The API
+  reports it as `trustpub_only` on the crate. The token used for the first publish lives
+  on the maintainer's machine, not in this repository, and is revoked on crates.io once
+  that setting is on. The same post says `pull_request_target` and `workflow_run`
+  triggers are refused.
+- **The publisher's fields (docs).** Repository owner, repository name, workflow filename
+  ("should be present in the `.github/workflows/` directory"; the form checks that it
+  exists on the default branch), and an optional environment. The form (source) calls a
+  dedicated environment "not required, but … **strongly recommended**, especially if your
+  repository has maintainers with commit access who should not have crates.io publishing
+  access".
+- **The job shape (docs and source).** The page's example job has `permissions:
+  id-token: write` ("Required for OIDC token exchange"), then
+  `rust-lang/crates-io-auth-action` with `id: auth`, then `cargo publish` with
+  `CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}`. The action's `action.yml`
+  (source) has one input, `url` (default `https://crates.io`), and one output, `token`.
+  It runs on `node24` and has a `post` step, which its README says "automatically revokes
+  the token when the job completes". Tokens "automatically expire after 30 minutes" (docs).
+  `contents: read` is all the checkout needs; `contents: write` is needed only if the job
+  also creates a GitHub Release.
+- **The action's pin (source).**
+
+  ```text
+  $ gh api repos/rust-lang/crates-io-auth-action/releases --jq '.[0:3][] | {tag_name,published_at}'
+  v1.0.5 2026-06-16T10:26:29Z, v1.0.4 2026-03-23T16:01:32Z, v1.0.3 2025-11-06T13:27:32Z
+  $ gh api repos/rust-lang/crates-io-auth-action/git/ref/tags/v1.0.5
+  "object":{"sha":"c6f97d42243bad5fab37ca0427f495c86d5b1a18","type":"commit"}
+  ```
+
+  The tag is lightweight, so there is nothing to dereference. The pin is
+  `rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5`.
+  The docs' `@v1` is a branch, not a tag: `git/ref/tags/v1` returns 404, and `v1` is in
+  the branch list.
+- **The proof marker (source).** Every version object from
+  `GET /api/v1/crates/<name>/versions` carries `trustpub_data`. On a trusted publish it
+  holds `{provider, repository, run_id, sha}` and `published_by` is `null`. That field is
+  T13's proof.
+
+**Step 3a. What is most common (the maintainer's criterion).** The maintainer asked for
+the release shape to follow what is most common in the Rust and Python ecosystems. The
+repository list was fixed before any repository was read. Each default branch was read
+through `gh api` on 2026-09-27: root release configs (`release.toml`, `release-plz.toml`,
+`release-please-config.json`, `.changeset/`, `cliff.toml`), the workflows that publish,
+their triggers and their authentication. For each Rust crate, the crates.io
+`trustpub_data` of its newest versions was read too. The classes:
+
+- **(A)** a person bumps and tags, and CI publishes on the tag or release;
+- **(B)** a bot opens a release pull request, and merging it publishes;
+- **(C)** a person publishes from a local machine, with no publishing workflow;
+- **(D)** anything else.
+
+| Repository | How a release is published | Authentication | Class |
+| --- | --- | --- | --- |
+| `tokio-rs/tokio` | no publishing workflow | local | C |
+| `serde-rs/serde` | no publishing workflow | local | C |
+| `clap-rs/clap` | cargo-release locally; `post-release.yml` on `v*` tags only creates the GitHub Release | local | C |
+| `BurntSushi/ripgrep` | `release.yml` on version tags builds binaries; crates.io by hand per `RELEASE-CHECKLIST.md` | local | C |
+| `rust-lang/regex` | no publishing workflow | local | C |
+| `rayon-rs/rayon` | no publishing workflow | local | C |
+| `tokio-rs/axum` | `release-plz.yml` on push to `main` (configured 2026-05-05); its newest versions predate it, and release PR #3863 has been open since 2026-08-11 | OIDC, not yet exercised | B |
+| `seanmonstar/reqwest` | no publishing workflow | local | C |
+| `PyO3/pyo3` | `release.yml` on `v*` tags and `workflow_dispatch`, `cargo publish --workspace` | OIDC, environment `release` | A |
+| `rust-random/rand` | `release.yml` on version tags, after a person's "Prepare rand 0.10.3" pull request (#1840) | OIDC, environment `release` | A |
+| `uuid-rs/uuid` | no publishing workflow | local | C |
+| `proptest-rs/proptest` | no publishing workflow; `prerelease-checks.sh` | local | C |
+| `pydantic/pydantic` | `ci.yml` jobs that run only on tags, `uv publish --trusted-publishing always` | OIDC, environment `release` | A |
+| `psf/requests` | `publish.yml` on `v*` tags | OIDC, environment `publish` | A |
+| `pallets/flask` | `publish.yaml` on any tag | OIDC, environment `publish` | A |
+| `astral-sh/ruff` | `release.yml` on `workflow_dispatch` with a tag input; cargo-dist | OIDC, both registries | D |
+| `astral-sh/uv` | the same shape as ruff | OIDC, both registries | D |
+| `pola-rs/polars` | `release-python.yml` on `workflow_dispatch`; the Rust workflow is disabled (`if: false`), so crates go by hand | OIDC for PyPI, local for crates.io | D |
+| `pytest-dev/pytest` | `deploy.yml` on `workflow_dispatch` with a version; it publishes and then tags | OIDC, environment `deploy` | D |
+| `PyO3/maturin` | `release.yml` on `v*` tags, `uv publish` and `cargo publish` | OIDC, environments `PyPI` and `crates.io` | A |
+| `encode/httpx` | `publish.yml` on any tag, `twine upload` | stored secret `PYPI_TOKEN` | A |
+| `numpy/numpy` | from the companion repository `numpy/numpy-release`, `workflow_dispatch` | OIDC | D |
+
+The tallies:
+
+- **Rust:** A 2, B 1, C 9.
+- **Python:** A 5, D 5. Every D is a person dispatching a workflow that publishes.
+
+Of the thirteen repositories that publish from CI, twelve use OIDC trusted publishing;
+the one exception is httpx. No surveyed workflow passes a stored `CARGO_REGISTRY_TOKEN`.
+Every CI publish to crates.io that has happened (pyo3, rand, maturin, ruff, uv) goes
+through `rust-lang/crates-io-auth-action`, and all five carry `trustpub_data` on their
+newest crates.io versions. Of the twelve Rust crates in the list, the other ten show a
+person in `published_by`. Two spot checks were re-run
+by hand: tokio's workflows list no publisher, and rand 0.10.3 carries
+`trustpub_data.repository: rust-random/rand`.
+
+The decision rule was fixed before the tally: the most common shape wins, and if the
+ecosystems disagree, the Rust shape governs the core crate. Its stop condition fired,
+because the Rust winner is C, not the starting recommendation's A. The notes went back
+to the maintainer with the tally. **The maintainer chose A** with it in hand, for these
+reasons:
+
+- AGENTS.md, CONVENTIONS.md §11, `docs/explanation/security-model.md` and
+  `docs/operations/maintenance.md` already promise trusted publishing and no stored
+  token.
+- Every CI publisher to crates.io in the sample uses OIDC.
+- Python, where `pawdoku-py` will go, starts every release with a person and publishes
+  from CI.
+- The bindings will need CI publishing anyway.
+
+So A is the maintainer's decision informed by the survey, not the survey's winner (see
+Deviations).
+
+**Step 3b. release-plz, re-checked (docs).** The ticket's premise that release-plz "would
+write a changelog nobody wrote and a bump it cannot justify" is half wrong.
+
+- **Conventional commits are not required.** release-plz's version logic
+  (`next_version`) says "If conventional commits are not used, the patch is incremented".
+  A break found by cargo-semver-checks raises the minor before 1.0 (the semver-check
+  page).
+- **Changelog generation can be turned off.** `changelog_update = false` does it
+  (<https://release-plz.dev/docs/config>).
+
+What does not fit the house is elsewhere:
+
+- **CI does not run on the release pull request.** It "won't run" when the pull request
+  was opened with the default `GITHUB_TOKEN`, so the pull request needs a PAT or a GitHub
+  App (<https://release-plz.dev/docs/github/token>). That is a stored credential, against
+  §11.
+- **The publisher would sit on the `main` workflow.** The release job runs on every push
+  to `main`, so the trusted publisher names that workflow.
+- **The tag scheme would change.** Its default tag for a workspace with one publishable
+  crate is `v{{ version }}`, and it becomes `<package>-v…` only when a second crate
+  becomes publishable.
+- **The survey's one B is unexercised.** axum's release pull request has been open since
+  2026-08-11, and nothing has been published through it.
+
+It does support trusted publishing: it does the exchange itself, and its docs say to
+leave out the auth action.
+
+**Step 4. cargo-release.** It is not on conda-forge:
+
+```text
+$ pixi search cargo-release --platform linux-64
+Error:   × No packages found matching 'cargo-release'
+$ pixi search cargo-release --platform osx-arm64
+Error:   × No packages found matching 'cargo-release'
+$ cargo search cargo-release --limit 1
+cargo-release = "1.1.6"    # Cargo subcommand for you to smooth your release process.
+```
+
+The same searches find cargo-semver-checks 0.50.0 and release-plz 0.3.169 on both
+platforms. cargo-release 1.1.6 was installed into the session scratch directory with the
+environment's cargo-binstall 1.23.0. binstall logged "The package cargo-release v1.1.6
+(aarch64-apple-darwin) has been downloaded from github.com" and verified no checksum, so
+it has the same standing as cargo-hack in §12's T03 outcome.
+
+(a) **The worktree dry run.** The command step 4 names is rejected:
+
+```text
+$ cargo release release --workspace --dry-run patch
+error: the subcommand 'patch' cannot be used with:
+  [LEVEL|VERSION]
+  --workspace
+  --dry-run
+```
+
+In 1.1.6, `release` is a level ("Remove the pre-version"), and there is no `--dry-run`
+flag: "`-x, --execute` Actually perform a release. Dry-run mode is the default". The
+working form:
+
+```text
+$ cargo release --workspace patch
+warning: push target `origin/S02-release-and-publishing.md` doesn't exist
+   Upgrading pawdoku from 0.1.0 to 0.1.1
+  Publishing pawdoku
+warning: push target `origin/S02-release-and-publishing.md` doesn't exist
+     Pushing Pushing S02-release-and-publishing.md, pawdoku-v0.1.1 to origin
+warning: aborting release due to dry run; re-run with `--execute`
+```
+
+The `-vv` trace of the same run shows the version edit in `crates/pawdoku/Cargo.toml`,
+the lockfile update, `git commit -am chore: Release pawdoku version 0.1.1` and
+`git tag pawdoku-v0.1.1 -a -m …`, then `git push --atomic origin
+S02-release-and-publishing.md pawdoku-v0.1.1`. It shows no `cargo publish` line. It also
+logs "cannot detect changes for pawdoku because no tag was found".
+
+The tree after both runs:
+
+```text
+$ git status --porcelain
+$ git rev-parse 'HEAD^{tree}'
+e2e5eb4c7e2046ce865af739768bbc3814a04543
+$ git tag -l | wc -l
+       0
+```
+
+Unchanged. What the run shows:
+
+- **A `publish = false` crate is neither refused nor skipped.** The version, commit, tag
+  and push steps still run, and only `cargo publish` is left out. The header "Publishing
+  pawdoku" is printed either way. cargo-release's `src/config.rs` reads the manifest's
+  `publish` (inherited from the workspace too) into its own `publish` flag and nothing
+  else (source).
+- **The default tag for a member under `crates/` is `pawdoku-v{{version}}`.** It needs no
+  configuration, and it is the scheme the maintainer chose. The docs say "`{{crate_name}}-v{{version}}`"
+  when the crate is not at the repository root, meaning the git top level.
+- **The defaults don't fit the house.** The effective configuration from
+  `cargo release config`, which wins over the reference page where they differ (the page
+  says `consolidate-commits` defaults to `true`; 1.1.6 dumps `false`), includes:
+
+  ```text
+  allow-branch = ["*", "!HEAD"]
+  publish = true
+  push = true
+  consolidate-commits = false
+  pre-release-commit-message = "chore: Release {{crate_name}} version {{version}}"
+  tag-message = "chore: Release {{crate_name}} version {{version}}"
+  tag-name = "{{prefix}}v{{version}}"
+  ```
+
+  The commit and tag messages are conventional-commit subjects, which the house does not
+  write, so the configuration must set its own.
+
+To show the difference `publish` makes, in a scratch clone (`git clone --no-local` of
+this worktree into the scratch directory, with `origin` removed), `cargo release publish
+--workspace` printed only the header while `publish.workspace = true` stood. With the
+line removed, it packaged and verified the crate ("Packaged 9 files, 33.9KiB (10.4KiB
+compressed)") and stopped at "aborting upload due to dry run".
+
+(b) **The replacements, run for real in the scratch clone.** No remote was set, so nothing
+could be pushed or published. The shape follows cargo-release's own Keep a Changelog
+example (`docs/faq.md`, "Maintaining Changelog"), with two changes:
+
+- **The house heading is kept as written.** The example needs `## [Unreleased] -
+  ReleaseDate` and an HTML-comment marker, and the replacements here match the house's
+  bare `## [Unreleased]` instead.
+- **Every version links to its tag** (`/releases/tag/pawdoku-v…`) rather than a
+  comparison with the previous tag. The first release has no previous tag, and
+  `{{prev_tag_name}}` is not a placeholder, only a `--prev-tag-name` flag. GitHub serves
+  that URL for a tag with no Release object: `rust-lang/regex`'s tag `rure-0.2.5`, which
+  has none, returned 200 with the title "Release rure-0.2.5".
+
+The candidate configuration was tested in four runs, each quoted below:
+
+- **First release of the unchanged 0.1.0** (no level):
+
+  ```text
+  $ cargo release -p pawdoku --execute --no-confirm
+  [main e36eddf] Release pawdoku 0.1.0
+   1 file changed, 4 insertions(+), 1 deletion(-)
+    Publishing pawdoku
+  $ git tag -n1
+  pawdoku-v0.1.0  Release pawdoku 0.1.0
+  ```
+
+  The CHANGELOG gained `## [0.1.0] - 2026-09-28` under an empty `## [Unreleased]`.
+  `[Unreleased]: …/commits/main/` became
+  `[Unreleased]: https://github.com/steven-cutting/libpawdoku/compare/pawdoku-v0.1.0...HEAD`,
+  followed by
+  `[0.1.0]: https://github.com/steven-cutting/libpawdoku/releases/tag/pawdoku-v0.1.0`.
+  `{{date}}` is UTC: this run, at 04:12 UTC on 2026-09-28 (the evening of 2026-09-27
+  Pacific), wrote 2026-09-28.
+- **A second release, over a real API break.** `SIDE` was made crate-private and the
+  change recorded under `### Removed`. The check came first:
+
+  ```text
+  $ cargo semver-checks -p pawdoku --baseline-rev pawdoku-v0.1.0
+      Checking pawdoku v0.1.0 -> v0.1.0 (no change; assume minor)
+       Checked [   0.005s] 196 checks: 195 pass, 1 fail, 0 warn, 58 skip
+  --- failure pub_module_level_const_missing: pub module-level const is missing ---
+       Summary semver requires new major version: 1 major and 0 minor checks failed
+  (exit 100)
+  ```
+
+  Then the release:
+
+  ```text
+  $ cargo release minor -p pawdoku --execute --no-confirm
+     Upgrading pawdoku from 0.1.0 to 0.2.0
+  [main accb8cc] Release pawdoku 0.2.0
+   3 files changed, 6 insertions(+), 3 deletions(-)
+  ```
+
+  The commit carries `CHANGELOG.md`, `Cargo.lock` and `crates/pawdoku/Cargo.toml`, so
+  `just lock-check` stays green. At 0.2.0 the check reads "v0.1.0 -> v0.2.0 (major
+  change) … no semver update required".
+- **The pull-request shape, with the tag made after the merge, first attempt.** `main`
+  requires `check`. A `gh api` read of its protection shows `enforce_admins: false`, so
+  an administrator could push past it, but a release commit that skips the gate is not
+  wanted. So the release commit has to reach `main` through a pull request. On
+  `release/pawdoku-v0.2.1`, the run was `cargo release patch -p pawdoku --no-tag
+  --execute`. It warned `Unrendered {{tag_name}} present in template` and wrote the
+  literal `{{tag_name}}` into the CHANGELOG link. The reference page's placeholder table
+  says `{{tag_name}}` is not available to replacements; it renders only when the tag is
+  made in the same run.
+- **The same flow with the tag named outright** (`pawdoku-v{{version}}`), which rendered
+  correctly. After a `--no-ff` merge into `main`:
+
+  ```text
+  $ cargo release tag -p pawdoku --execute --no-confirm
+  $ git cat-file -t pawdoku-v0.2.1; git rev-parse pawdoku-v0.2.1^{commit} HEAD
+  tag
+  225c62c812c5a0267a03e9e6d795cd3174c68cee
+  225c62c812c5a0267a03e9e6d795cd3174c68cee
+  ```
+
+  The `cat-file` and `rev-parse` lines were printed in the first attempt, whose tag also
+  landed on the merge commit. The clone was then reset to 0.2.0 and the flow repeated with
+  the corrected replacement. The rerun's CHANGELOG carried
+  `[0.2.1]: …/releases/tag/pawdoku-v0.2.1`, and `git tag -n1` listed
+  `pawdoku-v0.2.1  Release pawdoku 0.2.1`.
+
+`cargo package -p pawdoku --list --locked` then showed that a `crates/pawdoku/release.toml`
+would ship inside the package. The crate's configuration moved to
+`[package.metadata.release]` in its manifest, and the workspace's to
+`[workspace.metadata.release]` in the root `Cargo.toml`, both documented configuration
+layers. After the move:
+
+- a dry run still rendered both replacements;
+- the commit subject came out as `Release pawdoku 0.3.0`;
+- `allow-branch` refused `feature/x`: "cannot release from branch `feature/x` as it
+  doesn't match `main`, `release/*`" (in a dry run, which reports the error and goes on
+  listing steps; `--execute` on a wrong branch was not tried);
+- the package list no longer carried the file;
+- `taplo fmt --check` passed on the manifest.
+
+The same listing shows no `LICENSE`. The nine files are `.cargo_vcs_info.json`,
+`Cargo.lock`, `Cargo.toml`, `Cargo.toml.orig`, `README.md`, two sources and two tests.
+Apache-2.0 asks a redistributor to pass the licence on, so T13 ships it.
+
+What was not exercised: the push to a real remote, and anything in CI. The scratch clone
+had no remote.
+
+**Step 5. cargo-semver-checks.** It is on conda-forge at 0.50.0 for both platforms. From
+its README, read at the `v0.50.0` tag:
+
+- **Baselines.** By default it looks up the previous version on crates.io.
+  `--baseline-rev <REV>`, `--baseline-version`, `--baseline-root` and
+  `--baseline-rustdoc` override that.
+- **Toolchain.** "When each `cargo-semver-checks` version is released, it will at minimum
+  include support for the then-current stable and beta Rust versions". It sets
+  `RUSTC_BOOTSTRAP=1` itself to get rustdoc JSON from a stable compiler (source), and
+  0.50.0 "requires Rust 1.93+".
+
+Run through `pixi exec --spec 'cargo-semver-checks==0.50.0'` on rustup's 1.98.1, in the
+scratch clone:
+
+```text
+$ cargo semver-checks -p pawdoku --baseline-rev HEAD~1
+    Checking pawdoku v0.1.0 -> v0.1.0 (no change; assume minor)
+     Checked [   0.003s] 196 checks: 196 pass, 58 skip
+     Summary no semver update required
+$ cargo semver-checks -p pawdoku
+error: failed to retrieve index of crate versions from registry
+Caused by:
+    pawdoku not found in registry (crates.io). …
+(exit 101)
+```
+
+So no nightly is needed. Before the first tag the check has no baseline, and after it the
+baseline is `--baseline-rev` on the last `pawdoku-v*` tag. The failing run in step 4(b)
+shows it catching a real break.
+
+The job shape:
+
+- it sits outside `check`'s `needs` until 1.0;
+- it checks out with `fetch-depth: 0`;
+- it finds the baseline with `git describe --tags --match 'pawdoku-v*' --abbrev=0`, and
+  exits 0 with a notice when there is no tag;
+- it runs the pixi-pinned binary.
+
+It does not use `obi1kenobi/cargo-semver-checks-action`, whose README says it "always
+installs the latest stable Rust and ignores the `rust-toolchain.toml` file"; that is at
+odds with `check-toolchain`.
+
+**Step 6. Versioning: independent, decided with the maintainer.** Each crate keeps its
+own version, tagged `<crate>-v<version>`: `pawdoku-v0.1.0` now, `pawdoku-wasm-v…`,
+`pawdoku-py-v…` and `pawdoku-cli-v…` when S04's crates exist.
+
+- **Why not lockstep.** G pins an npm version of `pawdoku-wasm`, and a core-only change
+  must not force a PyPI or npm release, which lockstep (`shared-version = true`) would.
+- **What cargo-release needs.** `shared-version` stays at its default, `false`. The
+  per-crate prefix is already the default for a member under `crates/`, and the scheme
+  never changes when the second crate arrives.
+- **Each binding crate** writes `publish.workspace = true` (or `publish = false`) in its
+  own manifest. Cargo applies a `[workspace.package]` field to a member only when the
+  member names it with `<field>.workspace = true`, so a member that leaves `publish` out
+  is publishable. Each binding crate also carries its own `[package.metadata.release]`
+  when S04 designs it.
+- **What stays with S04.** Registry mechanics (maturin's wheel matrix, wasm-pack and npm
+  provenance, cargo-dist), and whether a binding crate's own CHANGELOG lives beside it.
+
+**Step 7. The recommendation, and T13.** Release with **cargo-release**, run on the
+maintainer's machine; `release.yml` publishes through trusted publishing when a
+`pawdoku-v*` tag is pushed. This is shape A, as the maintainer chose in step 3a. Against
+the options:
+
+| Option | Reads commits | Changelog | Tag and publish | Fits the house | Cost |
+| --- | --- | --- | --- | --- | --- |
+| **cargo-release (recommended)** | no | the house CHANGELOG, rewritten by two replacements proved in step 4(b) | bump and commit on a `release/*` branch, pull request, tag the merge commit, push the tag; CI publishes | yes: imperative subjects set in config, `main` protection respected, no token in the repository | configuration in two manifests, a `tools.txt` line, one workflow |
+| release-plz | yes, but a plain commit is a patch bump | off with `changelog_update = false` | a bot's release pull request; publishes on merge to `main` | no: its pull request needs a PAT or an App to be checked, and the publisher sits on a workflow that runs on every push to `main` | the same, plus a credential |
+| git-cliff alone | yes | generated | neither | no | a config for a changelog already written by hand |
+| By hand | no | by hand | `git tag -a`, `cargo publish` from a laptop | the most common Rust shape (9 of 12), but a token on a machine every release | a tag without a bump, a publish without a tag |
+
+The follow-up build ticket, drafted for `tickets/T13-release.md`. It is not created here,
+because this spike's Files touched lists no ticket file for it. The agent that opens it
+copies this block and adds the index row.
+
+```yaml
+---
+id: T13
+title: "Release: cargo-release, release.yml with trusted publishing, pawdoku 0.1.0"
+status: open
+depends_on: [S02]
+parallel_with: []
+branch: ticket/t13-release
+estimated_size: M
+---
+```
+
+> **Context.** S02 (hand-back notes) recommended cargo-release run locally, with CI
+> publishing on a `pawdoku-v*` tag through crates.io trusted publishing, independent
+> versions per crate, and `rust-version` decoupled from the toolchain pin at the first
+> publish. The configuration and the local release flow below were proved in a scratch
+> clone; the push, both workflows and the `LICENSE` symlink were not.
+>
+> **Goal.** `pawdoku 0.1.0` on crates.io with a green docs.rs build. Every later version
+> is published by `release.yml` with `trustpub_data` set. The token that the first publish
+> needs is revoked.
+>
+> **Non-goals.** The binding crates' release mechanics (S04). A 1.0 date. A GitHub
+> Release object: the CHANGELOG links to the tag page, which GitHub serves without one,
+> so the workflow needs no `contents: write`. An MSRV CI job: the maintainer declined
+> one, and clippy's `incompatible_msrv` lint reads `rust-version` as a partial guard.
+>
+> **Files touched.**
+>
+> - **`Cargo.toml`.** A `[workspace.metadata.release]` table:
+>
+>   ```toml
+>   allow-branch = ["main", "release/*"]
+>   pre-release-commit-message = "Release {{crate_name}} {{version}}"
+>   tag-message = "Release {{crate_name}} {{version}}"
+>   publish = false
+>   push = false
+>   ```
+>
+>   The local step never publishes and never pushes: the release commit reaches `main`
+>   through a pull request, and the tag is pushed by hand.
+> - **`crates/pawdoku/Cargo.toml`.** Delete `publish.workspace = true`. The workspace's
+>   `publish = false` stays, but it is not a default. Cargo applies a
+>   `[workspace.package]` field to a member only when the member writes
+>   `<field>.workspace = true`, and a member that leaves `publish` out is publishable. So
+>   deleting the line is what makes `pawdoku` publishable, and every future crate that
+>   must stay off crates.io writes `publish.workspace = true` or `publish = false` in its
+>   own manifest; T13 says so in `docs/reference/configuration.md` if that page describes
+>   the workspace table. Add the crate's `[package.metadata.release]`:
+>
+>   ```toml
+>   pre-release-replacements = [
+>     { file = "../../CHANGELOG.md", search = "## \\[Unreleased\\]\n", replace = "## [Unreleased]\n\n## [{{version}}] - {{date}}\n", exactly = 1 },
+>     { file = "../../CHANGELOG.md", search = "\\[Unreleased\\]: .*", replace = "[Unreleased]: {{repository}}/compare/pawdoku-v{{version}}...HEAD\n[{{version}}]: {{repository}}/releases/tag/pawdoku-v{{version}}", exactly = 1 },
+>   ]
+>   ```
+>
+>   It is not a `release.toml`, which would ship in the package. The tag is named outright
+>   because `{{tag_name}}` is left unrendered under `--no-tag`.
+> - **`crates/pawdoku/LICENSE`.** A symlink to `../../LICENSE`, re-checked with
+>   `cargo package -p pawdoku --list --locked`. It is a new path, so
+>   `docs/project/repository-map.md` gains it.
+> - **`.github/workflows/release.yml`.** Also a new path for the repository map. `on:
+>   push: tags: ['pawdoku-v*']`; top-level `permissions: contents: read`; one job
+>   `publish` with `environment: release` and `permissions: id-token: write, contents:
+>   read`. It concurrency-groups on the tag with no cancelling. It runs `actions/checkout`
+>   (the SHA `ci.yml` pins, with `persist-credentials: false`) and the composite setup
+>   action, then `just check-toolchain`. Two guards come next, before any token exists:
+>   a step that runs `git fetch --no-tags origin main` and fails unless
+>   `git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD` succeeds, so only a commit
+>   that reached `main` through a checked pull request can be published; and a step that
+>   fails unless the tag equals `pawdoku-v` plus the manifest version from
+>   `cargo metadata --locked`. These checks live inside the workflow a tag starts, so they
+>   back up the platform controls in step 4 and do not replace them. The next step
+>   is `rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5`
+>   with `id: auth`, which runs first so every tag proves the OIDC exchange. Then a step
+>   that asks `https://crates.io/api/v1/crates/pawdoku/<version>` (with a User-Agent)
+>   whether the version exists, and skips the publish if it does; the first version is
+>   published by token, and a re-run must not fail. Finally `cargo publish -p pawdoku
+>   --locked` with `CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}`. It is plain
+>   `cargo publish` and not `cargo release publish`: the workspace configuration says
+>   `publish = false`, and a tag checkout is a detached `HEAD`, which the branch check
+>   refuses.
+> - **A `semver` job**, in `.github/workflows/ci.yml` and not in `check`'s `needs`. It
+>   checks out with `fetch-depth: 0`, takes the baseline from
+>   `git describe --tags --match 'pawdoku-v*' --abbrev=0`, and prints a notice and exits
+>   0 when there is none. Before 1.0 a break is allowed with a minor bump, so the job
+>   reports and never blocks; at 1.0 it joins `check`'s `needs` (CONVENTIONS.md §10), and
+>   T13 writes that trigger into the "Cut a release" section so the 1.0 release carries
+>   it. It runs `cargo semver-checks -p pawdoku --baseline-rev <tag>`, from
+>   `cargo-semver-checks = "==0.50.0"` added to `pyproject.toml` and
+>   `pixi.lock` (on conda-forge for both platforms on 2026-09-27). The job needs a recipe,
+>   which makes it a T00 follow-up (below). If that follow-up has not merged, the job
+>   waits and T13 says so.
+> - **`CHANGELOG.md`.** The `[0.1.0]` heading and its link come from the release run
+>   itself, not a hand edit. Before it, T13's own entries go under `[Unreleased]`.
+> - **`docs/operations/maintenance.md`.** A "Cut a release" section with the sequence
+>   below, and a note that `{{date}}` is the UTC date. The "Per toolchain release" entry
+>   is reworded so `rust-version` no longer moves with the pin. The "Secrets" section says
+>   the one token ever used was revoked.
+> - **Prose that says nothing publishes.** `AGENTS.md`'s paragraph ("No workflow
+>   publishes anything … a later decision (ticket S02)"), then `just check-agents`.
+>   `docs/explanation/security-model.md` line 26, and the "Secrets" section of
+>   `maintenance.md`: the future tense becomes the present.
+> - **`docs/decisions/0007-dependency-policy.md`.** Its sentence "`rust-version` follows
+>   the toolchain pin until the crate is first published" becomes past tense, pointing at
+>   the new record.
+> - **A new decision record, `docs/decisions/0012-releases.md`.** The release process,
+>   independent versions and the decoupled MSRV, registered in `docs/decisions/README.md`
+>   and `docs/manifest.yml`. If the manifest is still frozen, the registration is a T00
+>   follow-up.
+> - **`tickets/README.md`.** The T13 row.
+>
+> **T00 follow-ups** (frozen files, CONVENTIONS.md §11), each a small pull request on
+> `main` that merges before T13's proof:
+>
+> - **`tools.txt`:** `cargo-release@1.1.6`. It is not on conda-forge, and binstall
+>   verifies no checksum for it. The alternative is a maintainer prerequisite named in
+>   "Cut a release", because only the maintainer runs it and a `tools.txt` line makes CI
+>   and every contributor download it. The line is recommended, for one pin and one
+>   owner.
+> - **`rust-toolchain.toml`:** its comment ("rust-version in Cargo.toml follows this pin
+>   until the crate is first published") is reworded to say that it no longer does.
+> - **`Justfile`:** a `semver` recipe for the job above. A `release` recipe is optional,
+>   and the notes should say which was chosen.
+>
+> **Steps.**
+>
+> 1. Land the files, the follow-ups and the record through their pull requests, with
+>    `just check` green.
+> 2. Prepare 0.1.0. On `release/pawdoku-v0.1.0` from `main`, run `cargo release -p
+>    pawdoku` (a dry run, quoted), then `cargo release -p pawdoku --no-tag --execute`.
+>    Open a pull request and merge it once `check` is green.
+> 3. Tag and publish 0.1.0. Run `git switch main && git pull --ff-only`, so the tag lands
+>    on the merge commit and not on a stale local `main`, then `cargo release tag -p
+>    pawdoku --execute`, then `cargo publish -p pawdoku --locked` from that commit with a
+>    crates.io token scoped `publish-new` and `publish-update`.
+> 4. Protect the trigger before any publisher exists. Create the GitHub environment
+>    `release` with the maintainer as a required reviewer and deployments limited to
+>    tags matching `pawdoku-v*`. Add a tag ruleset on `refs/tags/pawdoku-v*` that
+>    restricts creation, update and deletion to the maintainer (the bypass list). Without
+>    both, anyone who can push a matching tag makes the auth action mint a crates.io token.
+>    Record both settings, read back with `gh api`, in the notes.
+> 5. Configure trusted publishing on crates.io: the publisher (`steven-cutting`,
+>    `libpawdoku`, `release.yml`, environment `release`), then "Require trusted
+>    publishing for all new versions". Revoke the token.
+> 6. Push the tag: `git push origin pawdoku-v0.1.0`. `release.yml` waits for the
+>    environment's approval, then the auth step proves the exchange, the existence check
+>    skips the publish, and the job is green.
+> 7. Watch docs.rs build 0.1.0 for both targets in `[package.metadata.docs.rs]`.
+> 8. Optionally, prove the path that matters: cut 0.1.1 the same way with step 3's
+>    token publish removed, and read `trustpub_data` from the API. Otherwise the next
+>    real release is the proof, and the notes say so.
+>
+> **Authorisation**, each asked for on its own (CONVENTIONS.md §11):
+>
+> - creating the maintainer's crates.io account and the token;
+> - the token publish;
+> - the trusted-publisher configuration and the trusted-only setting;
+> - revoking the token;
+> - creating the GitHub environment `release` (required reviewer, deployments limited to
+>   `pawdoku-v*` tags) and the tag ruleset on `refs/tags/pawdoku-v*`, both before the
+>   publisher is configured; neither is optional (the repository has no rulesets and one
+>   environment, `copilot`, on 2026-09-27);
+> - each push and each pull request;
+> - pushing the tag;
+> - approving each `release.yml` deployment in the `release` environment. This is the
+>   publish itself, a separate decision from the tag push (AGENTS.md, "Safety and
+>   authority"), and the required reviewer makes the platform ask for it every time.
+>
+> **Acceptance and proof.**
+>
+> - `https://crates.io/api/v1/crates/pawdoku` lists 0.1.0.
+> - docs.rs shows a green build for 0.1.0.
+> - The first `release.yml` run is green, with the auth step's token exchange in its log.
+> - `trustpub_only` is `true` on the crate.
+> - The `release` environment has a required reviewer and a `pawdoku-v*` deployment rule,
+>   and the tag ruleset is active, both read back with `gh api` before the publisher was
+>   configured.
+> - The token no longer appears on the maintainer's crates.io tokens page.
+> - Either 0.1.1 carries `trustpub_data.repository: steven-cutting/libpawdoku`, or the
+>   notes record that the first trusted publish is still to come.
+> - `just check` is green, and `cargo package --list` includes `LICENSE`.
+>
+> **Open points.**
+>
+> - When to publish 0.1.0. The crate holds only the randomness boundary today; publishing
+>   now secures the name, and publishing later ships something a consumer can use. This
+>   is the maintainer's call.
+> - Whether the root CHANGELOG stays the core's alone once binding crates exist, or each
+>   crate keeps its own. This is S04's call, and the replacements' `file` path moves with
+>   it.
+> - How lean the privileged job is. As drafted, the `id-token: write` job runs the full
+>   composite setup (the pixi environment, cargo-hack and allium downloads, the prek
+>   warm) before `cargo publish`. crates.io's example is checkout, auth, publish. A
+>   leaner job with only rustup's toolchain install has less code running next to the
+>   token, and T13 decides between the two and says why.
+
+**Step 8.** `status: done` is set, and this file is committed on the branch. Nothing has
+been pushed.
+
+**Verification**, run after the notes were written:
+
+```text
+$ cargo search pawdoku --limit 5
+$ grep -n 'publish' Cargo.toml crates/pawdoku/Cargo.toml
+Cargo.toml:12:publish = false
+crates/pawdoku/Cargo.toml:14:publish.workspace = true
+$ grep -n 'Unreleased' CHANGELOG.md
+8:## [Unreleased]
+35:[Unreleased]: https://github.com/steven-cutting/libpawdoku/commits/main/
+$ git status --porcelain
+ M tickets/S02-release-and-publishing.md
+```
+
 ### Deviations, and why
+
+- **Branch name.** The Supacode worktree is on `S02-release-and-publishing.md`, not the
+  `ticket/s02-release-and-publishing` the frontmatter names. Supacode named the branch
+  after the worktree, `.md` suffix included, as earlier tickets' notes record. The
+  `branch:` field is left as written.
+- **The release shape is the maintainer's choice, not the survey's winner.** The criterion
+  "what is most common" was the maintainer's, added on the day. On the fixed sample Rust
+  publishes by hand (C, 9 of 12). The stop condition returned the tally to the maintainer,
+  who chose A for the reasons in step 3a. Read the recommendation as policy informed by
+  evidence, not as a count.
+- **Step 4's command does not exist in cargo-release 1.1.6.** It is quoted with its
+  rejection, and the working form, with no `--dry-run` because a dry run is the default,
+  is what was run.
+- **The tag is `pawdoku-v{{version}}`, not the Goal's `v{{version}}`.** The maintainer
+  chose independent versions with a per-crate prefix from the first release.
+  cargo-release's default gives that prefix, so no `tag-name` is set.
+- **No `release.toml`.** The Goal and step 7 name one. The configuration goes into the two
+  manifests instead: a crate-level `release.toml` ships in the package, and a root one is
+  a new path that the manifest tables make unnecessary.
+- **The Goal's options table is left as written**, as the record of what was believed on
+  2026-09-23. The release-plz row's reason is wrong (step 3b), and step 7 carries the
+  corrected table.
+- **Two premises of step 7 changed.** The first publish is a token publish from the
+  maintainer's machine, not a `release.yml` run, because crates.io cannot configure a
+  publisher before a crate exists (step 3). And `release.yml` needs `id-token: write`
+  but not `contents: write` unless it makes a GitHub Release, which the draft leaves out.
+- **Two files, not one.** Files touched named this ticket alone, and the first commit
+  changed nothing else. Copilot's summary of the first review round asked for S02's row
+  in `tickets/README.md`, and S01 took the same step after its review, so the row is set
+  to `done` and the Files touched table carries it. The acceptance criterion that
+  `git status --porcelain` lists only this file held for the first commit.
+- **The first review round tightened the T13 draft.** Copilot and Codex both found that
+  deleting `publish.workspace = true` was described as leaving an inherited default,
+  which Cargo does not have: every crate that must stay off crates.io now has to say so
+  itself. Both also found the publish trigger too weak. The environment's required
+  reviewer and the tag ruleset are mandatory before the publisher is configured, each
+  deployment approval is its own authorisation, and the workflow refuses a tagged commit
+  that is not in `main`'s history. The `semver` job's move into `check`'s `needs` at 1.0
+  is now written into T13.
+- **More than the ticket named was run.** The replacements were executed, not only
+  dry-run, and cargo-semver-checks was run against a real break. Both happened in a
+  scratch clone with no remote, because the replacements' correctness was the one thing a
+  dry run could not show, and it caught the unrendered `{{tag_name}}`.
 
 ### Handed back
 
+- **To T13** (drafted above): the configuration, the workflow, the `semver` job, the
+  licence in the package, the pages, the decision record, and the authorisation sequence.
+- **To T00 follow-ups on `main`:** the `tools.txt` line, the `rust-toolchain.toml`
+  comment, and the `semver` (and optional `release`) recipe.
+- **To T18:** it also rewords `maintenance.md`'s "Per toolchain release" entry (so that
+  `rust-version` moves only on a minor release). T13 decouples it outright, so whichever
+  lands second rebases onto the other's sentence.
+- **To S04:** the per-crate `[package.metadata.release]` for each binding crate, the Python
+  and npm registry mechanics, and whether each crate keeps its own CHANGELOG. From the
+  survey: every Python project starts a release with a person and publishes from CI, and
+  twelve of the thirteen CI publishers use OIDC.
+- **To the index:** nothing. S02's row in `tickets/README.md` was set to `done` in the
+  first review round (Deviations).
+
 ### Open points settled
 
+- **Local bump and tag, or a workflow's release pull request.** Local, with the commit
+  through a pull request because `main` requires `check`, and CI publishing on the pushed
+  tag. The maintainer asked for the most common shape. The survey showed that Rust mostly
+  publishes by hand and Python always publishes from CI, and with that in hand the
+  maintainer chose the local tag and CI publish (step 3a). A workflow's release pull
+  request is not needed. release-plz does not require the commit convention after all,
+  but its pull request needs a stored credential to be checked (step 3b).
+- **Whether `rust-version` stays in lockstep after the first publish.** No: it is
+  decoupled at the first publish, as the maintainer decided on 2026-09-27. 0.1.0 publishes
+  with `rust-version = "1.98"`. The toolchain pin moves on without it, and `rust-version`
+  rises only on purpose, in a minor release that names the change in the CHANGELOG.
+  There is no MSRV CI job. T13 carries the edits to the toolchain comment, the
+  maintenance page and decision 0007.
+
 ## Open points
+
+Both are settled; the answers are under "Open points settled" above, and the questions
+stay here as written.
 
 - Whether the maintainer wants the bump and tag made locally (the workflow publishing
   on the tag) or a release pull request opened by a workflow, which is release-plz's
