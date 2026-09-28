@@ -689,9 +689,11 @@ estimated_size: S
 > that a red `rust` job on a toolchain pull request is the lint set moving);
 > `docs/operations/maintenance.md` (the closing "Nothing here moves on its own" paragraph
 > and the Monthly entry); on the Renovate rail, `docs/explanation/security-model.md`, which
-> owns the trust model and gains the app as a named holder of write access to contents,
-> workflows, issues and pull requests, in the activation pull request beside the other two
-> pages; if the maintainer requires a review on `main`, `docs/reference/quality-gates.md`,
+> owns the trust model and gains the app as a named holder of the permissions it asked
+> for at installation: read on Dependabot alerts, administration and metadata, and read and
+> write on checks, code (contents), commit statuses, issues, pull requests and workflows,
+> as recorded in step 3's hand-back and re-read from the installation screen on the day,
+> in the activation pull request beside the other two pages; if the maintainer requires a review on `main`, `docs/reference/quality-gates.md`,
 > whose branch-protection paragraph says no review is required and changes in the same
 > pull request as the protection change is recorded; `tickets/README.md` (the index row);
 > this ticket's `status:`.
