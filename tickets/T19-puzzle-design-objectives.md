@@ -180,7 +180,7 @@ Line numbers are at `ffcdca0`.
 | Finish (closing cascade, not bookkeeping) | Visible in `RunResult` as the rank profile of the last steps. | adjustment | new page; a generation acceptance threshold, figure open | Derived measure. |
 | Player-level targets (beginner, intermediate, advanced, expert) | `technique.allium:676-710` novice and expert presets; `human-solving.allium:483-560` four presets; the presets do not meet (`human-solving.allium:1278` open question). | adjustment; product | `technique.allium` or `human-solving.allium`: whether two more deterministic presets (intermediate, advanced) are added, and how the report's four levels map onto them | The report's per-level technique lists match the ladder families; the mapping is a table on the new page, and the preset question stays open. |
 | Difficulty labels are audience contracts, not properties | `human-solving.allium:33` excludes a universal number; `:1184-1191` `Interpretation` forbids pooling conditions. | satisfied now | new page cites it | Labels belong to the game, which picks a profile per label. |
-| Technique vocabulary (singles to forcing) | 29 techniques at `technique.allium:543-668`; deferred families at `technique.allium:50-52`; chain limits at `technique.allium:529-530`. | satisfied now | none | The report's taxonomy is a subset of the catalogue. ALSO and forcing nets are deferred, which caps the expert level the engine can rate. |
+| Technique vocabulary (singles to forcing) | 29 techniques at `technique.allium:543-668`; deferred families at `technique.allium:50-52`; chain limits at `technique.allium:529-530`. | satisfied now | none | The report's taxonomy is a subset of the catalogue. ALS and forcing nets are deferred, which caps the expert level the engine can rate. |
 | Contradiction reasoning is opt-in, short, and declared | `forcing_chain` bounded by `max_forcing_paths` and `max_chain_links` (`technique.allium:1001-1003`); a profile omits it from its repertoire. | satisfied now | none | The report's expert-audience taste question is a profile choice. |
 | Guessing is not a deduction | `lapse.allium:118-119` counts guesses and withdrawn guesses; `reach.allium:38` stalls rather than guesses; `solver.allium` guesses but explains nothing (`:42-45`). | satisfied now | none | "Guessing branching" versus "logical branching" is already the reach/lapse split. |
 | Uniqueness techniques need a promise | `technique.allium:878-881`; `reach.allium:205` promises only when rating. | satisfied now | none | A generator that has verified uniqueness may rate with the promise; the report does not raise this. |
@@ -332,7 +332,7 @@ This is exactly where hand construction distinguishes itself. Nikoli’s public 
 
 “Fair” does **not** mean easy. It means that the puzzle keeps the contract it implicitly made with its player.
 
-For a beginner puzzle, requiring an XY-Chain without warning is unfair even if the chain is logically impeccable. For a puzzle advertised to experts, requiring an Alternating Inference Chain may be entirely appropriate. HoDoKu’s taxonomy itself reflects this spectrum. Singles and intersections appear near the foundational end, while chains, ALSO structures, and forcing methods occupy progressively more specialized territory.
+For a beginner puzzle, requiring an XY-Chain without warning is unfair even if the chain is logically impeccable. For a puzzle advertised to experts, requiring an Alternating Inference Chain may be entirely appropriate. HoDoKu’s taxonomy itself reflects this spectrum. Singles and intersections appear near the foundational end, while chains, ALS structures, and forcing methods occupy progressively more specialized territory.
 
 Forcing chains are logically legitimate. HoDoKu defines them broadly as chains establishing a contradiction or necessary truth, but places forcing methods near its “last resort” category, with forcing nets described as realistically manual only for very experienced players. That distinction matters. A constructor should decide in advance whether contradiction reasoning is part of the intended vocabulary, rather than accidentally discovering during testing that the puzzle needs it.
 
@@ -409,7 +409,7 @@ The constructor should not eliminate frustration completely. Tension is part of 
 | **Beginner** | “I can do this.” | Finding the next single through systematic scanning. | Growing competence and momentum. | Long candidate bookkeeping or an unexplained advanced pattern. |
 | **Intermediate** | “I saw something clever.” | Locked candidates, pairs, triples, modest interactions. | First real Aha moments beyond direct placements. | A puzzle consisting entirely of singles despite being labeled medium. |
 | **Advanced** | “The grid had hidden structure.” | Fish, wings, coloring, multi-stage setups. | Recognizing a global pattern and watching it unlock the grid. | Random accumulation of named techniques with no thematic coherence. |
-| **Expert** | “I understood the architecture.” | Chains, unusual interactions, ALSO structures, tightly controlled forcing. | Compressing a complicated candidate network into a decisive proof. | Blind exhaustive search masquerading as logical depth. |
+| **Expert** | “I understood the architecture.” | Chains, unusual interactions, ALS structures, tightly controlled forcing. | Compressing a complicated candidate network into a decisive proof. | Blind exhaustive search masquerading as logical depth. |
 
 The crucial design shift is that beginners need **frequent confirmation**, while experts can tolerate longer delayed rewards. Ryan and colleagues’ competence findings help explain why both can be enjoyable when matched to the player.
 
@@ -605,7 +605,7 @@ flowchart LR
     A1[Full houses<br/>Naked singles<br/>Hidden singles] --> A
     B1[Locked candidates<br/>Pairs<br/>Triples] --> B
     C1[X-Wing<br/>Swordfish<br/>Wings<br/>Coloring] --> C
-    D1[XY-Chains<br/>AICs<br/>ALSO patterns<br/>Forcing chains] --> D
+    D1[XY-Chains<br/>AICs<br/>ALS patterns<br/>Forcing chains] --> D
 ```
 
 This ordering is deliberately approximate. HoDoKu catalogues these families but real difficulty depends heavily on presentation and interaction. Difficulty labels also vary substantially across publishers and websites, so the categories should be calibrated against your own audience.
@@ -619,7 +619,7 @@ The clue counts below are **starting heuristics for construction, not definition
 | **Beginner** | Roughly 36 to 45 | Full houses, naked singles, obvious hidden singles | None longer than a few scans | Continuous progress |
 | **Intermediate** | Roughly 30 to 37 | Singles, locked candidates, pairs, occasional triple | One or two clearly discoverable reductions | Progress, pause, insight, cascade |
 | **Advanced** | Roughly 26 to 33 | Subsets plus fish, wings, coloring or equivalent | Several prerequisites before a centerpiece deduction | Multiple waves and one memorable peak |
-| **Expert** | Roughly 22 to 30 | Chains, difficult fish, ALSO interactions, controlled forcing | Narrow logical frontier with substantial candidate structure | Long preparation, major compression, strong release |
+| **Expert** | Roughly 22 to 30 | Chains, difficult fish, ALS interactions, controlled forcing | Narrow logical frontier with substantial candidate structure | Long preparation, major compression, strong release |
 
 These ranges should never override the solve path. The 17-clue lower bound concerns uniquely solvable standard 9×9 Sudoku, not difficulty. Nishikawa and Toda’s work likewise separates clue selection from solvability by a particular strategy set.
 
@@ -895,7 +895,7 @@ This is a short contradiction-style forcing argument. HoDoKu defines forcing cha
 
 That is an important threshold between advanced and expert Sudoku.
 
-It is also a taste issue. Some expert audiences enjoy concise contradiction reasoning. Others prefer every difficult deduction expressed as an AIC, XY-Chain, ALSO relationship, or another non-bifurcating representation. For the latter audience, this puzzle should be retuned until the same dependency becomes visible as a cleaner chain.
+It is also a taste issue. Some expert audiences enjoy concise contradiction reasoning. Others prefer every difficult deduction expressed as an AIC, XY-Chain, ALS relationship, or another non-bifurcating representation. For the latter audience, this puzzle should be retuned until the same dependency becomes visible as a cleaner chain.
 
 The construction principle is broader than the sample:
 
@@ -1059,7 +1059,7 @@ The strongest source base combines mathematical research, human-difficulty resea
 | **Motivation theory** | Ryan, Rigby, and Przybylski, *The Motivational Pull of Video Games* | Provides empirical support for competence and autonomy as important components of game enjoyment and motivation. Sudoku is not the paper’s subject, so application to Sudoku should be treated as principled transfer rather than direct evidence. |
 | **Constructor practice** | Thomas Snyder, Grandmaster Puzzles and Friday Puzzle Series | Especially valuable because Snyder explicitly discusses puzzles made for artistic qualities, narrow solve paths, and logical behavior achievable through hand-crafting. |
 | **Handcrafted tradition** | Nikoli | Important primary source for the publishing tradition that popularized Sudoku under that name and continues to emphasize human-crafted puzzle design. |
-| **Technique reference** | HoDoKu | Exceptionally useful operational taxonomy of singles, intersections, subsets, fish, wings, coloring, chains, ALSO methods, and forcing techniques. It is a community/technical reference, not peer-reviewed difficulty research. |
+| **Technique reference** | HoDoKu | Exceptionally useful operational taxonomy of singles, intersections, subsets, fish, wings, coloring, chains, ALS methods, and forcing techniques. It is a community/technical reference, not peer-reviewed difficulty research. |
 | **Competition reference** | World Puzzle Federation Sudoku Grand Prix | Useful for seeing how Sudoku is presented, timed, and scored for high-level human solvers and for studying competition puzzle archives. |
 | **Contemporary handcrafted ecosystem** | Cracking the Cryptic puzzle collections | Useful for studying modern curated constructor culture. Its classic Sudoku collection explicitly emphasizes handcrafted and curated work from recognized constructors. |
 
@@ -1432,6 +1432,26 @@ running `just check-links-online` at the start of the session.
   `solve_fraction` and `AssessmentDetail` as the owner of the distributions. The page's
   level-mapping table gives the intermediate row ranks 5 to 12 and the advanced row
   13 to 23, since the quads sit at 11 and 12.
+- **The fourth review round (Codex, Copilot, 2026-09-28)**, five findings, no rule.
+  `generation.allium`'s replay promise names its inputs: three version strings join
+  the config (`generation_version`, `catalogue_version`, `random_version`) as
+  `human-solving.allium`'s `ExactReplay` names them; they are names and not figures,
+  so the Non-goals' bar on deciding figures is not crossed, and the two integer
+  fields stay without defaults. `step_budget`'s comment says what it counts, the
+  module's own operations, and that the work inside an acceptance call is the
+  callee's, finite by `AlwaysEnds` and the second-solution stop, bounded in count by
+  `candidate_limit` and in size by nothing here; the spent-budget question asks
+  whether it should be charged. The contract question and the page's fairness row no
+  longer say `LimitsOnlyHide` keeps a forbidden technique out: it hides only what the
+  profile does not hold, so a forbidden set needs an explicit check, and which is
+  part of the question. Redundant givens, the row the ticket's map missed, is now an
+  open question of `generation.allium` as the page's class key requires of a product
+  decision, and no longer an acceptance question for T20. And the report's "ALSO"
+  is "ALS" throughout the page, with the cleaning list saying so; the typos hook
+  rewrote "ALS" to "ALSO" on the first run, so `_typos.toml` now allows the word,
+  a file the Non-goals do not name. The same rewrite had reached the report as
+  received in this ticket when it was first committed; its seven occurrences are
+  restored to "ALS".
 
 ### Handed back
 
