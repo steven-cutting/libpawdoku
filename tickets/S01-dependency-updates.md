@@ -424,7 +424,8 @@ lockfile for you. There is no Dependabot or Renovate here until ticket S01 decid
 updates should arrive." in its opening paragraph, once T18 lands:
 
 > Renovate proposes the moves, on a Monday branch of its own: `Cargo.lock` within the
-> caret ranges, action SHAs with their comments, the toolchain with `rust-version`, the
+> caret ranges, and a range itself when a release falls outside it, which is the diff to
+> read; action SHAs with their comments, the toolchain with `rust-version`, the
 > hook revs, the `tools.txt` line and, held on its dashboard until you approve them, a tool
 > pin in `pyproject.toml` or the tooling package's tag. Its branch runs the five jobs like
 > anyone's, with `contents: read` and no secret, so what a bump can run in CI is
@@ -436,8 +437,9 @@ updates should arrive." in its opening paragraph, once T18 lands:
 > contributor's branch is not.
 
 If the fallback is taken, the same paragraph with "Dependabot" for "Renovate", "`Cargo.lock`
-within the caret ranges, action SHAs with their comments, the toolchain and the hook revs
-in `.pre-commit-config.yaml`" for the list, and the last sentence dropped. For
+within the caret ranges, and a range itself when a release falls outside it, which is the
+diff to read; action SHAs with their comments, the toolchain and the hook revs in
+`.pre-commit-config.yaml`" for the list, and the last sentence dropped. For
 `docs/operations/maintenance.md`, replacing "Nothing here moves on its own. No bot opens a
 pull request for any of these pins until ticket S01 decides whether one should.":
 
@@ -723,7 +725,9 @@ estimated_size: S
 > lock-file maintenance stay, each of those opening only on a maintainer's click. Its push, its opening and its merge are three separately authorised actions
 > (CONVENTIONS.md §11), each asked for on its own; the merge is a person's.
 > (4) Proof, one pull request per manager, each opened by a dashboard approval and taken
-> through the five checks: a `crates` group that moves `Cargo.lock` and no range; a `github actions` group
+> through the five checks: a `crates` group that moves `Cargo.lock` and no range, or, when
+> a release has fallen outside a range, the range as well, which under `update-lockfile` is
+> the `replace` fallback and a diff to read, not a failure; a `github actions` group
 > that moves a SHA and its comment in `ci.yml` and in the composite action; the
 > `tools.txt` line; a hook rev in `.pre-commit-config.yaml` and the markdownlint rev in
 > both files; the pixi bootstrap pair, one approved pull request moving `pixi-version` in the
