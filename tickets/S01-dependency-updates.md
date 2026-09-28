@@ -589,8 +589,12 @@ matched by the documented `matchDepNames` and `matchFileNames`, not by the undoc
 `custom.regex` in `matchManagers`. The pixi bootstrap pair moves together, as the how-to
 requires: the github-actions manager reads `pixi-version` on the setup-pixi step under the
 depName `prefix-dev/pixi`, the regex manager reads the `requires-pixi` floor under the
-same name, and the rule groups them into one pull request held for approval (the shared
-depName is a T18 proof item). Lychee is off because `LYCHEE_VERSION` in both argument
+same name, and the rule groups them into one pull request held for approval. The input's handling
+is the manager page's own `with:` table, which lists `prefix-dev/setup-pixi`,
+`pixi-version`, `prefix-dev/pixi`, `conda` (read 2026-09-26); the shared depName is a T18
+proof item, and if the day's dashboard shows the input unread, the fix under the step-4
+rule is a regex manager on the `pixi-version:` line of `.github/actions/setup/action.yml`
+with the same `depNameTemplate`. Lychee is off because `LYCHEE_VERSION` in both argument
 lists must match its rev comment and its tag prefix is `lychee-v`, so it moves by hand. The hook regex excludes lychee's shape by its `v\d+` start, and its match
 string carries the four-space indent the two files use.
 
@@ -640,8 +644,8 @@ updates:
 
 Its manual routine, appended to the Monthly entry in `docs/operations/maintenance.md`:
 the pixi pins (`pixi update <name>` after reading conda-forge, and `just lock-upgrade` for
-Python's patch), `tools.txt`, `rust-version` on the toolchain pull request's branch
-together with the clippy fixes, the rev in `.pre-commit-fix.yaml` on the same branch as
+Python's patch), `tools.txt`, the clippy fixes on the toolchain pull request's branch and, only when the
+release is a minor, `rust-version` beside them (a patch leaves `1.98` correct), the rev in `.pre-commit-fix.yaml` on the same branch as
 the hook pull request that moves markdownlint-cli2, lychee with its `LYCHEE_VERSION`, the
 `pixi-version` and `requires-pixi` pair, and the tooling package's tag when B releases.
 The `ignore` dependency-name form for a pre-commit hook is a T18 proof item.
