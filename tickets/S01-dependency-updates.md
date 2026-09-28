@@ -654,8 +654,10 @@ The second Open point, settled the same way under either bot: the toolchain stay
 updater. With Renovate it waits for dashboard approval and arrives as one pull request
 moving `channel` and, on a minor, `rust-version`; with Dependabot it arrives moving
 `channel` alone. Either way the bot's branch is a prompt, not a finished change: a person
-checks it out, bumps `rust-version` if the bot did not, runs `just clippy`, fixes what the
-new lint set finds, and pushes onto the bot's branch under their own name. A red `rust`
+checks it out, bumps `rust-version` only when the release is a minor and the bot did not
+(a patch leaves `1.98` correct), runs `just clippy`, fixes what the new lint set finds,
+and pushes onto the bot's branch under their own name, with authorisation asked for that
+push. A red `rust`
 job on that branch before they do is expected, and the how-to will say so, so it does not
 read as a regression.
 
