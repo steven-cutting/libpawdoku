@@ -1,7 +1,7 @@
 ---
 id: S03
 title: "Spike: benchmarks, fuzzing and mutation testing"
-status: open
+status: done
 depends_on: [T11]
 parallel_with: []
 branch: ticket/s03-bench-fuzz-mutants
@@ -152,13 +152,728 @@ line naming this file.
 
 ### What was verified, and how
 
+Run on 2026-09-27 (US Pacific) in the Supacode worktree for this ticket, on branch
+`S03-bench-fuzz-mutants` (see Deviations), from `main` at `b82da0a` after S02 had merged.
+Commands stamped 2026-09-28 UTC belong to the same run. No tracked file changed except
+this one. `just initialize` installed the ignored `.pixi/` and `.tools/` in the worktree.
+Outside it, tools went only into the session's scratch directory and pixi's own package
+cache (`pixi exec`). No nightly toolchain was installed. Every experiment ran
+in a scratch copy made with `git archive HEAD`.
+
+The maintainer authorised these network uses on the day: read-only documentation
+(docs.rs, crates.io's API, GitHub, `actions/runner-images`, mutants.rs, the rust-fuzz
+book, the rustup book), `pixi search`, `gh api` reads, and installs into the scratch
+directory only, including cargo fetches for the scratch copies. The maintainer also
+authorised one time-boxed cargo-mutants run on a scratch copy, and `just initialize` in
+this worktree, which the agent ran.
+
+The worktree before any step:
+
+```text
+$ git rev-parse --short HEAD origin/main
+b82da0a
+b82da0a
+$ git status --porcelain
+$ git rev-parse 'HEAD^{tree}'
+2c0d624c5a3496042031f561a62376761ccf262c
+```
+
+**Step 1.** The worktree existed before the ticket ran (Deviations).
+
+**Step 2. The five questions.** Sources were read on 2026-09-27. "docs" marks an official
+page, and "source" marks code, a manifest or an API record.
+
+**(a) Versions and MSRV: both are well under 1.98.1.**
+
+```text
+$ cargo search divan --limit 1
+divan = "0.1.21"    # Statistically-comfy benchmarking library.
+$ cargo search criterion --limit 1
+criterion = "0.8.2"    # Statistics-driven micro-benchmarking library
+```
+
+- **divan 0.1.21** needs Rust 1.80.0 (`rust_version` on
+  `https://crates.io/api/v1/crates/divan`, source). It was released on 2025-04-10.
+  It has six normal dependencies, none optional: cfg-if, clap, condtype, divan-macros,
+  libc and regex-lite. Its maintenance is thin. It has had no release since 2025-04-10.
+  Its only commit since 2025-04-14 is a docs change on 2026-07-19. The repository is not
+  archived and has 51 open issues (`gh api repos/nvzqz/divan`, source).
+- **criterion 0.8.2** needs Rust 1.86 and was released on 2026-02-04. It has fifteen
+  required and six optional normal dependencies, and its default features turn on
+  `rayon` and `plotters`. It is active: the last commit was on 2026-09-08. Its book says
+  a run "saves statistical information in the `target/criterion` directory. Subsequent
+  executions of the benchmark will load this data and compare it with the current
+  sample" (`criterion-rs.github.io/book/user_guide/command_line_output.html`, docs).
+- **What divan adds to `Cargo.lock`.** Resolving it in a scratch copy locked nine
+  packages: anstyle 1.0.14, clap 4.6.7, clap_builder 4.6.7, clap_lex 1.1.1, condtype
+  1.3.0, divan 0.1.21, divan-macros 0.1.21, regex-lite 0.1.9 and terminal_size 0.4.4. Its
+  other dependencies (cfg-if, libc, rustix, syn and their own) were already in the lock
+  through proptest and thiserror.
+
+**(b) divan runs from the `no_std` crate's `benches/` target, and the gate is happy with
+it: proved, not only read.** The README declares `[[bench]] harness = false` with
+`fn main() { divan::main(); }` (docs). divan is itself a std crate (its `src/divan.rs`
+line 3 imports `std::`, source), which is fine because a bench file is compiled as a
+crate of its own (the Cargo targets reference, docs). A scratch copy got the
+dev-dependency, `[[bench]] name = "random"` with `harness = false`, and a
+`benches/random.rs` benchmarking a thousand `SeededStream` draws.
+
+```text
+$ cargo bench --locked -p pawdoku --bench random
+    Finished `bench` profile [optimized] target(s) in 10.42s
+     Running benches/random.rs (target/release/deps/random-0061b203f095be12)
+Timer precision: 41 ns
+random                           fastest       │ slowest       │ median        │ mean          │ samples │ iters
+╰─ seeded_stream_thousand_draws  541.3 ns      │ 853.8 ns      │ 687.2 ns      │ 655 ns        │ 100     │ 800
+```
+
+The gate's own commands were then run on that copy, and every one exited 0:
+
+- `cargo fmt --all --check`;
+- `taplo fmt --check` and `taplo lint`;
+- `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`, which
+  compiles and lints the bench under the whole workspace lint table;
+- `cargo hack check --workspace --feature-powerset --locked`, and the same for
+  `--target wasm32v1-none`;
+- `cargo shear` ("no issues found": it sees the bench's use of divan);
+- `cargo deny --locked check licenses bans sources`. It printed the same
+  `license-not-encountered` warnings the tree on `main` prints.
+
+A plain `cargo bench --workspace` also runs every unit test in bench mode, where each
+reports "ignored". `--bench '*'` runs the bench targets only:
+
+```text
+$ cargo bench --workspace --all-features --locked --bench '*'
+     Running benches/random.rs (target/release/deps/random-06a6604181663caf)
+╰─ seeded_stream_thousand_draws  541.3 ns      │ 645.6 ns      │ 551.7 ns      │ 551.4 ns      │ 100     │ 800
+```
+
+Afterwards the copy's `target/` held `debug`, `release`, `tmp` and `wasm32v1-none`, and
+no `criterion` directory. divan writes nothing outside `target/`.
+
+**(c) cargo-fuzz: nightly is documented, but stable works with `--sanitizer none`.**
+
+```text
+$ pixi search cargo-fuzz --platform linux-64
+Error:   × No packages found matching 'cargo-fuzz'
+$ pixi search cargo-fuzz --platform osx-arm64
+Error:   × No packages found matching 'cargo-fuzz'
+$ cargo search cargo-fuzz --limit 1
+cargo-fuzz = "0.13.2"    # A `cargo` subcommand for fuzzing with `libFuzzer`! Easy to use!
+$ gh api repos/rust-fuzz/cargo-fuzz/releases/latest --jq '.tag_name, (.assets[].name)'
+0.13.2
+cargo-fuzz-0.13.2-x86_64-apple-darwin.tar.gz
+cargo-fuzz-0.13.2-x86_64-pc-windows-msvc.zip
+cargo-fuzz-0.13.2-x86_64-unknown-linux-musl.tar.gz
+```
+
+The release has no checksum files and no `aarch64-apple-darwin` archive. cargo-binstall
+1.23.0 installed it into the scratch directory under `--disable-strategies compile`. It
+logged "The package cargo-fuzz v0.13.2 (x86_64-apple-darwin) has been downloaded from
+github.com", so on Apple silicon the binary runs under Rosetta.
+
+- **The nightly requirement (docs).** The 0.13.2 README says it "needs a nightly compiler
+  since it uses some unstable command-line flags", and the book's setup page says the
+  same "since it uses the -Z compiler flag to provide address sanitization". Issue #411,
+  "Support for stable Rust", was closed as not planned on 2025-05-23. PR #440, "Clarify
+  stable support for --sanitizer none", is open and unmerged; its body says the "reduced
+  `--sanitizer none` mode works on stable".
+- **The flags (source).** In `src/project.rs` at 0.13.2, `Sanitizer::None => {} // needs
+  no flags`. Every other sanitizer emits `-Zsanitizer=…`, because
+  `has_sanitizers_on_stable()` compares against a `u32::MAX` placeholder. The remaining
+  flags are `-Cpasses=sancov-module`, `-Cllvm-args=…`, `--cfg fuzzing` and
+  `-Cdebug-assertions`, all stable.
+- **Stable, proved on the pin.** In a scratch copy, with the layout fixed as described
+  below:
+
+  ```text
+  $ cargo fuzz build --target aarch64-apple-darwin   # default sanitizer (address), 1.98.1
+  error: failed to run `rustc` to learn about target-specific information
+    error: the option `Z` is only accepted on the nightly compiler
+  $ cargo fuzz build -s none --target aarch64-apple-darwin
+      Finished `release` profile [optimized + debuginfo] target(s) in 40.15s
+  $ cargo fuzz run -s none --target aarch64-apple-darwin fuzz_target_1 -- -max_total_time=20
+  #55522539 DONE   cov: 20 ft: 34 corp: 10/1561b lim: 4096 exec/s: 2643930 rss: 26Mb
+  Done 55522539 runs in 21 second(s)
+  ```
+
+  The target fed `ReplayStream::new` with `f64`s built from the input bytes and asserted
+  every draw in `[0, 1)`. A second target panicked when the input began with `PAW`. The
+  stable run found it in under a minute, printed `thread '<unnamed>' … panicked at
+  fuzz_targets/panics.rs:5:9` and `SUMMARY: libFuzzer: deadly signal`, wrote
+  `fuzz/artifacts/panics/crash-3d921a05…`, and `cargo fuzz` exited 1.
+- **cargo-fuzz defaults `--target` to the triple it was built for.** The x86_64 macOS
+  binary therefore builds for `x86_64-apple-darwin` unless told otherwise, so the recipe
+  passes the host triple from `rustc -vV`.
+- **What `cargo fuzz init` writes.** Run from the workspace root and, in a second copy,
+  from `crates/pawdoku`, it wrote only `fuzz/.gitignore`, `fuzz/Cargo.toml` and
+  `fuzz/fuzz_targets/fuzz_target_1.rs` beneath its directory (`git status --porcelain`
+  in each copy). It never touched the workspace manifest, which matches the template in
+  `src/templates.rs` (source). Both copies' `fuzz/Cargo.toml` were byte-identical. Each
+  was `name = "pawdoku-fuzz"`, `publish = false`, `libfuzzer-sys = "0.4"`, with
+  `[dependencies.pawdoku] path = ".."`. It had no `[workspace]` table, which only
+  `--fuzzing-workspace` writes. From the root, `path = ".."` names the virtual workspace
+  manifest, not the crate, and the build fails:
+
+  ```text
+  error: current package believes it's in a workspace when it's not:
+  …
+  Alternatively, to keep it out of the workspace, add the package to the `workspace.exclude` array, or add an empty `[workspace]` table to the package's manifest.
+  ```
+
+  With `exclude = ["fuzz"]` in the root `[workspace]` and the path changed to
+  `"../crates/pawdoku"`, it builds. The generated `.gitignore` covers `target`, `corpus`,
+  `artifacts` and `coverage`. The build writes `fuzz/Cargo.lock`, which is not ignored
+  (152 lines, 18 packages). It is a second lockfile outside every `--locked` and
+  `lock-check`. cargo-fuzz takes no `--locked` flag (`cargo fuzz run --help`), so the
+  recipe checks the lockfile first with `cargo fetch --locked --manifest-path
+  fuzz/Cargo.toml`: exit 0 on the current lock, and exit 101 ("cannot update the lock
+  file … because --locked was passed") after a dependency was added.
+- **The gate with `fuzz/` present.** With the exclude and the fixed path, each of these
+  exited 0 on the scratch copy: `cargo fmt --all --check`; `taplo fmt --check` and
+  `taplo lint`, which walk `fuzz/Cargo.toml` ("total=12 excluded=0"); `cargo shear`;
+  `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`; and
+  `cargo update --workspace --locked --offline`. No TOML file appeared under
+  `fuzz/target`, `fuzz/corpus` or `fuzz/artifacts`. So `taplo.toml` needs no exclude: the
+  generated manifest is taplo-clean, and formatting it is wanted. None of the gate's
+  commands reaches the fuzz crate's Rust: it is not a workspace member, so it has no
+  workspace lints, clippy and `cargo fmt --all` skip it, and the `fmt-check` hook matches
+  only `crates/`.
+- **Components.** None is documented for building or running. Only `cargo fuzz coverage`
+  needs `llvm-tools-preview`. libfuzzer-sys 0.4.13 compiles libFuzzer with the system C++
+  compiler through `cc` (its `build.rs`, source).
+
+**(d) cargo-mutants 27.1.0: on conda-forge for both platforms, and it runs on the pin.**
+
+```text
+$ pixi search cargo-mutants --platform linux-64
+cargo-mutants-27.1.0-hb17b654_0    Timestamp 2026-06-24 16:02:15 UTC
+Dependencies: libgcc >=14, __glibc >=2.17,<3.0.a0
+$ pixi search cargo-mutants --platform osx-arm64
+cargo-mutants-27.1.0-h6fdd925_0    Timestamp 2026-06-24 16:24:05 UTC
+Dependencies: __osx >=11.0
+```
+
+The package depends on no `rust`, so pinning it cannot put a cargo ahead of rustup's
+(CONVENTIONS.md §13). Its crates.io `rust_version` is 1.88. The GitHub release has
+x86_64 Linux, x86_64 macOS and Windows archives and no checksum files. The pixi pin
+makes the release assets irrelevant. It was run as
+`pixi exec --spec cargo-mutants==27.1.0 -- cargo-mutants mutants …` in the scratch copy.
+
+- **`--locked`.** It never adds `--locked` itself (`src/cargo.rs`, source).
+  `--cargo-arg=--locked` (`-C`) reaches every build and test. The baseline log shows
+  `cargo test --verbose --package=pawdoku@0.1.0 --all-features --locked`. Its one
+  `cargo metadata` call runs `--no-deps` without it (`src/workspace.rs`, source), and
+  `cmp` found the scratch `Cargo.lock` byte-identical to the worktree's after both runs.
+- **`.config/nextest.toml`: honoured under `--test-tool nextest`.** It is proved, not
+  read. The docs do not mention it. cargo-mutants copies hidden files (`src/copy_tree.rs`,
+  source), and nextest reads the copy. In a third scratch copy with
+  `nextest-version = "99.0.0"`, the baseline failed with "this repository requires
+  nextest version 99.0.0, but the current version is 0.9.146". Nextest mode skips
+  doctests. The docs say: "nextest currently does not run doctests, so behaviors that
+  are only caught by doctests will show as missed". The baseline logs agree: the
+  `cargo test` baseline ran "Doc-tests pawdoku … 11 passed", and the nextest baseline
+  ran none.
+- **`--in-place` and `--jobs`.** `--in-place` mutates the source tree itself instead of a
+  copy, and it conflicts with `--jobs` (docs and `src/main.rs`). `-j`/`--jobs`
+  (`CARGO_MUTANTS_JOBS`) runs parallel builds; the docs advise "very conservatively,
+  starting at -j2 or -j3".
+- **Configuration.** It is read from `.cargo/mutants.toml` only. The source joins
+  `.cargo/mutants.toml` and has no root `mutants.toml` (`src/config.rs`, source). Its
+  keys include `exclude_globs`, `examine_globs`, `exclude_re`, `examine_re`,
+  `test_tool`, `additional_cargo_args`, `additional_cargo_test_args`, `all_features`,
+  `timeout_multiplier` and `minimum_test_timeout`.
+- **What is excluded without configuration.** `#[cfg(test)]` items and functions with a
+  `#[test]`-like attribute are excluded (mutants.rs "mutants", docs), and `--list` shows
+  no test function. So is every function named `new`: "Don't look inside constructors
+  (called "new") because there's often no good alternative" (`src/visit.rs` lines
+  455-466 at v27.1.0, source). That makes `ReplayStream::new`'s range check invisible to
+  mutation today. `#[mutants::skip]` needs the `mutants` crate "as a regular dependency
+  not a dev-dependency" (mutants.rs "attrs", docs). That is against decision 0007, so the
+  house never uses the attribute and filters in `.cargo/mutants.toml` instead.
+- **The copy includes ignored files unless told otherwise.** `--gitignore` is off by
+  default (`gitignore_off_by_default` in `src/options.rs`, source). So a run from a
+  worktree would copy `.pixi/`, `.tools/` and `ai_tmp/` into every build directory.
+  cargo-mutants skips only the top-level `target` and VCS directories. In a git copy
+  holding 200 MB of ignored `.pixi/` ballast, the debug log read
+  `Copied source tree total_bytes=211779848` without the flag, and
+  `total_bytes=2064648` with `--gitignore=true`. Both runs reported the same 27 caught
+  and 1 unviable.
+- **Output and exit codes.** A `mutants.out/` directory is created in the source root,
+  and the previous one is renamed to `mutants.out.old`. `.gitignore`'s `mutants.out*/`
+  covers both. Exit codes: 0 means every viable mutant was caught, 2 that some were
+  missed, 3 a timeout, and 4 a failing baseline (mutants.rs "exit-codes", docs).
+
+**(e) Runners: a nightly is available but no longer needed.**
+
+- **The runner image.** `ubuntu-latest` is the Ubuntu 24.04 image 20260920.314.1: Rust
+  1.98.1, rustup 1.29.1, no nightly, and GNU C++ 12 to 14
+  (`actions/runner-images` `images/ubuntu/Ubuntu2404-Readme.md`, docs).
+- **The move to 26.04.** It "will be rolled out over a period of several weeks beginning
+  October 19, 2026" (`actions/runner-images` issue 14748), and that image lists the same
+  Rust and rustup.
+- **Override precedence.** The rustup book gives "A toolchain override shorthand used on
+  the command-line, such as `cargo +beta`" before "The `rust-toolchain.toml` file" before
+  "The default toolchain" (`rust-lang.github.io/rustup/overrides.html`, docs). So
+  `cargo +nightly fuzz` would override the pin for that one command, while
+  `rustup default nightly` (the rust-fuzz book's CI example) would not.
+- **What was not verified.** The rustup book never states that `rustup toolchain install
+  nightly --profile minimal` leaves `rust-toolchain.toml` alone. The command writes to
+  `RUSTUP_HOME`, but that is inference, and the command was not run here: no nightly was
+  installed. Open point 1 (below) removes nightly from every recipe and job, so no
+  follow-up depends on it.
+
+**Step 3. The workload, on the tree as it is.**
+
+```text
+$ cargo nextest list --workspace --locked 2>/dev/null | wc -l
+      19
+$ cargo nextest list --workspace --all-features --locked 2>/dev/null | wc -l
+      22
+$ cargo test --doc --workspace --all-features --locked 2>&1 | grep -E '^test result'
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+$ cargo mutants --list-files
+crates/pawdoku/src/lib.rs
+crates/pawdoku/src/random.rs
+$ cargo mutants --list | wc -l
+      28
+```
+
+Here and below, `cargo mutants` stands for
+`pixi exec --spec cargo-mutants==27.1.0 -- cargo-mutants mutants`, run in the scratch copy.
+
+The 28 mutants fall in five functions of `random.rs`, plus the `UNIT` constant's division
+(2):
+
+| Function | Mutants |
+| --- | --- |
+| `SeededStream::next_draw` | 15 |
+| `SeededStream::index` | 2 |
+| `ReplayStream::next_draw` | 5 |
+| `ReplayStream::index` | 2 |
+| `TryFrom<ReplayScript> for ReplayStream` | 2 |
+
+`lib.rs` has none, and neither `new` has any. With
+`--workspace --all-features --gitignore=true --cargo-arg=--locked`, the T14 recipe's
+flags, it lists the same 28, and a full run with them is recorded in (d). The authorised run, with the default `cargo test` tool:
+
+```text
+$ cargo mutants --all-features -C --locked -o <scratch>/mo-cargo --no-shuffle
+Found 28 mutants to test
+ok       Unmutated baseline in 4s build + 1s test
+ INFO Auto-set test timeout to 20s
+28 mutants tested in 24s: 27 caught, 1 unviable
+```
+
+It took 25 s of wall time, and `missed.txt` and `timeout.txt` were empty. The one
+unviable mutant replaces `try_from` with `Ok(Default::default())`, and `ReplayStream` has
+no `Default`. The same run with `--test-tool nextest` gave the same result in 35 s (36 s
+wall). So the tests catch every mutant cargo-mutants can make today, doctests or no, and
+the tool costs under a minute plus setup. The verdicts below say why it is adopted now
+anyway.
+
+**The completed table.**
+
+| Tool | Version (MSRV) | Deterministic | Writes to the tree | Toolchain | Where it runs | Adopt |
+| --- | --- | --- | --- | --- | --- | --- |
+| divan | 0.1.21 (1.80.0) | yes (timing varies) | `target/` only, checked | stable 1.98.1 | `just bench` by hand | when `solver.rs` exists |
+| criterion | 0.8.2 (1.86) | yes (timing varies) | `target/criterion` baselines | stable | nowhere | not at all, unless run-to-run baselines are wanted |
+| cargo-fuzz | 0.13.2, libfuzzer-sys 0.4.13 | no | `fuzz/corpus`, `fuzz/artifacts`, `fuzz/target` (ignored by the generated `fuzz/.gitignore`); `fuzz/Cargo.lock` (committed) | stable 1.98.1 with `--sanitizer none`; nightly only for AddressSanitizer | `just fuzz` by hand; a weekly scheduled job, 300 s per target | when the first parser lands |
+| cargo-mutants | 27.1.0 (1.88), on conda-forge | yes | `mutants.out/` (ignored) | stable 1.98.1 | `just mutants` by hand; a weekly scheduled job with an artefact | now: T14 |
+
+**The verdicts.**
+
+- **cargo-mutants: adopt now (T14).** The recommendation was a trigger ("when a module
+  beyond `random.rs` lands"), because today's run misses nothing. The maintainer chose to
+  adopt it now: the job costs little and is then watching when the first new module
+  lands. It uses the default `cargo test` tool, not nextest, so that a mutant only a doc
+  example catches is not reported as missed.
+- **divan: adopt when `crates/pawdoku/src/solver.rs` exists.** A benchmark of `SIDE`, or
+  of the generator, measures nothing anyone will act on. divan's thin maintenance
+  (above) is re-checked at pickup, and criterion is the fallback.
+- **criterion: not at all.** Its one advantage, a baseline compared across runs, answers a
+  question nobody has asked: a performance target is a specification question for
+  `solver.allium` and `effort.allium`, not a tooling one. Reconsider it if one is written.
+- **cargo-fuzz: adopt when the first parser lands** (the first public function that turns
+  a string or bytes into a grid). It runs on the pinned stable toolchain with
+  `--sanitizer none`, both by hand and as a weekly job. The one byte-to-value path today is
+  the `serde` deserialisation of the two streams. It needs a format crate to fuzz, and it
+  guards the test fake, so it is not worth a target of its own.
+- **What enters `check`: nothing.** Fuzzing is nondeterministic by design. Mutation
+  testing takes 25 s today and grows with the crate towards hours, and a surviving mutant
+  asks for a judgement, not a red gate. A benchmark measures the machine as much as the
+  code. criterion writes baselines. Each would break one of the gate's properties:
+  deterministic, bounded, or read-only on the worktree.
+
+**Steps 4 and 5. The follow-ups: one ticket per tool.** They are one per tool because the
+triggers are independent. Mutation testing is ready now, and the other two wait on code
+that does not exist. A single ticket would sit two-thirds blocked, and it could not be
+marked done. The files and lanes differ as well:
+
+- **mutants:** no crate dependency;
+- **bench:** a T02 hand-back;
+- **fuzz:** a crate outside the workspace, with a lockfile of its own.
+
+This spike owns the id `T14`. S02 claims `T13`, S04 claims `T15` to `T17` and S01 claims
+`T18`. The unmerged `game-design-research` branch claims `T19` to `T21` and `S05`. S01's
+reviews twice caught an id collision. So cargo-mutants, the one ready now, takes `T14`. The benchmark
+and fuzzing drafts take the next free T number on the day their trigger fires. None of
+the three is created here, because this spike's Files touched lists no ticket file for
+them. The agent that opens one copies its block and adds the index row.
+
+**T14, drafted for `tickets/T14-mutation-testing.md`.**
+
+```yaml
+---
+id: T14
+title: "Mutation testing: cargo-mutants as a weekly report"
+status: open
+depends_on: [S03]
+parallel_with: []
+branch: ticket/t14-mutation-testing
+estimated_size: S
+---
+```
+
+> **Context.** S03 (hand-back notes) measured cargo-mutants 27.1.0 on the pinned 1.98.1:
+> 28 mutants in `random.rs`, 27 caught, 1 unviable, none missed, in 25 s. The maintainer
+> chose to adopt it now, so that it is watching when the first module beyond `random.rs`
+> lands. It is a report, never a gate: a surviving mutant is a finding for a person.
+>
+> **Goal.** `just mutants` runs cargo-mutants over the workspace on a copy of the tree. A
+> scheduled workflow runs it weekly and by hand, and uploads `mutants.out/` as an
+> artefact. The workflow is never a required check and never in `check`'s `needs`.
+>
+> **Non-goals.** A mutation score threshold. A gate. `--in-diff` on pull requests. A
+> `.cargo/mutants.toml`, until a mutant needs excluding. Any crate dependency:
+> `#[mutants::skip]` needs `mutants` as a regular dependency, which decision 0007
+> forbids, so an exclusion goes in `.cargo/mutants.toml` as `exclude_re`.
+>
+> **Files touched.**
+>
+> - **`pyproject.toml` and `pixi.lock`** (T00 follow-up on `main`). Under
+>   `[tool.pixi.dependencies]`, then `pixi lock`:
+>
+>   ```toml
+>   # A weekly report, never a gate (mutants.yml). conda-forge's build depends on no
+>   # rust, so rustup's cargo stays first on PATH.
+>   cargo-mutants = "==27.1.0"
+>   ```
+>
+> - **`Justfile`** (T00 follow-up on `main`). After `audit`:
+>
+>   ```just
+>   # Mutation testing, a report and never a gate: it grows with the crate towards
+>   # hours, and a mutant that survives asks for a judgement. It mutates a copy of the
+>   # tree, so the worktree gains only mutants.out/, which Git ignores; the copy leaves
+>   # out what Git ignores, or it would carry .pixi/ and .tools/ into every build.
+>   # `cargo test`, not nextest, because nextest skips doctests and a mutant only a
+>   # doc example catches would be reported missed. Exit 2 means a mutant survived.
+>   mutants *args:
+>       cargo mutants --workspace --all-features --gitignore=true --cargo-arg=--locked "$@"
+>   ```
+>
+> - **`.github/workflows/mutants.yml`** (new), modelled on `audit.yml`:
+>
+>   ```yaml
+>   name: Mutants
+>
+>   # Mutation testing is a report, not a gate: a mutant that survives is a
+>   # finding for a person, and the run grows with the crate. So this is never a
+>   # required check, never in ci.yml's `check` needs, and never on a pull
+>   # request. A red run means a mutant survived; the artefact says which.
+>
+>   on:
+>     schedule:
+>       # Mondays, 07:00 UTC, an hour after audit.
+>       - cron: '0 7 * * 1'
+>     workflow_dispatch:
+>
+>   permissions:
+>     contents: read
+>
+>   concurrency:
+>     group: mutants-${{ github.workflow }}-${{ github.ref }}
+>     cancel-in-progress: true
+>
+>   env:
+>     CARGO_TERM_COLOR: always
+>     CARGO_INCREMENTAL: '0'
+>     CARGO_NET_RETRY: '10'
+>
+>   jobs:
+>     mutants:
+>       name: mutants
+>       runs-on: ubuntu-latest
+>       timeout-minutes: 30
+>       steps:
+>         - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+>           with:
+>             persist-credentials: false
+>         - uses: ./.github/actions/setup
+>           with:
+>             cache-key: mutants
+>         - run: just mutants
+>         # Unless cancelled, so a run that found a surviving mutant (exit 2)
+>         # still leaves its report. Four weeks, to compare a month of runs.
+>         - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+>           if: ${{ !cancelled() }}
+>           with:
+>             name: mutants
+>             path: mutants.out
+>             if-no-files-found: warn
+>             retention-days: 28
+>   ```
+>
+>   Re-check both action SHAs against `ci.yml` on the day, and raise `timeout-minutes`
+>   when the mutants step takes more than half of it.
+> - **`.gitignore`** (T03's file). Reword the comment above `mutants.out*/`, which today
+>   says "if S03 adopts it", to say that `just mutants` writes it and renames the previous
+>   run to `mutants.out.old`.
+> - **`docs/reference/testing.md`.** A "Mutation testing" section. It says what a missed,
+>   caught, unviable and timed-out mutant mean, and why the tool is `cargo test`. It names
+>   the blind spot: cargo-mutants never mutates a function named `new`, so logic there,
+>   such as `ReplayStream::new`'s range check, is covered only by tests a person wrote.
+> - **`docs/reference/quality-gates.md`.** Add mutation testing to the checks missing
+>   from the gate on purpose, with the reason, and add `mutants.yml` beside `audit.yml` in
+>   "In continuous integration".
+> - **`docs/reference/commands.md`.** A `just mutants` row, and the recipe added to the
+>   list of recipes outside `just check`.
+> - **`docs/explanation/quality-philosophy.md`.** The finding S03's open point 2 settled.
+>   Coverage says a line ran, and a mutant says whether any test would notice the line
+>   changing. A mutant that survives on a covered line is exactly what the floor cannot
+>   see. The floor stays at 90. A survivor is either a missing assertion, which gets
+>   added, or an equivalent mutant, which makes no observable difference and is excluded
+>   in `.cargo/mutants.toml` with a comment.
+> - **`docs/operations/maintenance.md`.** In **Weekly**, read the `mutants` run beside the
+>   `audit` run.
+> - **`CHANGELOG.md`.** An `[Unreleased]` line.
+> - **`tickets/README.md`.** The T14 row.
+>
+> **Proof.** `just mutants` locally reports every mutant caught or unviable, and the
+> worktree is unchanged apart from `mutants.out/`. `just check` is green. After the
+> merge, and each separately authorised: a `workflow_dispatch` of `mutants.yml`, the
+> `mutants` artefact downloaded and read, and branch protection still naming `check`
+> alone.
+
+**The benchmark ticket, drafted for `tickets/T<next>-benchmarks.md`.** It takes the next
+free T number when its trigger fires: `crates/pawdoku/src/solver.rs` exists on `main`.
+
+> **Goal.** `just bench` runs divan benchmarks of the solver by hand. It is never a gate
+> and never in CI, because timings measure the machine and its load.
+>
+> **Files touched.**
+>
+> - **`Cargo.toml`** (T02 hand-back, with the decision 0007 note). Under
+>   `[workspace.dependencies]`, add `divan = "0.1.21"`. The decision 0007 note: a
+>   development dependency only, outside the graph a consumer resolves and outside
+>   cargo-deny's. Its MSRV 1.80.0 is below the pin. It adds nine packages to
+>   `Cargo.lock`: anstyle, clap, clap_builder, clap_lex, condtype, divan, divan-macros,
+>   regex-lite and terminal_size. Reword the table's comment, "The only three crates the
+>   core may use", so that the development-only entries are named as such.
+> - **`crates/pawdoku/Cargo.toml`** (T02 hand-back). `divan = { workspace = true }` under
+>   `[dev-dependencies]`, and:
+>
+>   ```toml
+>   [[bench]]
+>   name = "solver"
+>   harness = false
+>   ```
+>
+> - **`crates/pawdoku/benches/solver.rs`** (new). The shape has a crate doc comment, a
+>   `main`, and a documented `#[divan::bench]` function. It passed `just clippy`'s
+>   command on a scratch copy, with a body drawing from `SeededStream`. Here the body
+>   benchmarks the solver's public entry point, whatever `solver.rs` names it:
+>
+>   ```rust
+>   //! Benchmarks for the solver, run by `just bench`.
+>
+>   fn main() {
+>       divan::main();
+>   }
+>
+>   /// Solving one puzzle from a fixed, named set, the input passed through
+>   /// `divan::black_box` so that the work cannot be hoisted.
+>   #[divan::bench]
+>   fn solve_one() {
+>       // The solver's entry point on a puzzle from the set.
+>   }
+>   ```
+>
+> - **`Justfile`** (T00 follow-up on `main`). In the develop section:
+>
+>   ```just
+>   # Benchmarks, by hand: timings measure the machine and its load as much as the
+>   # code, so never a gate and never in CI. Bench targets only: without --bench '*'
+>   # cargo also runs every unit test in bench mode, as ignored. just clippy already
+>   # compiles the benches, so a bench that stops building fails the gate.
+>   bench *args:
+>       cargo bench --workspace --all-features --locked --bench '*' "$@"
+>   ```
+>
+> - **Documentation.** A `just bench` row in `docs/reference/commands.md`. A
+>   "Benchmarks" section in `docs/reference/testing.md`, which also names the puzzle set.
+>   `crates/pawdoku/benches/` in `docs/project/repository-map.md`, if that page lists the
+>   crate's directories. A `CHANGELOG.md` line. The index row.
+>
+> **Before starting.** Re-check divan's maintenance (no release since 2025-04-10 as of
+> 2026-09-27). If it has been abandoned, criterion 0.8.2 is the fallback, with
+> `default-features = false` to drop rayon and plotters. It writes `target/criterion`,
+> which `target/` already ignores.
+
+**The fuzzing ticket, drafted for `tickets/T<next>-fuzzing.md`.** It takes the next free T
+number when its trigger fires: the first public function that turns a string or bytes into
+a grid lands on `main`.
+
+> **Goal.** A `fuzz/` crate at the root, with one target per parser, run by `just fuzz` on
+> the pinned stable toolchain with `--sanitizer none`. A weekly workflow fuzzes each
+> target for 300 s and uploads any crash. It is never a gate and never required, and
+> nightly is never a prerequisite (S03's open point 1). `cargo +nightly fuzz run` with
+> AddressSanitizer stays possible by hand but has no recipe: the core forbids unsafe
+> code, so ASan has little to find.
+>
+> **Files touched.**
+>
+> - **`Cargo.toml`** (T02 hand-back). In `[workspace]`, add `exclude = ["fuzz"]`. Without
+>   it, cargo refuses to build the fuzz crate ("current package believes it's in a
+>   workspace when it's not"). With it, the crate stays out of `cargo hack`,
+>   `cargo shear`, coverage and `Cargo.lock`.
+> - **`fuzz/Cargo.toml`, `fuzz/.gitignore`, `fuzz/fuzz_targets/<parser>.rs`** (new), from
+>   `cargo fuzz init --target <parser>` at the root. Then:
+>   - change `path = ".."` to `path = "../crates/pawdoku"`, because `..` is the virtual
+>     workspace manifest;
+>   - write `libfuzzer-sys` as a full caret range (`"0.4.13"`), with the decision 0007
+>     note. That note (T02 hand-back): outside the workspace, `publish = false`, never
+>     shipped, and locked by its own lockfile.
+> - **`fuzz/Cargo.lock`** (new, committed). The generated `.gitignore` does not ignore
+>   it. It sits outside `lock-check` and every gate's `--locked`, so the recipe checks it
+>   first.
+> - **`tools.txt`** (T00 follow-up on `main`). Add `cargo-fuzz@0.13.2`, because
+>   conda-forge does not carry it. The release publishes no checksum, which is
+>   cargo-hack's standing in CONVENTIONS.md §12. The macOS archive is x86_64 only and runs
+>   under Rosetta on Apple silicon. Every CI job's setup then downloads it.
+> - **`Justfile`** (T00 follow-up on `main`). In the develop section:
+>
+>   ```just
+>   # Fuzzing, by hand: nondeterministic, so never a gate. On the pinned stable
+>   # toolchain without a sanitizer: AddressSanitizer needs nightly, and the core
+>   # forbids unsafe code. cargo-fuzz takes no --locked, so the fetch proves
+>   # fuzz/Cargo.lock first. --target because cargo-fuzz defaults to the triple it
+>   # was built for, and its macOS binary is x86_64. The fetch reaches the network
+>   # when the cache lacks a crate, since just sync covers the root lock only.
+>   fuzz target seconds="300":
+>       cargo fetch --locked --manifest-path fuzz/Cargo.toml
+>       cargo fuzz run --sanitizer none --target "$(rustc -vV | sed -n 's/^host: //p')" "$1" -- -max_total_time="$2"
+>   ```
+>
+> - **`.github/workflows/fuzz.yml`** (new). It has the shape of T14's `mutants.yml`: a
+>   weekly `schedule` and `workflow_dispatch`, `contents: read`, and the setup action. A
+>   `matrix` of target names runs `just fuzz <target> 300`, then `actions/upload-artifact`
+>   of `fuzz/artifacts/<target>` under `if: failure()`. The corpus starts empty on each
+>   run. Caching `fuzz/corpus` is the refinement, if runs stop finding coverage.
+> - **Unchanged.** `taplo.toml`: taplo walks `fuzz/Cargo.toml`, which is taplo-clean.
+>   `.gitignore`: the generated `fuzz/.gitignore` covers target, corpus, artifacts and
+>   coverage.
+> - **Documentation.**
+>   - `docs/reference/testing.md`: a "Fuzzing" section, including that the fuzz crate
+>     sits outside the workspace lints, clippy and `cargo fmt --all`.
+>   - `docs/reference/commands.md`: the `just fuzz` row.
+>   - `docs/reference/configuration.md`: the `tools.txt` row, today "one line, cargo-hack".
+>   - `docs/project/repository-map.md`: the new top-level `fuzz/`.
+>   - `docs/how-to/maintain-dependencies.md`: that `fuzz/Cargo.lock` and the `tools.txt`
+>     line move too.
+>   - `CHANGELOG.md` and the index row.
+>
+> **Before starting.** Re-check that `--sanitizer none` still builds on the pin. It is
+> the implementation's behaviour, documented only in cargo-fuzz's unmerged PR #440.
+
+**Step 6.** `status: done`, and one commit on the ticket branch. Nothing is pushed.
+
+**The Verification block.** Run after the notes were written:
+
+```text
+$ grep -n 'mutants.out' .gitignore
+48:mutants.out*/
+$ grep -n 'exclude' taplo.toml
+2:exclude = ["target/**", ".tools/**", ".pixi/**", "ai_tmp/**"]
+$ rustup toolchain list
+stable-aarch64-apple-darwin
+1.98.1-aarch64-apple-darwin (active)
+$ cargo nextest list --workspace --locked 2>/dev/null | tail -1
+pawdoku::random the_same_seed_draws_the_same_stream
+$ git status --porcelain
+ M tickets/S03-bench-fuzz-mutants.md
+```
+
+`cargo nextest list`'s last line is a test name, not a count, so step 3 records the
+count: 19 tests, or 22 with `--all-features`.
+
 ### Deviations, and why
+
+- **Branch name.** The Supacode worktree is on `S03-bench-fuzz-mutants`, not the
+  `ticket/s03-bench-fuzz-mutants` the frontmatter names, as in earlier tickets. The
+  `branch:` field is left as written.
+- **Two of the Goal's premises changed.**
+  - Fuzzing does not need nightly. The maintainer settled it on the evidence in (c).
+  - cargo-mutants' configuration lives in `.cargo/mutants.toml`, and no root
+    `mutants.toml` is read. Step 2 and step 4 name `mutants.toml`, and T14 needs neither
+    file today.
+- **The Goal's table is left as written**, as the record of what was believed on
+  2026-09-23. Step 3 carries the completed table.
+- **cargo-mutants is adopted now, not on a trigger.** The spike recommended a trigger,
+  and the maintainer chose now (Verdicts).
+- **No `taplo.toml` or `.gitignore` hand-back for fuzzing.** Step 4 expected both, and
+  the scratch run showed that neither is needed. T14 rewords one `.gitignore` comment.
+- **More than the ticket named was run.** The ticket asked for `--list` and documentation
+  answers. Everything below ran in scratch copies, each with the maintainer's
+  authorisation:
+  - a full cargo-mutants run with both test tools, and the nextest-configuration probe;
+  - a divan bench, and the gate's commands over it;
+  - `cargo fuzz init` from two directories, a stable build, and two stable fuzz runs, one
+    with a planted panic.
+- **`just initialize` ran in this worktree** at the maintainer's direction, so that
+  `cargo nextest list` and the commit hook have their tools. It changed no tracked file.
+  Being a secondary worktree, it skipped `install-hooks`.
 
 ### Handed back
 
+- **To T14** (drafted above, ready now): the recipe, the pin, the workflow, the
+  `.gitignore` comment, and the pages, including the quality-philosophy paragraph
+  from open point 2.
+- **To the benchmark and fuzzing tickets** (drafted above, each on its trigger): the
+  dependencies, the layout, the recipes and the workflow.
+- **To T00 follow-ups on `main`:** the `mutants`, `bench` and `fuzz` recipes; the
+  cargo-mutants pin in `pyproject.toml` and `pixi.lock`; and the `cargo-fuzz@0.13.2`
+  line in `tools.txt`.
+- **To T02:** `divan` in `[workspace.dependencies]` and the crate's dev-dependencies and
+  `[[bench]]`; `exclude = ["fuzz"]` in `[workspace]`; and `libfuzzer-sys` in the fuzz
+  crate. Each carries its decision 0007 note above.
+- **To T03:** the `mutants.out*/` comment in `.gitignore`.
+- **To T18:** once `fuzz/` exists, the dependency updater needs `/fuzz` as a second cargo
+  directory, and T14's pin joins the pixi manifest it already watches.
+- **To the index:** nothing. S03's row in `tickets/README.md` still reads `open`, because
+  Files touched names this file alone. S02 set its own row in its first review round,
+  and so can this ticket.
+
 ### Open points settled
 
+- **Nightly for fuzzing, or a stable path.** Stable. On 2026-09-27 the maintainer chose
+  the pinned 1.98.1 with `--sanitizer none` for the recipe and the scheduled job. It is
+  proved in (c) to build, run and catch a panic. Nightly is never a prerequisite, and
+  `cargo +nightly fuzz run` with AddressSanitizer stays an optional extra with no recipe.
+  The stable path is cargo-fuzz's behaviour rather than its documentation (PR #440 is
+  unmerged), so the fuzzing ticket re-checks it before starting.
+- **Whether mutation results feed the coverage-floor question.** Yes, as a finding and
+  not as a change to the floor. The maintainer agreed on 2026-09-27. T14 writes the
+  paragraph into `docs/explanation/quality-philosophy.md`: a mutant that survives on a
+  covered line is what the floor cannot see. The floor stays at 90. It gets no mutation
+  score beside it, because cargo-mutants is a report and decision 0009's "What would
+  reopen this" names only a mutation-testing gate.
+
 ## Open points
+
+Both are settled; the answers are under "Open points settled" above, and the questions
+stay here as written.
 
 - Whether a nightly on the maintainer's machine is acceptable as a prerequisite for
   fuzzing alone, or whether fuzzing waits for a stable path (verify whether cargo-fuzz
