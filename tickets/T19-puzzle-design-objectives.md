@@ -1404,12 +1404,28 @@ running `just check-links-online` at the start of the session.
   existing presets question already holds that decision, as the ticket's Open points
   say.
 
+- **The second review round (Codex, Copilot, 2026-09-28)** changed the following,
+  and no rule. The cleaning note no longer spells the word it bans. The XY-Wing
+  sentence in the advanced study puzzle had its two implications the wrong way round
+  (a pivot of 2 forces the wing holding 2, a pivot of 4 the wing holding 4) and is
+  corrected in place with a note; the deduction it reaches is unchanged. The
+  hardest-step row of the objective map is now "satisfied now, for one run;
+  adjustment across routes", since `is_hardest` names one run's hardest step and says
+  nothing of other routes. `generation.allium`'s vocabulary describes a symmetry
+  scheme as grouping positions into orbits of one, two or four, not as pairing them,
+  and the symmetry question says the same. Decision 0012 states the boundary it can
+  enforce (no module has a judge as an actor, trigger, entity or dependency) rather
+  than "no module names a judge", which `generation.allium`'s Excludes already broke,
+  and scopes the Jev claim to specifications, handbook pages and crates, since this
+  ticket names it. And, **against this ticket's Non-goals**, one descriptive sentence
+  of `docs/reference/documentation-contract.md` ("Two pages point outward") now says
+  three and names this page: both reviewers asked for it in the same change, the edit
+  states a fact and changes no rule, and it is one line to revert if the maintainer
+  would rather it went to `main` separately. The file is not in Files touched, so
+  `git status` lists one path beyond that table.
+
 ### Handed back
 
-- **`docs/reference/documentation-contract.md`** says "Two pages point outward" and
-  names them. Three do now: `puzzle-design.md` links its verified sources to whole
-  pages, as the ticket asked. The contract page is a Non-goal of this ticket, so the
-  sentence is handed back as a one-line follow-up on `main`.
 - **The Wason 1960 link** in `human-solving.md` (`https://doi.org/10.1080/17470216008416717`)
   fails `just check-links-online` with 403 from SAGE. Not this ticket's row; a
   maintainer follow-up to swap it for a page the checker can open, or to accept 403

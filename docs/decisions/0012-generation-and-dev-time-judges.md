@@ -50,9 +50,12 @@ Judgement models, classifiers and any tool that needs a network are development-
 only. They consume the engine's serialised outputs, the runs and assessments the player
 models expose and the givens themselves, and their verdicts tune what the generator is
 asked for or select a curated set. None enters the runtime, the crate or a
-specification: no module names a judge, no crate depends on one, and no rule waits on
-one. Jev is named here as the case that prompted the rule and nowhere else in the
-repository.
+specification: no module has a judge as an actor, a trigger, an entity or a dependency,
+no crate depends on one, and no rule waits on one. A module may name a judge to
+exclude it, as `generation.allium` does, or an open question may ask what one reads,
+as `human-solving.allium`'s does; that is the boundary being stated, not crossed. Jev
+is named here as the case that prompted the rule and in the ticket that recorded the
+maintainer's instruction; no specification, handbook page or crate names it.
 
 ## Consequences
 

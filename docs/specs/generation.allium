@@ -59,9 +59,11 @@
 -- Vocabulary
 --   sudoku.allium's, technique.allium's and reach.allium's words stand:
 --   given, never clue; well-posed; profile; run, step, stall. To them:
---   symmetry scheme, a rule that pairs positions of the grid with each
---   other; orbit, the positions a scheme pairs together, which are removed
---   or kept as one; technique contract, what a candidate is held to before
+--   symmetry scheme, a rule that carries each position of the grid onto
+--   another or onto itself; orbit, the positions a scheme carries onto one
+--   another, removed or kept as one, and one, two or four positions large
+--   depending on the scheme (the centre cell is an orbit of its own under
+--   every rotation, and a quarter turn groups four); technique contract, what a candidate is held to before
 --   it is kept, stated in terms of technique.allium's profile; hook, a step
 --   that stands above the routine steps around it in a run; cascade, the
 --   steps a hook lets loose. Hook and cascade are named here as terms and
@@ -98,7 +100,7 @@ config {
 
 open question "Where puzzles are made. A set generated ahead of time and carried by the consumer, generation on the device that poses the puzzle, or both. The step budget a search can afford, and whether shortcut suppression (dear, below) is run at all, depend on the answer; a set made ahead of time can also be judged by a development-time tool, and a puzzle made on the device cannot. The maintainer's decision, recorded in decision 0012 as open."
 
-open question "The symmetry schemes and the default. Rotation by a half turn is the convention, and under it the centre cell is an orbit of its own, so removing it changes the count of givens by one where every other orbit changes it by two. Which schemes are offered (half-turn rotation, quarter-turn rotation, the two diagonals, horizontal and vertical reflection, none), is a scheme something a search is asked for or something it reports of what it made, or both, and are asymmetric givens ever kept? Symmetry ranks below well-posedness and the technique contract: a candidate is never kept for its shape when its run fails."
+open question "The symmetry schemes and the default. Rotation by a half turn is the convention; under it every orbit is a pair except the centre cell, which is an orbit of its own, so removing it changes the count of givens by one where every other orbit changes it by two, and a quarter turn groups four positions to an orbit with the same lone centre. Which schemes are offered (half-turn rotation, quarter-turn rotation, the two diagonals, horizontal and vertical reflection, none), is a scheme something a search is asked for or something it reports of what it made, or both, and are asymmetric givens ever kept? Symmetry ranks below well-posedness and the technique contract: a candidate is never kept for its shape when its run fails."
 
 open question "The technique contract's shape. A profile plus a ceiling: the target profile's run must end solved and its hardest step must sit at or below a named rank. Or a required set and a forbidden set: some techniques must appear in the run and some must not. One Rate run for the profile checks the first, since a stall means a step outside the repertoire was needed and a technique outside the repertoire never appears in a run (LimitsOnlyHide). It does not show that a required technique was needed, only that it was used, and it cannot show that no other route avoids it; that is the next question."
 
