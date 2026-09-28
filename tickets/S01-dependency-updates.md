@@ -742,8 +742,9 @@ estimated_size: S
 > tooling tag, the `requires-pixi` floor) or runs lock-file maintenance may leave
 > `pixi.lock` stale, because the hosted app's relock is the unproven step; wherever that
 > happens, the passing path is the hand relock on the bot's branch, `pixi update <name>`
-> for one pin or `pixi lock` for maintenance, pushed with authorisation asked for that
-> push, and the notes record which branches needed it. The proofs: a `crates` group that moves `Cargo.lock` and no range, or, when
+> for one pin or `pixi update` for maintenance (the upgrading command `just lock-upgrade`
+> runs; `pixi lock` alone would only re-resolve against the manifest), pushed with
+> authorisation asked for that push, and the notes record which branches needed it. The proofs: a `crates` group that moves `Cargo.lock` and no range, or, when
 > a release has fallen outside a range, the range as well, which under `update-lockfile` is
 > the `replace` fallback and a diff to read, not a failure; a `github actions` group
 > that moves a SHA and its comment in `ci.yml` and in the composite action; the
@@ -793,8 +794,9 @@ estimated_size: S
 > file's schedule, because GitHub opens them the moment the file is on the default branch
 > and offers no held-for-approval state; the maintainer is told so before the merge, and
 > the agent itself opens nothing. Proof, one Dependabot pull request per ecosystem, each
-> through the five checks: `cargo` moving `Cargo.lock` and no range
-> (`increase-if-necessary` on the bare `"1.0.228"` form is the open question);
+> through the five checks: `cargo` moving `Cargo.lock` and no range, or, when a release has fallen outside
+> a range, the range as well, which is what `increase-if-necessary` does and a diff to read,
+> not a failure (its behaviour on the bare `"1.0.228"` form is the open question);
 > `github-actions` moving a SHA and its comment in `ci.yml` and, through the second
 > `directories` entry, in the composite action; `rust-toolchain` moving `channel`, then
 > finished by hand on the bot's branch with `just clippy` and, only when the release is a
