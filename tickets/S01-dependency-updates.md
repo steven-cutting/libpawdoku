@@ -482,11 +482,7 @@ item; the pixi manager stays on only as a dashboard notice until the relock is p
   ],
   "rangeStrategy": "update-lockfile",
   "automerge": false,
-  "lockFileMaintenance": {
-    "enabled": true,
-    "schedule": ["* 0-3 * * 1"],
-    "dependencyDashboardApproval": true
-  },
+  "lockFileMaintenance": { "enabled": true, "schedule": ["* 0-3 * * 1"] },
   "pre-commit": { "enabled": false },
   "packageRules": [
     { "matchManagers": ["cargo"], "groupName": "crates" },
@@ -503,6 +499,7 @@ item; the pixi manager stays on only as a dashboard notice until the relock is p
       "groupName": "pixi bootstrap",
       "dependencyDashboardApproval": true
     },
+    { "matchUpdateTypes": ["lockFileMaintenance"], "dependencyDashboardApproval": true },
     { "matchDepNames": ["cargo-hack"], "dependencyDashboardApproval": true },
     {
       "matchFileNames": [".pre-commit-config.yaml", ".pre-commit-fix.yaml"],
@@ -570,8 +567,9 @@ them (decision 0007); `automerge: false` is also the default written down, becau
 "a person's merge" guarantee in step 4 rests on it; `lockFileMaintenance` moves the transitive closure of both lockfiles
 weekly, in a pull request of its own that Renovate never groups with anything, on the same
 cron window written directly, because the nested object takes lock-file options, not
-`extends`; it is held for dashboard approval because it rewrites `pixi.lock` as well as
-`Cargo.lock`, and the pixi relock is the unproven step. The native `pre-commit` manager stays off because it
+`extends`; it is held for dashboard approval, through a `packageRules` entry matching the
+`lockFileMaintenance` update type rather than a key inside the object, because it rewrites
+`pixi.lock` as well as `Cargo.lock`, and the pixi relock is the unproven step. The native `pre-commit` manager stays off because it
 would read the revs as tags and misfire; the regex manager owns both files. Crates and
 actions each group into one pull request a week. The toolchain group and the tooling package
 wait for approval on the dashboard, because each is a deliberate release: the toolchain
