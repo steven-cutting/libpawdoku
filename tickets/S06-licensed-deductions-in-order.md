@@ -135,28 +135,38 @@ guess and its repair, chance) while losing their own statements of looking.
    entry is a technique, what it places or strikes, and one witness. Say which
    witness is kept when several rest the same placement or strikes on different
    proofs, and state the total order: rank, then what, then what, until no two
-   entries are equal.
+   entries are equal. A list with one witness per output is smaller than the
+   catalogue's deductions, which `technique.allium` tells apart by proof, so it is a
+   second thing beside them and not the same; step 4 reports the size of both.
 
 4. Build a prototype in `ai_tmp/` or the session's scratch directory, never in a
    commit, for ranks 1 to 12, under one profile pinned in full, because `Profile.sees`
    hides by every field it reads: a repertoire of exactly ranks 1 to 12, `capacity` 4
    (the highest load among them, so that no subset is hidden), `full_marks`, every
-   extent in `spans`, order `systematic` and fixation `unfixed`. Run it from the
+   extent in `spans`, order `systematic` and fixation `unfixed`. Keep marks as
+   `reach.allium`'s `KeepMarksTrue` keeps them: whatever a placed peer rules out is
+   struck before the next look. Run it from the
    givens to the end over a stated set of grids, the four study puzzles of
    `docs/explanation/puzzle-design.md` among them, which that page marks unverified.
    Before running it, define the counters, per technique, so that another prototype
    would count the same: at the least, the patterns examined (each combination of
    cells, units and digits a technique's search tests, licensed or not) and the
    witnesses found before the rule of step 3 removes repeats. Then count, per look:
-   the entries on the whole list, the entries when listing stops at the first rank
-   that yields anything, and each counter for both. Counts and never seconds.
+   the licensed deductions, one for each proof; the entries on the list, one for each
+   output; the entries when listing stops at the first rank that yields anything; and
+   each counter for all three. Counts and never seconds.
    Before any count is used, check that the list is complete: on a stated sample of
    grids, compare it entry for entry with an independent exhaustive search written
    apart from the prototype, one that tries every combination of units and digits
    each technique of ranks 1 to 12 can be read across. Repeating the same answer
    twice shows only that the prototype is consistent; an empty list would pass.
 
-5. Bound ranks 13 to 29 on paper, twice over. First the list: where the count of
+5. Bound the worst case on paper, not only the grids measured. For ranks 1 to 12, the
+   patterns a look can examine at most, counted as step 4 counts them, by unit and by
+   subset size up to four, which the size of the grid fixes; and include among step
+   4's grids some states with many candidates, early in runs from the sparsest puzzles
+   in the set, so that the measured figures are compared with that bound. For ranks
+   13 to 29, bound it twice over. First the list: where the count of
    witnesses grows with `max_chain_links` and `max_forcing_paths`, and what the rule
    of step 3 brings it down to. Then the search: the patterns examined per look,
    counted as step 4 counts them, as a function of the same two limits, since a chain
@@ -184,8 +194,9 @@ guess and its repair, chance) while losing their own statements of looking.
   twice over the same grid, uniqueness premise, catalogue limits and profile gives the
   same steps.
 - The counters of step 4 are defined before any figure is recorded, their counts are
-  in a table by rank, and both bounds of step 5 are argued or the recommendation is
-  limited to ranks 1 to 12.
+  in a table by rank, the worst-case bound of step 5 for ranks 1 to 12 is argued and
+  compared with them, and both bounds for ranks 13 to 29 are argued or the
+  recommendation is limited to ranks 1 to 12.
 - The independent search of step 4 agreed with the prototype's list entry for entry
   on every sampled grid, or each difference is listed and explained.
 - The hand-back notes carry everything step 7 names for a rebuild.

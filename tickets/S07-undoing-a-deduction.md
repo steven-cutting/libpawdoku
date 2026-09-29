@@ -47,7 +47,9 @@ stand on `main`:
 - **The two uniqueness techniques rest on a premise.** `unique_rectangle_type_1` and
   `bug_plus_one` hold only where `Grid.uniqueness_promised` is true, and that premise
   is "supplied by the keeper, never inferred". A grid being undone towards givens
-  that have no verdict yet cannot promise it.
+  that have no verdict yet can promise it only on condition: the verdict of the
+  givens where removal ends must be one, which acceptance asks for anyway. With the
+  premise false, neither technique is licensed, so neither has anything to undo.
 - **A grid is born kept.** A grid opened on a set of givens holds "every candidate the
   start allows and no other", and a placed cell keeps its digit as its one candidate.
   So undoing has reached a set of givens only when the grid is exactly the born-kept
@@ -104,15 +106,17 @@ opening the grid afresh on the givens left, which is what `OpenGrid` already doe
 1. Create the worktree on `ticket/s07-undoing-a-deduction` from `main` after S06 has
    merged (README.md "How to pick up a ticket").
 
-2. Verify, read-only, and record with sources and dates: (a) what has been published
-   on making a puzzle by undoing deductions or by aiming at a named technique;
-   (b) for each placing technique, which candidates the emptied cell and its peers may
-   hold so that the earlier grid still licenses the placement; (c) for each striking
-   technique, which candidates may be given back so that the earlier grid still
-   licenses the strike, and whether the several strikes of one deduction are undone
-   together or one by one; (d) whether either uniqueness technique can be undone
-   soundly with `uniqueness_promised` false; (e) what undoing a placement does to the
-   candidates upkeep struck. Fetching a source is separately authorised: stop and ask.
+2. Verify, read-only, and record with sources and dates: (a) what has been published on
+   making a puzzle by undoing deductions or by aiming at a named technique; (b) for each
+   placing technique, which candidates the emptied cell and its peers may hold so that
+   the earlier grid still licenses the placement; (c) for each striking technique, which
+   candidates may be given back so that the earlier grid still licenses the strike, and
+   whether the several strikes of one deduction are undone together or one by one; (d)
+   whether either uniqueness technique can be undone under a `uniqueness_promised` given
+   on condition that the verdict where removal ends is one, and what an undoing of it is
+   worth when that verdict turns out many; (e) what undoing a placement does to the
+   candidates upkeep struck, with upkeep pinned as `reach.allium`'s `KeepMarksTrue`
+   states it. Fetching a source is separately authorised: stop and ask.
 
 3. State the two readings, broad and strict, and what each guarantees: that a run from
    the earlier grid ends solved, that it retraces the undoing, and that its hardest
@@ -135,13 +139,19 @@ opening the grid afresh on the givens left, which is what `OpenGrid` already doe
    depends on which earlier grid is chosen. The count of distinct earlier grids is
    reported as found and never as complete.
 
-5. Check every undoing found, by the prototype's own search or by the SAT or SMT
-   solver S06 weighed: the earlier grid meets `DeductionsAreSound`'s premise for the
-   solution grid (every placed digit is the solution's, every open cell allows the
-   solution's digit), its digits and candidates together admit that solution alone,
-   the deduction undone is on its list, and taking that deduction, with upkeep after
-   a placement, gives exactly the later grid. Whether the digits alone are well-posed
-   is a verdict on givens and S08's to measure.
+5. Check every undoing found, by the prototype's own search or by the SAT or SMT solver
+   S06 weighed: the earlier grid meets `DeductionsAreSound`'s premise for the solution
+   grid (every placed digit is the solution's, every open cell allows the solution's
+   digit), its digits and candidates together admit that solution alone, the deduction
+   undone is on its list, and taking that deduction, with upkeep after a placement as
+   `KeepMarksTrue` states it (every candidate a placed peer rules out struck in every
+   unit), gives exactly the later grid. The second condition is a cross-check on the
+   prototype, not a filter: `DeductionsAreSound` holds for any solution meeting its
+   premise, so a licensed deduction outside the two uniqueness techniques keeps every
+   solution of the earlier grid, and an earlier grid of a later grid with one solution
+   has that one alone. A failure there is a defect in the prototype, except for
+   `unique_rectangle_type_1` and `bug_plus_one`, where it is question (d). Whether the
+   digits alone are well-posed is a verdict on givens and S08's to measure.
 
 6. Complete the table for ranks 13 to 29 on paper, from the catalogue guarantees.
 
