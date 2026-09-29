@@ -81,7 +81,11 @@ stand on `main` and against S06's and S07's hand-back notes:
 - **Draws and limits.** Every draw comes through the randomness boundary, a choice
   among `n` is `floor(u * n)` over a list in a stated order, which S06's total order
   gives, and every draw is recorded (`human-solving.allium`'s `ExactReplay`). A limit
-  is `step_budget` or `candidate_limit`, figures and never a clock.
+  is `step_budget` or `candidate_limit`, figures and never a clock. Removal by
+  undoing draws its index from S07's list in S06's order, so a change to either that
+  makes a seed pick another undoing gives other givens, and `generation.allium`
+  already says `generation_version` is then raised. That is settled, and the T20
+  draft carries it.
 - **Words.** Candidate is two things here: `solver.allium`'s digit a cell may still
   hold, and `generation.allium`'s set of givens put to acceptance. This ticket says
   candidate for the first and candidate givens for the second. The proposal's levels
@@ -219,5 +223,3 @@ T20 draft under "Handed back"; two lines naming this file and `tickets/README.md
 - Who the second player of part 5 is: another profile put to `Rate`, or another of the
   four models. S06's recommendation may leave only the first.
 - Whether candidate givens that ask too much are given a digit back or thrown away.
-- Whether the undoings drawn are part of what replay promises, so that
-  `generation_version` is raised when S07's list changes.
