@@ -42,6 +42,9 @@ none is picked up before T11.
 | S02 | Spike: release and publishing, cargo-release or release-plz, crates.io, lifting publish = false | `S02-release-and-publishing.md` | T11 | done |
 | S03 | Spike: benchmarks, fuzzing and mutation testing | `S03-bench-fuzz-mutants.md` | T11 | done |
 | S04 | Spike: bindings and CLI groundwork, pawdoku-cli, pawdoku-py, pawdoku-wasm | `S04-bindings-and-cli.md` | T11, T06 | done |
+| S06 | Spike: one ordered list of licensed deductions, and a run that takes the first | `S06-licensed-deductions-in-order.md` | T19 | open |
+| S07 | Spike: undoing a deduction, technique by technique | `S07-undoing-a-deduction.md` | S06 | open |
+| S08 | Spike: removal by undoing deductions, against removal and a rating | `S08-removal-by-undoing.md` | S06, S07 | open |
 
 Centralisation recommendations. Each is written to be picked up on its own and touches
 another repository, so every step in it is separately authorised.
@@ -60,7 +63,7 @@ D01 ── D02 ── T00 ──┬── T01 ───────────�
                     ├── T04 (needs T01's remote) ┤
                     ├── T05 ──────────────────┼── T11 ── T10
                     ├── T06 ──────────────────┤    ├── S01, S02, S03, S04
-                    ├── T07 ──────────────────┤    ├── T12 (also after T06, T07, T08) ── T19
+                    ├── T07 ──────────────────┤    ├── T12 (also after T06, T07, T08) ── T19 ── S06 ── S07 ── S08
                     ├── T08 ──────────────────┤    └── C01 (also after T04)
                     └── T09 ──────────────────┘
 C02 hangs off D01 alone (D01 kept the Python checkers; decision 0004)
@@ -68,7 +71,8 @@ C02 hangs off D01 alone (D01 kept the Python checkers; decision 0004)
 
 The graph is acyclic: D01, then D02, then T00, then nine parallel lanes, then T11 and T10
 in sequence. T12 follows T11 because it edits pages T07 and T08 own; T19 follows T12
-because it counts the modules T12 made eight. T04 needs the remote T01 creates before its proof run, but its files can be
+because it counts the modules T12 made eight. S06, S07 and S08 follow T19 in sequence,
+each reading the hand-back notes of the one before. T04 needs the remote T01 creates before its proof run, but its files can be
 written in parallel with T01.
 
 ## How to pick up a ticket
