@@ -36,7 +36,11 @@ Facts to start from, each verified at execution against the specifications as th
 stand on `main`:
 
 - **Most of it is already stated.** `SameGridSameDeductions` in `technique.allium` says
-  the same digits and candidates license the same deductions every time. `Order`'s
+  the same digits and candidates license the same deductions every time, "with the
+  same uniqueness premise and catalogue limits". So the list is drawn from more than
+  the grid and the profile: `uniqueness_promised`, `max_chain_links` and
+  `max_forcing_paths` change it too, and the proposal's "same grid and same profile"
+  has to name all five. `Order`'s
   `systematic` is "the lowest technique on the ladder that yields anything, and back to
   the bottom after every step". `Profile.sees` is `knows`, `holds`, `takes_in` and
   `can_read` together. `reach.allium`'s `SameInputSameRun` gives the same run for the
@@ -126,18 +130,23 @@ guess and its repair, chance) while losing their own statements of looking.
    Fetching documentation and installing a SAT or SMT solver are separately
    authorised: stop and ask.
 
-3. State the list. An entry is a technique, what it places or strikes, and one
-   witness. Say which witness is kept when several rest the same placement or strikes
-   on different proofs, and state the total order: rank, then what, then what, until no
-   two entries are equal.
+3. State the list and what it is drawn from: the grid's digits and candidates,
+   `uniqueness_promised`, `max_chain_links`, `max_forcing_paths` and the profile. An
+   entry is a technique, what it places or strikes, and one witness. Say which
+   witness is kept when several rest the same placement or strikes on different
+   proofs, and state the total order: rank, then what, then what, until no two
+   entries are equal.
 
 4. Build a prototype in `ai_tmp/` or the session's scratch directory, never in a
    commit, for ranks 1 to 12 with full marks and every span. Run it from the givens to
    the end over a stated set of grids, the four study puzzles of
    `docs/explanation/puzzle-design.md` among them, which that page marks unverified.
-   Count, per look: the entries on the whole list, the entries when listing stops at
-   the first rank that yields anything, and the operations each took. Counts and never
-   seconds.
+   Before running it, define the counters, per technique, so that another prototype
+   would count the same: at the least, the patterns examined (each combination of
+   cells, units and digits a technique's search tests, licensed or not) and the
+   witnesses found before the rule of step 3 removes repeats. Then count, per look:
+   the entries on the whole list, the entries when listing stops at the first rank
+   that yields anything, and each counter for both. Counts and never seconds.
 
 5. Bound the list for ranks 13 to 29 on paper: where the count of witnesses grows with
    `max_chain_links` and `max_forcing_paths`, and what the rule of step 3 brings it
@@ -157,8 +166,10 @@ guess and its repair, chance) while losing their own statements of looking.
 
 - Answers (a) to (e) are recorded with sources and dates.
 - The total order is stated so that no two entries are equal, and the prototype's run
-  over the same grid twice gives the same steps.
-- The counts of step 4 are in a table by rank, and the bound of step 5 is argued.
+  twice over the same grid, uniqueness premise, catalogue limits and profile gives the
+  same steps.
+- The counters of step 4 are defined before any figure is recorded, their counts are
+  in a table by rank, and the bound of step 5 is argued.
 - The table of models is completed, and the verdict is adopt in place, adopt beneath,
   or not at all, with the reason.
 - The follow-up names every specification change as a change to make first.

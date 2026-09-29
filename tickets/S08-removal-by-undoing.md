@@ -51,9 +51,16 @@ stand on `main` and against S06's and S07's hand-back notes:
 - **Drawing a cell and then a technique mostly finds nothing.** On a full grid no cell
   has a candidate, so only singles can be undone. Drawing from S07's list, as the
   second part says, draws only from what can be undone.
-- **The verdict is nearly always one.** A sound deduction undone leaves the one
-  solution standing, so part 4 rejects nothing except after a uniqueness technique,
-  which S07 weighs. Acceptance asks for the verdict whatever removal did.
+- **The verdict can be many part of the way.** `solver.allium` judges the givens alone.
+  Partway through removal, the grid still has strikes that no deduction from the givens
+  left has earned yet: they are assumed, not derived. So the givens left can have
+  more than one solution after undoing any technique, not only a uniqueness one, and
+  part 4 can put a digit back at any removal. A run of licensed deductions from a
+  born-kept grid to a full one keeps every solution (`DeductionsAreSound` is stated
+  for any solution), so a verdict of one is owed only when removal ends on a
+  born-kept grid and no uniqueness technique was undone. How often part 4 rejects on
+  the way is measured, not assumed. Acceptance asks for the verdict whatever removal
+  did.
 - **Removal must end on givens.** A grid is born kept, so removal is finished only
   when every candidate the givens left allow is back. Removal can arrive at a grid
   where nothing more can be undone and strikes still stand.
@@ -62,7 +69,10 @@ stand on `main` and against S06's and S07's hand-back notes:
   puzzle that asks too much has no way back in the proposal but to put a given back.
 - **Cells against orbits.** `generation.allium` removes an orbit at a time. The
   maintainer's decision of 2026-09-29: this spike removes one cell at a time, and says
-  what removal by orbit would ask of S07's list.
+  what removal by orbit would ask of S07's list. One cell at a time is removal under
+  the scheme `none`, one of the schemes `generation.allium`'s symmetry question still
+  weighs, so every figure here, and the recommendation, speak for `none` alone.
+  Removal at random is measured the same way, so the comparison is like for like.
 - **Draws and limits.** Every draw comes through the randomness boundary, a choice
   among `n` is `floor(u * n)` over a list in a stated order, which S06's total order
   gives, and every draw is recorded (`human-solving.allium`'s `ExactReplay`). A limit
@@ -82,19 +92,22 @@ and `tickets/S07-undoing-a-deduction.md` with their hand-back notes;
 
 ## Goal
 
-A recommendation for T20 between removal by undoing and removal followed by a rating:
-adopt removal by undoing, adopt it as one way of choosing what to remove inside the
-skeleton as it stands, or not at all. With it: what each yields, measured on the same
-seeds and profiles, and a proposed answer to three of `generation.allium`'s open
-questions (the technique contract's shape, shortcut suppression, redundant givens).
+A recommendation for T20 between removal by undoing and removal followed by a rating,
+under the scheme `none`: adopt removal by undoing, adopt it as one way of choosing
+what to remove, or not at all. Whether it carries over to any other scheme is stated
+as a condition on step 2(e)'s answer, not measured. With it: what each yields,
+measured on the same seeds and profiles, and a proposed answer to three of
+`generation.allium`'s open questions (the technique contract's shape, shortcut
+suppression, redundant givens).
 Nothing is installed or changed outside this file.
 
-The starting recommendation: **adopt it as a way of choosing what to remove**.
+The starting recommendation: **adopt it as a way of choosing what to remove**, under
+the scheme `none` until removal by orbit is shown to work.
 Acceptance stays as `generation.allium` states it, the verdict and one `Rate`; undoing
 decides only which given goes next, and is kept if it reaches a contract in fewer
 candidate givens than removal at random.
 
-| Way of removing | Accepted per 100 seeds | Steps per accepted | Candidate givens per accepted | Run's hardest step below the hardest undone | Ended with strikes standing | Givens left |
+| Way of removing | Accepted per 100 seeds | Each counter per accepted | Candidate givens per accepted | Run's hardest step below the hardest undone | Ended with strikes standing | Givens left |
 | --- | --- | --- | --- | --- | --- | --- |
 | at random, then the verdict and `Rate` | | | | not applicable | not applicable | |
 | by undoing, broad reading | | | | | | |
@@ -134,8 +147,13 @@ candidate givens than removal at random.
 
 3. Build the three ways of removing in the prototype S07 left, in `ai_tmp/` or the
    session's scratch directory and never in a commit, for ranks 1 to 12. All three
-   draw through one seeded stream, record their draws, and count steps as
-   `generation.allium`'s config counts them.
+   draw through one seeded stream and record their draws. Before running them, define
+   what each charges, because `generation.allium`'s step (a look at a position, the
+   removal of an orbit, a call to acceptance) does not reach the work removal by
+   undoing adds. Count for all three: looks, cells removed, calls to acceptance, and
+   the verdicts and `Rate` runs those calls make. Count for the two ways of undoing as
+   well: the list of undoings drawn up (with S06's counters), the earlier grids tried
+   (S07's), each verdict asked after a removal, and each digit put back.
 
 4. Run each over the same seeds against the same technique contracts, a profile and a
    ceiling at ranks 4, 6, 8 and 12, and complete the table above.
@@ -151,7 +169,9 @@ candidate givens than removal at random.
 ## Acceptance criteria
 
 - Answers (a) to (e) are recorded with sources and dates.
-- The table is completed for the three ways of removing on the same seeds.
+- The counters of step 3 are defined before any figure is recorded, and the table is
+  completed for the three ways of removing on the same seeds.
+- The recommendation names the scheme `none` as the only one measured.
 - Replay is shown with the two runs' givens quoted.
 - The verdict is adopt, adopt as a way of choosing, or not at all, with the reason.
 - Each of the three open questions has a proposed answer or a reason it stays open.

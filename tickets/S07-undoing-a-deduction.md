@@ -116,9 +116,12 @@ opening the grid afresh on the givens left, which is what `OpenGrid` already doe
    count at each grid: the earlier grids tried, the undoings found under each reading,
    and how both change as the digits left fall towards 30.
 
-5. Check every undoing found: the earlier grid's verdict is one, by the prototype's
-   own search or by the SAT or SMT solver S06 weighed, and the deduction undone is on
-   its list.
+5. Check every undoing found, by the prototype's own search or by the SAT or SMT
+   solver S06 weighed: the earlier grid meets `DeductionsAreSound`'s premise for the
+   solution grid (every placed digit is the solution's, every open cell allows the
+   solution's digit), its digits and candidates together admit that solution alone,
+   and the deduction undone is on its list. Whether the digits alone are well-posed
+   is a verdict on givens and S08's to measure.
 
 6. Complete the table for ranks 13 to 29 on paper, from the catalogue guarantees.
 
