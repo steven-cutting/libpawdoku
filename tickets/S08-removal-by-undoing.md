@@ -47,7 +47,12 @@ stand on `main` and against S06's and S07's hand-back notes:
   `generation.allium`'s open questions on the technique contract's shape ("a solved run
   does not show that a required technique was needed, only that it was used") and on
   shortcut suppression already say so. So the run of part 5 is the acceptance and not
-  a last look, and the technique undone is at most a ceiling on what the run asks.
+  a last look. Nor is the technique undone a ceiling. Under the broad reading a
+  systematic run may take another route, and `reach.allium`'s questions on
+  monotonicity and on the path-dependence of the hardest step allow a strike on that
+  route to hide a pattern the undoing relied on, so the run may need a harder
+  technique or stall. Only the strict reading, whose run retraces the undoing, ties
+  the two together.
 - **Drawing a cell and then a technique can find nothing.** On a solution grid every
   cell is placed and keeps its digit as its one candidate, so only a placement can be
   undone there: the four singles, `bug_plus_one`, a forcing chain's positive
@@ -118,7 +123,7 @@ Acceptance stays as `generation.allium` states it, the verdict and one `Rate`; u
 decides only which given goes next, and is kept if it reaches a contract in fewer
 candidate givens than removal at random.
 
-| Way of removing | Accepted per 100 seeds | Each counter per accepted | Candidate givens per accepted | Run's hardest step below the hardest undone | Ended with strikes standing | Givens left |
+| Way of removing | Accepted per 100 seeds | Each counter per accepted | Candidate givens per accepted | Runs whose hardest step is below, at or above the hardest undone | Ended with strikes standing | Givens left |
 | --- | --- | --- | --- | --- | --- | --- |
 | at random, then the verdict and `Rate` | | | | not applicable | not applicable | |
 | by undoing, broad reading | | | | | | |
@@ -171,8 +176,11 @@ candidate givens than removal at random.
 4. Run each over the same seeds against the same technique contracts, a profile and a
    ceiling at ranks 4, 6, 8 and 12. Pin each profile in full, as S06 pins its own: a
    repertoire of exactly ranks 1 to the ceiling, `capacity` 4, `full_marks`, every
-   extent in `spans`, order `systematic` and fixation `unfixed`. Complete the table
-   above.
+   extent in `spans`, order `systematic` and fixation `unfixed`. Run all three under
+   the same `step_budget` and `candidate_limit`, stated in the hand-back notes, and
+   record how many attempts each way ended by spending a limit. Where a limit decided
+   any result, run again with the limits raised until none does, and report both.
+   Complete the table above.
 
 5. Show replay: the same seed, profile and config give the same givens, run twice.
 
@@ -187,7 +195,8 @@ candidate givens than removal at random.
 - Answers (a) to (e) are recorded with sources and dates.
 - The rebuild reproduced S07's recorded counts, or each difference is explained.
 - The counters of step 3 are defined before any figure is recorded, and the table is
-  completed for the three ways of removing on the same seeds.
+  completed for the three ways of removing on the same seeds and the same limits, with
+  the attempts each ended by spending a limit counted.
 - The recommendation names the scheme `none` and a ceiling of rank 12 as the limits of
   what was measured.
 - Replay is shown with the two runs' givens quoted.
