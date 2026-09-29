@@ -135,9 +135,12 @@ guess and its repair, chance) while losing their own statements of looking.
    entry is a technique, what it places or strikes, and one witness. Say which
    witness is kept when several rest the same placement or strikes on different
    proofs, and state the total order: rank, then what, then what, until no two
-   entries are equal. A list with one witness per output is smaller than the
-   catalogue's deductions, which `technique.allium` tells apart by proof, so it is a
-   second thing beside them and not the same; step 4 reports the size of both.
+   entries are equal. Repeats are removed only within one technique: "one placement
+   may be licensed by several techniques, and then each has its own deduction", so
+   the list keeps one entry for each technique and output, never one for each output.
+   It is still smaller than the catalogue's deductions, which `technique.allium` also
+   tells apart by proof, so it is a second thing beside them and not the same; step 4
+   reports the size of both.
 
 4. Build a prototype in `ai_tmp/` or the session's scratch directory, never in a
    commit, for ranks 1 to 12, under one profile pinned in full, because `Profile.sees`
@@ -153,8 +156,8 @@ guess and its repair, chance) while losing their own statements of looking.
    cells, units and digits a technique's search tests, licensed or not) and the
    witnesses found before the rule of step 3 removes repeats. Then count, per look:
    the licensed deductions, one for each proof; the entries on the list, one for each
-   output; the entries when listing stops at the first rank that yields anything; and
-   each counter for all three. Counts and never seconds.
+   technique and output; the entries when listing stops at the first rank that yields
+   anything; and each counter for all three. Counts and never seconds.
    Before any count is used, check that the list is complete: on a stated sample of
    grids, compare it entry for entry with an independent exhaustive search written
    apart from the prototype, one that tries every combination of units and digits
