@@ -46,8 +46,10 @@ stand on `main`:
   is "supplied by the keeper, never inferred". A grid being undone towards givens
   that have no verdict yet cannot promise it.
 - **A grid is born kept.** A grid opened on a set of givens holds "every candidate the
-  start allows and no other". Givens carry no candidates, so an undoing that leaves a
-  strike standing has not reached a set of givens.
+  start allows and no other", and a placed cell keeps its digit as its one candidate.
+  So undoing has reached a set of givens only when the grid is exactly the born-kept
+  grid of the digits left: every open cell holds every candidate its placed peers
+  allow. An undoing that leaves a strike standing has not got there.
 - **Two readings of the reverse.** The broad one undoes any deduction the earlier grid
   licenses and the profile sees. The strict one undoes only the deduction a run would
   take there, the first on S06's list. The strict one makes the run forward retrace
@@ -124,9 +126,11 @@ opening the grid afresh on the givens left, which is what `OpenGrid` already doe
    given back to a cell's peers can be any of a great many sets. So completeness is
    shown for what is undone, not for every earlier grid: on a stated sample of grids,
    an independent search (exhaustive over small cases, or the SAT or SMT solver S06
-   weighed) finds every pair of a cell and a technique for which some earlier grid
-   exists, and the prototype must find the same pairs. The count of distinct earlier
-   grids is reported as found and never as complete.
+   weighed) finds every deduction that some earlier grid would undo, each named by its
+   technique and what it places or strikes, and the prototype must find the same set.
+   Two undoings that differ only in their witness are one here, because the witness
+   depends on which earlier grid is chosen. The count of distinct earlier grids is
+   reported as found and never as complete.
 
 5. Check every undoing found, by the prototype's own search or by the SAT or SMT
    solver S06 weighed: the earlier grid meets `DeductionsAreSound`'s premise for the
@@ -152,8 +156,9 @@ opening the grid afresh on the givens left, which is what `OpenGrid` already doe
 - The table has twenty-nine rows and no empty cell.
 - Both readings are stated with what each guarantees, and both are counted.
 - The rebuild reproduced S06's recorded counts, or each difference is explained.
-- On every sampled grid the prototype found the same pairs of a cell and a technique
-  as the independent search of step 4, or each difference is listed.
+- On every sampled grid the prototype found the same deductions, by technique and by
+  what each places or strikes, as the independent search of step 4, or each
+  difference is listed.
 - Every undoing the prototype found passed the check of step 5, or is listed as a
   defect.
 - The hand-back notes carry everything step 7 names for a rebuild.
