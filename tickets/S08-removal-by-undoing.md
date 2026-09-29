@@ -58,13 +58,14 @@ stand on `main` and against S06's and S07's hand-back notes:
 - **The verdict can be many part of the way.** `solver.allium` judges the givens alone.
   Partway through removal, the grid still has strikes that no deduction from the givens
   left has earned yet: they are assumed, not derived. So the givens left can have
-  more than one solution after undoing any technique, not only a uniqueness one, and
-  part 4 can put a digit back at any removal. A run of licensed deductions from a
-  born-kept grid to a full one keeps every solution (`DeductionsAreSound` is stated
-  for any solution), so a verdict of one is owed only when removal ends on a
-  born-kept grid and no uniqueness technique was undone. How often part 4 rejects on
-  the way is measured, not assumed. Acceptance asks for the verdict whatever removal
-  did.
+  more than one solution after undoing any placement, not only a uniqueness one, and
+  part 4 can put a digit back at any removal. Undoing a strike changes no digit, so
+  it leaves the verdict as it was and part 4 is not asked after one. A run of
+  licensed deductions from a born-kept grid to a full one keeps every solution
+  (`DeductionsAreSound` is stated for any solution), so a verdict of one is owed only
+  when removal ends on a born-kept grid and no uniqueness technique was undone. How
+  often part 4 rejects on the way is measured, not assumed. Acceptance asks for the
+  verdict whatever removal did.
 - **Removal must end on givens.** A grid is born kept, so removal is finished only
   when every candidate the givens left allow is back. Removal can arrive at a grid
   where nothing more can be undone and strikes still stand.
@@ -97,9 +98,11 @@ and `tickets/S07-undoing-a-deduction.md` with their hand-back notes;
 ## Goal
 
 A recommendation for T20 between removal by undoing and removal followed by a rating,
-under the scheme `none`: adopt removal by undoing, adopt it as one way of choosing
-what to remove, or not at all. Whether it carries over to any other scheme is stated
-as a condition on step 2(e)'s answer, not measured. With it: what each yields,
+under the scheme `none` and for technique contracts whose ceiling is rank 12 or
+below: adopt removal by undoing, adopt it as one way of choosing what to remove, or
+not at all. Whether it carries over to any other scheme is stated as a condition on
+step 2(e)'s answer, and whether it carries over above rank 12 as a condition on
+S07's table for ranks 13 to 29; neither is measured. With it: what each yields,
 measured on the same seeds and profiles, and a proposed answer to three of
 `generation.allium`'s open questions (the technique contract's shape, shortcut
 suppression, redundant givens).
@@ -159,10 +162,13 @@ candidate givens than removal at random.
    undoing adds. Count for all three: looks, cells removed, calls to acceptance, and
    the verdicts and `Rate` runs those calls make. Count for the two ways of undoing as
    well: the list of undoings drawn up (with S06's counters), the earlier grids tried
-   (S07's), each verdict asked after a removal, and each digit put back.
+   (S07's), each verdict asked after a digit is taken out, and each digit put back.
 
 4. Run each over the same seeds against the same technique contracts, a profile and a
-   ceiling at ranks 4, 6, 8 and 12, and complete the table above.
+   ceiling at ranks 4, 6, 8 and 12. Pin each profile in full, as S06 pins its own: a
+   repertoire of exactly ranks 1 to the ceiling, `capacity` 4, `full_marks`, every
+   extent in `spans`, order `systematic` and fixation `unfixed`. Complete the table
+   above.
 
 5. Show replay: the same seed, profile and config give the same givens, run twice.
 
@@ -178,7 +184,8 @@ candidate givens than removal at random.
 - The rebuild reproduced S07's recorded counts, or each difference is explained.
 - The counters of step 3 are defined before any figure is recorded, and the table is
   completed for the three ways of removing on the same seeds.
-- The recommendation names the scheme `none` as the only one measured.
+- The recommendation names the scheme `none` and a ceiling of rank 12 as the limits of
+  what was measured.
 - Replay is shown with the two runs' givens quoted.
 - The verdict is adopt, adopt as a way of choosing, or not at all, with the reason.
 - Each of the three open questions has a proposed answer or a reason it stays open.

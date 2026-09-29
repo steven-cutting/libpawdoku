@@ -138,8 +138,11 @@ guess and its repair, chance) while losing their own statements of looking.
    entries are equal.
 
 4. Build a prototype in `ai_tmp/` or the session's scratch directory, never in a
-   commit, for ranks 1 to 12 with full marks and every span. Run it from the givens to
-   the end over a stated set of grids, the four study puzzles of
+   commit, for ranks 1 to 12, under one profile pinned in full, because `Profile.sees`
+   hides by every field it reads: a repertoire of exactly ranks 1 to 12, `capacity` 4
+   (the highest load among them, so that no subset is hidden), `full_marks`, every
+   extent in `spans`, order `systematic` and fixation `unfixed`. Run it from the
+   givens to the end over a stated set of grids, the four study puzzles of
    `docs/explanation/puzzle-design.md` among them, which that page marks unverified.
    Before running it, define the counters, per technique, so that another prototype
    would count the same: at the least, the patterns examined (each combination of
