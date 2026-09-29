@@ -145,8 +145,10 @@ candidate givens than removal at random.
    an undoing for every cell of the orbit on one grid, or one after another. Fetching
    a source is separately authorised: stop and ask.
 
-3. Build the three ways of removing in the prototype S07 left, in `ai_tmp/` or the
-   session's scratch directory and never in a commit, for ranks 1 to 12. All three
+3. Rebuild the prototype from S07's hand-back notes, in `ai_tmp/` or the session's
+   scratch directory and never in a commit, since S07's own copy stayed in its
+   worktree, and check it against the grids and counts S07 recorded. Build the three
+   ways of removing in it, for ranks 1 to 12. All three
    draw through one seeded stream and record their draws. Before running them, define
    what each charges, because `generation.allium`'s step (a look at a position, the
    removal of an orbit, a call to acceptance) does not reach the work removal by
@@ -169,6 +171,7 @@ candidate givens than removal at random.
 ## Acceptance criteria
 
 - Answers (a) to (e) are recorded with sources and dates.
+- The rebuild reproduced S07's recorded counts, or each difference is explained.
 - The counters of step 3 are defined before any figure is recorded, and the table is
   completed for the three ways of removing on the same seeds.
 - The recommendation names the scheme `none` as the only one measured.

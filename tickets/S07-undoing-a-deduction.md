@@ -35,7 +35,9 @@ stand on `main`:
   a cell. To undo a strike is to give a cell a candidate back, which changes no digit.
 - **Undoing is not one grid.** Taking a digit out leaves open which candidates its cell
   and its peers hold afterwards. So an undoing is stated by what it must lead to: the
-  earlier grid is any grid on which S06's list holds the deduction being undone.
+  earlier grid is any grid on which S06's list holds the deduction being undone and
+  on which taking that deduction, with upkeep after a placement, gives exactly the
+  later grid, digit for digit and candidate for candidate.
 - **Upkeep is not a strike.** "A placed digit leaves its peers' candidates by upkeep,
   which is the keeper's and not a strike of the deduction's." Undoing a placement has
   to say what happens to the candidates upkeep took.
@@ -111,22 +113,36 @@ opening the grid afresh on the givens left, which is what `OpenGrid` already doe
    the earlier grid ends solved, that it retraces the undoing, and that its hardest
    step is the hardest technique undone.
 
-4. Extend S06's prototype, in `ai_tmp/` or the session's scratch directory and never in
-   a commit, for ranks 1 to 12. From a solution grid, undo one cell at a time and
+4. Rebuild S06's prototype from S06's hand-back notes, in `ai_tmp/` or the session's
+   scratch directory and never in a commit; S06's own copy stayed in its worktree.
+   Check the rebuild against the grids and counts S06 recorded before going on. Then
+   extend it for ranks 1 to 12. From a solution grid, undo one cell at a time and
    count at each grid: the earlier grids tried, the undoings found under each reading,
    and how both change as the digits left fall towards 30.
+
+   The earlier grids an undoing may lead to are too many to list, since the candidates
+   given back to a cell's peers can be any of a great many sets. So completeness is
+   shown for what is undone, not for every earlier grid: on a stated sample of grids,
+   an independent search (exhaustive over small cases, or the SAT or SMT solver S06
+   weighed) finds every pair of a cell and a technique for which some earlier grid
+   exists, and the prototype must find the same pairs. The count of distinct earlier
+   grids is reported as found and never as complete.
 
 5. Check every undoing found, by the prototype's own search or by the SAT or SMT
    solver S06 weighed: the earlier grid meets `DeductionsAreSound`'s premise for the
    solution grid (every placed digit is the solution's, every open cell allows the
    solution's digit), its digits and candidates together admit that solution alone,
-   and the deduction undone is on its list. Whether the digits alone are well-posed
+   the deduction undone is on its list, and taking that deduction, with upkeep after
+   a placement, gives exactly the later grid. Whether the digits alone are well-posed
    is a verdict on givens and S08's to measure.
 
 6. Complete the table for ranks 13 to 29 on paper, from the catalogue guarantees.
 
 7. Draft the follow-up in the hand-back notes: the proposed text and the module it
    belongs to, and a build ticket under the next free id on the day if one is wanted.
+   Record as well what S08 needs to rebuild the prototype: S06's record, extended by
+   the two readings, how an earlier grid is proposed and tested, and the grids
+   measured with each grid's counts.
 
 8. Set `status: done` and commit on the ticket branch. Stop before pushing.
 
@@ -135,8 +151,12 @@ opening the grid afresh on the givens left, which is what `OpenGrid` already doe
 - Answers (a) to (e) are recorded with sources and dates.
 - The table has twenty-nine rows and no empty cell.
 - Both readings are stated with what each guarantees, and both are counted.
+- The rebuild reproduced S06's recorded counts, or each difference is explained.
+- On every sampled grid the prototype found the same pairs of a cell and a technique
+  as the independent search of step 4, or each difference is listed.
 - Every undoing the prototype found passed the check of step 5, or is listed as a
   defect.
+- The hand-back notes carry everything step 7 names for a rebuild.
 - The verdict is adopt, adopt for a named part, or not at all, with the reason.
 - `git status --porcelain` on the ticket branch lists only this file and the index.
 

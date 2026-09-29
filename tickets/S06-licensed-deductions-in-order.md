@@ -147,10 +147,18 @@ guess and its repair, chance) while losing their own statements of looking.
    witnesses found before the rule of step 3 removes repeats. Then count, per look:
    the entries on the whole list, the entries when listing stops at the first rank
    that yields anything, and each counter for both. Counts and never seconds.
+   Before any count is used, check that the list is complete: on a stated sample of
+   grids, compare it entry for entry with an independent exhaustive search written
+   apart from the prototype, one that tries every combination of units and digits
+   each technique of ranks 1 to 12 can be read across. Repeating the same answer
+   twice shows only that the prototype is consistent; an empty list would pass.
 
-5. Bound the list for ranks 13 to 29 on paper: where the count of witnesses grows with
-   `max_chain_links` and `max_forcing_paths`, and what the rule of step 3 brings it
-   down to.
+5. Bound ranks 13 to 29 on paper, twice over. First the list: where the count of
+   witnesses grows with `max_chain_links` and `max_forcing_paths`, and what the rule
+   of step 3 brings it down to. Then the search: the patterns examined per look,
+   counted as step 4 counts them, as a function of the same two limits, since a chain
+   search may reject a great many paths to find a short list. Where the second bound
+   cannot be argued, the recommendation speaks for ranks 1 to 12 alone.
 
 6. Complete the table above, and write the verdict against four criteria: the list is
    the same every time; it is short enough to draw up at every look; nothing a consumer
@@ -158,7 +166,11 @@ guess and its repair, chance) while losing their own statements of looking.
 
 7. Draft the follow-up in the hand-back notes: the proposed text for
    `technique.allium` and for each model that changes, and a build ticket under the
-   next free id on the day, found with `rg -n 'T2[0-9]|S0[5-9]' tickets/`.
+   next free id on the day, found with `rg -n 'T2[0-9]|S0[5-9]' tickets/`. Record
+   as well what S07 needs to rebuild the prototype, because `ai_tmp/` and the scratch
+   directory belong to this worktree and go no further: the list and its inputs, the
+   total order, the rule for repeated witnesses, the counters, the grids measured and
+   each grid's counts, so that a rebuild can be checked against them.
 
 8. Set `status: done` and commit on the ticket branch. Stop before pushing.
 
@@ -169,7 +181,11 @@ guess and its repair, chance) while losing their own statements of looking.
   twice over the same grid, uniqueness premise, catalogue limits and profile gives the
   same steps.
 - The counters of step 4 are defined before any figure is recorded, their counts are
-  in a table by rank, and the bound of step 5 is argued.
+  in a table by rank, and both bounds of step 5 are argued or the recommendation is
+  limited to ranks 1 to 12.
+- The independent search of step 4 agreed with the prototype's list entry for entry
+  on every sampled grid, or each difference is listed and explained.
+- The hand-back notes carry everything step 7 names for a rebuild.
 - The table of models is completed, and the verdict is adopt in place, adopt beneath,
   or not at all, with the reason.
 - The follow-up names every specification change as a change to make first.
