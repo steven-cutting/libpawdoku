@@ -857,10 +857,20 @@ are what makes `ExactReplay` (`human-solving.allium` lines 1093-1101,
 1. **The default is the library's generator.** A caller that gives a seed and nothing
    else gets `SeededStream::new(seed)`, whose draws are bit-identical on every IEEE 754
    target (`random.rs` lines 120-125), so a seed recorded in the game replays in Python.
-2. **The name travels with the seed.** Each binding exports `RANDOM_VERSION`
-   (`"seeded-stream-1"`) as a constant, and every result that consumed draws carries the
-   seed, the name and the count of draws consumed (`index()`), which is what the
-   guarantee asks a consumer to record.
+2. **The name and the draws travel with the seed.** Each binding exports
+   `RANDOM_VERSION` (`"seeded-stream-1"`) as a constant, and every result that consumed
+   draws carries the seed, the name and **the ordered draws themselves**, because
+   `ExactReplay` says "Record all these inputs and every consumed draw". The
+   specification already gives them a shape, `value Draw { index, purpose, value }`
+   (`human-solving.allium` lines 309-313), held in order by `Plan.draws`,
+   `Effect.draws` and each trace step's `draws`; a binding passes those records across
+   and never summarises them. They cross as plain objects in an array through
+   `serde_wasm_bindgen` in JavaScript and as a `list` in Python. The stream's `index()`
+   travels beside them as the cursor, a consistency check and not a substitute: a
+   stopped selection's uncommitted draws "need not enter the trace" (lines 1118-1119),
+   so the cursor can run ahead of the recorded draws, and replay resumes from it. The
+   first version exports `RandomStream` alone, so this is the rule every engine result
+   the bindings grow must follow (second review round, Deviations).
 3. **The fake is a list of draws.** `ReplayStream::new` takes a `Vec<f64>`, and a list
    is the one shape every language has: a JavaScript array or `Float64Array`, a Python
    `list[float]`. A test scripts its draws and hands the list across, as the
@@ -919,15 +929,25 @@ const _: () = {
 };
 ```
 
-It sits in `src/lib.rs`, not `tests/`, because `pawdoku-py` is a `cdylib` whose
+The class itself is `#[non_exhaustive] #[derive(Clone, Debug)]`, because invariant 3
+says "Public enums and structs are `#[non_exhaustive]`" and the class is the binding's
+public struct (second review round, Deviations). The bounds assertion sits in
+`src/lib.rs`, not `tests/`, because `pawdoku-py` is a `cdylib` whose
 `tests/` cannot link it (question (a), pyo3's FAQ) and whose Rust tests `just test`
 excludes. A scratch crate on the core, checked offline on 2026-09-28 with clippy's
 `pedantic` group and `-D warnings`, compiled both blocks clean, and the same assertion
 over a struct holding `Box<dyn RandomStream + Send + Sync>` failed with
 ``the trait bound `Boxed: Clone` is not satisfied`` and ``doesn't implement `Debug` ``.
+A second pair of scratch crates, on the cached wasm-bindgen 0.2.129 and pyo3 0.29.2
+with `forbid(unsafe_code)`, put `#[non_exhaustive] #[derive(Clone, Debug)]` on a
+`#[wasm_bindgen]` struct (checked for `wasm32-unknown-unknown`) and on a
+`#[pyclass(name = "RandomStream", skip_from_py_object)]` struct with `seeded`, `replay`
+and `next_draw`, each holding `Stream` beside the assertion: both printed `Finished`
+under `pedantic` and `-D warnings`, and dropping `Clone` from the Python class failed
+with ``the trait bound `RandomStream: std::clone::Clone` is not satisfied``.
 
-- **`pawdoku-wasm`.** One exported class, `RandomStream`, `#[derive(Clone, Debug)]`,
-  holding a `Stream`, with two static constructors:
+- **`pawdoku-wasm`.** One exported class, `RandomStream`, `#[non_exhaustive]
+  #[derive(Clone, Debug)]`, holding a `Stream`, with two static constructors:
   `RandomStream.seeded(seed: bigint)` calling `SeededStream::new`, and
   `RandomStream.replay(draws: Float64Array | number[])` calling `ReplayStream::new` and
   throwing on `Err`. `nextDraw(): number` calls `next_draw` and throws
@@ -947,24 +967,27 @@ over a struct holding `Box<dyn RandomStream + Send + Sync>` failed with
   `serde_wasm_bindgen::to_value`, behind the crate's own `serde` feature that turns on
   `pawdoku/serde`.
 - **`pawdoku-py`.** One `#[pyclass(name = "RandomStream", skip_from_py_object)]`,
-  `#[derive(Clone, Debug)]`, holding a `Stream`; not `frozen`, because `next_draw`
-  takes `&mut self`. A `#[pyclass]` must be `Send` and `Sync` (pyo3 rejects a
-  non-`Send` payload unless the class is `unsendable`), and the enum is both because
+  `#[non_exhaustive] #[derive(Clone, Debug)]`, holding a `Stream`; not `frozen`, because
+  `next_draw` takes `&mut self`. A `#[pyclass]` must be `Send` and `Sync` (pyo3 rejects
+  a non-`Send` payload unless the class is `unsendable`), and the enum is both because
   both library streams are, so the trait itself stays as it is. Two `#[staticmethod]`
-  constructors, `RandomStream.seeded(seed: int)` and `RandomStream.replay(draws: list[float])`; a
-  method `next_draw() -> float`; a property `index -> int`; the module attribute
-  `RANDOM_VERSION`. A Python `int` converts to `u64` on the way in, and pyo3 raises
-  `OverflowError` for a negative or too-large value before any Rust code runs. Errors
-  are one exception class, `pawdoku.PawdokuError`, declared with `create_exception!`
-  and raised with the `Display` text as its message; a `match` on the error's variants
-  would break on a new one, and the text is the contract. The fake is exposed as
-  `replay` so a Python test can script draws exactly as `tests/random.rs` does.
+  constructors, `RandomStream.seeded(seed: int)` and `RandomStream.replay(draws:
+  list[float])`; a method `next_draw() -> float`; a property `index -> int`; the module
+  attribute `RANDOM_VERSION`. A Python `int` converts to `u64` on the way in, and pyo3
+  raises `OverflowError` for a negative or too-large value before any Rust code runs.
+  Errors are one exception class, `pawdoku.PawdokuError`, declared with
+  `create_exception!` and raised with the `Display` text as its message; a `match` on
+  the error's variants would break on a new one, and the text is the contract. The fake
+  is exposed as `replay` so a Python test can script draws exactly as `tests/random.rs`
+  does.
 - **`pawdoku-cli`.** A `--seed <u64>` flag (clap parses the integer and reports
   overflow itself). Absent, the CLI is the one crate `deny.toml` lets source entropy: it
   depends on `getrandom` directly and fills a `u64`, then constructs
-  `SeededStream::new(seed)`. Every run prints `seed`, `random_version` and the draws
-  consumed beside its result, so the same command with `--seed <printed>` is the
-  replay, on this machine or in Python. It depends on `getrandom` **directly**, because
+  `SeededStream::new(seed)`. Every run prints `seed`, `random_version`, every draw it
+  consumed (one line each, its index and value, and its purpose once engine results
+  carry `Draw` records) and the final cursor beside its result, so the output is the
+  record point 2 asks for and the same command with `--seed <printed>` is the replay,
+  on this machine or in Python. It depends on `getrandom` **directly**, because
   cargo-deny's `wrappers` allow only the direct parent (question (e)): a CLI on `rand`
   would make `rand` the direct parent of `getrandom` and fail the ban. The CLI never
   depends on `rand` in any case: it needs one `u64`, not a distribution.
@@ -984,8 +1007,8 @@ crates/pawdoku-wasm/
 ├── src/lib.rs          RandomStream, RANDOM_VERSION, the in-crate panic hook through an
 │                       imported console.error (no console_error_panic_hook, question
 │                       (f)), the engine's entry points as they arrive
-└── tests/web.rs        wasm-bindgen-test in Node, run by `just wasm-test` (T15 decides
-                        whether the first version needs it)
+└── tests/web.rs        wasm-bindgen-test in Node, mandatory, run by `just
+                        wasm-test` inside `just check`
 crates/pawdoku-py/
 ├── Cargo.toml          cdylib; pyo3 with abi3-py311 only (never extension-module,
 │                       questions (a) and (f)); publish = false (PyPI, not crates.io)
@@ -1026,9 +1049,19 @@ meets them:**
   floor measures. Invariant 7 names the core's lines, and the recipe should say so.
 - `test` gains `--exclude pawdoku-py` on both lines (question (f): a Rust test binary
   that embeds the interpreter needs the loader to find `libpython`, and the crate's
-  tests are Python's). A `py-test` recipe runs `maturin develop` then `pytest
-  crates/pawdoku-py/tests`. Whether `py-test` joins `check` is T17's call; it costs the
-  gate a wheel build.
+  tests are Python's). A `py-test` recipe runs `py-develop` then `pytest
+  crates/pawdoku-py/tests`, and it **joins `check`'s recipe list** in `pyproject.toml`:
+  with `pawdoku-py` excluded from `test`, those pytest cases are the binding's only
+  behaviour tests, and a gate that skipped them could pass with the binding broken
+  (second review round). It costs every `check` a debug build of the extension.
+- A `wasm-test` recipe runs the same version guard as `wasm-build`, then
+  `CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER=wasm-bindgen-test-runner cargo test -p
+  pawdoku-wasm --target wasm32-unknown-unknown --locked`, and **joins `check`'s recipe
+  list** for the same reason: `wasm-check` and `wasm-build` compile and package the
+  class, and only `tests/web.rs` runs it. The runner ships in the pinned conda-forge
+  `wasm-bindgen-cli` (its feedstock's `recipe/recipe.yaml` lines 23-26 list
+  `bin/wasm-bindgen-test-runner`, read 2026-09-28, source) and runs the tests in the
+  pinned Node (below).
 - `export PYO3_PYTHON := justfile_directory() / ".pixi/envs/default/bin/python"` at the
   top of the `Justfile`, so `build`, `clippy`, `features`, `doc` and `test` compile
   `pawdoku-py` against the pinned 3.14 and never against a system Python older than the
@@ -1058,8 +1091,19 @@ meets them:**
 - `wheel`: `maturin build --release --manifest-path crates/pawdoku-py/Cargo.toml --out
   dist`; `locked = true` in `[tool.maturin]` makes every maturin build honour the
   workspace `Cargo.lock` (question (a)), and maturin sets
-  `PYO3_BUILD_EXTENSION_MODULE` itself. `py-develop`: `maturin develop --manifest-path
-  crates/pawdoku-py/Cargo.toml`, into the pixi environment, before `py-test`.
+  `PYO3_BUILD_EXTENSION_MODULE` itself. `py-develop`:
+  `CONDA_PREFIX="{{justfile_directory()}}/.pixi/envs/default" maturin develop
+  --manifest-path crates/pawdoku-py/Cargo.toml`, into the pixi environment, before
+  `py-test`. The variable is set on that line alone, because the `Justfile` puts the
+  environment's `bin` on `PATH` (line 10) and activates nothing: maturin 1.15.0's
+  `detect_venv` (`src/commands/develop.rs` lines 15-57, source) takes `VIRTUAL_ENV` or
+  `CONDA_PREFIX`, then a `.venv` in a parent directory, and otherwise stops with
+  "Couldn't find a virtualenv or conda environment". It then needs an installer: for an
+  environment carrying `conda-meta/pixi_env_prefix`, which ours does, `is_pixi_venv`
+  (`src/develop/install_backend.rs` lines 179-182) makes it try `python -m uv`, then
+  `uv` on `PATH` (`find_uv_bin`, lines 118-128), and fall back to pip, failing when
+  pip is absent too (`src/develop/mod.rs` lines 435-462). The environment has neither
+  today, hence the `uv` pin below (second review round).
 - `cli`: `cargo run -p pawdoku-cli --locked --`, the developer's tool.
 - `check-clean` is unchanged: `pkg/`, `dist/` and the `.so` are ignored, so the recipes
   above leave the tree clean.
@@ -1081,6 +1125,15 @@ gain `rust`"):
   `python = "3.14.*"`; T17 proves the solve with `pixi lock`).
 - `pytest = "==9.1.1"` (`noarch: python`).
 - `wasm-pack = "==0.15.0"` (no run dependencies).
+- `uv = "==0.12.19"` (one binary, no `python` dependency), the installer `maturin
+  develop` uses in a pixi environment. pip would also solve (26.2.1 has a
+  `python >=3.13` build, `pyh145f28c_0`), but maturin reaches for any `uv` on `PATH`
+  before pip in a pixi environment, so pinning pip would leave the installer to
+  whatever a developer happens to have; pinning `uv` makes the pixi one win. This is
+  not decision 0011's superseded uv: nothing resolves or locks through it, and it is
+  not a prerequisite, only a pinned tool maturin calls to install one wheel.
+- `nodejs = "==26.10.0"` (`linux-64` and `osx-arm64`, no `rust` dependency), the
+  runtime `wasm-bindgen-test-runner` drives for `wasm-test`.
 - `wasm-bindgen-cli = "==0.2.129"`, held equal to the `wasm-bindgen` crate version in
   `Cargo.lock`, because wasm-bindgen requires the CLI and the crate to match and
   wasm-pack in its default mode downloads a CLI when none matches on `PATH`, which
@@ -1092,14 +1145,17 @@ gain `rust`"):
   `[package.metadata.wasm-pack.profile.release]` in the crate's manifest so wasm-pack
   neither runs nor downloads it. T15 starts with `wasm-opt = false`, because the first
   version's size is not the problem it solves, and the pin is one line when it is.
-- No `nodejs`: the local recipe amends `package.json` with Python, and the publish job
-  installs Node with `actions/setup-node`, which also writes the registry `.npmrc`.
+- `nodejs` is for `wasm-test` alone. The first design had no Node locally, because
+  `wasm-build` amends `package.json` with Python; the second review round made
+  `wasm-test` part of `check`, and that needs Node. The amendment stays in Python, and
+  the publish job still installs its own Node with `actions/setup-node`, which also
+  writes the registry `.npmrc`.
 
 **Continuous integration** (`.github/workflows/ci.yml`, `.github/actions/setup`):
 
-- `wasm` gains `just wasm-build` after `just wasm-check`, and uploads `pkg/` as an
-  artefact for a reviewer to inspect. The job keeps `contents: read`; publishing is the
-  release workflow's.
+- `wasm` gains `just wasm-test` and `just wasm-build` after `just wasm-check`, and
+  uploads `pkg/` as an artefact for a reviewer to inspect. The job keeps `contents:
+  read`; publishing is the release workflow's.
 - **`windows-latest` is a job of its own, not a matrix entry.** CONVENTIONS.md §10 and
   the `ci.yml` comment say `windows-latest` joins `rust` the day the CLI exists. It
   cannot join as written: the setup action installs pixi with `platforms = ["linux-64",
@@ -1142,10 +1198,11 @@ paragraph is the reason. Each binding crate carries its own
 - `docs/project/repository-map.md` lines 11-13 ("one member today"), the tree at lines
   15-39 (a directory per crate, and `.github/workflows/release-*.yml`), and the
   responsibility table at lines 43-50 (a row per crate).
-- `docs/reference/commands.md`: a row per new recipe (`wasm-build`, `wheel`, `py-test`,
-  `cli`), the list at line 23 of recipes outside `just check`, and the count at line 15
-  ("Nine recipes reach the network") if `wheel` or `wasm-build` ever fetches; as drafted
-  neither does, because pixi and `cargo fetch` have already run.
+- `docs/reference/commands.md`: a row per new recipe (`wasm-build`, `wasm-test`,
+  `wheel`, `py-develop`, `py-test`, `cli`), `wasm-test` and `py-test` among `just
+  check`'s recipes and the rest in the list at line 23 of recipes outside it, and the
+  count at line 15 ("Nine recipes reach the network") if `wheel` or `wasm-build` ever
+  fetches; as drafted neither does, because pixi and `cargo fetch` have already run.
 - `docs/reference/testing.md`: where each crate's tests live (wasm-bindgen-test, pytest,
   `tests/cli.rs`), a stated exception to decision 0009's three places.
 - `docs/reference/quality-gates.md`: the `windows` job and `wasm-build`.
@@ -1161,9 +1218,9 @@ The Goal's table, corrected on today's evidence:
 
 | Crate | Toolchain | Registry | Randomness | Own `[lints]` | CI addition |
 | --- | --- | --- | --- | --- | --- |
-| `pawdoku-wasm` | wasm-bindgen 0.2.129 and js-sys, wasm-pack 0.15.0 `--target web`, serde-wasm-bindgen 0.6.5 behind `serde`; no console_error_panic_hook | GitHub Packages npm, `@steven-cutting/pawdoku-wasm`, `specs/` inside, `exports` amended after the build; no provenance until documented | `seeded(bigint)` or `replay(Float64Array)`; `SeededStream` is the default; no callback | no; `#[expect(clippy::missing_const_for_fn)]` on exports that could be `const` | third `wasm-check` line and `just wasm-build` in `wasm`; `release-npm.yml` |
+| `pawdoku-wasm` | wasm-bindgen 0.2.129 and js-sys, wasm-pack 0.15.0 `--target web`, serde-wasm-bindgen 0.6.5 behind `serde`; no console_error_panic_hook | GitHub Packages npm, `@steven-cutting/pawdoku-wasm`, `specs/` inside, `exports` amended after the build; no provenance until documented | `seeded(bigint)` or `replay(Float64Array)`; `SeededStream` is the default; no callback | no; `#[expect(clippy::missing_const_for_fn)]` on exports that could be `const` | third `wasm-check` line, `just wasm-test` (in `check` too) and `just wasm-build` in `wasm`; `release-npm.yml` |
 | `pawdoku-cli` | clap 4.6.7 derive; binaries by `release-cli.yml` with taiki-e's two actions, SHA-pinned; cargo-dist rejected (question (e)) | GitHub Releases; crates.io optional | `--seed <u64>`, else `getrandom` (direct dependency), printed with the result and `RANDOM_VERSION` | no | a `windows` job, not a matrix entry; `release-cli.yml` |
-| `pawdoku-py` | pyo3 0.29.2 `abi3-py311` (no `extension-module`), maturin 1.15.0 through pixi | PyPI, trusted publishing from the first release (a pending publisher) | `seeded(int)` or `replay(list[float])`; `SeededStream` is the default; no callable | no; `skip_from_py_object` on each `Clone` class | `PYO3_PYTHON` export, `test --exclude`, `py-test`; `release-pypi.yml` from `maturin generate-ci`, re-pinned and narrowed |
+| `pawdoku-py` | pyo3 0.29.2 `abi3-py311` (no `extension-module`), maturin 1.15.0 through pixi | PyPI, trusted publishing from the first release (a pending publisher) | `seeded(int)` or `replay(list[float])`; `SeededStream` is the default; no callable | no; `skip_from_py_object` on each `Clone` class | `PYO3_PYTHON` export, `test --exclude`, `py-test` in `check`; `release-pypi.yml` from `maturin generate-ci`, re-pinned and narrowed |
 
 **Step 6. G's side: the transport and the restatement test.** Read at `78d03cdf` as the
 ticket pins, with `git -C /Users/scutting/projects/pawdoku show 78d03cdf:<path>`; G's
@@ -1304,14 +1361,17 @@ estimated_size: M
 >   this crate's heading (S02's shape, `pawdoku-wasm-v{{version}}`).
 > - **`crates/pawdoku-wasm/src/lib.rs`** (new). The `RandomStream` class of S04's Step 4
 >   (`seeded(bigint)`, `replay(Float64Array)`, `nextDraw()`, the `index` getter),
->   holding the private `Stream` enum, with the in-crate `const _` bounds assertion
->   beside it, `RANDOM_VERSION`, the `#[wasm_bindgen(start)]` hook writing panics
->   through an imported `console.error`, `#[expect(clippy::missing_const_for_fn, reason = …)]` on
->   any export that could be `const`, a doctest on each public item.
-> - **`crates/pawdoku-wasm/tests/web.rs`** (new, optional): wasm-bindgen-test in Node
->   for `seeded(0n)`'s first draw equal to `tests/random.rs`'s golden value, run by a
->   `wasm-test` recipe. T15 decides whether the first version carries it; if not, the
->   golden check moves to G's test on the published package.
+>   `#[non_exhaustive] #[derive(Clone, Debug)]`, holding the private `Stream` enum,
+>   with the in-crate `const _` bounds assertion beside it; `RANDOM_VERSION`; the
+>   `#[wasm_bindgen(start)]` hook writing panics through an imported `console.error`;
+>   `#[expect(clippy::missing_const_for_fn, reason = …)]` on any export that could be
+>   `const`; a doctest on each public item. Any engine result it later exports carries
+>   the seed, `RANDOM_VERSION`, the ordered `Draw` records and the cursor (S04's Step 4,
+>   point 2).
+> - **`crates/pawdoku-wasm/tests/web.rs`** (new, mandatory): wasm-bindgen-test in Node,
+>   run by `just wasm-test`: `seeded(0n)`'s first draw equals `tests/random.rs`'s golden
+>   value; `replay` of an out-of-range value throws the `Display` text; a script's
+>   exhaustion throws its `Display` text; `index` advances by one per draw.
 > - **`Cargo.toml`** (T02 hand-back, with the decision 0007 note for each): `wasm-bindgen
 >   = "0.2.129"`, `js-sys = "0.3.106"`, `serde-wasm-bindgen = "0.6.5"` and, for tests,
 >   `wasm-bindgen-test = "0.3.79"` in `[workspace.dependencies]`; every licence is
@@ -1323,18 +1383,21 @@ estimated_size: M
 >   steven-cutting --release -- --locked`, then the specs copy and the `package.json`
 >   amendment through `scripts/wasm_pkg.py` run by the pixi Python, adding `files: specs`, and
 >   `exports` with `"."` (`types`, `default`), `"./pawdoku_wasm_bg.wasm"` and
->   `"./specs/*"`); a `wasm-test` recipe if `tests/web.rs` exists. `check-clean` is
->   unchanged.
+>   `"./specs/*"`); the `wasm-test` recipe of S04's Step 5 (the same guard, then `cargo
+>   test` on `wasm32-unknown-unknown` through `wasm-bindgen-test-runner`).
+>   `check-clean` is unchanged.
 > - **`pyproject.toml` and `pixi.lock`** (T00 follow-up on `main`): `wasm-pack =
->   "==0.15.0"` and `wasm-bindgen-cli = "==0.2.129"`, the second held equal to
->   `Cargo.lock`'s `wasm-bindgen`, each with a one-line comment; then `pixi lock`.
+>   "==0.15.0"`, `wasm-bindgen-cli = "==0.2.129"` (held equal to `Cargo.lock`'s
+>   `wasm-bindgen`) and `nodejs = "==26.10.0"`, each with a one-line comment;
+>   `wasm-test` in `[tool.biscuit-games-tooling]`'s `recipes`; then `pixi lock`.
 > - **`scripts/wasm_pkg.py`** (new): reads `pkg/package.json`, adds the three things
 >   above and, if GitHub Packages rejects the inherited `repository` (question (d)),
 >   rewrites it with `.git`. Ten lines, stdlib only, no `bg-` script.
 > - **`.gitignore`** (T03 hand-back): `crates/pawdoku-wasm/pkg/`.
-> - **`.github/workflows/ci.yml`**: the `wasm` job gains `just wasm-build` after `just
->   wasm-check` and uploads `crates/pawdoku-wasm/pkg/` with `actions/upload-artifact`
->   (the SHA `ci.yml` pins), `retention-days: 7`. Permissions stay `contents: read`.
+> - **`.github/workflows/ci.yml`**: the `wasm` job gains `just wasm-test` and `just
+>   wasm-build` after `just wasm-check`, and uploads `crates/pawdoku-wasm/pkg/` with
+>   `actions/upload-artifact` (the SHA `ci.yml` pins), `retention-days: 7`. Permissions
+>   stay `contents: read`.
 > - **`.github/workflows/release-npm.yml`** (new). `on: push: tags:
 >   ['pawdoku-wasm-v*']`; top-level `permissions: contents: read`; one job `publish` with
 >   `environment: release` and `permissions: contents: read, packages: write`;
@@ -1348,12 +1411,14 @@ estimated_size: M
 >   secrets.GITHUB_TOKEN }}`. No `id-token`, no `--provenance` (question (d)).
 > - **`docs/explanation/architecture.md`** lines 27 and 33-36, and the crossing table
 >   (S04 Step 5). **`docs/project/repository-map.md`**: the crate, `scripts/wasm_pkg.py`
->   and the workflow. **`docs/reference/commands.md`**: `wasm-build` (and `wasm-test`)
->   rows; both outside `just check`. **`docs/reference/testing.md`**: where this crate's
->   tests live. **`docs/reference/quality-gates.md`**: the `wasm` job's new step.
+>   and the workflow. **`docs/reference/commands.md`**: `wasm-build` and `wasm-test`
+>   rows; `wasm-test` in `just check`, `wasm-build` outside it.
+>   **`docs/reference/testing.md`**: where this crate's tests live.
+>   **`docs/reference/quality-gates.md`**: the `wasm` job's new step.
 >   **`docs/explanation/specifications.md`** lines 80-84: the shared-truth paragraph,
->   present tense, naming the package and G's test. **`docs/operations/maintenance.md`**:
->   a "Cut a wasm release" entry beside T13's, and the package-settings steps.
+>   present tense, naming the package and G's test.
+>   **`docs/operations/maintenance.md`**: a "Cut a wasm release" entry beside T13's, and
+>   the package-settings steps.
 > - **`CHANGELOG.md`**: a `pawdoku-wasm` heading under `[Unreleased]` (S02's open point,
 >   settled by S04: one root CHANGELOG, one heading per crate).
 > - **`tickets/README.md`**: the T15 row.
@@ -1364,10 +1429,13 @@ estimated_size: M
 >    `just check` green and the `wasm` job's artefact inspected: `pkg/package.json`
 >    carries `files`, `exports` and `repository`; `pkg/specs/` holds nine modules.
 > 2. Prove the lint table on the real crate: `just clippy` green, and a planted
->    `unsafe {}` in `src/lib.rs` failing it, quoted.
-> 3. Prove `wasm-build`'s two refusals, each quoted: a shim `wasm-bindgen` earlier on
->    `PATH` that reports another version stops the recipe at the guard before wasm-pack
->    runs; and a `Cargo.toml` edit that forces a re-resolve fails on `-- --locked`.
+>    `unsafe {}` in `src/lib.rs` failing it, quoted; and `just wasm-test` green, with a
+>    planted wrong golden value failing it, quoted.
+> 3. Run `pixi lock` and quote that `nodejs`, `wasm-pack` and `wasm-bindgen-cli` solve
+>    against the manifest on both platforms. Then prove `wasm-build`'s two refusals,
+>    each quoted: a shim `wasm-bindgen` earlier on `PATH` that reports another version
+>    stops the recipe at the guard before wasm-pack runs; and a `Cargo.toml` edit that
+>    forces a re-resolve fails on `-- --locked`.
 > 4. Prove the resolver: in a scratch directory, `npm install ./crates/pawdoku-wasm/pkg`,
 >    then resolve `@steven-cutting/pawdoku-wasm/specs/sudoku.allium` and the `.wasm`
 >    subpath with `import.meta.resolve` from a one-line Node script, and check that both
@@ -1387,12 +1455,12 @@ estimated_size: M
 > /users/steven-cutting/packages/npm/pawdoku-wasm/versions` lists 0.1.0; the
 > `release-npm.yml` run is green with no token beyond the run's own; the scratch
 > install resolves `specs/sudoku.allium` and the `.wasm` through `exports`; both
-> `wasm-build` refusals of step 3 fail as stated; the G ticket can proceed.
+> `wasm-build` refusals of step 3 fail as stated; `just check` runs `wasm-test`; the G
+> ticket can proceed.
 >
-> **Open points.** Whether `tests/web.rs` ships in 0.1.0 or the golden check lives only
-> in G. Whether the inherited `repository` (no `.git`) is accepted by GitHub Packages
-> (question (d), verified at the first publish). The `wasm-opt` decision when size
-> matters.
+> **Open points.** Whether the inherited `repository` (no `.git`) is accepted by GitHub
+> Packages (question (d), verified at the first publish). The `wasm-opt` decision when
+> size matters.
 
 **T16, drafted for `tickets/T16-cli.md`.**
 
@@ -1417,8 +1485,9 @@ estimated_size: S
 > terminal; until the solver exists, its one subcommand exercises the randomness
 > boundary.
 >
-> **Goal.** `just cli -- draw --seed 7` prints the seed, `random_version` and the first
-> draws; without `--seed` it prints a seed from the operating system that reproduces the
+> **Goal.** `just cli -- draw --seed 7` prints the seed, `random_version`, each draw
+> it consumed on its own line with its index, and the final cursor (S04's Step 4, point
+> 2); without `--seed` it prints a seed from the operating system that reproduces the
 > run. A `windows` job builds and runs the binary in CI. `release-cli.yml` attaches
 > binaries for Linux, macOS and Windows to a GitHub Release on `pawdoku-cli-v*`.
 >
@@ -1437,10 +1506,12 @@ estimated_size: S
 > - **`crates/pawdoku-cli/src/main.rs`** (new): clap derive with a `draw` subcommand
 >   (`--seed <u64>`, `--count <n>`), `getrandom::u64()` when `--seed` is absent, every
 >   line through `writeln!` on `std::io::stdout().lock()`, exit codes from
->   `std::process::ExitCode`.
+>   `std::process::ExitCode`. The clap structs are private to the binary, so
+>   invariant 3's `#[non_exhaustive]` has no public type to reach here.
 > - **`crates/pawdoku-cli/tests/cli.rs`** (new): `std::process::Command` on
->   `env!("CARGO_BIN_EXE_pawdoku")`: `--seed 7` prints `seed = 7` and the golden first
->   draw from `tests/random.rs`; two runs without `--seed` print different seeds; each
+>   `env!("CARGO_BIN_EXE_pawdoku")`: `--seed 7 --count 3` prints `seed = 7`, three
+>   indexed draws (index 0 equal to `tests/random.rs`'s golden first draw) and cursor 3;
+>   two runs without `--seed` print different seeds; each
 >   printed seed reproduces its run.
 > - **`Cargo.toml`** (T02 hand-back, decision 0007 notes): `clap = { version = "4.6.7",
 >   features = ["derive"] }` and `getrandom = "0.4.3"` in `[workspace.dependencies]`.
@@ -1537,10 +1608,13 @@ estimated_size: M
 >   `publishing-environment = "release"`. No `[tool.pixi]` table, on purpose, with a
 >   comment saying so and why (question (b)).
 > - **`crates/pawdoku-py/src/lib.rs`** (new): the `RandomStream` class of S04's Step 4
->   (`seeded(int)`, `replay(list[float])`, `next_draw()`, `index`), holding the private
->   `Stream` enum, with the in-crate `const _` bounds assertion beside it, `PawdokuError`
->   from `create_exception!`, `RANDOM_VERSION`, `#[pyclass(skip_from_py_object)]` on
->   every `Clone` class, the `#[pymodule]`.
+>   (`seeded(int)`, `replay(list[float])`, `next_draw()`, `index`),
+>   `#[non_exhaustive] #[derive(Clone, Debug)]`, holding the private `Stream` enum, with
+>   the in-crate `const _` bounds assertion beside it; `PawdokuError` from
+>   `create_exception!`; `RANDOM_VERSION`; `#[pyclass(skip_from_py_object)]` on every
+>   `Clone` class; the `#[pymodule]`. Any engine result it exports for S05 carries the
+>   seed, `RANDOM_VERSION`, the ordered `Draw` records and the cursor (S04's Step 4,
+>   point 2).
 > - **`crates/pawdoku-py/python/pawdoku/__init__.py`, `_pawdoku.pyi`, `py.typed`**
 >   (new). **`crates/pawdoku-py/tests/test_random.py`** (new): the golden first draw of
 >   seed zero, `replay` exhaustion raising `PawdokuError` with the `Display` text, an
@@ -1550,16 +1624,19 @@ estimated_size: M
 > - **`Justfile`** (T00 follow-up on `main`): `export PYO3_PYTHON :=
 >   justfile_directory() / ".pixi/envs/default/bin/python"`; `test` gains `--exclude
 >   pawdoku-py` on both lines; `coverage` is already `-p pawdoku` after T15 (or becomes
->   so here); new `wheel`, `py-develop` and `py-test` recipes.
+>   so here); new `wheel`, `py-develop` (with `CONDA_PREFIX` set on its one line, S04's
+>   Step 5) and `py-test` recipes.
 > - **`pyproject.toml` and `pixi.lock`** (T00 follow-up on `main`): `maturin =
->   "==1.15.0"` and `pytest = "==9.1.1"` under `[tool.pixi.dependencies]`, then `pixi
->   lock`; the solve proves `maturin`'s `python` dependency is satisfied by `3.14.*`.
+>   "==1.15.0"`, `pytest = "==9.1.1"` and `uv = "==0.12.19"` under
+>   `[tool.pixi.dependencies]`, and `py-test` in `[tool.biscuit-games-tooling]`'s
+>   `recipes`; then `pixi lock`, whose solve proves `maturin`'s `python` dependency is
+>   satisfied by `3.14.*`.
 > - **`.gitignore`** (T03 hand-back): `crates/pawdoku-py/python/pawdoku/*.so`, `*.pyd`,
 >   `.pytest_cache/`, `dist/`.
 > - **`.github/workflows/ci.yml`**: the `rust` job gains `just py-test` after `just test`
->   (the pixi environment has maturin and pytest; the step is the one wheel build in the
->   gate). `just check`'s recipe list in `pyproject.toml` gains `py-test` if the
->   maintainer wants it in the local gate too.
+>   (the pixi environment has maturin, uv and pytest; the step is the one extension
+>   build in the job). It is in `just check`'s recipe list too, so the local gate runs
+>   the binding's only behaviour tests (S04's second review round).
 > - **`.github/workflows/release-pypi.yml`** (new): the output of `maturin generate-ci
 >   github -m crates/pawdoku-py/Cargo.toml`, then edited: trigger narrowed to `push:
 >   tags: ['pawdoku-py-v*']`, every `@vN` action pin replaced by a SHA, the platform
@@ -1578,7 +1655,10 @@ estimated_size: M
 >   follow-up. **`docs/operations/maintenance.md`**: "Cut a Python release".
 > - **`CHANGELOG.md`**: a `pawdoku-py` heading. **`tickets/README.md`**: the T17 row.
 >
-> **Steps.** Land the crate and the follow-ups with `just check` green; `just wheel`
+> **Steps.** Land the crate and the follow-ups with `just check` green; from a shell
+> with no pixi activation and no `CONDA_PREFIX` or `VIRTUAL_ENV` set, `just py-test`
+> passes, quoted, which proves `py-develop` finds the pixi environment and its `uv`;
+> `just wheel`
 > produces `pawdoku-0.1.0-cp311-abi3-<platform>.whl`; configure the pending publisher
 > on PyPI (owner `steven-cutting`, repository `libpawdoku`, workflow
 > `release-pypi.yml`, environment `release`, project `pawdoku`) before the tag; release
@@ -1593,9 +1673,8 @@ estimated_size: M
 > the trusted-publisher badge; the workflow run used no secret; `pytest` passes locally
 > and in CI.
 >
-> **Open points.** Whether `py-test` joins `just check` locally or only CI. Whether the
-> free-threaded `cp314t` wheel maturin's generator adds is kept. Whether the PyPI name
-> `pawdoku` is free (checked on the day).
+> **Open points.** Whether the free-threaded `cp314t` wheel maturin's generator adds is
+> kept. Whether the PyPI name `pawdoku` is free (checked on the day).
 
 **Step 8.** `status: done`, and one commit on the ticket branch. Nothing is pushed.
 
@@ -1667,13 +1746,19 @@ the line above is the re-run over the same `target/`.
   The first review round added read-only `gh api` reads of wasm-pack `v0.15.0`'s
   `src/install/mod.rs`, `src/install/mode.rs` and `src/command/build.rs`, and of
   binary-install `v0.4.1`'s `src/lib.rs`, each authorised on 2026-09-28 and cited in
-  question (c).
+  question (c). The second review round, authorised the same day, added read-only reads
+  of maturin `v1.15.0`'s `src/commands/develop.rs`, `src/develop/mod.rs` and
+  `src/develop/install_backend.rs` and of the conda-forge `wasm-bindgen-cli`
+  feedstock's `recipe/recipe.yaml`; `pixi search` for `pip`, `uv`, `nodejs` and
+  `wasm-bindgen-cli`; and two offline scratch crates on the cached wasm-bindgen and
+  pyo3 (Step 4). Every file read stays in `ai_tmp/`.
 - **Not verified, stated in place and gathered here:** whether `npm publish
   --provenance` works against GitHub Packages (undocumented either way); whether
   GitHub Packages accepts the inherited `repository` without `.git`; wasm-pack's
   effective release `wasm-opt` default; whether Vite 8.2.1 still lowers
   `import.meta.url` when pre-bundling a `web`-target dependency; and the pixi solve of
-  `maturin`, `pytest`, `wasm-pack` and `wasm-bindgen-cli` against the manifest, which
+  `maturin`, `pytest`, `uv`, `wasm-pack`, `wasm-bindgen-cli` and `nodejs` against the
+  manifest, which
   `pixi lock` would prove and this ticket may not run (it rewrites `pixi.lock`). Each
   is a first step of the ticket it belongs to.
 - **Two files, not one.** Files touched first named this ticket alone, and the first
@@ -1691,25 +1776,47 @@ the line above is the re-run over the same `target/`.
     and T17 drafts carry both.
   - Step 5's `wasm-build` ran wasm-pack in its default mode, which installs a CLI when
     none on `PATH` matches, and without `--locked`, so a skewed pin could fetch a tool
-    outside pixi and a stale lockfile was rewritten rather than refused: invariant 8 broken in the CI `wasm` job
-    and `release-npm.yml`, and the claims that nothing is downloaded and that a mismatch
-    fails loudly were untrue. The recipe now guards the `PATH` CLI against
-    `Cargo.lock`'s version, runs `--mode no-install` and passes `-- --locked`; question
-    (c) cites the installer's source for why that suffices; T15 proves both refusals.
+    outside pixi and a stale lockfile was rewritten rather than refused: invariant 8
+    broken in the CI `wasm` job and `release-npm.yml`, and the claims that nothing is
+    downloaded and that a mismatch fails loudly were untrue. The recipe now guards the
+    `PATH` CLI against `Cargo.lock`'s version, runs `--mode no-install` and passes `--
+    --locked`; question (c) cites the installer's source for why that suffices; T15
+    proves both refusals.
+- **The second review round (Copilot and Codex on PR #17, 2026-09-28) corrected five
+  more.**
+  - Step 4's point 2 had results carry the seed, the name and a count of draws
+    (`index()`), and called that "what the guarantee asks a consumer to record".
+    `ExactReplay` asks for "every consumed draw" (`human-solving.allium` line 1097), and
+    the specification already shapes them as `Draw` records. Results now carry the
+    ordered records, with the cursor beside them as a check, and the CLI and T16 print
+    each draw.
+  - The binding classes lacked `#[non_exhaustive]`, which invariant 3 asks of every
+    public struct. Both now carry it, proved under both macros offline (Step 4).
+  - `py-develop` ran `maturin develop` with the environment on `PATH` but not
+    activated, which maturin refuses, and the environment had no installer for it
+    either. The recipe sets `CONDA_PREFIX` on its one line and `uv` is pinned (Step 5,
+    cited from maturin's source).
+  - T15 let `tests/web.rs` be optional with a fallback to "G's test on the published
+    package", which the G draft never had, so nothing would ever run `RandomStream`.
+    The test is mandatory, `wasm-test` joins `check` and CI, and `nodejs` is pinned for
+    it, reversing Step 5's first "No `nodejs`".
+  - T17 left `py-test` in or out of `check` open, while `test` excludes the crate, so
+    the local gate could pass with the binding's only tests failing. The maintainer
+    chose both behaviour tests in `check` and CI, and the two open points are gone.
 
 ### Handed back
 
 - **To T15, T16 and T17** (drafted above, T15 ready now, T16 when a solver or the
   `draw` subcommand justifies a binary, T17 when S05 opens): the crates, the recipes,
   the pins, the workflows and the pages, each listed in its draft.
-- **To T00 follow-ups on `main`** (frozen files, CONVENTIONS.md §11): in the
-  `Justfile`, the third `wasm-check` line, `coverage -p pawdoku`, `test --exclude
-  pawdoku-py`, the `PYO3_PYTHON` export, and the `wasm-build`, `wasm-test`, `wheel`,
-  `py-develop`, `py-test` and `cli` recipes; in `pyproject.toml` and `pixi.lock`, the
-  pins `wasm-pack = "==0.15.0"`, `wasm-bindgen-cli = "==0.2.129"`, `maturin =
-  "==1.15.0"` and `pytest = "==9.1.1"`, and `py-test` in the recipe list if it joins
-  `check`. Nothing in `tools.txt`: every new tool is on conda-forge and none depends on
-  `rust`.
+- **To T00 follow-ups on `main`** (frozen files, CONVENTIONS.md §11): in the `Justfile`,
+  the third `wasm-check` line, `coverage -p pawdoku`, `test --exclude pawdoku-py`, the
+  `PYO3_PYTHON` export, and the `wasm-build`, `wasm-test`, `wheel`, `py-develop`,
+  `py-test` and `cli` recipes; in `pyproject.toml` and `pixi.lock`, the pins `wasm-pack
+  = "==0.15.0"`, `wasm-bindgen-cli = "==0.2.129"`, `nodejs = "==26.10.0"`, `maturin =
+  "==1.15.0"`, `pytest = "==9.1.1"` and `uv = "==0.12.19"`, and `wasm-test` and
+  `py-test` in the recipe list. Nothing in `tools.txt`: every new tool is on conda-forge
+  and none depends on `rust`.
 - **To T02:** `wasm-bindgen`, `js-sys`, `serde-wasm-bindgen`, `wasm-bindgen-test`,
   `pyo3`, `clap` and `getrandom` in `[workspace.dependencies]`, each with its decision
   0007 note in the draft that needs it; the `rand` entry's `wrappers` dropped from
