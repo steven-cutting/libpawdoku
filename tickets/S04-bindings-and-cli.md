@@ -92,6 +92,7 @@ tool for running the solver on a grid string; Python last, when a consumer exist
 | Path | Class | Change |
 | --- | --- | --- |
 | `tickets/S04-bindings-and-cli.md` | ticket | the design, the answers, the drafted follow-ups; `status: done` |
+| `tickets/README.md` | ticket index | S04's row set to `done` (added in the first review round; see Deviations) |
 
 ## Steps
 
@@ -337,7 +338,8 @@ and a token unless told to use trusted publishing.**
   accessed by multiple Python threads simultaneously; therefore `#[pyclass]` objects
   must be `Sync`". `unsendable` is "Required if your struct is not `Send`… your class
   will panic when accessed by another thread" (docs), which invariant 3 makes
-  unnecessary: a `Box<dyn RandomStream + Send + Sync>` carries the bounds (Step 4).
+  unnecessary: the class holds a private enum over the library's two streams, which is
+  `Send + Sync` by construction (Step 4).
 - **Errors.** "PyO3 will automatically convert a `Result<T, E>` returned by a
   `#[pyfunction]` into a `PyResult<T>` as long as there is an implementation of
   `std::from::From<E> for PyErr`" (`pyo3.rs/v0.29.2/function/error-handling.html`,
@@ -468,7 +470,22 @@ is amended after the build with `npm pkg set` or a few lines of Python.**
   wasm-pack reads the version from `Cargo.lock` (`src/lockfile.rs`
   `wasm_bindgen_version`, source) and, in its default `--mode normal`, installs a
   matching CLI itself, a download `check` must never make; hence the
-  `wasm-bindgen-cli = "==0.2.129"` pixi pin held equal to the lockfile (Step 5).
+  `wasm-bindgen-cli = "==0.2.129"` pixi pin held equal to the lockfile, a guard that
+  compares the two, and `--mode no-install` (Step 5). The first review round read the
+  installer at wasm-pack `v0.15.0` (commit `8320269d`, source):
+  `download_prebuilt_or_cargo_install` (`src/install/mod.rs` lines 55-89) first takes
+  `which wasm-bindgen` if `check_version` says it equals the lockfile's version, and
+  otherwise tries `download_prebuilt` and then `cargo_install`, each handed
+  `install_permitted`; `InstallMode::install_permitted` (`src/install/mode.rs`) is
+  false for `no-install` alone; `step_install_wasm_bindgen` (`src/command/build.rs`
+  lines 461-470) reads the version with `lockfile.require_wasm_bindgen()` and passes
+  `self.mode.install_permitted()`. Under `no-install`, binary-install 0.4.1's
+  `Cache::_download` (`src/lib.rs` lines 123-128, source) returns a binary already in
+  wasm-pack's cache and otherwise `Ok(None)` without fetching, which ends in "Not able
+  to find or install a local wasm-bindgen." So `no-install` never downloads, but on its
+  own it would take a right-version CLI from the cache, not pixi's; the guard is what
+  makes the `PATH` branch the one that wins. Arguments after `--` reach
+  `cargo_build_wasm` as `extra_options` (`build.rs` lines 197-198 and 412-418).
 - **Type mapping, from the guide at 0.2.129 (docs).** "`u64`, `i64`, `u128`, and
   `i128` will be represented as `BigInt` in JavaScript" (`reference/types/numbers.md`);
   an incoming BigInt "too large or too small for the target integer type … will wrap
@@ -832,10 +849,10 @@ u64; }`, dyn-compatible, with two implementations the library ships:
 `ReplayStream::new(draws: Vec<f64>) -> Result<Self, RandomError>`, the fake. Every
 engine entry point that draws takes `&mut dyn RandomStream` (the shape
 `tests/random.rs` already exercises through `Box<dyn RandomStream>`), so a binding
-never re-implements the trait: it holds a box and passes it through. Three things are the
-same in every binding, and they are what makes `ExactReplay` (`human-solving.allium`
-lines 1093-1101, `generation.allium` lines 34-38) hold across a browser, Python and a
-terminal:
+never re-implements the trait: it holds one of the library's streams and lends it as
+`&mut dyn RandomStream` (below). Three things are the same in every binding, and they
+are what makes `ExactReplay` (`human-solving.allium` lines 1093-1101,
+`generation.allium` lines 34-38) hold across a browser, Python and a terminal:
 
 1. **The default is the library's generator.** A caller that gives a seed and nothing
    else gets `SeededStream::new(seed)`, whose draws are bit-identical on every IEEE 754
@@ -864,8 +881,53 @@ for a callback: `ExactReplay` names a seed and a script. If a consumer ever need
 the core gains a variant such as `RandomError::Source { index, message }` first, which is
 a T02 hand-back and a spec sentence, and this is recorded as an open point below.
 
-- **`pawdoku-wasm`.** One exported class, `RandomStream`, wrapping
-  `Box<dyn pawdoku::random::RandomStream>`, with two static constructors:
+**What a binding's class holds.** Not a `Box<dyn RandomStream>`: a trait object keeps
+only the bounds written on it, so a boxed stream is neither `Send` nor `Sync` unless the
+box says so, and it can never be `Clone` or `Debug`, because the trait has only
+`next_draw` and `index`. A class holding one would break invariant 3 for the binding's
+own public type (first review round, Deviations). Each binding instead holds a private
+
+```rust
+#[derive(Clone, Debug)]
+enum Stream {
+    Seeded(SeededStream),
+    Replay(ReplayStream),
+}
+
+impl Stream {
+    fn as_dyn(&mut self) -> &mut dyn RandomStream {
+        match self {
+            Self::Seeded(stream) => stream,
+            Self::Replay(stream) => stream,
+        }
+    }
+}
+```
+
+which is `Send + Sync + 'static` by construction, because both variants are
+(`tests/api_bounds.rs`), and whose `as_dyn` is what the class passes to every engine
+entry point. The enum is closed on purpose: a third source is a new variant, which is
+the same core change the live callback would need first. Each binding proves its class's
+bounds at compile time with an in-crate item beside the class, the helpers
+`api_bounds.rs` already uses, so `just clippy` and `just wasm-check` fail the day a
+field breaks them:
+
+```rust
+const _: () = {
+    const fn assert_bounds<T: Send + Sync + 'static + Clone + core::fmt::Debug>() {}
+    assert_bounds::<RandomStream>();
+};
+```
+
+It sits in `src/lib.rs`, not `tests/`, because `pawdoku-py` is a `cdylib` whose
+`tests/` cannot link it (question (a), pyo3's FAQ) and whose Rust tests `just test`
+excludes. A scratch crate on the core, checked offline on 2026-09-28 with clippy's
+`pedantic` group and `-D warnings`, compiled both blocks clean, and the same assertion
+over a struct holding `Box<dyn RandomStream + Send + Sync>` failed with
+``the trait bound `Boxed: Clone` is not satisfied`` and ``doesn't implement `Debug` ``.
+
+- **`pawdoku-wasm`.** One exported class, `RandomStream`, `#[derive(Clone, Debug)]`,
+  holding a `Stream`, with two static constructors:
   `RandomStream.seeded(seed: bigint)` calling `SeededStream::new`, and
   `RandomStream.replay(draws: Float64Array | number[])` calling `ReplayStream::new` and
   throwing on `Err`. `nextDraw(): number` calls `next_draw` and throws
@@ -884,12 +946,12 @@ a T02 hand-back and a spec sentence, and this is recorded as an open point below
   Public engine values (`serde` feature) cross as plain objects through
   `serde_wasm_bindgen::to_value`, behind the crate's own `serde` feature that turns on
   `pawdoku/serde`.
-- **`pawdoku-py`.** One `#[pyclass(name = "RandomStream")]` wrapping
-  `Box<dyn pawdoku::random::RandomStream + Send + Sync>`; a `#[pyclass]` must be `Send`
-  (pyo3 rejects a non-`Send` payload unless the class is `unsendable`), and both library
-  implementations are `Send + Sync` by `tests/api_bounds.rs`, so the box carries the
-  bounds and the trait itself stays as it is. Two `#[staticmethod]` constructors,
-  `RandomStream.seeded(seed: int)` and `RandomStream.replay(draws: list[float])`; a
+- **`pawdoku-py`.** One `#[pyclass(name = "RandomStream", skip_from_py_object)]`,
+  `#[derive(Clone, Debug)]`, holding a `Stream`; not `frozen`, because `next_draw`
+  takes `&mut self`. A `#[pyclass]` must be `Send` and `Sync` (pyo3 rejects a
+  non-`Send` payload unless the class is `unsendable`), and the enum is both because
+  both library streams are, so the trait itself stays as it is. Two `#[staticmethod]`
+  constructors, `RandomStream.seeded(seed: int)` and `RandomStream.replay(draws: list[float])`; a
   method `next_draw() -> float`; a property `index -> int`; the module attribute
   `RANDOM_VERSION`. A Python `int` converts to `u64` on the way in, and pyo3 raises
   `OverflowError` for a negative or too-large value before any Rust code runs. Errors
@@ -971,15 +1033,28 @@ meets them:**
   top of the `Justfile`, so `build`, `clippy`, `features`, `doc` and `test` compile
   `pawdoku-py` against the pinned 3.14 and never against a system Python older than the
   `abi3-py311` floor (question (f)).
-- `wasm-build`: `wasm-pack build crates/pawdoku-wasm --target web --scope steven-cutting
-  --release`, then copy `docs/specs/*.allium` into `crates/pawdoku-wasm/pkg/specs/` and
-  amend `pkg/package.json` (`files` gains `specs`, `exports` gains `"./specs/*":
-  "./specs/*"`) so the game resolves a module through the package's `exports`, the way
-  `tests/platform.ts` insists on. The amendment is a few lines of Python run through the
-  pixi environment, so the recipe needs no Node locally; CI's publish job has Node for
-  `npm publish`. wasm-pack finds the pinned `wasm-bindgen` CLI on `PATH`, so nothing is
-  downloaded (question (c)). `wasm-opt = false` under
-  `[package.metadata.wasm-pack.profile.release]` until a size problem exists.
+- `wasm-build`, in three parts, in this order:
+  1. **A version guard.** Read the `wasm-bindgen` version from `Cargo.lock` offline
+     (for example `cargo pkgid --locked -p wasm-bindgen`, whose output ends in
+     `@0.2.129`) and compare it with `wasm-bindgen --version` on `PATH`; on a mismatch,
+     stop with a message naming both versions. The guard runs before wasm-pack, so a
+     skewed pin fails with nothing fetched.
+  2. **`wasm-pack build crates/pawdoku-wasm --mode no-install --target web --scope
+     steven-cutting --release -- --locked`.** `--mode no-install` forbids wasm-pack's
+     installer, and `-- --locked` reaches `cargo build`, so a stale lockfile fails here
+     as it does in every other gate (invariant 8; CI's `wasm` job and
+     `release-npm.yml` both run this recipe). With the guard passed, wasm-pack's first
+     branch takes the pixi CLI on `PATH` and never consults its own cache (question
+     (c), read from the installer's source in the first review round).
+  3. Copy `docs/specs/*.allium` into `crates/pawdoku-wasm/pkg/specs/` and amend
+     `pkg/package.json` (`files` gains `specs`, `exports` gains `"./specs/*":
+     "./specs/*"`) so the game resolves a module through the package's `exports`, the
+     way `tests/platform.ts` insists on. The amendment is a few lines of Python run
+     through the pixi environment, so the recipe needs no Node locally; CI's publish job
+     has Node for `npm publish`.
+
+  `wasm-opt = false` under `[package.metadata.wasm-pack.profile.release]` until a size
+  problem exists.
 - `wheel`: `maturin build --release --manifest-path crates/pawdoku-py/Cargo.toml --out
   dist`; `locked = true` in `[tool.maturin]` makes every maturin build honour the
   workspace `Cargo.lock` (question (a)), and maturin sets
@@ -1008,9 +1083,11 @@ gain `rust`"):
 - `wasm-pack = "==0.15.0"` (no run dependencies).
 - `wasm-bindgen-cli = "==0.2.129"`, held equal to the `wasm-bindgen` crate version in
   `Cargo.lock`, because wasm-bindgen requires the CLI and the crate to match and
-  wasm-pack downloads a CLI when none matches on `PATH`, which `check` must never do.
-  Dependabot and Renovate (T18) then move the two together, or `wasm-build` fails
-  loudly on the mismatch, which is the right failure.
+  wasm-pack in its default mode downloads a CLI when none matches on `PATH`, which
+  `check` must never do. Dependabot and Renovate (T18) then move the two together, or
+  `wasm-build`'s guard fails on the mismatch before wasm-pack runs, and
+  `--mode no-install` would refuse to fetch even without the guard, which is the right
+  failure.
 - `binaryen = "==121"` if `wasm-opt` is wanted, or `wasm-opt = false` under
   `[package.metadata.wasm-pack.profile.release]` in the crate's manifest so wasm-pack
   neither runs nor downloads it. T15 starts with `wasm-opt = false`, because the first
@@ -1227,8 +1304,9 @@ estimated_size: M
 >   this crate's heading (S02's shape, `pawdoku-wasm-v{{version}}`).
 > - **`crates/pawdoku-wasm/src/lib.rs`** (new). The `RandomStream` class of S04's Step 4
 >   (`seeded(bigint)`, `replay(Float64Array)`, `nextDraw()`, the `index` getter),
->   `RANDOM_VERSION`, the `#[wasm_bindgen(start)]` hook writing panics through an
->   imported `console.error`, `#[expect(clippy::missing_const_for_fn, reason = …)]` on
+>   holding the private `Stream` enum, with the in-crate `const _` bounds assertion
+>   beside it, `RANDOM_VERSION`, the `#[wasm_bindgen(start)]` hook writing panics
+>   through an imported `console.error`, `#[expect(clippy::missing_const_for_fn, reason = …)]` on
 >   any export that could be `const`, a doctest on each public item.
 > - **`crates/pawdoku-wasm/tests/web.rs`** (new, optional): wasm-bindgen-test in Node
 >   for `seeded(0n)`'s first draw equal to `tests/random.rs`'s golden value, run by a
@@ -1240,9 +1318,10 @@ estimated_size: M
 >   already allowed (question (f)).
 > - **`Justfile`** (T00 follow-up on `main`): the third `wasm-check` line
 >   (`-p pawdoku-wasm` on `wasm32-unknown-unknown` only); `coverage` narrowed to `-p
->   pawdoku`; the `wasm-build` recipe (wasm-pack with `--target web --scope
->   steven-cutting --release`, then the specs copy and the `package.json` amendment
->   through `scripts/wasm_pkg.py` run by the pixi Python, adding `files: specs`, and
+>   pawdoku`; the `wasm-build` recipe of S04's Step 5 (the `Cargo.lock`-against-`PATH`
+>   version guard, then wasm-pack with `--mode no-install --target web --scope
+>   steven-cutting --release -- --locked`, then the specs copy and the `package.json`
+>   amendment through `scripts/wasm_pkg.py` run by the pixi Python, adding `files: specs`, and
 >   `exports` with `"."` (`types`, `default`), `"./pawdoku_wasm_bg.wasm"` and
 >   `"./specs/*"`); a `wasm-test` recipe if `tests/web.rs` exists. `check-clean` is
 >   unchanged.
@@ -1286,14 +1365,17 @@ estimated_size: M
 >    carries `files`, `exports` and `repository`; `pkg/specs/` holds nine modules.
 > 2. Prove the lint table on the real crate: `just clippy` green, and a planted
 >    `unsafe {}` in `src/lib.rs` failing it, quoted.
-> 3. Prove the resolver: in a scratch directory, `npm install ./crates/pawdoku-wasm/pkg`,
+> 3. Prove `wasm-build`'s two refusals, each quoted: a shim `wasm-bindgen` earlier on
+>    `PATH` that reports another version stops the recipe at the guard before wasm-pack
+>    runs; and a `Cargo.toml` edit that forces a re-resolve fails on `-- --locked`.
+> 4. Prove the resolver: in a scratch directory, `npm install ./crates/pawdoku-wasm/pkg`,
 >    then resolve `@steven-cutting/pawdoku-wasm/specs/sudoku.allium` and the `.wasm`
 >    subpath with `import.meta.resolve` from a one-line Node script, and check that both
 >    paths fall inside `node_modules`.
-> 4. Release 0.1.0 as T13 does: a `release/pawdoku-wasm-v0.1.0` branch, `cargo release
+> 5. Release 0.1.0 as T13 does: a `release/pawdoku-wasm-v0.1.0` branch, `cargo release
 >    -p pawdoku-wasm --no-tag --execute`, a pull request, then `cargo release tag -p
 >    pawdoku-wasm --execute` on `main` and the push of the tag.
-> 5. After the first publish: make the package public, add the game's repository under
+> 6. After the first publish: make the package public, add the game's repository under
 >    "Manage Actions access" with Read (question (d)), and read both settings back with
 >    `gh api`.
 >
@@ -1304,8 +1386,8 @@ estimated_size: M
 > **Acceptance and proof.** `just check` green; `gh api
 > /users/steven-cutting/packages/npm/pawdoku-wasm/versions` lists 0.1.0; the
 > `release-npm.yml` run is green with no token beyond the run's own; the scratch
-> install resolves `specs/sudoku.allium` and the `.wasm` through `exports`; the G
-> ticket can proceed.
+> install resolves `specs/sudoku.allium` and the `.wasm` through `exports`; both
+> `wasm-build` refusals of step 3 fail as stated; the G ticket can proceed.
 >
 > **Open points.** Whether `tests/web.rs` ships in 0.1.0 or the golden check lives only
 > in G. Whether the inherited `repository` (no `.git`) is accepted by GitHub Packages
@@ -1455,7 +1537,8 @@ estimated_size: M
 >   `publishing-environment = "release"`. No `[tool.pixi]` table, on purpose, with a
 >   comment saying so and why (question (b)).
 > - **`crates/pawdoku-py/src/lib.rs`** (new): the `RandomStream` class of S04's Step 4
->   (`seeded(int)`, `replay(list[float])`, `next_draw()`, `index`), `PawdokuError`
+>   (`seeded(int)`, `replay(list[float])`, `next_draw()`, `index`), holding the private
+>   `Stream` enum, with the in-crate `const _` bounds assertion beside it, `PawdokuError`
 >   from `create_exception!`, `RANDOM_VERSION`, `#[pyclass(skip_from_py_object)]` on
 >   every `Clone` class, the `#[pymodule]`.
 > - **`crates/pawdoku-py/python/pawdoku/__init__.py`, `_pawdoku.pyi`, `py.typed`**
@@ -1581,6 +1664,10 @@ the line above is the re-run over the same `target/`.
   reads. The documentation research for questions (a) to (e) was fanned out to three
   sub-agents; every fact they returned is cited above by its own URL, date and class,
   and their reports stay in the gitignored `ai_tmp/`, which no sentence above cites.
+  The first review round added read-only `gh api` reads of wasm-pack `v0.15.0`'s
+  `src/install/mod.rs`, `src/install/mode.rs` and `src/command/build.rs`, and of
+  binary-install `v0.4.1`'s `src/lib.rs`, each authorised on 2026-09-28 and cited in
+  question (c).
 - **Not verified, stated in place and gathered here:** whether `npm publish
   --provenance` works against GitHub Packages (undocumented either way); whether
   GitHub Packages accepts the inherited `repository` without `.git`; wasm-pack's
@@ -1589,10 +1676,26 @@ the line above is the re-run over the same `target/`.
   `maturin`, `pytest`, `wasm-pack` and `wasm-bindgen-cli` against the manifest, which
   `pixi lock` would prove and this ticket may not run (it rewrites `pixi.lock`). Each
   is a first step of the ticket it belongs to.
-- **One file, for now.** Files touched names this ticket alone, and the first commit
-  touches only it. S01, S02 and S03 each set their `tickets/README.md` row to `done`
-  after the first review round and recorded it as "Two files, not one"; this ticket
-  expects the same and leaves the row `open` until then.
+- **Two files, not one.** Files touched first named this ticket alone, and the first
+  commit touched only it. S01, S02 and S03 each set their `tickets/README.md` row to
+  `done` after the first review round, so the row is set to `done` in this ticket's
+  first review round, and the Files touched table carries it.
+- **The first review round (Codex adversarial, 2026-09-28) corrected two designs.**
+  - Step 4 had each binding's class hold a `Box<dyn RandomStream>` (`+ Send + Sync` in
+    Python). A trait object keeps only the bounds written on it, and `Clone` cannot be
+    written there, so neither class could be `Clone` or `Debug` and the wasm one was not
+    `Send + Sync`: invariant 3 broken for the binding's own public type. The probes had
+    used other payloads, so they never showed it. Each class now holds a private
+    `Stream` enum over `SeededStream` and `ReplayStream`, lent to the engine through
+    `as_dyn`, with an in-crate compile-time assertion of the class's bounds; the T15
+    and T17 drafts carry both.
+  - Step 5's `wasm-build` ran wasm-pack in its default mode, which installs a CLI when
+    none on `PATH` matches, and without `--locked`, so a skewed pin could fetch a tool
+    outside pixi and a stale lockfile was rewritten rather than refused: invariant 8 broken in the CI `wasm` job
+    and `release-npm.yml`, and the claims that nothing is downloaded and that a mismatch
+    fails loudly were untrue. The recipe now guards the `PATH` CLI against
+    `Cargo.lock`'s version, runs `--mode no-install` and passes `-- --locked`; question
+    (c) cites the installer's source for why that suffices; T15 proves both refusals.
 
 ### Handed back
 
@@ -1625,8 +1728,8 @@ the line above is the re-run over the same `target/`.
   alone; the two guards T13 writes are reused verbatim by the three siblings, so T13
   might place them in a composite action.
 - **To T18:** the `wasm-bindgen-cli` pixi pin must move with `Cargo.lock`'s
-  `wasm-bindgen`, or `wasm-build` fails on the version mismatch; the three new workflows
-  bring action pins to watch; `crates/pawdoku-py/pyproject.toml` is a second Python
+  `wasm-bindgen`, or `wasm-build`'s guard fails on the version mismatch before wasm-pack
+  runs; the three new workflows bring action pins to watch; `crates/pawdoku-py/pyproject.toml` is a second Python
   manifest the updater may try to read.
 - **To T19 and S05:** the Python crate is the judge pipeline's home, T17 depends on S05,
   and S05 should say which engine values it needs serialisable so T17 turns on `serde`.
@@ -1637,7 +1740,8 @@ the line above is the re-run over the same `target/`.
   randomness callback is ever wanted, a `RandomError` variant for a failing source,
   which is a spec sentence in `human-solving.allium`'s boundary wording before it is a
   T02 change.
-- **To the index:** nothing yet; the S04 row follows review (Deviations).
+- **To the index:** nothing. S04's row in `tickets/README.md` was set to `done` in the
+  first review round (Deviations).
 
 ### Open points settled
 
