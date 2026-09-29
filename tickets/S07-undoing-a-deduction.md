@@ -29,10 +29,13 @@ Facts to start from, each verified at execution against the specifications as th
 stand on `main`:
 
 - **Undoing is two operations.** A deduction places or strikes and never both
-  (`ADeductionPlacesOrStrikes`). The four singles (ranks 1 to 4), `bug_plus_one`, a
-  forcing chain's positive conclusion and an alternating inference chain's closure
-  place; every other technique strikes. To undo a placement is to take a digit out of
-  a cell. To undo a strike is to give a cell a candidate back, which changes no digit.
+  (`ADeductionPlacesOrStrikes`), and it is the deduction's output that decides, not
+  its technique. The four singles (ranks 1 to 4) and `bug_plus_one` always place. A
+  forcing chain places on a positive conclusion and strikes on a negative one. An
+  alternating inference chain places only on a closure from a negative start, and
+  strikes on a closure from a positive start and on every other path. Every other
+  technique strikes. To undo a placement is to take a digit out of a cell. To undo a
+  strike is to give a cell a candidate back, which changes no digit.
 - **Undoing is not one grid.** Taking a digit out leaves open which candidates its cell
   and its peers hold afterwards. So an undoing is stated by what it must lead to: the
   earlier grid is any grid on which S06's list holds the deduction being undone and

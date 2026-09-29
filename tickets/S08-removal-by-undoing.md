@@ -51,10 +51,10 @@ stand on `main` and against S06's and S07's hand-back notes:
 - **Drawing a cell and then a technique can find nothing.** On a solution grid every
   cell is placed and keeps its digit as its one candidate, so only a placement can be
   undone there: the four singles, `bug_plus_one`, a forcing chain's positive
-  conclusion and an alternating inference chain's closure. A striking technique has
-  nothing to undo until some cell is open, and a technique drawn for a cell need not
-  hold there. Drawing from S07's list, as the second part says, draws only from what
-  can be undone.
+  conclusion and an alternating inference chain's closure from a negative start. A
+  deduction that strikes has nothing to undo until some cell is open, and a technique
+  drawn for a cell need not hold there. Drawing from S07's list, as the second part
+  says, draws only from what can be undone.
 - **The verdict can be many part of the way.** `solver.allium` judges the givens alone.
   Partway through removal, the grid still has strikes that no deduction from the givens
   left has earned yet: they are assumed, not derived. So the givens left can have
