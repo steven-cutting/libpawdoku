@@ -21,7 +21,7 @@ is ignored.
 | 4 | `fmt-check` | Every Rust file is as rustfmt would write it. |
 | 5 | `toml-check` | Every TOML file is as taplo would write it, and passes taplo's lint. |
 | 6 | `clippy` | Every lint in the workspace table is clean over every crate target and feature, for the host platform, with warnings as errors. |
-| 7 | `metrics` | Every function is within the complexity, length, nesting and parameter thresholds and none that holds logic calls itself, every struct within the cohesion and size thresholds, every file within the length threshold, every module within the coupling thresholds, and no module names one the layering table forbids it; and the probe below proves the boundary rules are live. |
+| 7 | `metrics` | Every function is within the complexity, length, nesting and parameter thresholds and none that holds logic calls itself, every struct within the cohesion and size thresholds, every file within the length threshold, every module within the coupling thresholds, and no module names one the layering table forbids it by a `crate::` path (relative paths and re-exports through `lib.rs` are out of the rules' sight, as [Layering](../explanation/layering.md) records); and the probe below proves the boundary rules are live. |
 | 8 | `features` | Every feature combination compiles. |
 | 9 | `wasm-check` | The core compiles for `wasm32-unknown-unknown`, the target wasm-bindgen uses, and for `wasm32v1-none`, which has no standard library: the proof that the core is `no_std`. |
 | 10 | `test-doc` | Every doc example compiles and passes. |

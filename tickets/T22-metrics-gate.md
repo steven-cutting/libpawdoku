@@ -456,6 +456,9 @@ one exists, so an unsigned quickinstall build would have been taken. The source 
 passes `--only-signed`; a `--dry-run` with it still resolves rustqual to the
 `cargo install --locked` source build. No quickinstall build exists for either pin, so
 acceptance of a signed one is cargo-binstall's documented behaviour, not observed here.
+*Follow-up, 2026-09-30 (Copilot, PR #20):* gate 7's row in `quality-gates.md` names the
+boundary guarantee as `crate::` paths only, pointing at `layering.md`'s two blind spots;
+`technique.rs`'s header says it proves the `/**` arm alone.
 
 **Step 3. The clippy thresholds and the nesting block.** With the four keys in
 `clippy.toml` and `cognitive_complexity = "warn"` in the lint table, `just clippy`
