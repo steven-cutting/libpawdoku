@@ -32,6 +32,7 @@ authoritative; this table is a snapshot.
 | T10 | Maintainer docs: README, CHANGELOG, SECURITY | `T10-maintainer-docs.md` | T11 | none | done |
 | T12 | Board migration: board.allium adapted, and the alignment with the game at add73be7 | `T12-board-migration.md` | T06, T07, T08, T11 | none | done |
 | T19 | Puzzle design objectives: the research report in the docs, the gaps in the specs, and the generation module's skeleton | `T19-puzzle-design-objectives.md` | T06, T08, T12 | none | done |
+| T22 | Metrics gate: clippy thresholds and rustqual as gate 7, with the boundary rules from the layering table | `T22-metrics-gate.md` | S09 | none | open |
 
 Spike tickets. Each weighs options and ends in a recommendation; none blocks the build and
 none is picked up before T11.
@@ -63,7 +64,7 @@ D01 ── D02 ── T00 ──┬── T01 ───────────�
                     ├── T03 ──────────────────┤
                     ├── T04 (needs T01's remote) ┤
                     ├── T05 ──────────────────┼── T11 ── T10
-                    ├── T06 ──────────────────┤    ├── S01, S02, S03, S04
+                    ├── T06 ──────────────────┤    ├── S01, S02, S03, S04, S09 ── T22
                     ├── T07 ──────────────────┤    ├── T12 (also after T06, T07, T08) ── T19 ── S06 ── S07 ── S08
                     ├── T08 ──────────────────┤    └── C01 (also after T04)
                     └── T09 ──────────────────┘
@@ -73,7 +74,8 @@ C02 hangs off D01 alone (D01 kept the Python checkers; decision 0004)
 The graph is acyclic: D01, then D02, then T00, then nine parallel lanes, then T11 and T10
 in sequence. T12 follows T11 because it edits pages T07 and T08 own; T19 follows T12
 because it counts the modules T12 made eight. S06, S07 and S08 follow T19 in sequence,
-each reading the hand-back notes of the one before. T04 needs the remote T01 creates before its proof run, but its files can be
+each reading the hand-back notes of the one before. T22 follows S09, the spike that
+chose its tool and thresholds. T04 needs the remote T01 creates before its proof run, but its files can be
 written in parallel with T01.
 
 ## How to pick up a ticket
