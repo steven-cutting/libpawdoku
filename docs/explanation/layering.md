@@ -78,7 +78,7 @@ Each rule catches both ways of naming a module: a `use crate::effort::Price;` li
 inline `crate::effort::price()` in a function body. rustqual reports nothing, and the gate
 would pass, when its architecture section is switched off or misconfigured, so the recipe
 also runs a probe: a fixture that breaks every rule once, and the gate fails unless
-rustqual names all ten. [Quality gates](../reference/quality-gates.md) describes it.
+rustqual names each of the ten exactly once. [Quality gates](../reference/quality-gates.md) describes it.
 
 Two paths are out of the rules' sight. A path written relative to the module, such as
 `super::super::solver` from `src/technique/catalogue.rs`, names no `crate::` prefix. And a

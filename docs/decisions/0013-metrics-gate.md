@@ -48,7 +48,7 @@ an inline path as well as a `use` line.
 **The probe.** rustqual reports a misconfigured architecture section as a clean one, so
 the recipe also runs it over `tests/fixtures/metrics-violation/`, a directory shaped like
 a crate, with no manifest, that breaks each rule once. The gate fails unless that run
-exits 1 and names exactly the rules `rustqual.toml` declares.
+exits 1 and names each rule `rustqual.toml` declares exactly once.
 [Quality gates](../reference/quality-gates.md) describes it.
 
 **The thresholds.** Every key that can fail the gate is written in `rustqual.toml` and

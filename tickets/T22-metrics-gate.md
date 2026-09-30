@@ -432,6 +432,9 @@ crates.io source build, as the security model says.
 whole `install-tools` step, so the source build's build scripts inherited it. The
 `tools-source.txt` pass now runs under `env -u GITHUB_TOKEN -u GH_TOKEN` with
 `--no-discover-github-token`; the `tools.txt` pass keeps the token for its rate limit.
+*Follow-up, 2026-09-30 (Copilot, PR #20):* the probe compared the rules it saw after
+`sort -u`, so a rule firing twice passed. It now compares without deduplicating, so each
+rule must fire exactly once, as the fixture's files say; each does today.
 
 **Step 3. The clippy thresholds and the nesting block.** With the four keys in
 `clippy.toml` and `cognitive_complexity = "warn"` in the lint table, `just clippy`

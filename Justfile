@@ -139,7 +139,8 @@ clippy:
 # docs/explanation/layering.md, through rustqual against rustqual.toml. The
 # probe follows because a misconfigured architecture section is silent: the
 # fixture breaks each boundary rule once, so rustqual must exit 1 (0 is no
-# findings, 2 a configuration it could not read) and name every rule. `want`
+# findings, 2 a configuration it could not read) and name every rule exactly
+# once; a rule named twice matches more than the fixture breaks. `want`
 # reads every `name =` line in rustqual.toml, which is right while the pattern
 # rules are the only tables there with a `name` key.
 metrics:
@@ -149,7 +150,7 @@ metrics:
     status=0
     out=$(rustqual tests/fixtures/metrics-violation --config rustqual.toml --format github 2>&1) || status=$?
     want=$(sed -n 's/^name = "\(.*\)"$/\1/p' rustqual.toml | sort)
-    got=$(printf '%s\n' "$out" | sed -n 's|.*architecture/pattern/\([a-z_]*\) .*|\1|p' | sort -u)
+    got=$(printf '%s\n' "$out" | sed -n 's|.*architecture/pattern/\([a-z_]*\) .*|\1|p' | sort)
     if [ "$status" -ne 1 ] || [ "$want" != "$got" ]; then
         printf '%s\n' "$out" >&2
         printf 'metrics: probe exited %s, want 1\nrules named:\n%s\nrules fired:\n%s\n' "$status" "$want" "$got" >&2

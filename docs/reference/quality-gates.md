@@ -64,7 +64,8 @@ second, the probe, is over `tests/fixtures/metrics-violation/`, a directory shap
 crate that breaks every boundary rule once, half with a `use` line and half with an inline
 `crate::` path. The probe passes only if rustqual exits 1 there (0 is no findings, 2 a
 configuration it could not read) and the rules it names are exactly the `name =` lines of
-`rustqual.toml`, so a rule that stopped matching shows up as the one missing from the list.
+`rustqual.toml`, each once, so a rule that stopped matching shows up as the one missing
+from the list, and a rule that matches more than the fixture breaks shows up twice.
 The probe proves the boundary rules alone. Nothing proves the complexity, cohesion and
 coupling sections are running with the numbers written, and
 [Decision 0013](../decisions/0013-metrics-gate.md) records that as a risk it accepted.
