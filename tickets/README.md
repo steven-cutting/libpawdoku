@@ -45,6 +45,7 @@ none is picked up before T11.
 | S06 | Spike: one ordered list of licensed deductions, and a run that takes the first | `S06-licensed-deductions-in-order.md` | T19 | open |
 | S07 | Spike: undoing a deduction, technique by technique | `S07-undoing-a-deduction.md` | S06 | open |
 | S08 | Spike: removal by undoing deductions, against removal and a rating | `S08-removal-by-undoing.md` | S06, S07 | open |
+| S09 | Spike: code-quality metrics as a gate, module boundaries, complexity, coupling and cohesion | `S09-code-quality-metrics.md` | T11 | done |
 
 Centralisation recommendations. Each is written to be picked up on its own and touches
 another repository, so every step in it is separately authorised.
