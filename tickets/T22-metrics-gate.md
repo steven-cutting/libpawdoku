@@ -630,6 +630,11 @@ warm. rustqual's source build took 37.46 s with the registry warm.
   error-handling check. The 300-line file limit is the one likely to meet the solver.
   Decision 0013 lists them as unchosen, and the numbers were left alone, as the
   non-goals require.
+  *Follow-up, 2026-09-29:* the maintainer chose them. `rustqual.toml` now writes every
+  key that can fail the gate: the file limit is 500 code lines, test code has its own
+  looser limits, recursion stays forbidden, and the error-handling and `unsafe` checks
+  are off because clippy and the lint table own those rules. Decision 0013 has a row
+  for each.
 - **Cold CI cost.** Every gate job runs the setup action, so on a new `.tools` key all
   five compile rustqual in parallel, once. Limiting the build to the `rust` job would
   mean a setup-action input, which is not this ticket's change.

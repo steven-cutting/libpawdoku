@@ -51,10 +51,18 @@ a crate, with no manifest, that breaks each rule once. The gate fails unless tha
 exits 1 and names exactly the rules `rustqual.toml` declares.
 [Quality gates](../reference/quality-gates.md) describes it.
 
-**The thresholds.** Every number below is rustqual's documented default at 1.8.3, and the
-four clippy can also check are set to the same number in `clippy.toml`, so the two tools
-never disagree. They were chosen before the solver and not tuned to the tree, which passes
-them all.
+**The thresholds.** Every key that can fail the gate is written in `rustqual.toml` and
+has a row below; none is left to rustqual's default. Most rows keep the default rustqual
+documents at 1.8.3, now as a choice, and three depart from it: the file length and the
+two limits on test code. They were chosen before the solver and not tuned to the tree,
+which passes them all.
+
+The four clippy can also check carry the same number in `clippy.toml`, but the two tools
+do not count alike. rustqual measures a function from its opening brace to its closing
+one, comments and blank lines included, where clippy's `too_many_lines` skips both; so
+rustqual fires first on a commented function. rustqual also keeps no metrics for a
+function with no logic and no call to the crate's own functions, so it never checks
+that function's length, and there clippy is the only guard.
 
 | Guardrail | Value | Why this number |
 | --- | --- | --- |
@@ -62,20 +70,29 @@ them all.
 | Cyclomatic complexity per function | 10 | McCabe's own recommended ceiling for the measure, and rustqual's default. |
 | Nesting depth | 4 | rustqual's default. Clippy counted one block at five, inside a local `impl` in a test helper; the `impl` moved to the test module's level rather than the limit moving. |
 | Function length | 60 lines | rustqual's default: a function that fits on one screen. Clippy's 100 is too loose to shape anything; the longest function on the tree is 22 lines. |
+| Test function length | 100 lines | Looser than production on purpose: a table of cases or a grid literal is long without being complex. rustqual's default would hold tests to 60. |
+| Recursion | forbidden | rustqual's default, kept as a choice: a recursive call in a function with logic is an IOSP finding. A search keeps an explicit stack, which the step budget of invariant 2 then bounds directly. |
+| Closures, iterator chains and `?` | not counted as logic | rustqual's defaults. All three are idiomatic Rust, and IOSP counting them would push the code away from the idiom. |
 | Parameters | 5 | rustqual's default. A sixth is usually a struct waiting to be named; clippy's default is 7. |
 | LCOM4 per struct | 2 | rustqual's default: one separable cluster of methods is tolerated before cohesion counts against a struct. |
 | Fields and methods per struct | 12 and 20 | rustqual's defaults, the sizes over which the SRP score weighs a struct more heavily. |
+| Fan-out per struct | 10 | rustqual's default: the count of other types a struct's methods reach, an input to the SRP score. It is not the per-module fan-out below. |
+| SRP score per struct | 0.6 | rustqual's default, with its default weights of 0.4 for LCOM4, 0.25 for fields, 0.15 for methods and 0.2 for fan-out. A struct at or over it is reported. |
+| File length | 500 code lines | Counted before the first `#[cfg(test)]`, without comments, doc comments or blank lines. Rust has no norm here and clippy no lint; a Rust module keeps a type beside its impls, so rustqual's 300 would force splits that serve the tool. The longest file on the tree is 110. |
+| Test file length | 1,000 code lines | Applies to files under `tests/` and to test-only modules. Looser for the reason the test function limit is. |
+| Independent clusters per file | 2 | rustqual's default: a file is reported at three groups of private functions, of five statements or more each, that never call one another. |
 | Instability of a module something imports | 0.8 | rustqual's default. A module nothing imports is exempt, so the outer modules pass at 1.0; the cap guards the modules others lean on. |
 | Fan-in and fan-out per module | 15 and 12 | rustqual's defaults. With ten modules planned, fan-out binds only once the crate has more. |
 | Stable Dependencies Principle | on | rustqual's default: a module may not depend on one less stable than itself. |
 | Module boundaries | the layering table | The table is the rule; each pattern's `reason` is its row. |
+| Suppression budget | 5% of functions | rustqual's default (`max_suppression_ratio`). Small enough that a suppression stays an exception. |
+| Headroom of a suppression pin | 10% | rustqual's default (`pin_headroom`). A suppression that names a limit, as `file_length=600` does, is itself a finding when the limit sits more than 10% above the value it covers, so a pin cannot absorb later growth. |
 
-rustqual's other defaults stay in force, unchosen here, and a finding against one fails
-the gate like any other: a production file longer than 300 lines (SRP-002), a struct
-reaching out to more than ten others, an SRP composite score over 0.6, and the
-error-handling check on `unwrap`, `expect` and `panic!`, which the lint table already
-rejects outside tests. Suppressions are capped at 5% of the function count
-(`max_suppression_ratio`).
+Two of rustqual's checks are switched off because another gate owns the rule. Its check
+on `unsafe` belongs to `unsafe_code = "forbid"`, and its check on `unwrap`, `expect` and
+`panic!` belongs to clippy's `unwrap_used`, `expect_used` and `panic`. Left on, a
+justified `#[expect]` on one of those lints would need a second suppression in rustqual's
+syntax, charged to the budget above.
 
 **`tools-source.txt`, the one exception to the binary-only rule.** rustqual publishes no
 release binary, for any of its versions, and is on neither conda-forge nor Homebrew. So
@@ -103,9 +120,10 @@ The ones that hurt.
   defers that cost; it does not remove it.
 - **IOSP cannot be switched off.** It is the author's own dimension, it has no `enabled`
   key, and it reports nothing on this tree today. If the solver's natural shape offends
-  it, the gate fails on an opinion the project never adopted. Its suppression is one line
-  with a reason, `// qual:allow(iosp) reason: "..."`, which is the form `AGENTS.md`
-  permits. But the suppression budget is 5% of the function count, one line today, and
+  it, the gate fails on an opinion the project never adopted. One case is known and
+  chosen: recursion is a finding, so the solver's search keeps an explicit stack. An
+  IOSP suppression is one line with a reason, `// qual:allow(iosp) reason: "..."`, which
+  is the form `AGENTS.md` permits. But the suppression budget is 5% of the function count, one line today, and
   it charges `#[allow]` and `qual:allow` lines while `#[expect]` goes free.
 - **A source build at bootstrap.** `just initialize` compiles a Rust program, which needs
   a toolchain and the network. On a cold CI cache all five gate jobs build it in
