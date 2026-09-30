@@ -439,6 +439,14 @@ rule must fire exactly once, as the fixture's files say; each does today.
 an emptied list, which 0013 foresees for `tools-source.txt`, skips its pass instead of
 running `cargo binstall` with no crate under GNU xargs. 0013's cost sentence now says
 each of the five gate jobs compiles rustqual on a cold cache, as its Consequences do.
+*Follow-up, 2026-09-30 (Copilot and Codex, PR #20):* both reviewers said macOS `xargs`
+lacks `-r`; macOS 26.4's documents and accepts it, but the empty-list guard is now plain
+sh (`pins=$(grep ...) || true; [ -z "$pins" ] || cargo binstall ... $pins`), which needs
+no flag on any `xargs`. The maintainer chose a version check: `just metrics` fails unless
+`rustqual --version` matches `tools-source.txt`, so a missing `.tools/bin/rustqual` cannot
+fall through to another on `PATH`. The fixture's `technique` violation moved to
+`src/technique/catalogue.rs`, so the probe proves the globs' `/**` arm; with that arm
+removed from `rustqual.toml` the probe fails.
 
 **Step 3. The clippy thresholds and the nesting block.** With the four keys in
 `clippy.toml` and `cognitive_complexity = "warn"` in the lint table, `just clippy`

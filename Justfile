@@ -43,11 +43,11 @@ install-toolchain:
 # the pin; an upstream release asset, which nothing would sign, is refused
 # (decision 0013). That pass runs without a GitHub token, so no build script it
 # compiles can read one; its one quickinstall lookup needs no rate-limit lift.
-# `xargs -r` skips a pass whose list is empty: GNU xargs would otherwise run
-# cargo binstall with no crate and fail.
+# A pass whose list is empty is skipped, since cargo binstall with no crate
+# fails; the guard is plain sh, so it holds for GNU and BSD alike.
 install-tools:
-    grep -v '^#' tools.txt | xargs -r cargo binstall --root .tools --no-confirm --locked --disable-strategies compile
-    grep -v '^#' tools-source.txt | xargs -r env -u GITHUB_TOKEN -u GH_TOKEN cargo binstall --root .tools --no-confirm --locked --disable-strategies crate-meta-data --no-discover-github-token
+    pins=$(grep -v '^#' tools.txt) || true; [ -z "$pins" ] || cargo binstall --root .tools --no-confirm --locked --disable-strategies compile $pins
+    pins=$(grep -v '^#' tools-source.txt) || true; [ -z "$pins" ] || env -u GITHUB_TOKEN -u GH_TOKEN cargo binstall --root .tools --no-confirm --locked --disable-strategies crate-meta-data --no-discover-github-token $pins
 
 # The Allium checker for docs/specs/, pinned and checksummed in the tooling
 # package. Downloads over the network into .tools/bin, which Git ignores.
@@ -144,10 +144,18 @@ clippy:
 # findings, 2 a configuration it could not read) and name every rule exactly
 # once; a rule named twice matches more than the fixture breaks. `want`
 # reads every `name =` line in rustqual.toml, which is right while the pattern
-# rules are the only tables there with a `name` key.
+# rules are the only tables there with a `name` key. The version check comes
+# first: rustqual's version decides what the gate reports, so a missing
+# .tools/bin/rustqual must not fall through to another one on PATH.
 metrics:
     #!/bin/sh
     set -eu
+    pin=$(sed -n 's/^rustqual@//p' tools-source.txt)
+    have=$(rustqual --version 2>/dev/null | sed -n 's/^rustqual //p')
+    if [ "$have" != "$pin" ]; then
+        printf 'metrics: rustqual %s on PATH, tools-source.txt pins %s; run just install-tools\n' "${have:-missing}" "$pin" >&2
+        exit 1
+    fi
     rustqual crates/pawdoku --config rustqual.toml --fail-on-warnings --format github
     status=0
     out=$(rustqual tests/fixtures/metrics-violation --config rustqual.toml --format github 2>&1) || status=$?

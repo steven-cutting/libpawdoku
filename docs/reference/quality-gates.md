@@ -58,11 +58,14 @@ waived at all.
 
 Gate 7 does not trust a green run either. rustqual skips its architecture section without
 a word when the section is switched off or misconfigured, and exits 0 over a directory that
-does not exist; either way it reports every boundary as met. So `just metrics` runs
-rustqual twice. The first run is over `crates/pawdoku`, with warnings as failures. The
+does not exist; either way it reports every boundary as met. And its version decides what
+it reports, so `just metrics` first fails unless `rustqual --version` matches the pin in
+`tools-source.txt`, rather than let a missing `.tools/bin/rustqual` fall through to
+another on `PATH`. Then it runs rustqual twice. The first run is over `crates/pawdoku`, with warnings as failures. The
 second, the probe, is over `tests/fixtures/metrics-violation/`, a directory shaped like a
 crate that breaks every boundary rule once, half with a `use` line and half with an inline
-`crate::` path. The probe passes only if rustqual exits 1 there (0 is no findings, 2 a
+`crate::` path, and one from a child module, `src/technique/catalogue.rs`, so the `/**`
+arm of the rules' globs is proved beside the `.rs` arm. The probe passes only if rustqual exits 1 there (0 is no findings, 2 a
 configuration it could not read) and the rules it names are exactly the `name =` lines of
 `rustqual.toml`, each once, so a rule that stopped matching shows up as the one missing
 from the list, and a rule that matches more than the fixture breaks shows up twice.

@@ -47,7 +47,8 @@ an inline path as well as a `use` line.
 
 **The probe.** rustqual reports a misconfigured architecture section as a clean one, so
 the recipe also runs it over `tests/fixtures/metrics-violation/`, a directory shaped like
-a crate, with no manifest, that breaks each rule once. The gate fails unless that run
+a crate, with no manifest, that breaks each rule once, one of them from a child module so
+the globs' `/**` arm is proved. The gate fails unless that run
 exits 1 and names each rule `rustqual.toml` declares exactly once.
 [Quality gates](../reference/quality-gates.md) describes it.
 
@@ -112,7 +113,8 @@ joins this list only on a decision record that accepts the same cost.
 
 **The pin** is held at 1.8.3 until the solver has landed under it, then bumped by hand,
 one release at a time, with `just check` run on each. Nothing bumps a tool pin
-automatically today.
+automatically today. `just metrics` fails unless the rustqual it finds reports the pinned
+version, so a missing `.tools/bin/rustqual` cannot fall through to another on `PATH`.
 
 ## Consequences
 

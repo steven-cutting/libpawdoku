@@ -139,6 +139,13 @@ repository root wherever it is called, so this happens only to a `cargo binstall
 `just install-tools`. A build that fails partway on a network error can simply be run
 again; `--locked` means it resolves the same versions each time.
 
+## `just metrics` reports the wrong rustqual
+
+`metrics: rustqual missing on PATH, tools-source.txt pins 1.8.3` means
+`.tools/bin/rustqual` is absent, and a version in place of `missing` means the binary
+found is not the pin, as after a bump to `tools-source.txt`. Run `just install-tools`.
+The gate refuses any other rustqual because its version decides what the gate reports.
+
 ## prek behaves as if a pin had not moved
 
 A hook whose `rev` changed still runs its old environment. Clear prek's cache with

@@ -2,7 +2,9 @@
 //! docs/explanation/layering.md, each naming one module its rule in rustqual.toml
 //! forbids. `just metrics` requires rustqual to fail here and to name every rule.
 //! Odd files break their rule with a `use` line and even files with an inline path,
-//! so both forms stay proved. Never compiled: no manifest declares it.
+//! so both forms stay proved. `technique` breaks its rule from a child,
+//! `technique/catalogue.rs`, so each rule's `/**` arm is proved beside its `.rs` arm.
+//! Never compiled: no manifest declares it.
 
 pub mod sudoku;
 pub mod technique;
