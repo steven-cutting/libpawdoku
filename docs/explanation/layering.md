@@ -80,12 +80,14 @@ would pass, when its architecture section is switched off or misconfigured, so t
 also runs a probe: a fixture that breaks every rule once, and the gate fails unless
 rustqual names each of the ten exactly once. [Quality gates](../reference/quality-gates.md) describes it.
 
-Two paths are out of the rules' sight. A path written relative to the module, such as
-`super::super::solver` from `src/technique/catalogue.rs`, names no `crate::` prefix. And a
-re-export in `lib.rs` lets any module write `crate::Price` for `crate::effort::Price`.
-The second is guarded from the side: `unreachable_pub` and `unnameable_types` in the
-workspace table keep what is `pub` deliberate, so a module's surface is the one it meant
-to export, and `lib.rs` is the one file to read for re-exports in review.
+Three paths are out of the rules' sight. A path written relative to the module, such as
+`super::super::solver` from `src/technique/catalogue.rs`, names no `crate::` prefix. An
+alias of the crate, `use crate as root;` and then `root::solver::item()`, replaces the
+prefix the rules match; rustqual reports nothing for it. And a re-export in `lib.rs` lets
+any module write `crate::Price` for `crate::effort::Price`. The third is guarded from the
+side: `unreachable_pub` and `unnameable_types` in the workspace table keep what is `pub`
+deliberate, so a module's surface is the one it meant to export, and `lib.rs` is the one
+file to read for re-exports in review.
 `mod_module_files` bans `mod.rs`, so every module is the file named after it and the
 graph above can be read from the file tree. What the rules cannot see is left to review,
 to the `rust-change` and `code-review` skills, and to the shape of the tests: code in the

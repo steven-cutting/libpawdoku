@@ -459,6 +459,9 @@ acceptance of a signed one is cargo-binstall's documented behaviour, not observe
 *Follow-up, 2026-09-30 (Copilot, PR #20):* gate 7's row in `quality-gates.md` names the
 boundary guarantee as `crate::` paths only, pointing at `layering.md`'s two blind spots;
 `technique.rs`'s header says it proves the `/**` arm alone.
+*Follow-up, 2026-09-30 (Copilot, PR #20):* a third blind spot, an alias of the crate
+(`use crate as root;` then `root::solver::item()`), gives no finding in a scratch crate;
+0013, `layering.md` and gate 7's row record it. Review is its guard, like the relative path.
 
 **Step 3. The clippy thresholds and the nesting block.** With the four keys in
 `clippy.toml` and `cognitive_complexity = "warn"` in the lint table, `just clippy`

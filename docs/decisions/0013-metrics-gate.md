@@ -139,9 +139,10 @@ The ones that hurt.
   live. Nothing proves the complexity, SRP and coupling sections are running with the
   numbers written; a green gate would look the same if one had quietly stopped
   measuring.
-- **Two blind spots in the boundary rules.** A path relative to the module
-  (`super::super::solver`) names no `crate::` prefix, and a re-export in `lib.rs` hides
-  the module it came from. [Layering](../explanation/layering.md) says what guards each.
+- **Three blind spots in the boundary rules.** A path relative to the module
+  (`super::super::solver`) names no `crate::` prefix, an alias of the crate
+  (`use crate as root;` then `root::solver`) replaces the prefix, and a re-export in
+  `lib.rs` hides the module it came from. [Layering](../explanation/layering.md) says what guards each.
 
 ## What would reopen this
 
