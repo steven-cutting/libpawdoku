@@ -447,6 +447,8 @@ arguments.
 | cargo-crap | on a trigger: when `solver.rs` exists, reading `target/llvm-cov/lcov.info` after `coverage` | `coverage`'s CI job, advisory first |
 | ast-metrics | not now; the alternative if rustqual is dropped, by the checksummed-download route | — |
 | archaven | not now; the fallback for the boundary rules alone, as a dev-dependency test | — |
+| cargo-archtest-cli | not at all: the boundary rules alone, in a second rule file (`architecture.json`) beside `rustqual.toml`, and AGPL-3.0; archaven is the fallback for the same job | — |
+| archunit | not at all: a single 0.0.1 release (2026-09-20), the boundary rules alone | — |
 | cargo-modules | not at all: no release, a slow rust-analyzer build, and rustqual reports cycles | — |
 | cargo-pup | not at all: nightly, a rustc driver, writes `.pup/` | — |
 | rust-code-analysis | not at all: dead since 2023-01 | — |
@@ -465,7 +467,7 @@ Thresholds, as guardrails set before the solver exists:
 | parameters | 5 | both: `too-many-arguments-threshold`; `[srp] max_parameters` |
 | LCOM4 per struct | 2 | `[srp] lcom4_threshold` |
 | fields and methods per struct | 12 and 20 | `[srp] max_fields`, `max_methods` |
-| instability per module | 0.8 | `[coupling] max_instability` |
+| instability per module that something imports | 0.8 | `[coupling] max_instability` |
 | fan-in and fan-out per module | 15 and 12 | `[coupling]` |
 | Stable Dependencies Principle | on | `[coupling] check_sdp` |
 | module boundaries | the layering table | nine `[[architecture.pattern]]` rules |
@@ -473,22 +475,62 @@ Thresholds, as guardrails set before the solver exists:
 The two nesting numbers differ because the tools count differently, and the
 repository's tests live in a `mod tests` inside the file (decision 0009).
 
+The instability cap does not reject the outer modules. `effort`, `lapse`,
+`human_solving`, `board` and `generation` are imported by nothing, so each has `Ca = 0`
+and the textbook `Ce / (Ca + Ce) = 1.0`. rustqual does not hold a module nothing
+imports to the cap: on the stub crate of step 4 with the `[coupling]` table below, the
+five read `1.00` and the run exited 0. The cap bites a module something imports; with
+five imports planted in `random` (one importer, so `1/6`, `I = 0.83`) the same run
+exited 1:
+
+```text
+    board                  0    1  1.00
+    effort                 0    2  1.00
+    generation             0    4  1.00
+    human_solving          0    2  1.00
+    lapse                  0    2  1.00
+    ...                                            exit 0
+--- five imports planted in random
+    random                 1    5  0.83  ⚠ exceeds threshold
+  ⚠ SDP violation: reach (I=0.75) depends on random (I=0.83)
+                                                   exit 1
+```
+
+So the cap guards `sudoku`, `technique`, `solver`, `reach` and `random`, the modules
+others lean on, which is where a fall in stability costs something; the outer modules
+are held by the boundary rules and fan-out instead.
+
 The honest risks of rustqual, stated for the decision record:
 
 - It is five months old, by one author, and went from 1.0 to 1.8.3 in that time. A
-  pin in `tools.txt` freezes it; a bump is a Dependabot pull request the gate tests.
+  pin in `tools.txt` freezes it. Nothing bumps that pin today: there is no Dependabot
+  or Renovate configuration, `docs/how-to/maintain-dependencies.md` says `tools.txt`
+  moves by hand, and S01 found Dependabot cannot read the file at all (only a Renovate
+  regex manager can). So a bump is a deliberate edit, one release at a time, with
+  `just check` run on it; the automation S01 recommends would make it a pull request
+  the gate tests, but T22 does not wait on it.
 - IOSP cannot be disabled. It reports nothing on this tree, and a finding from it would
   fail the gate on an opinion the project never adopted. `// qual:allow(iosp) reason:
   "..."` is the tool's suppression (`rustqual --explain allow`: IOSP takes the bare
   form only), one line with a reason, which is the form AGENTS.md permits. But
   `max_suppression_ratio` defaults to 0.05 of the function count, which over today's
-  34 functions is one line; the second surfaces as a warning, and under
-  `--fail-on-warnings` it fails. If IOSP findings arrive with the solver, the
-  follow-up asks the author for an `enabled` key, and until then the ratio is the
-  measure.
-- A misconfigured architecture section is silent. The follow-up commits a probe: a
-  test or a `Justfile` comment is not enough, so `metrics` also runs rustqual over a
-  fixture crate under `tests/fixtures/metrics-violation/` and asserts exit 1.
+  34 functions is one line; the second surfaces as a warning, which fails only under
+  `--fail-on-warnings`, so the drafted recipe passes it. What the ratio counts, tried
+  on an eleven-function crate with one line of each kind: `#[expect(...)]` does not
+  count (exit 0), while `#[allow(...)]` and `// qual:allow(...)` each count (9.1%
+  against 5.0%, exit 1), so the ratio charges exactly the forms AGENTS.md does not
+  prefer. A `qual:allow` that suppresses nothing is its own finding
+  (`ORPHAN_SUPPRESSION`). The current tree passes with the flag. If IOSP findings
+  arrive with the solver, the follow-up asks the author for an `enabled` key, and
+  until then the ratio is the measure.
+- A misconfigured architecture section is silent, and so is a wrong target: rustqual
+  over a directory that does not exist, or a crate with no source, exits 0. The
+  follow-up commits a probe: `metrics` also runs rustqual over a fixture crate under
+  `tests/fixtures/metrics-violation/` that breaks each of the nine rules once, and
+  requires exit 1 (0 is no findings, 2 a configuration it could not read) and that
+  the set of rules named in the `github` output (`architecture/pattern/<name>`)
+  equals the set of `name =` lines in `rustqual.toml`. A bare `!` would not do: it
+  turns any non-zero status, a bad configuration included, into a pass.
 - The install route. Rustqual has no binaries, so `tools.txt` needs the compile
   strategy. Its source build took 38 seconds here with the registry warm; CI pays that
   once per cache key. A source build also needs a toolchain: the first scratch install
@@ -526,6 +568,7 @@ the two will drift.
 
   [coupling]
   enabled = true
+  # Applies to modules something imports; rustqual exempts the rest (step 6).
   max_instability = 0.8
   max_fan_in = 15
   max_fan_out = 12
@@ -549,15 +592,55 @@ the two will drift.
   name = "sudoku_imports_nothing"
   forbid_path_prefix = ["crate::technique", "crate::solver", "crate::reach", "crate::effort", "crate::lapse", "crate::human_solving", "crate::board", "crate::generation"]
   forbidden_in = ["src/sudoku{.rs,/**}"]
-  reason = "layering: sudoku imports nothing"
+  reason = "layering: sudoku may import only random"
+
+  [[architecture.pattern]]
+  name = "technique_imports_sudoku"
+  forbid_path_prefix = ["crate::solver", "crate::reach", "crate::effort", "crate::lapse", "crate::human_solving", "crate::board", "crate::generation"]
+  forbidden_in = ["src/technique{.rs,/**}"]
+  reason = "layering: technique may import only sudoku and random"
+
+  [[architecture.pattern]]
+  name = "solver_imports_sudoku"
+  forbid_path_prefix = ["crate::technique", "crate::reach", "crate::effort", "crate::lapse", "crate::human_solving", "crate::board", "crate::generation"]
+  forbidden_in = ["src/solver{.rs,/**}"]
+  reason = "layering: solver may import only sudoku and random"
 
   [[architecture.pattern]]
   name = "reach_imports_sudoku_and_technique"
   forbid_path_prefix = ["crate::solver", "crate::effort", "crate::lapse", "crate::human_solving", "crate::board", "crate::generation"]
   forbidden_in = ["src/reach{.rs,/**}"]
-  reason = "layering: reach imports sudoku and technique"
-  # ... and one rule each for technique, solver, effort, lapse, human_solving,
-  # board and generation, built the same way from the table.
+  reason = "layering: reach may import only sudoku, technique and random"
+
+  [[architecture.pattern]]
+  name = "effort_imports_sudoku_and_technique"
+  forbid_path_prefix = ["crate::solver", "crate::reach", "crate::lapse", "crate::human_solving", "crate::board", "crate::generation"]
+  forbidden_in = ["src/effort{.rs,/**}"]
+  reason = "layering: effort may import only sudoku, technique and random"
+
+  [[architecture.pattern]]
+  name = "lapse_imports_sudoku_and_technique"
+  forbid_path_prefix = ["crate::solver", "crate::reach", "crate::effort", "crate::human_solving", "crate::board", "crate::generation"]
+  forbidden_in = ["src/lapse{.rs,/**}"]
+  reason = "layering: lapse may import only sudoku, technique and random"
+
+  [[architecture.pattern]]
+  name = "human_solving_imports_sudoku_and_technique"
+  forbid_path_prefix = ["crate::solver", "crate::reach", "crate::effort", "crate::lapse", "crate::board", "crate::generation"]
+  forbidden_in = ["src/human_solving{.rs,/**}"]
+  reason = "layering: human_solving may import only sudoku, technique and random"
+
+  [[architecture.pattern]]
+  name = "board_imports_sudoku"
+  forbid_path_prefix = ["crate::technique", "crate::solver", "crate::reach", "crate::effort", "crate::lapse", "crate::human_solving", "crate::generation"]
+  forbidden_in = ["src/board{.rs,/**}"]
+  reason = "layering: board may import only sudoku and random"
+
+  [[architecture.pattern]]
+  name = "generation_imports_sudoku_solver_technique_reach"
+  forbid_path_prefix = ["crate::effort", "crate::lapse", "crate::human_solving", "crate::board"]
+  forbidden_in = ["src/generation{.rs,/**}"]
+  reason = "layering: generation may import only sudoku, solver, technique, reach and random"
   ```
 
   Today only `random` exists, so the file lands with its rules naming modules that do
@@ -567,11 +650,28 @@ the two will drift.
 
   ```text
   metrics:
-      rustqual crates/pawdoku --config rustqual.toml --format github
-      ! rustqual tests/fixtures/metrics-violation --config rustqual.toml >/dev/null 2>&1
+      #!/bin/sh
+      set -eu
+      rustqual crates/pawdoku --config rustqual.toml --fail-on-warnings --format github
+      # The probe: the fixture breaks each boundary rule once, so rustqual must exit 1
+      # (0 is no findings, 2 a configuration it could not read) and name every rule.
+      status=0
+      out=$(rustqual tests/fixtures/metrics-violation --config rustqual.toml --format github 2>&1) || status=$?
+      want=$(sed -n 's/^name = "\(.*\)"$/\1/p' rustqual.toml | sort)
+      got=$(printf '%s\n' "$out" | sed -n 's|.*architecture/pattern/\([a-z_]*\) .*|\1|p' | sort -u)
+      if [ "$status" -ne 1 ] || [ "$want" != "$got" ]; then
+          printf '%s\n' "$out" >&2
+          printf 'metrics: probe exited %s, want 1\nrules named:\n%s\nrules fired:\n%s\n' "$status" "$want" "$got" >&2
+          exit 1
+      fi
   ```
 
-  the second line being the probe that the architecture section is alive; and
+  the probe being what proves the architecture section alive. Tried in the scratch
+  copy as a script with this layout: the clean tree exits 0; a missing fixture, a
+  mistyped glob in one rule (the output lists the eight rules that fired), and
+  `[architecture] enabled = false` each exit 1; a malformed `rustqual.toml` exits 2 at
+  the first line. `want` reads every `name =` line, which holds while the pattern rules
+  are the only tables with a `name`; and
   `install-tools` losing `--disable-strategies compile`, or gaining a second loop over
   a `tools-source.txt`, whichever the maintainer prefers; the ticket says why the
   comment in `tools.txt` ("one name@version per line") still holds.
@@ -580,8 +680,12 @@ the two will drift.
 - **`pyproject.toml`** (T00 follow-up): `"metrics"` in the recipes list after
   `"clippy"`, so `bg-*`'s aggregate runs it.
 - **`.github/workflows/ci.yml`**: `just metrics` in the `rust` job after `clippy`.
-- **`tests/fixtures/metrics-violation/`**: a two-file crate with one forbidden import,
-  excluded from the workspace and from `taplo.toml` if its manifest trips a lint.
+- **`tests/fixtures/metrics-violation/`**: a crate with a `lib.rs` and one file per
+  module of the table, each file breaking its own rule once, alternating the `use`
+  line and the inline `crate::x::Y` form so both stay proved; its manifest carries an
+  empty `[workspace]` so cargo never adopts it, and it is excluded from `taplo.toml`
+  if the manifest trips a lint. Tried in the scratch copy: exit 1 with exactly nine
+  findings, one per rule.
 - **`docs/reference/quality-gates.md`**: a row for `metrics` between gates 6 and 7 and
   the renumbering; **`docs/reference/commands.md`** the recipe;
   **`docs/explanation/layering.md`**: "Enforcement" rewritten to name the rule file and
@@ -655,13 +759,14 @@ the two will drift.
   - The gate list was frozen at T00 and reopening it is a decision record. Reopening
     it for a tool that may need replacing in a year spends that decision twice.
 
-  A middle path the decision record can take: land T22 with `metrics` in `check` but
-  the rustqual pin held for one Dependabot cycle before the first bump is accepted, and
-  a stated exit, that if two consecutive bumps each need a suppression or a threshold
-  change, `metrics` moves out of `check` and into an advisory job on the `audit.yml`
-  pattern, with the boundary rules alone kept as an archaven test. Whichever way, the
-  clippy thresholds are in the gate regardless; nothing in either case argues against
-  them.
+  A middle path the decision record can take: land T22 with `metrics` in `check`, the
+  rustqual pin held at 1.8.3 until the solver has landed under it, then bumped by hand
+  one release at a time (nothing bumps `tools.txt` until S01's follow-up adds a
+  Renovate regex manager for it), and a stated exit, that if two consecutive bumps
+  each need a suppression or a threshold change, `metrics` moves out of `check` and
+  into an advisory job on the `audit.yml` pattern, with the boundary rules alone kept
+  as an archaven test. Whichever way, the clippy thresholds are in the gate
+  regardless; nothing in either case argues against them.
 - Whether `install-tools` drops `--disable-strategies compile` for every line or only
   for a named list. The spike has no preference; the decision record does.
 - Whether the nesting guardrail should be 4 in both tools, which means moving the one
