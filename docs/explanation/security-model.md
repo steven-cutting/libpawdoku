@@ -51,7 +51,9 @@ used where unpredictability matters.
   it arrives as its crates.io source, checked against the registry index's checksum, and
   is built on the machine with `--locked`, taking the dependency versions its own
   lockfile names. Were cargo-quickinstall to publish a build of the pin, cargo-binstall
-  would take that instead, after checking its signature.
+  would take that instead, after checking its signature. A release asset rustqual itself
+  published would not be taken: that pass disables cargo-binstall's `crate-meta-data`
+  strategy, so nothing unsigned arrives by it.
 - **Memory safety.** `#![forbid(unsafe_code)]` holds in every crate through the
   workspace lint table. `forbid`, not `deny`: no member and no item can opt back in.
 - **No network at runtime.** The core is `no_std`, so it cannot name a socket, and no

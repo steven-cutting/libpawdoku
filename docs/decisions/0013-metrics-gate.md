@@ -101,8 +101,11 @@ holds `rustqual@1.8.3`. `just install-tools` reads it in a second pass that allo
 cargo-binstall's compile strategy; cargo-binstall passes `--locked` through to
 `cargo install`, so the build takes the versions rustqual's own lockfile names.
 cargo-binstall tries a signed cargo-quickinstall build first and would take one that
-appeared for the pin. Compiling is acceptable for this one tool because it is paid once
-per worktree (38 seconds on the maintainer's machine) and once per pin in CI, where
+appeared for the pin. The pass disables the `crate-meta-data` strategy, which
+cargo-binstall would otherwise try before either: it takes a release asset from the
+crate's own repository, which rustqual would publish unsigned, so a release appearing
+upstream cannot bypass both the signature and the registry checksum. Compiling is
+acceptable for this one tool because it is paid once per worktree (38 seconds on the maintainer's machine) and once per pin in CI, where
 `.tools` is cached on the hash of both lists. A line joins this list only on a decision
 record that accepts the same cost.
 

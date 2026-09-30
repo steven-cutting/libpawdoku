@@ -40,10 +40,11 @@ install-toolchain:
 # tools-source.txt holds tools with no release binary, so its loop may compile,
 # and cargo-binstall passes --locked through to `cargo install`. It tries a
 # signed cargo-quickinstall build first, and would take one that appeared for
-# the pin (decision 0013).
+# the pin; an upstream release asset, which nothing would sign, is refused
+# (decision 0013).
 install-tools:
     grep -v '^#' tools.txt | xargs cargo binstall --root .tools --no-confirm --locked --disable-strategies compile
-    grep -v '^#' tools-source.txt | xargs cargo binstall --root .tools --no-confirm --locked
+    grep -v '^#' tools-source.txt | xargs cargo binstall --root .tools --no-confirm --locked --disable-strategies crate-meta-data
 
 # The Allium checker for docs/specs/, pinned and checksummed in the tooling
 # package. Downloads over the network into .tools/bin, which Git ignores.

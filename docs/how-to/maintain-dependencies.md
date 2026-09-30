@@ -78,14 +78,16 @@ Two lists hold what conda-forge lacks, one `name@version` per line, and
   (`--disable-strategies compile`), so a tool with no prebuilt binary fails loudly
   rather than building at bootstrap.
 - `tools-source.txt` (rustqual today) is for a tool with no prebuilt binary at all. Its
-  pass may compile, from crates.io source with `--locked`. A line goes here only on a
+  pass may compile, from crates.io source with `--locked`, or take a signed
+  cargo-quickinstall build, but never an unsigned upstream release asset
+  (`--disable-strategies crate-meta-data`). A line goes here only on a
   decision record that accepts the source build, as
   [decision 0013](../decisions/0013-metrics-gate.md) does for rustqual.
 
 Bump either by editing the line and running `just install-tools`. Move a
 `tools-source.txt` pin one release at a time and run `just check` on each, because the
 tool is a gate: rustqual's pin is held until the solver has landed under it, and the exit
-decision 0013 states counts the bumps that needed a suppression or a threshold change.
+that decision 0013 states counts the bumps that needed a suppression or a threshold change.
 
 Outside both files sit the bootstrap pins: pixi's own version, a floor in `requires-pixi`
 in `pyproject.toml` and an exact `pixi-version` on the `setup-pixi` step in

@@ -10,7 +10,8 @@ requires: []
 
 ## Context
 
-`just check` runs eighteen gates in order with the worktree snapshotted between them.
+`just check` runs eighteen gate recipes in order with the worktree snapshotted between them,
+and then `check-clean`, the nineteenth gate, proves the worktree unchanged.
 Gates 4 to 14 are Rust's: `fmt-check`, `toml-check`, `clippy`, `metrics`, `features`,
 `wasm-check`, `test-doc`, `coverage`, `doc`, `deny` and `deps-unused`. The rest are the
 house's: the toolchain, the lockfiles, the hooks, the documentation and agent contracts,

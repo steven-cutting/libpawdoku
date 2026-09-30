@@ -423,6 +423,11 @@ on conda-forge (S09) or Homebrew (`brew info rustqual`: no formula). rustqual's 
 signature when one exists. The maintainer chose to keep the default strategies: rustqual
 compiles today, and a signed quickinstall build would be taken if one appeared. The pages
 and decision 0013 say so.
+*Follow-up, 2026-09-30 (PR #20 review):* the defaults also put `crate-meta-data` first,
+which would take an unsigned release asset from rustqual's own repository ahead of the
+signed build. The maintainer chose to disable it: the `tools-source.txt` pass now passes
+`--disable-strategies crate-meta-data`, leaving a signed quickinstall build or the
+crates.io source build, as the security model says.
 
 **Step 3. The clippy thresholds and the nesting block.** With the four keys in
 `clippy.toml` and `cognitive_complexity = "warn"` in the lint table, `just clippy`
@@ -641,7 +646,8 @@ warm. rustqual's source build took 37.46 s with the registry warm.
 - **cargo-binstall telemetry.** Whenever the `quick-install` strategy is tried, as it
   is for rustqual on every fresh install, cargo-binstall reports the crate, version and
   target to cargo-quickinstall's stats server (its `--help`). `--disable-telemetry` would
-  stop it; the maintainer's choice of the default strategies left it on.
+  stop it; the maintainer's choice of the default strategies left it on, and the later
+  removal of `crate-meta-data` keeps `quick-install`, so it is still on.
 - **The probe's message** reads "probe exited 1, want 1" when the exit is right but a
   rule is missing. That is the ticket's text; the two lists printed beneath it show
   which rule is missing.
