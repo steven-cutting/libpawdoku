@@ -44,10 +44,12 @@ install-toolchain:
 # asset, which nothing would sign, is refused too (decision 0013). That pass runs without a GitHub token, so no build script it
 # compiles can read one; its one quickinstall lookup needs no rate-limit lift.
 # A pass whose list is empty is skipped, since cargo binstall with no crate
-# fails; the guard is plain sh, so it holds for GNU and BSD alike.
+# fails; the guard is plain sh, so it holds for GNU and BSD alike. sed, not
+# grep, strips the comments: it exits 0 on a list with no pins but still fails,
+# and so fails the recipe, when the file is missing or unreadable.
 install-tools:
-    pins=$(grep -v '^#' tools.txt) || true; [ -z "$pins" ] || cargo binstall --root .tools --no-confirm --locked --disable-strategies compile $pins
-    pins=$(grep -v '^#' tools-source.txt) || true; [ -z "$pins" ] || env -u GITHUB_TOKEN -u GH_TOKEN cargo binstall --root .tools --no-confirm --locked --disable-strategies crate-meta-data --only-signed --no-discover-github-token $pins
+    pins=$(sed -e '/^#/d' -e '/^$/d' tools.txt); [ -z "$pins" ] || cargo binstall --root .tools --no-confirm --locked --disable-strategies compile $pins
+    pins=$(sed -e '/^#/d' -e '/^$/d' tools-source.txt); [ -z "$pins" ] || env -u GITHUB_TOKEN -u GH_TOKEN cargo binstall --root .tools --no-confirm --locked --disable-strategies crate-meta-data --only-signed --no-discover-github-token $pins
 
 # The Allium checker for docs/specs/, pinned and checksummed in the tooling
 # package. Downloads over the network into .tools/bin, which Git ignores.

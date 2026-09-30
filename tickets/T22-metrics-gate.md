@@ -462,6 +462,10 @@ boundary guarantee as `crate::` paths only, pointing at `layering.md`'s two blin
 *Follow-up, 2026-09-30 (Copilot, PR #20):* a third blind spot, an alias of the crate
 (`use crate as root;` then `root::solver::item()`), gives no finding in a scratch crate;
 0013, `layering.md` and gate 7's row record it. Review is its guard, like the relative path.
+*Follow-up, 2026-09-30 (Copilot, PR #20):* `grep ... || true` read a missing pin file as
+an empty list. The guard now strips comments with `sed`, which exits 0 on a list with no
+pins and fails on a missing file; `just install-tools` exits 0 with `tools-source.txt`
+reduced to a comment and 1 with it removed.
 
 **Step 3. The clippy thresholds and the nesting block.** With the four keys in
 `clippy.toml` and `cognitive_complexity = "warn"` in the lint table, `just clippy`
