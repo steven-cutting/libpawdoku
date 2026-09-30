@@ -401,8 +401,9 @@ same rule written `crates/pawdoku/src/random{.rs,/**}` matched nothing. The draf
 below uses the `src/` form.
 
 So the rule that lands is one `[[architecture.pattern]]` per module, whose
-`forbid_path_prefix` lists every `crate::<module>` it may not name. Nine rules encode
-the whole table, both import forms fail, and the `reason` is the table's row. What it
+`forbid_path_prefix` lists every `crate::<module>` it may not name. Ten rules encode
+the whole table, nine for the specification modules and one for `random`, which
+imports nothing, both import forms fail, and the `reason` is the table's row. What it
 cannot see: a path reached through `super::` from a child module, and a re-export in
 `lib.rs` (`crate::Price` for `crate::effort::Price`). `unreachable_pub` and
 `unnameable_types` in the workspace table keep re-exports deliberate, and `lib.rs` is the
@@ -470,7 +471,7 @@ Thresholds, as guardrails set before the solver exists:
 | instability per module that something imports | 0.8 | `[coupling] max_instability` |
 | fan-in and fan-out per module | 15 and 12 | `[coupling]` |
 | Stable Dependencies Principle | on | `[coupling] check_sdp` |
-| module boundaries | the layering table | nine `[[architecture.pattern]]` rules |
+| module boundaries | the layering table | ten `[[architecture.pattern]]` rules |
 
 The two nesting numbers differ because the tools count differently, and the
 repository's tests live in a `mod tests` inside the file (decision 0009).
@@ -526,7 +527,7 @@ The honest risks of rustqual, stated for the decision record:
 - A misconfigured architecture section is silent, and so is a wrong target: rustqual
   over a directory that does not exist, or a crate with no source, exits 0. The
   follow-up commits a probe: `metrics` also runs rustqual over a fixture crate under
-  `tests/fixtures/metrics-violation/` that breaks each of the nine rules once, and
+  `tests/fixtures/metrics-violation/` that breaks each of the ten rules once, and
   requires exit 1 (0 is no findings, 2 a configuration it could not read) and that
   the set of rules named in the `github` output (`architecture/pattern/<name>`)
   equals the set of `name =` lines in `rustqual.toml`. A bare `!` would not do: it
@@ -587,7 +588,8 @@ the two will drift.
   enabled = false
 
   # One rule per module: everything it may not name, from
-  # docs/explanation/layering.md. random is absent from every list.
+  # docs/explanation/layering.md. random is in no other rule's list, since anything
+  # may import it, and its own rule forbids all nine: it imports nothing.
   [[architecture.pattern]]
   name = "sudoku_imports_nothing"
   forbid_path_prefix = ["crate::technique", "crate::solver", "crate::reach", "crate::effort", "crate::lapse", "crate::human_solving", "crate::board", "crate::generation"]
@@ -641,11 +643,20 @@ the two will drift.
   forbid_path_prefix = ["crate::effort", "crate::lapse", "crate::human_solving", "crate::board"]
   forbidden_in = ["src/generation{.rs,/**}"]
   reason = "layering: generation may import only sudoku, solver, technique, reach and random"
+
+  [[architecture.pattern]]
+  name = "random_imports_nothing"
+  forbid_path_prefix = ["crate::sudoku", "crate::technique", "crate::solver", "crate::reach", "crate::effort", "crate::lapse", "crate::human_solving", "crate::board", "crate::generation"]
+  forbidden_in = ["src/random{.rs,/**}"]
+  reason = "layering: random imports nothing"
   ```
 
-  Today only `random` exists, so the file lands with its rules naming modules that do
-  not exist yet; the tool accepts a glob that matches nothing, which is what lets the
-  guardrail precede the code.
+  Today only `random` exists, so `random_imports_nothing` is the one rule with a file
+  to guard, and it is live from the day T22 lands: a `crate::sudoku::Grid` planted in
+  the real `random.rs` failed the gate
+  (`architecture/pattern/random_imports_nothing`, exit 1). The other nine name modules
+  that do not exist yet; the tool accepts a glob that matches nothing, which is what
+  lets the guardrail precede the code.
 - **`Justfile`** (T00 follow-up): a `metrics` recipe after `clippy`,
 
   ```text
@@ -668,24 +679,30 @@ the two will drift.
 
   the probe being what proves the architecture section alive. Tried in the scratch
   copy as a script with this layout: the clean tree exits 0; a missing fixture, a
-  mistyped glob in one rule (the output lists the eight rules that fired), and
+  mistyped glob in one rule (the output lists the rules that fired, one short), and
   `[architecture] enabled = false` each exit 1; a malformed `rustqual.toml` exits 2 at
   the first line. `want` reads every `name =` line, which holds while the pattern rules
-  are the only tables with a `name`; and
-  `install-tools` losing `--disable-strategies compile`, or gaining a second loop over
-  a `tools-source.txt`, whichever the maintainer prefers; the ticket says why the
-  comment in `tools.txt` ("one name@version per line") still holds.
-- **`tools.txt`** (T00 follow-up): `rustqual@1.8.3`, with the comment amended to say the
-  compile strategy is allowed and why.
+  are the only tables with a `name`; and `install-tools` changed by one of two routes,
+  the maintainer's choice, which also decides where the pin lives:
+  - *Route A, one list:* `install-tools` drops `--disable-strategies compile` for every
+    line, and **`tools.txt`** (T00 follow-up) gains `rustqual@1.8.3`, its comment
+    amended to say a source build is allowed and why. Every future line may then
+    compile too.
+  - *Route B, two lists:* `install-tools` keeps the binary-only loop over `tools.txt`
+    unchanged and gains a second loop, with the compile strategy allowed, over a new
+    **`tools-source.txt`** holding `rustqual@1.8.3`. `tools.txt` does not change: a
+    source-only pin left in it would fail the binary-only loop before the second loop
+    ran.
 - **`pyproject.toml`** (T00 follow-up): `"metrics"` in the recipes list after
   `"clippy"`, so `bg-*`'s aggregate runs it.
 - **`.github/workflows/ci.yml`**: `just metrics` in the `rust` job after `clippy`.
 - **`tests/fixtures/metrics-violation/`**: a crate with a `lib.rs` and one file per
-  module of the table, each file breaking its own rule once, alternating the `use`
-  line and the inline `crate::x::Y` form so both stay proved; its manifest carries an
-  empty `[workspace]` so cargo never adopts it, and it is excluded from `taplo.toml`
-  if the manifest trips a lint. Tried in the scratch copy: exit 1 with exactly nine
-  findings, one per rule.
+  module of the table, `random` included, each file breaking its own rule once,
+  alternating the `use` line and the inline `crate::x::Y` form so both stay proved; its
+  manifest carries an empty `[workspace]` so cargo never adopts it, and it is excluded
+  from `taplo.toml` if the manifest trips a lint. Tried in the scratch copy: exit 1 with exactly ten
+  findings, one per rule. Adding the tenth rule before its fixture file also showed
+  the probe working: the recipe failed, listing nine rules fired against ten named.
 - **`docs/reference/quality-gates.md`**: a row for `metrics` between gates 6 and 7 and
   the renumbering; **`docs/reference/commands.md`** the recipe;
   **`docs/explanation/layering.md`**: "Enforcement" rewritten to name the rule file and
@@ -695,7 +712,20 @@ the two will drift.
   one recipe; records the thresholds and why each number; records rustqual's age, the
   IOSP dimension that cannot be switched off, and the compile-strategy exception to the
   binstall rule; names ast-metrics and archaven as the alternatives and what would
-  swap them in.
+  swap them in. **`docs/decisions/README.md`**: its row, and "the next decision this
+  repository takes" moved to 0014. **`docs/manifest.yml`** (T00 follow-up, frozen at
+  T00): the page's entry, `kind: decision`, or `check-docs` fails; the manifest
+  requires every page.
+- **The pages that state the binary-only rule**, whichever route is chosen, since each
+  would otherwise say something false: `AGENTS.md` ("the one tool conda-forge lacks is
+  pinned in `tools.txt`"; `just check-agents` after), `docs/how-to/maintain-dependencies.md`
+  (`install-tools` "refuses a source build"), `docs/operations/troubleshooting.md` (the
+  section "`just install-tools` refuses to build from source"),
+  `docs/explanation/security-model.md` (cargo-hack as "the one line in `tools.txt`";
+  rustqual arrives as crates.io source under `--locked` instead of a release download),
+  `docs/project/repository-map.md` (`tools.txt` as "the one tool conda-forge lacks", and
+  the new file under route B) and `docs/reference/commands.md`'s `install-tools` row
+  ("refuses to build from source").
 - **`tickets/README.md`**: T22's row, depending on S09.
 
 **Step 8.** `status: done`; committed on this branch; not pushed.
@@ -767,8 +797,10 @@ the two will drift.
   into an advisory job on the `audit.yml` pattern, with the boundary rules alone kept
   as an archaven test. Whichever way, the clippy thresholds are in the gate
   regardless; nothing in either case argues against them.
-- Whether `install-tools` drops `--disable-strategies compile` for every line or only
-  for a named list. The spike has no preference; the decision record does.
+- Route A or route B for `install-tools` (step 7): the compile strategy for every line
+  of `tools.txt`, or a second list, `tools-source.txt`, that alone may compile. The
+  choice also decides where the rustqual pin lives. The spike has no preference; the
+  decision record does.
 - Whether the nesting guardrail should be 4 in both tools, which means moving the one
   test block at `random.rs:382` (test code, so T02's or the next Rust ticket's), or 5
   in clippy as drafted.
