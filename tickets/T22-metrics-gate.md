@@ -435,6 +435,10 @@ whole `install-tools` step, so the source build's build scripts inherited it. Th
 *Follow-up, 2026-09-30 (Copilot, PR #20):* the probe compared the rules it saw after
 `sort -u`, so a rule firing twice passed. It now compares without deduplicating, so each
 rule must fire exactly once, as the fixture's files say; each does today.
+*Follow-up, 2026-09-30 (Copilot, PR #20):* both `install-tools` passes use `xargs -r`, so
+an emptied list, which 0013 foresees for `tools-source.txt`, skips its pass instead of
+running `cargo binstall` with no crate under GNU xargs. 0013's cost sentence now says
+each of the five gate jobs compiles rustqual on a cold cache, as its Consequences do.
 
 **Step 3. The clippy thresholds and the nesting block.** With the four keys in
 `clippy.toml` and `cognitive_complexity = "warn"` in the lint table, `just clippy`

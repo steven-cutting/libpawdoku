@@ -105,9 +105,10 @@ appeared for the pin. The pass disables the `crate-meta-data` strategy, which
 cargo-binstall would otherwise try before either: it takes a release asset from the
 crate's own repository, which rustqual would publish unsigned, so a release appearing
 upstream cannot bypass both the signature and the registry checksum. Compiling is
-acceptable for this one tool because it is paid once per worktree (38 seconds on the maintainer's machine) and once per pin in CI, where
-`.tools` is cached on the hash of both lists. A line joins this list only on a decision
-record that accepts the same cost.
+acceptable for this one tool because it is paid once per worktree (38 seconds on the
+maintainer's machine) and, in CI, once per pin by each of the five gate jobs, in
+parallel, on the cold cache; `.tools` is then cached on the hash of both lists. A line
+joins this list only on a decision record that accepts the same cost.
 
 **The pin** is held at 1.8.3 until the solver has landed under it, then bumped by hand,
 one release at a time, with `just check` run on each. Nothing bumps a tool pin

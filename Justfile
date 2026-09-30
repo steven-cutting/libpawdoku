@@ -43,9 +43,11 @@ install-toolchain:
 # the pin; an upstream release asset, which nothing would sign, is refused
 # (decision 0013). That pass runs without a GitHub token, so no build script it
 # compiles can read one; its one quickinstall lookup needs no rate-limit lift.
+# `xargs -r` skips a pass whose list is empty: GNU xargs would otherwise run
+# cargo binstall with no crate and fail.
 install-tools:
-    grep -v '^#' tools.txt | xargs cargo binstall --root .tools --no-confirm --locked --disable-strategies compile
-    grep -v '^#' tools-source.txt | xargs env -u GITHUB_TOKEN -u GH_TOKEN cargo binstall --root .tools --no-confirm --locked --disable-strategies crate-meta-data --no-discover-github-token
+    grep -v '^#' tools.txt | xargs -r cargo binstall --root .tools --no-confirm --locked --disable-strategies compile
+    grep -v '^#' tools-source.txt | xargs -r env -u GITHUB_TOKEN -u GH_TOKEN cargo binstall --root .tools --no-confirm --locked --disable-strategies crate-meta-data --no-discover-github-token
 
 # The Allium checker for docs/specs/, pinned and checksummed in the tooling
 # package. Downloads over the network into .tools/bin, which Git ignores.
