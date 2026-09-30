@@ -26,7 +26,7 @@ A list a reader can check against `Cargo.toml` and `crates/pawdoku/src/lib.rs`:
   every crate through the workspace lint table.
 - `cargo check --target wasm32v1-none` under the feature powerset as the mechanical proof:
   a target with no std at all, beside `wasm32-unknown-unknown`, which wasm-bindgen
-  targets. `just wasm-check` runs both and is gate 8 of `just check`.
+  targets. `just wasm-check` runs both and is gate 9 of `just check`.
 - `rand` and `getrandom` banned by cargo-deny; the seed comes from the caller through the
   randomness boundary (decision 0003).
 - Every public type is `Send + Sync + 'static`, `Clone` and `Debug`, asserted in

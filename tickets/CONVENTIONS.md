@@ -197,6 +197,9 @@ skipped; `--disable-strategies compile` refuses a source build so an unpinnable 
 loudly). cargo-binstall comes from the pixi environment; nothing is compiled at bootstrap
 and nothing is installed by a curl-pipe script.
 
+Note, 2026-09-29: T22 left `tools.txt` as written and added `tools-source.txt` beside it,
+a second pass that may compile, for rustqual alone (decision 0013).
+
 Other pins this document fixes: pixi 0.81.0 (`requires-pixi` floors it in the manifest;
 `setup-pixi`'s `pixi-version` names it exactly in CI), allium-tools 3.6.1 with B's
 checksums, proptest 1.11.0, thiserror 2.0.17, serde 1.0.228 (§12 re-verifies each on the
@@ -271,6 +274,10 @@ ai_tmp/  .tools/  .pixi/  target/   gitignored; never committed
 ```
 
 ## 4. `Justfile` (complete; frozen at T00)
+
+Note, 2026-09-29: T22 reopened the gate list for `metrics`, gate 7, and gave
+`install-tools` a second line over `tools-source.txt` (decision 0013); the text below is
+T00's, and the live `Justfile` is the authority.
 
 The text below is frozen at T00. D01 kept the Python toolchain (decision 0004) and D02
 made pixi its installer (decision 0011), so `prek` and B's console scripts are binaries

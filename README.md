@@ -14,9 +14,10 @@ Four tools, and nothing else: not uv, not cargo-binstall.
 
 - **rustup**, with no default toolchain needed, because `rust-toolchain.toml` chooses the
   one used here. `~/.cargo/bin` must come ahead of `~/.pixi/bin` on `PATH`.
-- **pixi**, 0.81.0 or newer, which installs the pixi environment from `pixi.lock`. Two
-  tools are not in it: `just initialize` installs cargo-hack from `tools.txt` and
-  downloads the Allium checker, both into `.tools/bin`, and no lockfile names either.
+- **pixi**, 0.81.0 or newer, which installs the pixi environment from `pixi.lock`. Three
+  tools are not in it: `just initialize` installs cargo-hack from `tools.txt`, builds
+  rustqual from `tools-source.txt` and downloads the Allium checker, all into
+  `.tools/bin`, and no lockfile names any of them.
 - **just**, from `pixi global install just`. Any just launches the recipes, because the
   pinned one in the environment runs every nested call and CI.
 - **gh**, only for the pin-bump commands.
@@ -56,9 +57,11 @@ docs/specs/          Nine Allium modules — the source of truth for behaviour
 tickets/             The work that set this repository up, one ticket per branch
 pyproject.toml       The pixi manifest, pinned by pixi.lock
 rust-toolchain.toml  The compiler pin
-tools.txt            cargo-hack, the one tool conda-forge lacks
+tools.txt            cargo-hack: conda-forge lacks it, and it installs from a release binary
+tools-source.txt     rustqual: conda-forge lacks it, and it has no binary, so it is built
+rustqual.toml        The metrics gate's thresholds and module-boundary rules
 .pixi/               The pixi environment, ignored by Git
-.tools/              cargo-hack and the Allium checker, outside any lockfile, ignored by Git
+.tools/              cargo-hack, rustqual and the Allium checker, outside any lockfile, ignored by Git
 target/              Build output, ignored by Git
 ```
 

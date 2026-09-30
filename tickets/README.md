@@ -32,7 +32,7 @@ authoritative; this table is a snapshot.
 | T10 | Maintainer docs: README, CHANGELOG, SECURITY | `T10-maintainer-docs.md` | T11 | none | done |
 | T12 | Board migration: board.allium adapted, and the alignment with the game at add73be7 | `T12-board-migration.md` | T06, T07, T08, T11 | none | done |
 | T19 | Puzzle design objectives: the research report in the docs, the gaps in the specs, and the generation module's skeleton | `T19-puzzle-design-objectives.md` | T06, T08, T12 | none | done |
-| T22 | Metrics gate: clippy thresholds and rustqual as gate 7, with the boundary rules from the layering table | `T22-metrics-gate.md` | S09 | none | open |
+| T22 | Metrics gate: clippy thresholds and rustqual as gate 7, with the boundary rules from the layering table | `T22-metrics-gate.md` | S09 | none | done |
 
 Spike tickets. Each weighs options and ends in a recommendation; none blocks the build and
 none is picked up before T11.

@@ -21,7 +21,7 @@ requires-pixi = ">=0.81.0"
 python = "3.14.*"
 just = "==1.58.0"
 prek = "==0.5.3"
-# For tools.txt only: cargo-hack is not on conda-forge.
+# For tools.txt and tools-source.txt only: cargo-hack and rustqual are not on conda-forge.
 cargo-binstall = "==1.23.0"
 cargo-nextest = "==0.9.146"
 cargo-llvm-cov = "==0.9.1"
@@ -43,6 +43,7 @@ recipes = [
   "fmt-check",
   "toml-check",
   "clippy",
+  "metrics",
   "features",
   "wasm-check",
   "test-doc",

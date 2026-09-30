@@ -64,17 +64,36 @@ outside its layer.
 
 ## Enforcement
 
-There is no import-boundary checker here, and rustc will not supply one: it allows a
-cycle between modules of the same crate. The direction is enforced by review, by the
-`rust-change` and `code-review` skills, and by the shape of the tests: code in the wrong
-layer is usually code that is hard to test. Two lints in the workspace table help from
-the side. `unreachable_pub` and `unnameable_types` keep what is `pub` deliberate, so a
-module's surface is the one it meant to export, and `mod_module_files` bans `mod.rs`, so
-every module is the file named after it and the graph above can be read from the file
-tree.
+rustc will not enforce the table: it allows a cycle between modules of the same crate.
+Gate 7, `just metrics`, does. `rustqual.toml` at the repository root holds one
+`[[architecture.pattern]]` rule per row of the table above, ten in all. Each lists every
+`crate::` path its module may not name, and its `reason` is the row. `random`'s rule
+forbids all nine others, and `random` is in no other rule's list, because anything may
+import it. A rule covers the file named after its module and everything under the
+directory of the same name, so `src/technique.rs` and `src/technique/` are one module and
+a child is held to its parent's row. A rule for a module the crate does not have yet
+matches nothing, so the guardrail is in place before the code is.
+
+Each rule catches both ways of naming a module: a `use crate::effort::Price;` line, and an
+inline `crate::effort::price()` in a function body. rustqual reports nothing, and the gate
+would pass, when its architecture section is switched off or misconfigured, so the recipe
+also runs a probe: a fixture that breaks every rule once, and the gate fails unless
+rustqual names all ten. [Quality gates](../reference/quality-gates.md) describes it.
+
+Two paths are out of the rules' sight. A path written relative to the module, such as
+`super::super::solver` from `src/technique/catalogue.rs`, names no `crate::` prefix. And a
+re-export in `lib.rs` lets any module write `crate::Price` for `crate::effort::Price`.
+The second is guarded from the side: `unreachable_pub` and `unnameable_types` in the
+workspace table keep what is `pub` deliberate, so a module's surface is the one it meant
+to export, and `lib.rs` is the one file to read for re-exports in review.
+`mod_module_files` bans `mod.rs`, so every module is the file named after it and the
+graph above can be read from the file tree. What the rules cannot see is left to review,
+to the `rust-change` and `code-review` skills, and to the shape of the tests: code in the
+wrong layer is usually code that is hard to test.
 
 ## Related pages
 
 - [Architecture](architecture.md)
 - [Testing](../reference/testing.md)
 - [Decision 0003](../decisions/0003-effects-behind-traits.md)
+- [Decision 0013](../decisions/0013-metrics-gate.md)

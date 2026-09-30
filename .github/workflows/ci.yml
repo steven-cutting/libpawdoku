@@ -51,6 +51,7 @@ jobs:
       - run: just fmt-check
       - run: just toml-check
       - run: just clippy
+      - run: just metrics
       - run: just features
       - run: just test
       - run: just doc

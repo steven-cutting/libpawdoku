@@ -10,12 +10,13 @@ requires: []
 
 ## Context
 
-`just check` runs seventeen gates in order with the worktree snapshotted between them.
-Gates 4 to 13 are Rust's: `fmt-check`, `toml-check`, `clippy`, `features`, `wasm-check`,
-`test-doc`, `coverage`, `doc`, `deny` and `deps-unused`. The rest are the house's: the
-toolchain, the lockfiles, the hooks, the documentation and agent contracts, the
-specifications. This record says how the Rust ten were chosen and where they depart from
-the games' rules.
+`just check` runs eighteen gates in order with the worktree snapshotted between them.
+Gates 4 to 14 are Rust's: `fmt-check`, `toml-check`, `clippy`, `metrics`, `features`,
+`wasm-check`, `test-doc`, `coverage`, `doc`, `deny` and `deps-unused`. The rest are the
+house's: the toolchain, the lockfiles, the hooks, the documentation and agent contracts,
+the specifications. This record says how ten of the eleven were chosen and where they
+depart from the games' rules; the eleventh, `metrics` at gate 7, came later, when
+[decision 0013](0013-metrics-gate.md) reopened the list for it, and that is its record.
 
 Two facts shape them. The toolchain is pinned to an exact stable release in
 `rust-toolchain.toml`, so the clippy lint set is stable between deliberate bumps and

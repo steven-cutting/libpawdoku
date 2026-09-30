@@ -44,9 +44,14 @@ used where unpredictability matters.
   stack arrives by accident. The ban is on what ships: development dependencies are
   outside the graph, because proptest depends on both randomness crates and the ban is
   not about the test harness. Every remote hook and every GitHub Action is pinned to a
-  commit SHA, not to a mutable tag. One tool is the exception worth naming: cargo-hack,
-  the one line in `tools.txt`, is downloaded over TLS from its GitHub release, and it
-  publishes no checksum or signature, so nothing verifies it beyond the transport.
+  commit SHA, not to a mutable tag. Two tools are the exceptions worth naming.
+  cargo-hack, the one line in `tools.txt`, is downloaded over TLS from its GitHub
+  release, and it publishes no checksum or signature, so nothing verifies it beyond the
+  transport. rustqual, the one line in `tools-source.txt`, publishes no binary at all, so
+  it arrives as its crates.io source, checked against the registry index's checksum, and
+  is built on the machine with `--locked`, taking the dependency versions its own
+  lockfile names. Were cargo-quickinstall to publish a build of the pin, cargo-binstall
+  would take that instead, after checking its signature.
 - **Memory safety.** `#![forbid(unsafe_code)]` holds in every crate through the
   workspace lint table. `forbid`, not `deny`: no member and no item can opt back in.
 - **No network at runtime.** The core is `no_std`, so it cannot name a socket, and no

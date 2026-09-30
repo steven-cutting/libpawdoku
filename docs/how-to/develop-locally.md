@@ -20,7 +20,8 @@ requires: []
 Nothing else: not uv, not cargo-binstall. `rust-toolchain.toml` names the exact
 toolchain, its components and its two wasm targets, and rustup installs them the first
 time cargo runs here. `pyproject.toml` names every other tool and `pixi.lock`
-pins it, with `tools.txt` the one-line exception for what conda-forge lacks.
+pins it, with `tools.txt` and `tools-source.txt`, one line each, the exceptions for what
+conda-forge lacks.
 [Configuration](../reference/configuration.md) has each figure; this page states none.
 The page covers Ubuntu and macOS; Windows gains a section the day the command-line crate
 brings it into CI.
@@ -73,10 +74,11 @@ just initialize
 ```
 
 This installs the pixi environment from `pixi.lock`, installs the pinned toolchain,
-refuses a cargo that is not rustup's, installs cargo-hack from `tools.txt` into
-`.tools/bin` and then the Allium checker, syncs both lockfiles, normalises formatting,
-and installs the pre-commit hook with every hook environment. Run it once per clone. It
-needs the network for the pixi environment, the toolchain, cargo-hack, the Allium
+refuses a cargo that is not rustup's, installs cargo-hack from `tools.txt` and builds
+rustqual from `tools-source.txt` into `.tools/bin`, then the Allium checker, syncs both
+lockfiles, normalises formatting, and installs the pre-commit hook with every hook
+environment. Run it once per clone. It needs the network for the pixi environment, the
+toolchain, cargo-hack, rustqual's source (a build of about forty seconds), the Allium
 checker, `cargo fetch` and the hook clones. It never stages, commits, tags or pushes.
 
 The hook is installed from the primary checkout only, because every worktree shares one
@@ -124,8 +126,8 @@ just sync
 ```
 
 It installs a moved `pixi.lock` exactly as committed and fetches what `Cargo.lock` names.
-After `tools.txt` has moved, run `just install-tools` as well; it skips a version that is
-already there.
+After `tools.txt` or `tools-source.txt` has moved, run `just install-tools` as well; it
+skips a version that is already there.
 
 ## Related pages
 

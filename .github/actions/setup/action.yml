@@ -50,15 +50,18 @@ runs:
         shared-key: ${{ inputs.cache-key }}
         save-if: ${{ github.ref == 'refs/heads/main' }}
         cache-bin: false
-    # .tools holds what pixi cannot: cargo-hack from tools.txt, and allium as
-    # a side effect of the documents job (bg-install-allium version-checks,
-    # so a stale one is replaced). Keyed on the pin list: a bumped line is a
-    # new key, and cargo-binstall skips a matching version already present
-    # on a hit.
+    # .tools holds what pixi cannot: cargo-hack from tools.txt, rustqual
+    # built from source from tools-source.txt, and allium as a side effect of
+    # the documents job (bg-install-allium version-checks, so a stale one is
+    # replaced). Keyed on both pin lists: a bumped line in either is a new
+    # key, and cargo-binstall skips a matching version already present on a
+    # hit. A key that missed a list would hit the old cache on a bump, and
+    # the new version would be installed, rustqual rebuilt, on every run and
+    # never saved, since a hit writes nothing back.
     - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: .tools
-        key: ${{ runner.os }}-${{ runner.arch }}-tools-${{ hashFiles('tools.txt') }}
+        key: ${{ runner.os }}-${{ runner.arch }}-tools-${{ hashFiles('tools.txt', 'tools-source.txt') }}
     # On the step that installs, never on the job: cargo-binstall (the
     # environment's) reads GITHUB_TOKEN to raise the GitHub API rate limit
     # while it resolves the release archive, and no other step has a use for

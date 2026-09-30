@@ -24,9 +24,10 @@ against a crate in `Cargo.lock` is fixed by moving that crate, not by ignoring i
 moves both lockfiles within the manifests' constraints — `Cargo.lock` within the caret
 ranges, `pixi.lock` beneath the exact tool pins; run `just check` and commit both. A tool
 pin itself moves in `pyproject.toml`, then `pixi update <name>`, then `pixi.lock` is
-committed. A line in `tools.txt` moves by hand and takes effect at the
-next `just install-tools`. A hook `rev` or a GitHub Action SHA moves by hand, with its
-version comment moved beside it.
+committed. A line in `tools.txt` or `tools-source.txt` moves by hand and takes effect at
+the next `just install-tools`; a `tools-source.txt` line moves one release at a time,
+with `just check` run on each, because rustqual is a gate. A hook `rev` or a GitHub
+Action SHA moves by hand, with its version comment moved beside it.
 
 **Monthly.** Run `just check-links-online`. It is not part of the gate because it needs
 the network, so external links rot silently until someone looks.

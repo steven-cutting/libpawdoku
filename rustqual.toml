@@ -1,0 +1,176 @@
+# The `metrics` gate's configuration (decision 0013 records every number and why).
+# Globs resolve against the target directory, so `just metrics` runs rustqual from the
+# repository root as `rustqual crates/pawdoku --config rustqual.toml`. IOSP has no
+# `enabled` key and always runs; every other dimension not named on is off.
+
+[architecture]
+enabled = true
+
+[complexity]
+enabled = true
+max_cognitive = 15
+max_cyclomatic = 10
+max_nesting_depth = 4
+max_function_lines = 60
+detect_magic_numbers = false
+
+[srp]
+enabled = true
+max_parameters = 5
+lcom4_threshold = 2
+max_fields = 12
+max_methods = 20
+
+[coupling]
+enabled = true
+# Applies to modules something imports; rustqual exempts the rest (step 6).
+max_instability = 0.8
+max_fan_in = 15
+max_fan_out = 12
+check_sdp = true
+
+[duplicates]
+enabled = false
+
+[boilerplate]
+enabled = false
+
+[test_quality]
+enabled = false
+
+[structural]
+enabled = false
+
+# One rule per module: everything it may not name, from
+# docs/explanation/layering.md. random is in no other rule's list, since anything
+# may import it, and its own rule forbids all nine: it imports nothing.
+[[architecture.pattern]]
+name = "sudoku_imports_nothing"
+forbid_path_prefix = [
+  "crate::technique",
+  "crate::solver",
+  "crate::reach",
+  "crate::effort",
+  "crate::lapse",
+  "crate::human_solving",
+  "crate::board",
+  "crate::generation",
+]
+forbidden_in = ["src/sudoku{.rs,/**}"]
+reason = "layering: sudoku may import only random"
+
+[[architecture.pattern]]
+name = "technique_imports_sudoku"
+forbid_path_prefix = [
+  "crate::solver",
+  "crate::reach",
+  "crate::effort",
+  "crate::lapse",
+  "crate::human_solving",
+  "crate::board",
+  "crate::generation",
+]
+forbidden_in = ["src/technique{.rs,/**}"]
+reason = "layering: technique may import only sudoku and random"
+
+[[architecture.pattern]]
+name = "solver_imports_sudoku"
+forbid_path_prefix = [
+  "crate::technique",
+  "crate::reach",
+  "crate::effort",
+  "crate::lapse",
+  "crate::human_solving",
+  "crate::board",
+  "crate::generation",
+]
+forbidden_in = ["src/solver{.rs,/**}"]
+reason = "layering: solver may import only sudoku and random"
+
+[[architecture.pattern]]
+name = "reach_imports_sudoku_and_technique"
+forbid_path_prefix = [
+  "crate::solver",
+  "crate::effort",
+  "crate::lapse",
+  "crate::human_solving",
+  "crate::board",
+  "crate::generation",
+]
+forbidden_in = ["src/reach{.rs,/**}"]
+reason = "layering: reach may import only sudoku, technique and random"
+
+[[architecture.pattern]]
+name = "effort_imports_sudoku_and_technique"
+forbid_path_prefix = [
+  "crate::solver",
+  "crate::reach",
+  "crate::lapse",
+  "crate::human_solving",
+  "crate::board",
+  "crate::generation",
+]
+forbidden_in = ["src/effort{.rs,/**}"]
+reason = "layering: effort may import only sudoku, technique and random"
+
+[[architecture.pattern]]
+name = "lapse_imports_sudoku_and_technique"
+forbid_path_prefix = [
+  "crate::solver",
+  "crate::reach",
+  "crate::effort",
+  "crate::human_solving",
+  "crate::board",
+  "crate::generation",
+]
+forbidden_in = ["src/lapse{.rs,/**}"]
+reason = "layering: lapse may import only sudoku, technique and random"
+
+[[architecture.pattern]]
+name = "human_solving_imports_sudoku_and_technique"
+forbid_path_prefix = [
+  "crate::solver",
+  "crate::reach",
+  "crate::effort",
+  "crate::lapse",
+  "crate::board",
+  "crate::generation",
+]
+forbidden_in = ["src/human_solving{.rs,/**}"]
+reason = "layering: human_solving may import only sudoku, technique and random"
+
+[[architecture.pattern]]
+name = "board_imports_sudoku"
+forbid_path_prefix = [
+  "crate::technique",
+  "crate::solver",
+  "crate::reach",
+  "crate::effort",
+  "crate::lapse",
+  "crate::human_solving",
+  "crate::generation",
+]
+forbidden_in = ["src/board{.rs,/**}"]
+reason = "layering: board may import only sudoku and random"
+
+[[architecture.pattern]]
+name = "generation_imports_sudoku_solver_technique_reach"
+forbid_path_prefix = ["crate::effort", "crate::lapse", "crate::human_solving", "crate::board"]
+forbidden_in = ["src/generation{.rs,/**}"]
+reason = "layering: generation may import only sudoku, solver, technique, reach and random"
+
+[[architecture.pattern]]
+name = "random_imports_nothing"
+forbid_path_prefix = [
+  "crate::sudoku",
+  "crate::technique",
+  "crate::solver",
+  "crate::reach",
+  "crate::effort",
+  "crate::lapse",
+  "crate::human_solving",
+  "crate::board",
+  "crate::generation",
+]
+forbidden_in = ["src/random{.rs,/**}"]
+reason = "layering: random imports nothing"

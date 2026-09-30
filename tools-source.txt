@@ -1,0 +1,7 @@
+# Tools that must be built from source: crates on crates.io with no release binary
+# and no conda-forge package, installed by `just install-tools` into the gitignored
+# .tools/bin with cargo-binstall's compile strategy allowed, one name@version per
+# line. tools.txt is binary-only and stays so; a pin here costs a source build at
+# bootstrap, which decision 0013 accepts for the one tool below and no other by
+# default. Bumped by hand, one release at a time, with `just check` run on it.
+rustqual@1.8.3

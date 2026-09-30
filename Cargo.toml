@@ -66,6 +66,8 @@ str_to_string = "warn"
 lossy_float_literal = "warn"
 float_cmp_const = "warn"
 same_name_method = "warn"
+# A restriction lint, so the pedantic group does not enable it; clippy.toml sets its threshold.
+cognitive_complexity = "warn"
 # technique::TechniqueStep is the readable name; the lint would rename it.
 module_name_repetitions = "allow"
 # cargo-deny's bans.multiple-versions owns this check.

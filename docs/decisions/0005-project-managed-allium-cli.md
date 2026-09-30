@@ -74,7 +74,7 @@ the two Homebrew does publish match. Moving the version means recomputing all fo
 a binary Git could see would abort the run before any recipe's exit code was read.
 
 Both recipes are gates: hooks in `.pre-commit-config.yaml` triggered by `docs/specs/`
-and by the pin itself, steps in the `documents` CI job, and gates 16 and 17 of
+and by the pin itself, steps in the `documents` CI job, and gates 17 and 18 of
 `just check`.
 
 Gating took more than a line in the `Justfile`, because no exit code here carries the

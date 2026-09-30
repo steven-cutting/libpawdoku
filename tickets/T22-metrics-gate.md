@@ -1,7 +1,7 @@
 ---
 id: T22
 title: "Metrics gate: clippy thresholds and rustqual as gate 7, with the boundary rules from the layering table"
-status: open
+status: done
 depends_on: [S09]
 parallel_with: []
 branch: ticket/t22-metrics-gate
@@ -373,7 +373,274 @@ rule restated`; 0013 in all three files and 0014 as the next number; `no suppres
 
 ## Hand-back notes
 
-Not started.
+### What ran, and how
+
+Executed on 2026-09-29 in the Supacode worktree `S09-code-quality-metrics`, whose branch
+the maintainer had renamed to `ticket/t22-metrics-gate` (see Deviations). It sits on
+`f7a1530`, this ticket's own commit over `main` at `9bedca8`. The maintainer authorised
+`just initialize` and the new `just install-tools` (network), and read-only GitHub API
+lookups of rustqual's releases and cargo-quickinstall's tags.
+
+**Step 1.** `git rev-parse --short HEAD` printed `f7a1530`, and `git status --porcelain`
+printed nothing. `just initialize` exited 0. As a secondary worktree it skipped
+`install-hooks`, and it changed no tracked file.
+
+**Step 2. The pin and the install route.** `tools-source.txt` is the ticket's text, and
+`install-tools` gained the second line as written. The recipe's rustqual line was run
+once by hand with `-v` to see the strategy; these are the lines that matter:
+
+```text
+cargo-binstall:  INFO resolve: Resolving package: 'rustqual@=1.8.3'
+cargo-binstall: DEBUG has_release_artifact{... tag: "v1.8.3" ...}: ... nodes: [] ...
+cargo-binstall: DEBUG Failed to download signature, skipping verification: ... cargo-quickinstall/releases/download/rustqual-1.8.3/rustqual-1.8.3-aarch64-apple-darwin.tar.gz.sig: HTTP status client error (404 Not Found)
+cargo-binstall:  WARN The package rustqual v1.8.3 will be installed from source (with cargo)
+cargo-binstall: DEBUG Running `/Users/scutting/.rustup/toolchains/1.98.1-aarch64-apple-darwin/bin/cargo install rustqual --version 1.8.3 --locked --root .tools`
+    Finished `release` profile [optimized] target(s) in 37.46s
+   Installed package `rustqual v1.8.3` (executables `cargo-qual`, `rustqual`)
+```
+
+So the compile fallback does pass `--locked` through to `cargo install`, and the second
+line stays as the ticket wrote it. `just install-tools` afterwards:
+
+```text
+cargo-binstall:  INFO cargo-hack v0.6.45 is already installed, use --force to override
+cargo-binstall:  INFO rustqual v1.8.3 is already installed, use --force to override
+$ .tools/bin/rustqual --version
+rustqual 1.8.3
+$ ls .tools/bin
+allium  cargo-hack  cargo-qual  rustqual
+```
+
+The log also showed cargo-binstall's default order: the crate's own release
+(`crate-meta-data`), then a cargo-quickinstall build (`quick-install`), then compile.
+The maintainer asked whether compiling could be avoided at all. It cannot today. None of
+rustqual's 35 GitHub releases (v0.3.8 to v1.8.3) has an asset, because its `release.yml`
+publishes to crates.io only. cargo-quickinstall has no `rustqual` tag. The crate is not
+on conda-forge (S09) or Homebrew (`brew info rustqual`: no formula). rustqual's own
+`book/getting-started.md` and `book/ci-integration.md` install with
+`cargo install rustqual`, which compiles too. cargo-quickinstall's builds are signed
+(cargo-hack 0.6.45 has a `.sig` beside every archive), and cargo-binstall checks the
+signature when one exists. The maintainer chose to keep the default strategies: rustqual
+compiles today, and a signed quickinstall build would be taken if one appeared. The pages
+and decision 0013 say so.
+
+**Step 3. The clippy thresholds and the nesting block.** With the four keys in
+`clippy.toml` and `cognitive_complexity = "warn"` in the lint table, `just clippy`
+reported exactly one error:
+
+```text
+error: this block is too nested
+   --> crates/pawdoku/src/random.rs:382:52
+382 |                   if let Some(draws) = self.0.take() {
+error: could not compile `pawdoku` (lib test) due to 1 previous error
+```
+
+`Fields` and its `impl SeqAccess` moved out of `deserialise_replay` to the level of
+`mod tests`, each under `#[cfg(feature = "serde")]`. The impl names serde's traits by
+path and imports `IntoDeserializer` and `SeqDeserializer` inside its method, so no
+module-level `use` needs a `cfg`. The helper's signature and both call sites are
+unchanged. After the move:
+
+```text
+$ just clippy
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.13s
+$ just coverage            # before, then after
+TOTAL  219  5  97.72%  23  0  100.00%  139  3  97.84%  ...
+TOTAL  219  5  97.72%  23  0  100.00%  139  3  97.84%  ...
+```
+
+Coverage is unchanged, and no `#[expect]` or `#[allow]` was added.
+
+**Step 4. `rustqual.toml`.** S09 step 7's configuration went in verbatim, under a
+four-line header comment. `just toml-check` failed on the long `forbid_path_prefix`
+arrays; `taplo fmt rustqual.toml` rewrapped them one path per line, and that is the
+committed form. The ten `name = "..."` lines survived the rewrap, so the probe's `want`
+still reads them (`grep -c '^name = ' rustqual.toml` prints `10`).
+
+```text
+$ rustqual crates/pawdoku --config rustqual.toml --fail-on-warnings --format github
+::notice::Quality score: 100.0% (35 functions analyzed)
+exit 0
+```
+
+With `use crate::sudoku::Grid;` planted in `random.rs`, through `just metrics`:
+
+```text
+::warning file=src/random.rs,line=434::architecture/pattern/random_imports_nothing — path "crate::sudoku::Grid": layering: random imports nothing
+::error::Quality analysis: 1 finding(s) (0 IOSP violation(s)), 98.0% quality score
+error: recipe `metrics` failed with exit code 1
+```
+
+Reverted.
+
+**Step 5. The fixture.** The bare directory, with no `Cargo.toml`, scans, so no manifest
+was written, and taplo, cargo and `deny` never see the fixture. Odd files (`sudoku`,
+`solver`, `effort`, `human_solving`, `generation`) use a `use` line, and even files use
+an inline path:
+
+```text
+$ rustqual tests/fixtures/metrics-violation --config rustqual.toml --format github
+::warning file=src/board.rs,line=6::architecture/pattern/board_imports_sudoku — path "crate::generation::item": ...
+::warning file=src/effort.rs,line=3::architecture/pattern/effort_imports_sudoku_and_technique — path "crate::lapse::item": ...
+::warning file=src/generation.rs,line=3::architecture/pattern/generation_imports_sudoku_solver_technique_reach — path "crate::effort::item": ...
+::warning file=src/human_solving.rs,line=3::architecture/pattern/human_solving_imports_sudoku_and_technique — path "crate::board::item": ...
+::warning file=src/lapse.rs,line=6::architecture/pattern/lapse_imports_sudoku_and_technique — path "crate::effort::item": ...
+::warning file=src/random.rs,line=6::architecture/pattern/random_imports_nothing — path "crate::sudoku::item": ...
+::warning file=src/reach.rs,line=6::architecture/pattern/reach_imports_sudoku_and_technique — path "crate::effort::item": ...
+::warning file=src/solver.rs,line=3::architecture/pattern/solver_imports_sudoku — path "crate::technique::item": ...
+::warning file=src/sudoku.rs,line=3::architecture/pattern/sudoku_imports_nothing — path "crate::technique::item": ...
+::warning file=src/technique.rs,line=6::architecture/pattern/technique_imports_sudoku — path "crate::solver::item": ...
+::error::Quality analysis: 10 finding(s) (0 IOSP violation(s)), 65.0% quality score
+exit 1
+```
+
+That is ten findings, one per rule. `just lint` passes with the fixture tracked
+(typos, editorconfig-checker and ripsecrets see it).
+
+**Step 6. The recipe.** The ticket's text, with the `want` comment folded into the
+recipe's header comment. `"metrics"` follows `"clippy"` in `pyproject.toml`. The three
+proofs:
+
+```text
+$ just metrics                                  # the tree
+::notice::Quality score: 100.0% (35 functions analyzed)
+exit 0
+
+$ just metrics                                  # [architecture] enabled = false
+::notice::Quality score: 100.0% (35 functions analyzed)
+::notice::Quality score: 100.0% (20 functions analyzed)
+metrics: probe exited 0, want 1
+rules named:
+board_imports_sudoku
+... (all ten)
+rules fired:
+
+error: recipe `metrics` failed with exit code 1
+
+$ just metrics                                  # board.rs's violation removed
+::error::Quality analysis: 9 finding(s) (0 IOSP violation(s)), 66.8% quality score
+metrics: probe exited 1, want 1
+rules named:
+board_imports_sudoku
+... (all ten)
+rules fired:
+effort_imports_sudoku_and_technique
+... (nine, board_imports_sudoku missing)
+error: recipe `metrics` failed with exit code 1
+```
+
+Each was reverted, and `just metrics` was green again after.
+
+**Step 7. CI.** `- run: just metrics` follows `just clippy` in the `rust` job. The
+`.tools` cache key is `hashFiles('tools.txt', 'tools-source.txt')`, and its comment names
+both lists and what a key missing one would cost. `just lint` (actionlint included)
+passes.
+
+**Step 8. The pages.** The two greps were re-run after the edits. Every gate citation
+agrees with the nineteen-row table: `metrics` 7, `features` 8, `wasm-check` 9,
+`test-doc` 10, `coverage` 11, `doc` 12, `deny` 13, `deps-unused` 14, `check-docs` 15,
+`check-agents` 16, `check-specs` 17, `analyse-specs` 18, `check-clean` 19. Gates 1 to 6
+are unchanged, so `0008` line 38 and `quality-gates.md`'s "gate 6" stay. Every
+remaining `tools.txt` hit is either about that list alone, and true, or names both
+lists. The acceptance grep:
+
+```text
+$ grep -rn 'refuses to build from source\|refuses a source build\|the one tool conda-forge lacks' AGENTS.md docs README.md || echo "binary-only rule restated"
+binary-only rule restated
+```
+
+`just check-docs` (40 pages, 41 canonical topics) and `just check-agents` pass.
+
+**Step 9. Decision 0013** is in the shape of 0012, with the manifest entry, the index row
+("the next decision this repository takes is 0014") and 0009's pointer. Writing it
+turned up a fact S09 did not state: every threshold S09 chose is rustqual's documented
+default at 1.8.3 (`book/reference-configuration.md`). The record says so and gives each
+number's reason beside the default.
+
+**Step 10.**
+
+```text
+$ just check
+==> just check-toolchain
+==> just lock-check
+==> just lint
+==> just fmt-check
+==> just toml-check
+==> just clippy
+==> just metrics
+==> just features
+==> just wasm-check
+==> just test-doc
+==> just coverage
+==> just doc
+==> just deny
+==> just deps-unused
+==> just check-docs
+==> just check-agents
+==> just check-specs
+==> just analyse-specs
+==> just check-clean
+All checks passed and the worktree is unchanged.
+just check  82.31s user 11.14s system 468% cpu 19.928 total
+```
+
+**Files rustqual wrote:** none. `git status --porcelain --ignored` after every run showed
+only the already-ignored `.lycheecache`, `.pixi/`, `.tools/`, `ai_tmp/` and `target/`.
+
+**Run times.** Everything was measured on this machine. `just metrics` took 0.31 s cold
+and 0.13 s warm; it has no cache, so the difference is the filesystem. `just clippy`
+took 3.98 s cold, in a fresh target directory with its dependencies built, and 0.13 s
+warm. rustqual's source build took 37.46 s with the registry warm.
+
+### Deviations, and why
+
+- **Branch and base.** The maintainer chose to rename the Supacode branch
+  `S09-code-quality-metrics` to `ticket/t22-metrics-gate`, rather than cut a new one
+  from `main`. `main` does not carry this ticket file, because `f7a1530` was never pushed.
+  So the build sits on `f7a1530`, and the ticket and its build go out together. The
+  worktree directory keeps its Supacode name.
+- **The rustqual install was first run by hand with `-v`**, as the same command line the
+  recipe runs, to read the strategy and the `cargo install` line. `just install-tools`
+  then ran through the recipe.
+- **A header comment on `rustqual.toml`**, four lines above S09's text: what the file is
+  for, where globs resolve, and that IOSP always runs. The configuration itself is
+  verbatim.
+- **Lines the Files touched table did not list**, each made false by this change:
+  `pyproject.toml`'s comment on cargo-binstall ("For tools.txt only"); the CI job table
+  and the setup-action sentence in `quality-gates.md`; the `.tools/bin` sentence at
+  `troubleshooting.md` line 80, and that page's heading "`just install-tools` refuses to
+  build from source", renamed so the acceptance grep holds; `0011` line 78, where
+  emptying `tools.txt` no longer removes cargo-binstall; `CHANGELOG.md`'s "Eleven
+  architecture decision records", already stale at twelve, now thirteen; and one
+  sentence in `docs/decisions/README.md` saying 0013 reopens 0009's list.
+- **Left unchanged on purpose:** `0004` line 44, "lists the seventeen recipes". It sits
+  in a paragraph that still describes `uv.lock`, which decision 0011 superseded, so the
+  paragraph records its day rather than today. It is outside the acceptance grep.
+- **0009's pointer is in its Context**, where the count and the range are, not under
+  "What would reopen this".
+- **Counts.** `quality-gates.md` has nineteen rows with `check-clean`. `CHANGELOG.md`
+  and `0009` count the recipes `pyproject.toml` lists, which is eighteen now.
+
+### For the maintainer
+
+- **rustqual defaults nobody chose are live.** Because `[srp]` and `[complexity]` are
+  enabled and the recipe passes `--fail-on-warnings`, rustqual's other defaults gate
+  too. They are: SRP-002, a file over 300 production lines (the book's "warn 300, hard
+  800"); a per-struct fan-out of 10; an SRP composite score of 0.6; and the A20
+  error-handling check. The 300-line file limit is the one likely to meet the solver.
+  Decision 0013 lists them as unchosen, and the numbers were left alone, as the
+  non-goals require.
+- **Cold CI cost.** Every gate job runs the setup action, so on a new `.tools` key all
+  five compile rustqual in parallel, once. Limiting the build to the `rust` job would
+  mean a setup-action input, which is not this ticket's change.
+- **cargo-binstall telemetry.** Whenever the `quick-install` strategy is tried, as it
+  is for rustqual on every fresh install, cargo-binstall reports the crate, version and
+  target to cargo-quickinstall's stats server (its `--help`). `--disable-telemetry` would
+  stop it; the maintainer's choice of the default strategies left it on.
+- **The probe's message** reads "probe exited 1, want 1" when the exit is right but a
+  rule is missing. That is the ticket's text; the two lists printed beneath it show
+  which rule is missing.
+- `tickets/CONVENTIONS.md` §2 and §4 carry the dated note the open point defaults to.
 
 ## Open points
 
