@@ -451,6 +451,11 @@ removed from `rustqual.toml` the probe fails.
 proves, the `/**` form once, for `technique`; and `tools-source.txt`'s header, quoted as
 planned in step 2 above, now says a pin there may be compiled, not must, since the pass
 takes a signed cargo-quickinstall build first.
+*Follow-up, 2026-09-30 (Copilot, PR #20):* cargo-binstall checks a signature only when
+one exists, so an unsigned quickinstall build would have been taken. The source pass now
+passes `--only-signed`; a `--dry-run` with it still resolves rustqual to the
+`cargo install --locked` source build. No quickinstall build exists for either pin, so
+acceptance of a signed one is cargo-binstall's documented behaviour, not observed here.
 
 **Step 3. The clippy thresholds and the nesting block.** With the four keys in
 `clippy.toml` and `cognitive_complexity = "warn"` in the lint table, `just clippy`

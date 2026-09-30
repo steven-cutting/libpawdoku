@@ -102,7 +102,8 @@ holds `rustqual@1.8.3`. `just install-tools` reads it in a second pass that allo
 cargo-binstall's compile strategy; cargo-binstall passes `--locked` through to
 `cargo install`, so the build takes the versions rustqual's own lockfile names.
 cargo-binstall tries a signed cargo-quickinstall build first and would take one that
-appeared for the pin. The pass disables the `crate-meta-data` strategy, which
+appeared for the pin; `--only-signed` makes the signature a requirement rather than a
+check made when one exists, and still leaves the source build. The pass disables the `crate-meta-data` strategy, which
 cargo-binstall would otherwise try before either: it takes a release asset from the
 crate's own repository, which rustqual would publish unsigned, so a release appearing
 upstream cannot bypass both the signature and the registry checksum. Compiling is

@@ -51,7 +51,7 @@ used where unpredictability matters.
   it arrives as its crates.io source, checked against the registry index's checksum, and
   is built on the machine with `--locked`, taking the dependency versions its own
   lockfile names. Were cargo-quickinstall to publish a build of the pin, cargo-binstall
-  would take that instead, after checking its signature. A release asset rustqual itself
+  would take that instead, and only if it is signed (`--only-signed`). A release asset rustqual itself
   published would not be taken: that pass disables cargo-binstall's `crate-meta-data`
   strategy, so nothing unsigned arrives by it. It also runs with CI's GitHub token
   unset, so the build scripts it compiles cannot read the token.
