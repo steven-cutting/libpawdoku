@@ -10,9 +10,10 @@ requires: []
 
 ## Context
 
-Until this decision the gate measured the code's shape in one place. Clippy's `pedantic`
-group carries `too_many_lines` and `too_many_arguments` at clippy's defaults of 100 lines
-and 7 arguments, and nothing else looked at size, cohesion or coupling. The import
+Until this decision the gate measured the code's shape in one place. Clippy ran
+`too_many_lines`, from its `pedantic` group, and `too_many_arguments`, from its
+`complexity` group, at clippy's defaults of 100 lines and 7 arguments, and nothing else
+looked at size, cohesion or coupling. The import
 direction [Layering](../explanation/layering.md) sets out was enforced by review alone,
 because rustc allows a cycle between modules of one crate.
 

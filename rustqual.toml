@@ -1,7 +1,9 @@
 # The `metrics` gate's configuration (decision 0013 records every number and why).
 # Globs resolve against the target directory, so `just metrics` runs rustqual from the
 # repository root as `rustqual crates/pawdoku --config rustqual.toml`. IOSP has no
-# `enabled` key and always runs; every other dimension not named on is off.
+# `enabled` key and always runs. Of the rest, rustqual turns architecture off by
+# default and the others on, so each is named below, on or off, rather than left to
+# its default.
 
 [architecture]
 enabled = true

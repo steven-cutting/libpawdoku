@@ -653,3 +653,7 @@ warm. rustqual's source build took 37.46 s with the registry warm.
 - Whether `tickets/CONVENTIONS.md` §2 and §4, both frozen at T00, take the dated note the
   Files touched row describes or are left untouched. The ticket defaults to the note;
   the maintainer may strike it at review.
+
+All three were settled in the run: the fixture needs no `Cargo.toml` (step 5);
+cargo-binstall's compile fallback passes `--locked` to `cargo install` (step 2); and
+§2 and §4 carry the dated note, which the maintainer may still strike at review.
