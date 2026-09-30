@@ -447,6 +447,10 @@ no flag on any `xargs`. The maintainer chose a version check: `just metrics` fai
 fall through to another on `PATH`. The fixture's `technique` violation moved to
 `src/technique/catalogue.rs`, so the probe proves the globs' `/**` arm; with that arm
 removed from `rustqual.toml` the probe fails.
+*Follow-up, 2026-09-30 (Copilot, PR #20):* the fixture's header claims only what the probe
+proves, the `/**` form once, for `technique`; and `tools-source.txt`'s header, quoted as
+planned in step 2 above, now says a pin there may be compiled, not must, since the pass
+takes a signed cargo-quickinstall build first.
 
 **Step 3. The clippy thresholds and the nesting block.** With the four keys in
 `clippy.toml` and `cognitive_complexity = "warn"` in the lint table, `just clippy`

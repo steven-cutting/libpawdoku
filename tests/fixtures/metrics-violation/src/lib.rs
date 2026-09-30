@@ -3,7 +3,8 @@
 //! forbids. `just metrics` requires rustqual to fail here and to name every rule.
 //! Odd files break their rule with a `use` line and even files with an inline path,
 //! so both forms stay proved. `technique` breaks its rule from a child,
-//! `technique/catalogue.rs`, so each rule's `/**` arm is proved beside its `.rs` arm.
+//! `technique/catalogue.rs`, so the `/**` glob form is proved once, for that rule;
+//! the other nine prove only their `.rs` arm, and share the `/**` form's syntax.
 //! Never compiled: no manifest declares it.
 
 pub mod sudoku;
