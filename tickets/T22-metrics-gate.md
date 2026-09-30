@@ -428,6 +428,10 @@ which would take an unsigned release asset from rustqual's own repository ahead 
 signed build. The maintainer chose to disable it: the `tools-source.txt` pass now passes
 `--disable-strategies crate-meta-data`, leaving a signed quickinstall build or the
 crates.io source build, as the security model says.
+*Follow-up, 2026-09-30 (Codex, PR #20):* CI's setup action sets `GITHUB_TOKEN` for the
+whole `install-tools` step, so the source build's build scripts inherited it. The
+`tools-source.txt` pass now runs under `env -u GITHUB_TOKEN -u GH_TOKEN` with
+`--no-discover-github-token`; the `tools.txt` pass keeps the token for its rate limit.
 
 **Step 3. The clippy thresholds and the nesting block.** With the four keys in
 `clippy.toml` and `cognitive_complexity = "warn"` in the lint table, `just clippy`

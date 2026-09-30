@@ -53,7 +53,8 @@ used where unpredictability matters.
   lockfile names. Were cargo-quickinstall to publish a build of the pin, cargo-binstall
   would take that instead, after checking its signature. A release asset rustqual itself
   published would not be taken: that pass disables cargo-binstall's `crate-meta-data`
-  strategy, so nothing unsigned arrives by it.
+  strategy, so nothing unsigned arrives by it. It also runs with CI's GitHub token
+  unset, so the build scripts it compiles cannot read the token.
 - **Memory safety.** `#![forbid(unsafe_code)]` holds in every crate through the
   workspace lint table. `forbid`, not `deny`: no member and no item can opt back in.
 - **No network at runtime.** The core is `no_std`, so it cannot name a socket, and no

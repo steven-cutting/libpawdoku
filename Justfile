@@ -41,10 +41,11 @@ install-toolchain:
 # and cargo-binstall passes --locked through to `cargo install`. It tries a
 # signed cargo-quickinstall build first, and would take one that appeared for
 # the pin; an upstream release asset, which nothing would sign, is refused
-# (decision 0013).
+# (decision 0013). That pass runs without a GitHub token, so no build script it
+# compiles can read one; its one quickinstall lookup needs no rate-limit lift.
 install-tools:
     grep -v '^#' tools.txt | xargs cargo binstall --root .tools --no-confirm --locked --disable-strategies compile
-    grep -v '^#' tools-source.txt | xargs cargo binstall --root .tools --no-confirm --locked --disable-strategies crate-meta-data
+    grep -v '^#' tools-source.txt | xargs env -u GITHUB_TOKEN -u GH_TOKEN cargo binstall --root .tools --no-confirm --locked --disable-strategies crate-meta-data --no-discover-github-token
 
 # The Allium checker for docs/specs/, pinned and checksummed in the tooling
 # package. Downloads over the network into .tools/bin, which Git ignores.

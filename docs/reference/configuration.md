@@ -23,7 +23,7 @@ The tooling reads a few, each in one place:
 | `RUSTDOCFLAGS` | The `doc` recipe, which sets it | `-D warnings --cfg docsrs`: warnings fail, and the build is the one docs.rs would make. Set on that recipe and nowhere else. |
 | `CARGO_HOME` | The `check-toolchain` recipe | Where rustup's proxy is expected; `~/.cargo` when unset. |
 | `CARGO_TERM_COLOR`, `CARGO_INCREMENTAL`, `CARGO_NET_RETRY`, `RUST_BACKTRACE` | Every CI job | Coloured logs, no incremental artefacts on a fresh runner, retries for flaky fetches, and a backtrace on a panic. Exported by `ci.yml`; `audit.yml` exports the first three. |
-| `GITHUB_TOKEN` | CI's `install-tools` step only | Lifts GitHub's anonymous rate limit for cargo-binstall's release lookup. The run's own token. |
+| `GITHUB_TOKEN` | CI's `install-tools` step only | Lifts GitHub's anonymous rate limit for cargo-binstall's release lookup in the `tools.txt` pass. The run's own token. The recipe unsets it, and `GH_TOKEN`, for the `tools-source.txt` pass, so the build scripts that pass compiles never see it. |
 | `PREK_HOME` | CI's setup action | Moves prek's cache outside the checkout, so the worktree snapshot never sees it and the cache can be restored between runs. |
 
 There is no `.cargo/config.toml`. `RUSTFLAGS` set there would change every build's

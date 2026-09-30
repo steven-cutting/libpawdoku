@@ -66,7 +66,8 @@ runs:
     # environment's) reads GITHUB_TOKEN to raise the GitHub API rate limit
     # while it resolves the release archive, and no other step has a use for
     # it. It is the run's own token, minted and discarded with the run, so
-    # nothing is stored here.
+    # nothing is stored here. The recipe unsets it for the tools-source.txt
+    # pass, which compiles, so no build script sees it.
     - run: just install-tools
       shell: bash
       env:
