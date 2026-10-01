@@ -70,9 +70,10 @@ Facts that shape the work:
   accessors, and the module is `src/board.rs` plus `src/board/<part>.rs`. Never a
   suppression and never a moved number. If structure cannot meet a limit, stop and
   report.
-- **T25 left one thing for this ticket.** The puzzle's crate-only answer carries
-  `#[expect(dead_code)]` naming T27. Once the check calls it, the expectation is
-  unfulfilled and `just clippy` fails until the attribute is removed.
+- **T25 left one thing for this ticket.** The puzzle's crate-only answer carries a
+  `dead_code` expectation, under `cfg_attr(not(test), ...)`, naming T27. Once the check
+  calls it, the expectation is unfulfilled and `just clippy` fails until the line is
+  removed.
 - **The module's one open question is not this ticket's to answer.** "What, if anything,
   is counted from the checks - wrong answers, checks made - and is it shown to the
   player?" The board exposes the checks, as `Playing` does. It adds no count, no tally
@@ -122,7 +123,7 @@ is this ticket's to choose and to report.
 | --- | --- |
 | `crates/pawdoku/src/board.rs` | New: the module's surface |
 | `crates/pawdoku/src/board/` | New: one file per part, as the limits ask |
-| `crates/pawdoku/src/sudoku.rs` | The answer's `#[expect(dead_code)]` removed, and nothing else |
+| `crates/pawdoku/src/sudoku.rs` | The answer's `dead_code` expectation removed, the whole `cfg_attr` line, and nothing else |
 | `crates/pawdoku/src/lib.rs` | `pub mod board;` and the crate overview |
 | `crates/pawdoku/tests/api_bounds.rs` | Every new public type |
 | `crates/pawdoku/tests/board.rs` | New: a puzzle played through `Board` alone |
@@ -173,7 +174,7 @@ is this ticket's to choose and to report.
    taken before the move and redo the one taken after; and that the reading at each
    move equals the snapshot taken when that move was made.
 
-6. Remove the `#[expect(dead_code)]` on the puzzle's answer once the check calls it.
+6. Remove the `dead_code` expectation on the puzzle's answer once the check calls it.
 
 7. **The pages.** `docs/explanation/architecture.md`: the board owns its puzzle and
    hands out values; why it has no constructor from a puzzle; the reading of a puzzle

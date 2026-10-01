@@ -58,8 +58,9 @@ ticket builds none of it; it records it as a decision so that T25 to T28 cite a 
    always concludes, so solving takes the givens alone.
 6. **The API's shape.** `solver` has two public entries: `search`, which returns what
    `SearchResult` exposes (the verdict, the guesses and the solutions found, at most
-   two), and `solve`, built on it, which returns the proof or a refusal. `Puzzle` is set
-   from the proof and cannot fail. `Board` opens from givens in one call and reopens
+   two), and `solve`, built on it, which returns the proof or a refusal. The proof's
+   givens and solution can be read by whoever holds it, as `SearchResult` exposes them.
+   `Puzzle` is set from the proof and cannot fail. `Board` opens from givens in one call and reopens
    from a record in one call, each running the solver itself. The two-step path (solve,
    then set) stays public for code that wants a puzzle without a board.
 7. **`Board` hides its puzzle.** A board is the playable abstraction: it owns its
@@ -240,8 +241,8 @@ gates and the metrics probe naming ten rules, the board's under its new name.
      constructor" is a rule review holds, not the compiler; every puzzle costs one search
      as it is set, and every reopening one more; a `Puzzle` cannot be made without the
      solver, so `sudoku`'s own tests build the proof by hand; nothing outside the crate
-     can ask a `Puzzle` about its solution, so code on the two-step path keeps the
-     solver's result if it wants the digits.
+     can ask a `Puzzle` about its solution, so code on the two-step path reads the
+     digits from the proof before it sets the puzzle, or does without them.
    - **What would reopen this:** a second solver, or a need to swap one in; a module
      that must import the board; a consumer that needs the solution through a `Puzzle`;
      a measured cost of solving at reopening that a stored solution would remove.

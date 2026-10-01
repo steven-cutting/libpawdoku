@@ -43,7 +43,8 @@ What this ticket needs from it:
   consistent, never a comparison with the stored solution.
 - **The proof exposes what the solver found.** `WellPosed` has public read access to its
   givens and its solution, because `solver.allium`'s `SearchResult` exposes the solution
-  to whoever asked for the search.
+  to whoever asked for the search. Its `Debug` may show both. What is hidden is the
+  solution once it is inside a `Puzzle`.
 
 Facts that shape the work:
 
@@ -57,10 +58,14 @@ Facts that shape the work:
   below.
 - **Two items are dead until later tickets use them.** The proof's constructor and the
   yes-or-no answer have no caller outside tests here, so `just clippy` will report each
-  as dead code. Each carries `#[expect(dead_code, reason = "...")]` naming the ticket
-  that lifts it (T26 for the constructor, T27 for the answer). An expectation that stops
-  being needed fails `just clippy` by itself, which is how the later ticket is told.
-  Add an expectation only where clippy reports the item.
+  as dead code. Each carries
+  `#[cfg_attr(not(test), expect(dead_code, reason = "..."))]` naming the ticket that
+  lifts it (T26 for the constructor, T27 for the answer). The `not(test)` matters:
+  `just clippy` checks the library twice, once as it ships and once with its tests, and
+  in the second the tests call both items, so a bare `#[expect]` would be unfulfilled
+  there and fail the gate. An expectation that stops being needed fails `just clippy`
+  by itself, which is how the later ticket is told. Add one only where clippy reports
+  the item.
 - **The value types are unconstrained, as in the specification.** `Position` is a row
   and a column and `Given` a position and a digit, each a plain integer. A given off the
   grid or out of range is representable, because refusing it is a rule of the solver
@@ -269,8 +274,8 @@ From `docs/specs/sudoku.allium`, by name. Each is owed at least one test.
   table, and every `just plan-spec sudoku` obligation is in the table or struck with a
   reason.
 - No `unwrap`, `expect`, `panic!` or indexing that can fail outside test code; no
-  `#[allow]`; the only `#[expect]` attributes added are the two `dead_code` ones, each
-  with a reason naming T26 or T27. No `qual:allow` line.
+  `#[allow]`; the only expectations added are the two `dead_code` ones, each under
+  `cfg_attr(not(test), ...)` with a reason naming T26 or T27. No `qual:allow` line.
 - Line coverage of `src/sudoku` alone is at or above 90 per cent.
 - `tests/api_bounds.rs` names every new public type.
 - `just check` is green.

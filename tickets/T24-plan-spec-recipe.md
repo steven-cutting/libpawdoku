@@ -27,9 +27,13 @@ of what `plan` is for. So the recipe calls the binary.
 
 Facts verified on 2026-09-30 with the 3.6.1 binary:
 
-- `allium plan` takes exactly one file (`Usage: allium plan <file.allium>`). A module
-  with imports needs nothing more: `board.allium` and `solver.allium` each plan with an
-  empty `diagnostics` array and exit 0, their `use` lines resolved from beside them.
+- `allium plan` takes exactly one file (`Usage: allium plan <file.allium>`).
+  `board.allium` and `solver.allium`, which import `sudoku.allium`, each plan with an
+  empty `diagnostics` array and exit 0. Not verified: whether `plan` reads the imported
+  file or only does not report the import. `allium check` on one file alone does report
+  `allium.use.unresolvedPath` for each `use` line, and the obligations seen for
+  `board.allium` name its own constructs and carry no type from `sudoku.allium`. Step 3
+  settles it.
 - The output is one JSON document with a `diagnostics` array and an `obligations` array.
   Each obligation has an `id`, a `category`, a `description`, the `source_construct` it
   comes from and a `source_span`.
@@ -103,6 +107,13 @@ the propagate skill names the recipe where it names the subcommand.
    length of `obligations` and that `diagnostics` is empty. Run it for a module that
    does not exist and record how it fails. Run `just check` and confirm the worktree is
    unchanged afterwards, which proves the recipe wrote nothing a gate can see.
+
+   Then settle the unverified claim under Context. Read `board`'s obligations for the
+   constructs that reach into `sudoku.allium` (`BoardCell.puzzle_cell`, the `Place` rule
+   that chains to `sudoku/PlaceDigit`) and say whether anything in them comes from the
+   imported file. If `plan` does not read imports, the recipe is still right, since each
+   module is planned by its own ticket; say so on the commands page, so that nobody
+   expects `plan-spec board` to list the rules' obligations.
 
 4. The pages:
 

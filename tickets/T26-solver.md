@@ -73,9 +73,10 @@ Facts that shape the work:
   still not panic. Give the refusal one conversion from the constructor's error and test
   that conversion directly; do not write a branch per impossible case that no input can
   reach, because unreachable lines count against the coverage floor.
-- **T25 left two things for this ticket.** The constructor carries
-  `#[expect(dead_code)]` naming T26; now that `solve` calls it, the expectation is
-  unfulfilled and `just clippy` fails until the attribute is removed. And the doc
+- **T25 left two things for this ticket.** The constructor carries a `dead_code`
+  expectation, under `cfg_attr(not(test), ...)`, naming T26; now that `solve` calls it,
+  the expectation is unfulfilled and `just clippy` fails until the line is removed. And
+  the doc
   examples on `WellPosed` and `Puzzle` compile without running; T25's hand-back notes
   name them, and they can now run through `solve`.
 
@@ -138,7 +139,7 @@ Names later tickets are written against, fixed here: `solver::search` and
 | --- | --- |
 | `crates/pawdoku/src/solver.rs` | New: the module's surface |
 | `crates/pawdoku/src/solver/` | New: one file per part, as the limits ask |
-| `crates/pawdoku/src/sudoku.rs` | The constructor's `#[expect(dead_code)]` removed; the doc examples T25 named rewritten to run through `solve` |
+| `crates/pawdoku/src/sudoku.rs` | The constructor's `dead_code` expectation removed, the whole `cfg_attr` line; the doc examples T25 named rewritten to run through `solve` |
 | `crates/pawdoku/src/lib.rs` | `pub mod solver;` and the crate overview |
 | `crates/pawdoku/tests/api_bounds.rs` | Every new public type |
 | `crates/pawdoku/tests/solver.rs` | New: both entries through the public API |
@@ -192,7 +193,7 @@ Names later tickets are written against, fixed here: `solver::search` and
 
 5. **`solve` and the hand-over to `sudoku`.** Call the proof's constructor with the
    givens and the one solution when the verdict is `one`. Remove the
-   `#[expect(dead_code)]` on the constructor. Rewrite the doc examples T25 named so that
+   `dead_code` expectation on the constructor. Rewrite the doc examples T25 named so that
    each makes its value through `solve` and asserts. Add to `tests/sudoku.rs` what could
    not be written before: a puzzle set from outside the crate, played and solved through
    its public API.
