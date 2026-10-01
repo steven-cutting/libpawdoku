@@ -61,8 +61,13 @@ Facts that shape the work:
   cannot be compared with any state the record can rebuild. Reopening holds a check to
   what it can: the target is on the grid and not a given, the digit is in range, and
   `after_move` is at least 1. A check needs a player's digit in its cell, and only a
-  standing move puts one there, so no board writes a check after no move. Say so in the
-  type's documentation. `is_right` is worked
+  standing move puts one there, so no board writes a check after no move. For the same
+  reason a record that holds a check holds at least one move: the placement the check
+  asked about was made, undo keeps a move on the record, and an undone move leaves it
+  only when a new move takes its place. So a record with checks and no moves is
+  refused, whatever the checks say. Nothing more can be asked of the moves: they may
+  all be undone, and none need be a placement, since a mark can discard the placement
+  that was checked. Say so in the type's documentation. `is_right` is worked
   out from the solution, so a record cannot lie about it.
 - **No format crate.** The workspace has three dependencies and gains none (decision
   0007). `Record` derives `Serialize` and `Deserialize` under the existing `serde`
@@ -179,8 +184,8 @@ name is this ticket's to choose and to report.
    to read back and stable `Display` text in the style of `RandomError`: the solver's
    refusal of the givens, carried as its source; a move the board's guards refuse, with
    its index; more undone moves than moves; a move after the puzzle is solved; a check
-   that fails what a check is held to, with its index. A unit test pins each variant's
-   text.
+   that fails what a check is held to, with its index; checks in a record that holds no
+   move. A unit test pins each variant's text.
 
 6. **The exactness property.** A property plays an arbitrary sequence of the board's
    seven operations on the fixture below, writes the board, reopens the record, and
@@ -262,9 +267,13 @@ From `docs/specs/board.allium`, by name.
   an empty cell; a mark written where a digit stands; a mark struck that is not there; a
   move after the puzzle is solved; an undone count greater than the count of moves;
   undone moves in a record whose moves solve the puzzle; a check on a given, on a
-  position off the grid, with a digit out of range, or with an `after_move` of 0.
+  position off the grid, with a digit out of range, or with an `after_move` of 0; a
+  check, sound in itself, in a record that holds no move.
 - **What cannot be read back is accepted and documented.** A check whose `after_move`
-  exceeds the moves the record holds reopens, and keeps its `after_move`.
+  exceeds the moves the record holds reopens, and keeps its `after_move`, so long as
+  the record holds a move. Two boards a player can reach show it: place, check, undo,
+  which leaves one move, undone; and three placements, a check, three undos and one
+  written mark, which leaves one move that is no placement and a check after three.
 - **Refusal leaves nothing behind.** A refused reopening returns an error and no board.
 - **`serde`.** Under the feature, `Record` meets the serialisation bounds; without it,
   the crate compiles with no serde in its public surface.
@@ -339,7 +348,11 @@ floor; `All checks passed and the worktree is unchanged.`
   the trigger is the maintainer's call; the property test of step 6 and the refusal
   tests are what this ticket provides.
 - **A check's digit.** A record can state any in-range digit for a check whose moves
-  have since been discarded, and reopening cannot tell. Storing more would make the
+  have since been discarded, and reopening cannot tell. So "a record that no board
+  could have been written to is refused" holds for the moves and not fully for the
+  checks: reopening refuses every impossible check it can recognise (an `after_move`
+  of 0, a given or off-grid target, a digit out of range, checks with no move) and
+  accepts the rest. Storing more would make the
   record larger than the minimal form the maintainer chose. If the gap matters, it is a
   question for the specification: what a check keeps.
 - **`after_move` as a count.** It is an integer that is never negative, so an unsigned
