@@ -6,6 +6,8 @@
 //! [`ReplayStream`] is the fake a test uses to script its draws. How a draw becomes a
 //! decision is the consuming module's arithmetic, not this module's.
 //!
+//! **Not final.** This is a draft: it may change once implementation starts.
+//!
 //! ```
 //! use pawdoku::random::{RandomStream, SeededStream};
 //!

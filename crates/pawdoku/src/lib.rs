@@ -5,6 +5,9 @@
 //! through traits, so that it runs the same in a browser, in Python and on the command
 //! line. Randomness is the one effect, and [`random`] is its boundary: a seeded stream
 //! of draws the caller supplies. See `docs/explanation/architecture.md`.
+//!
+//! **Not final.** This is a draft: the public items, their names and their signatures
+//! may change once implementation starts.
 
 #![no_std]
 
