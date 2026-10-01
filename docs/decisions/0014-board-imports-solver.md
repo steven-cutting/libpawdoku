@@ -58,8 +58,10 @@ The maintainer decided both, and the rest of the shared design, on 2026-09-30.
    solver, and no optional-solver argument. `solver.allium` has no step budget, because
    its search always concludes, so solving takes the givens alone.
 6. **The shape of the API.** `solver` has two public entries: `search`, which returns
-   what the `SearchResult` surface exposes (the verdict, the guesses and the solutions
-   found, at most two), and `solve`, built on it, which returns the proof or a refusal.
+   a search only once it has concluded, with everything the `SearchResult` surface
+   exposes (the status, which being returned says; the verdict; the guesses; and the
+   solutions found, at most two), and `solve`, built on it, which returns the proof or
+   a refusal.
    Whoever holds the proof can read its givens and its solution. A `Puzzle` is set from
    the proof and cannot fail. A `Board` opens from givens in one call and reopens from a
    record in one call, each running the solver itself. The two-step path, solve and then
@@ -78,7 +80,7 @@ rule, invariant or surface changed. `board.allium` imports `solver.allium` and s
 and no longer says how undo and redo put a digit back or that reopening re-makes no
 move. `sudoku.allium` says that whoever sets a puzzle may bring the solver's verdict and
 the one solution with it. `solver.allium` says that a caller handed a search only once
-it has concluded has no status to read. Keeping the solution with the puzzle is an
+it has concluded reads the status from that alone. Keeping the solution with the puzzle is an
 implementation choice the modules already permit: each excludes how anything is stored,
 and `solution_digit_at` is a function of the givens whatever keeps its answer.
 
@@ -105,8 +107,10 @@ The specifications say less than they did. They no longer say how undo puts a di
 back, so the build may put it back through the puzzle's own placing and erasing, and
 `Puzzle` keeps one way to write a cell; that rests on placing and erasing doing nothing
 but set a cell's digit, and is looked at again if either ever gains another effect. And
-a search's status is something no caller reads: the `SearchResult` surface still exposes
-it, and the function that returns a search returns only a concluded one.
+a search's status reaches a caller without a value to carry it: the `SearchResult`
+surface exposes it, the function that returns a search returns only a concluded one,
+and so the return is how the status is read. A solver that handed back a search still
+running would need the status as a value, and that sentence would no longer cover it.
 
 The game restates clauses of these three modules and holds its text equal to this
 repository's by test, so each changed sentence is a change the game must take.

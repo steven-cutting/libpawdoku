@@ -41,6 +41,6 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and no longer forbids `crate::solver`.
 - Comment sentences changed in `board.allium`, `sudoku.allium` and `solver.allium`: why
   the solver is imported, the proof a puzzle may be set with, undo and redo no longer
-  said to run no rule, and a concluded search's status that no caller reads.
+  said to run no rule, and a search's status, read from being handed the search.
 
 [Unreleased]: https://github.com/steven-cutting/libpawdoku/commits/main/

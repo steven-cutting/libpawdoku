@@ -68,12 +68,13 @@ Facts that shape the work:
   report.
 - **The search is synchronous.** `SearchResult` exposes `search.status`. A caller of
   `search` is handed a search only once it has concluded, and T23 added the sentence
-  to `solver.allium` that says so: such a caller "has no status to read". So the
-  result has no status field and no accessor. Say so in the result type's
-  documentation, and strike `search.status` in the hand-back table with that sentence
-  as the reason. If the sentence is not above `surface SearchResult` when this ticket
-  starts, stop and report: without it the surface asks for a status a caller can
-  read.
+  to `solver.allium` that says so: such a caller "reads the status from that alone:
+  being handed it says concluded". The surface's `search.status` is met by the return
+  itself, so the result has no status field and no accessor. Say so in the result
+  type's documentation, and mark `search.status` in the hand-back table as exposed by
+  the return, with that sentence as the reason. If the sentence is not above
+  `surface SearchResult` when this ticket starts, stop and report: without it the
+  surface asks for a status a caller reads as a value.
 - **The proof constructor's other errors cannot come from a correct search.** A solution
   that is not full, or a given that does not match it, would be a bug here. `solve` must
   still not panic. Give the refusal one conversion from the constructor's error and test
@@ -312,7 +313,8 @@ From `docs/specs/solver.allium`, by name.
   count on every call, and whatever order the givens are handed over in.
 - **`SearchResult`.** Everything the surface exposes can be read: the verdict, the guess
   count, and each solution's digit at every position. `search.status` is the one
-  exception, struck under T23's sentence.
+  with no value of its own: under T23's sentence, being handed the result says
+  concluded.
 - **The invariants a result can show:** `SolvedBranchesAreSolutions` (each solution is
   full, conflict-free and holds every given), `SolutionsAreDistinct`,
   `NoMoreSolutionsThanSought`, `VerdictMatchesSolutions`. The other eight

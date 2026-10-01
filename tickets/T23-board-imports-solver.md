@@ -93,7 +93,8 @@ already permit: how anything is stored is excluded by each module, and
   value has a clause to answer to.
 - `solver.allium`: one sentence in the comment above `surface SearchResult` (638-639).
   The surface exposes `search.status`, and T26's `search` is a function that hands
-  back a search only once it has concluded, so a caller has no status to read.
+  back a search only once it has concluded, so being handed one is how a caller
+  reads the status.
 
 An unreferenced `use` is not a diagnostic: `generation.allium` imports `solver` and
 `reach` and names neither, and the nine modules check clean on the pinned binary
@@ -125,7 +126,7 @@ record; `docs/decisions/README.md` ("Writing a new one").
 `board.allium` imports `solver.allium` and says why; every page and rule that restates
 what the board imports agrees with it; `sudoku.allium` carries the proof sentence;
 `board.allium` no longer says how undo and redo put a digit back, and `solver.allium`
-says a caller handed a concluded search reads no status; a
+says a caller handed a concluded search reads the status from that alone; a
 decision record states the eight decisions above and their consequences. `just check` is
 green, with `9 specifications, no diagnostics and no findings.` from both specification
 gates and the metrics probe naming ten rules, the board's under its new name.
@@ -218,8 +219,8 @@ gates and the metrics probe naming ten rules, the board's under its new name.
 
    **`solver.allium`.** In the comment above `surface SearchResult`, after "since it
    draws nothing.", add: "A caller that is handed a search only once it has concluded
-   has no status to read: being handed it says concluded." Nothing else in the
-   module changes.
+   reads the status from that alone: being handed it says concluded." Nothing else in
+   the module changes.
 
 4. **`rustqual.toml`.** In the board rule: `name` becomes
    `board_imports_sudoku_and_solver`; `"crate::solver"` leaves `forbid_path_prefix`;
@@ -270,7 +271,7 @@ gates and the metrics probe naming ten rules, the board's under its new name.
      can ask a `Puzzle` about its solution, so code on the two-step path reads the
      digits from the proof before it sets the puzzle, or does without them; the
      modules no longer say how undo puts a digit back, and a search's status is
-     something no caller reads.
+     read from being handed the search, with no value to carry it.
    - **What would reopen this:** a second solver, or a need to swap one in; a module
      that must import the board; a consumer that needs the solution through a `Puzzle`;
      a measured cost of solving at reopening that a stored solution would remove.
@@ -401,6 +402,17 @@ Run on 2026-10-01 in the worktree, after `just initialize`.
   nothing is released yet and a `### Changed` would have nothing to be a change from.
 - **The branch** is `ticket/T23-board-imports-solver`, as Supacode named it, not the
   lowercase the `branch:` field gives.
+- **The status sentence was reworded at review.** The ticket's proposal for
+  `solver.allium` read "has no status to read: being handed it says concluded." Copilot
+  and Codex, on pull request 22, both read that as contradicting the `SearchResult`
+  surface, which exposes `search.status`. The maintainer chose on 2026-10-01 to keep
+  the surface and reword the sentence so that it says how the status is exposed and
+  does not deny it: "reads the status from that alone: being handed it says
+  concluded." Step 3, the Goal and the Context above carry the new wording, decision
+  0014 says the same in its sixth decision and its consequences, and
+  `tickets/T26-solver.md`, which quotes the sentence and is outside this ticket's
+  list of files, was edited to quote the new one and to mark `search.status` as
+  exposed by the return and no longer as struck.
 - **An untracked log.** The first `just check` failed its read-only snapshot on a log
   file this session had written at the root. It was moved under `ai_tmp/` and the run
   repeated; the result quoted above is the second run.
@@ -483,8 +495,8 @@ Run on 2026-10-01 in the worktree, after `just initialize`.
   `solver.allium`, the comment above `surface SearchResult`, added after "since it
   draws nothing.":
 
-  - New: "A caller that is handed a search only once it has concluded has no status to
-    read: being handed it says concluded."
+  - New: "A caller that is handed a search only once it has concluded reads the
+    status from that alone: being handed it says concluded."
 
 - **Not done here, each separately authorised:** pushing the branch, opening the pull
   request, and any edit to the game.
