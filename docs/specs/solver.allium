@@ -636,7 +636,9 @@ surface Solving {
 }
 
 -- What a search has to show for itself. It carries no guarantee about how a
--- verdict is shown, since it draws nothing.
+-- verdict is shown, since it draws nothing. A caller that is handed a search
+-- only once it has concluded reads the status from that alone: being handed
+-- it says concluded.
 surface SearchResult {
     context search: Search
 

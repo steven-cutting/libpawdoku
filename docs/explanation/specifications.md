@@ -33,10 +33,10 @@ beside its own.
 `board.allium` states the puzzle in play, which the rules leave out: a note in every
 cell, the four moves a player makes and their exact undo and redo, the board as it stood
 after any move, the check of one cell against the solution, and the record a board is
-written to and had again from. It imports the rules alone and puts every placement and
-erasure to the rules' own moves, and it states a `contract`, as `human-solving.allium`
-does, which names what writing a record and reopening it must satisfy and no form for
-either.
+written to and had again from. It imports the rules and the solver: every placement and
+erasure still goes to the rules' own moves, and the check reads the one solution the
+solver finds. It states a `contract`, as `human-solving.allium` does, which names what
+writing a record and reopening it must satisfy and no form for either.
 `solver.allium` states what `sudoku.allium` leaves a black box: the search that gives a
 set of givens its verdict — no solution, one or many — and the work that search may be
 seen to do, and nothing about how it is stored or made fast. It imports the rules and is

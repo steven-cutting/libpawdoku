@@ -165,7 +165,10 @@ rule SetPuzzle {
     -- the answer open, because those have several. The fewest givens that can
     -- pass is 17, which is a fact about this rule and not another rule.
     -- solver.allium says how the count is decided: its verdict is one
-    -- exactly when this is 1.
+    -- exactly when this is 1. Whoever sets a puzzle may bring that verdict
+    -- with it, and the one solution it rests on, so that the count is not
+    -- taken twice; the solution is then kept with the puzzle, and nothing
+    -- this module exposes is read from it.
     requires: solution_count(givens, config.side) = 1
 
     ensures: Puzzle.created(givens: givens, status: unsolved)

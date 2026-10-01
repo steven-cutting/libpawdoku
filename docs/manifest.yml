@@ -45,6 +45,7 @@
     {"path": "decisions/0011-tool-manager.md", "title": "Decision 0011: Tool manager", "kind": "decision", "audience": ["maintainer", "agent"], "canonical_for": ["decision_tool_manager"], "requires": []},
     {"path": "decisions/0012-generation-and-dev-time-judges.md", "title": "Decision 0012: Generation is the engine's; judges are development-time only", "kind": "decision", "audience": ["maintainer", "agent"], "canonical_for": ["decision_generation_and_judges"], "requires": []},
     {"path": "decisions/0013-metrics-gate.md", "title": "Decision 0013: The metrics gate", "kind": "decision", "audience": ["contributor", "maintainer", "agent"], "canonical_for": ["decision_metrics_gate"], "requires": []},
+    {"path": "decisions/0014-board-imports-solver.md", "title": "Decision 0014: The board imports the solver, and well-posedness is a proof value", "kind": "decision", "audience": ["contributor", "maintainer", "agent"], "canonical_for": ["decision_board_imports_solver"], "requires": []},
 
     {"path": "explanation/solving-sudoku.md", "title": "Strategies for Solving Sudoku Puzzles: Human Logic, Mathematical Structure, and Algorithms", "kind": "explanation", "audience": ["contributor", "maintainer", "agent"], "canonical_for": ["sudoku_solving_strategies"], "requires": []},
     {"path": "explanation/human-solving.md", "title": "Modelling a human Sudoku solver", "kind": "explanation", "audience": ["contributor", "maintainer", "agent"], "canonical_for": ["human_solving_model"], "requires": []},
