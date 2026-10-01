@@ -163,16 +163,43 @@ is this ticket's to choose and to report.
 
 4. **Prefer tests through the public API.** A board is meant to be driven from outside,
    so most of the list belongs in `crates/pawdoku/tests/board.rs`. Tests that need the
-   solution take it from `solver::solve`, whose proof exposes it. Write one test helper
-   that gathers everything `Playing` exposes into a single comparable value, so that
-   "exactly as it stood" is an equality.
+   solution take it from `solver::solve`, whose proof exposes it. Write two test
+   helpers, each gathering a single comparable value, because the guarantees compare
+   two different things:
+
+   - **The picture:** every cell's digit and its note, shown or waiting. It is what
+     `UndoAndRedoAreExact` and `EveryPastBoardIsReadable` speak of. `Playing` shows a
+     note only while its cell is empty, so a note waiting beneath a digit is read
+     through `note_after` on the latest standing move, which `TheMovesReplayToTheBoard`
+     pins to the board. When no move stands, no digit of the player's stands and no
+     note waits. A picture that leaves the waiting notes out proves half the guarantee.
+   - **The snapshot:** everything `Playing` exposes. The picture, the puzzle's three
+     facts, `can_undo` and `can_redo`, each cell's given and conflict flags, every move
+     with its index, kind, target, digit, undone flag and readings, and every check.
+     It is what a refused operation leaves alone and what T28 compares across
+     reopening.
+
+   Undo and redo do not restore the snapshot, and no test may ask them to. A move taken
+   back stays on the record as undone, `can_redo` becomes true, and a check asked
+   meanwhile is kept.
 
 5. **The state-machine property.** A property drives arbitrary sequences of the seven
-   operations, refused ones included, against a board opened on the fixture below. After
-   every step it checks the seventeen invariants as far as the surface shows them; that
-   a refused operation left the snapshot unchanged; that undo returned the snapshot
-   taken before the move and redo the one taken after; and that the reading at each
-   move equals the snapshot taken when that move was made.
+   operations, refused ones included, against a board opened on the fixture below. It
+   keeps the picture taken before and after each move for as long as the move is on the
+   record. After every step it checks:
+
+   - the seventeen invariants as far as the surface shows them;
+   - a refused operation: the snapshot is unchanged;
+   - an undo: the picture equals the one taken before the move taken back. That move is
+     still on the record with its index, now undone; no other move changed; the checks
+     are unchanged; `can_redo` is true;
+   - a redo: the picture equals the one taken after that move. The move stands again;
+     no other move changed; the checks are unchanged;
+   - a move: it joins the record standing, at one past the count that stood; every move
+     that was undone is gone; the checks are unchanged;
+   - a check: the picture and the moves are unchanged, and the checks grew by one;
+   - reading back: for every move on the record, standing or undone, `digit_after` and
+     `note_after` over every cell equal the picture taken after that move was made.
 
 6. Remove the `dead_code` expectation on the puzzle's answer once the check calls it.
 
@@ -223,8 +250,11 @@ From `docs/specs/board.allium`, by name.
 - **`WriteMark` and `StrikeMark`.** Each refusal: a solved puzzle, a cell that does not
   accept marks, a digit out of range, a mark already written, a mark not there. A mark a
   placed peer rules out may still be written.
-- **`Undo` and `Redo`.** Each kind of move taken back exactly and re-taken exactly;
-  both refused with nothing to act on; both refused once the puzzle is solved.
+- **`Undo` and `Redo`.** Each kind of move taken back exactly and re-taken exactly,
+  where exact is of the picture: every digit and every note, shown or waiting. What an
+  undo leaves on the record is asserted beside it: the move, now undone, the offer to
+  redo it, and every check. Both refused with nothing to act on; both refused once the
+  puzzle is solved.
 - **`CheckCell`.** Yes for the solution's digit and no for another; refused on a solved
   puzzle, on an empty cell and on a given. A check records the digit as it stood and how
   many moves stood; it is not a move, and undo does not remove it.
@@ -245,8 +275,19 @@ From `docs/specs/board.allium`, by name.
   returns a digit read from the solution. State that in the hand-back notes after
   reading the module's public surface item by item.
 - **What `Playing` exposes and provides.** Everything it lists can be read through the
-  board; a note is shown only while its cell is empty; each operation is refused exactly
-  when its `when` clause is false.
+  board; a note is shown only while its cell is empty. What it provides is two tests and
+  not one. A `when` clause says whether an operation is offered, and it speaks of the
+  board and the cell. The rule's `requires` clauses say whether it is accepted, and they
+  also judge the digit. So the oracle for acceptance is the rule: an operation is
+  accepted exactly when every `requires` clause of its rule holds and its position
+  names a cell. Wherever the `when` clause is false the operation is refused, since
+  every `when` condition is also a `requires`; the converse does not hold. Three
+  operations are offered and still refused: `Place` for a digit out of range or the
+  digit already standing, `WriteMark` for a digit out of range or a mark already
+  written, and `StrikeMark` for a mark not in the note. For `Erase`, `CheckCell`, `Undo`
+  and `Redo` the two agree. Test the `when` clauses against what the board lets a
+  caller read (`can_undo`, `can_redo` and each cell's facts); this ticket asks for no
+  separate "is it offered" method.
 - **A whole game.** The fixture played to the end through `Board`: solved, and then
   every move, undo, redo and check refused.
 

@@ -167,7 +167,8 @@ name is this ticket's to choose and to report.
 
 6. **The exactness property.** A property plays an arbitrary sequence of the board's
    seven operations on the fixture below, writes the board, reopens the record, and
-   compares everything `Playing` exposes, using T27's snapshot helper. Then it plays a
+   compares everything `Playing` exposes, using T27's snapshot helper: the whole
+   snapshot, moves and checks included, and not the picture alone. Then it plays a
    second arbitrary sequence on both boards and compares after every step. Run it from
    a fresh board, from a board with moves undone, and from a solved board.
 

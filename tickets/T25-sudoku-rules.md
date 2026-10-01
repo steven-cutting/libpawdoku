@@ -257,7 +257,11 @@ From `docs/specs/sudoku.allium`, by name. Each is owed at least one test.
   call the constructor. Such an example passes for any compile error, so keep it to the
   one line that names the constructor.
 - **`PuzzleSolving`.** Everything the surface exposes can be read. What it provides
-  agrees with the rules: a move is refused exactly when its `when` clause is false.
+  agrees with the rules, and the oracle for a refusal is the rule and not the surface: a
+  move is accepted exactly when every `requires` clause of its rule holds and its
+  position names a cell. A `when` clause says where a move is offered and speaks of the
+  cell alone. Wherever it is false the move is refused; where it is true `PlaceDigit` is
+  still refused for a digit outside 1 to 9. For `EraseDigit` the two agree.
 - **The crate-only answer.** Yes for the solution's digit and no for every other digit,
   at given cells too; a total function that never panics, whatever position it is asked.
 - **`Debug`.** Two puzzles alike in everything but the stored solution print alike.
