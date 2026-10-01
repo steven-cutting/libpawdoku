@@ -222,6 +222,16 @@ check-specs:
 analyse-specs:
     bg-run-allium analyse
 
+# The test obligations allium derives from one module, as JSON: what each
+# rule, invariant, transition and surface clause would have a test for. A
+# suggestion list for a test list, not a gate: nothing asserts on it and it
+# is outside `just check`. `allium plan` takes one file and plans that module
+# alone, reading no import. The binary is named by path so that a missing
+# .tools/bin/allium fails here and does not fall through to another allium
+# on PATH.
+plan-spec module:
+    .tools/bin/allium plan "docs/specs/$1.allium"
+
 check-links-online:
     prek run --all-files --hook-stage manual lychee-online
 

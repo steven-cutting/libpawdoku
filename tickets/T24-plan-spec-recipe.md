@@ -1,7 +1,7 @@
 ---
 id: T24
 title: "A plan-spec recipe: the test obligations allium derives from one module"
-status: open
+status: done
 depends_on: [T23]
 parallel_with: []
 branch: ticket/t24-plan-spec-recipe
@@ -171,9 +171,69 @@ green; `All checks passed and the worktree is unchanged.`
 
 ### What was verified, and how
 
+On 2026-10-01, the recipe printed one JSON document per module:
+
+| Command | Exit status | Obligations | Diagnostics |
+| --- | --- | --- | --- |
+| `just plan-spec sudoku` | 0 | 48 | `[]` |
+| `just plan-spec solver` | 0 | 101 | `[]` |
+| `just plan-spec board` | 0 | 78 | `[]` |
+| `just plan-spec t24-no-such-module` | 1 | No JSON | No JSON |
+
+The missing-module run reported
+`docs/specs/t24-no-such-module.allium: No such file or directory (os error 2)`.
+
+`BoardCell`'s `entity_fields` obligation lists `puzzle_cell` but carries no imported
+type information. `Place` has success, four guard-failure and entity-creation
+obligations; their dependencies name `Move`, with no obligation for
+`sudoku/PlaceDigit`. No source construct in the board's plan names `sudoku` or
+`PlaceDigit`. To check whether imports were read, a byte-identical copy of
+`board.allium` was placed under the ignored `ai_tmp/t24/`, with neither imported
+file beside it. `just plan-spec ../../ai_tmp/t24/board` exited 0 and produced
+identical parsed JSON, including empty diagnostics. Planning reads this module
+alone; imported modules must be planned separately. The recipe comment and commands
+page state that limit.
+
+Verification output:
+
+```text
+just check-agents
+Validated AGENTS.md, 2 adapters, and 14 skills.
+
+just check-docs
+markdownlint, typos and lychee: Passed
+Validated 41 pages and 42 canonical topics.
+
+just lint
+All 23 hooks: Passed
+
+just check
+The worktree matches the check baseline.
+All checks passed and the worktree is unchanged.
+```
+
+`pyproject.toml` is unchanged: the same eighteen configured gate recipes run,
+followed by `check-clean`. Plan output and the import probe stayed under ignored
+`ai_tmp/`; no worktree-visible output was created by the recipe or the full gate.
+
 ### Deviations, and why
 
+The existing worktree was already on `ticket/T24-plan-spec-recipe`, based on the
+merged T23, with `.pixi/` and `.tools/bin/allium` installed. No new worktree or
+network initialization was needed. The shell put pixi's Cargo ahead of rustup;
+the full check used `~/.cargo/bin` first, as the local-development page requires.
+Checks needed sandbox access to the existing prek and Rust caches outside the
+worktree; they passed with that access.
+
+The proposed import-resolution sentence was replaced after the isolated-module
+experiment. No `model-spec` recipe or test-list procedure relocation was added;
+those open points remain deferred. Raw JSON remains the intended output.
+
 ### Handed back
+
+The recipe, commands row, test-derivation paragraph, propagate prerequisite and
+changelog entry are complete. T24 is marked done here and in the ticket index.
+Committed locally on the ticket branch; stopped before pushing.
 
 ## Open points
 

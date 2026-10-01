@@ -24,7 +24,7 @@ Before propagating tests, you need:
 
 1. **An Allium spec** — the `.allium` file describing the system's behaviour
 2. **A target codebase** — the implementation to test
-3. **Test obligations** — from `allium plan <spec>` (JSON listing every required test)
+3. **Test obligations** — from `allium plan <spec>`, run here as `just plan-spec <module>` (JSON listing every required test)
 4. **Domain model** — from `allium model <spec>` (JSON describing entity shapes, constraints, state machines)
 
 If the CLI tools are not available, derive test obligations manually from the spec using the test-generation taxonomy in [`references/test-generation.md`](../../../allium-skill-reference/allium/test-generation.md).
