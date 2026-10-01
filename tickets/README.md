@@ -35,7 +35,8 @@ authoritative; this table is a snapshot.
 | T22 | Metrics gate: clippy thresholds and rustqual as gate 7, with the boundary rules from the layering table | `T22-metrics-gate.md` | S09 | none | done |
 | T23 | Spec change: board imports solver, the proof sentence in sudoku, and decision 0014 | `T23-board-imports-solver.md` | T12, T22 | none | open |
 | T24 | A plan-spec recipe: the test obligations allium derives from one module | `T24-plan-spec-recipe.md` | T23 | none | open |
-| T25 | The rules in Rust: the sudoku module, the proof value and Puzzle | `T25-sudoku-rules.md` | T23, T24 | none | open |
+| T29 | The snapshot harness: insta, its recipes and the rule for what a snapshot is for | `T29-snapshot-harness.md` | T24 | none | open |
+| T25 | The rules in Rust: the sudoku module, the proof value and Puzzle | `T25-sudoku-rules.md` | T23, T24, T29 | none | open |
 | T26 | The solver in Rust: the search, its result and the proof | `T26-solver.md` | T25 | none | open |
 | T27 | The board in play: notes, moves, undo and redo, reading back, and the check | `T27-board-in-play.md` | T26 | none | open |
 | T28 | The record and reopening: a board written down whole and had again | `T28-record-and-reopening.md` | T27 | none | open |
@@ -76,7 +77,7 @@ D01 ── D02 ── T00 ──┬── T01 ───────────�
                     └── T09 ──────────────────┘
 C02 hangs off D01 alone (D01 kept the Python checkers; decision 0004)
 
-T12, T22 ── T23 ── T24 ── T25 ── T26 ── T27 ── T28   (the first engine modules)
+T12, T22 ── T23 ── T24 ── T29 ── T25 ── T26 ── T27 ── T28   (the first engine modules)
 ```
 
 The graph is acyclic: D01, then D02, then T00, then nine parallel lanes, then T11 and T10
@@ -86,13 +87,16 @@ each reading the hand-back notes of the one before. T22 follows S09, the spike t
 chose its tool and thresholds. T04 needs the remote T01 creates before its proof run, but its files can be
 written in parallel with T01.
 
-T23 to T28 are the first engine modules, strictly in sequence: the spec change that lets
-`board` import `solver`, the recipe that prints a module's test obligations, then
-`sudoku`, `solver`, the board in play, and the record. T23 follows T12, whose module it
+T23 to T29 are the work on the first engine modules, strictly in sequence: the spec change that lets
+`board` import `solver`, the recipe that prints a module's test obligations, the
+snapshot harness (T29, numbered last and run third), then `sudoku`, `solver`, the board
+in play, and the record. T29 adds insta and the rule that a snapshot shows a value to a
+reviewer and detects a change to it, and never proves a clause; T25 to T28 each take
+snapshots at the interface they build. T23 follows T12, whose module it
 edits, and T22, whose boundary rule it renames. T25 to T28 each edit files the one
 before it also edited (`crates/pawdoku/src/lib.rs`, `crates/pawdoku/tests/api_bounds.rs`,
-`docs/reference/testing.md`, `docs/explanation/architecture.md`, `CHANGELOG.md`, and
-`crates/pawdoku/src/sudoku.rs`, whose crate-only types T26 makes public and from which
+`docs/reference/testing.md`, `docs/explanation/architecture.md`, `CHANGELOG.md`, the
+snapshot directories, and `crates/pawdoku/src/sudoku.rs`, whose crate-only types T26 makes public and from which
 T27 removes one attribute). That is not two
 owners of one path in the sense of CONVENTIONS.md §11, which is about lanes that run at
 once: here no two are ever open together. The solver T20 and T21 wait for, in T19's

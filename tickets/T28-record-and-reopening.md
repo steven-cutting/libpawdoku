@@ -69,6 +69,17 @@ Facts that shape the work:
   feature. Tests that need a malformed record build one field by field inside the
   module. `crates/pawdoku/src/random.rs` shows how a test drives a derived `Deserialize`
   with serde's own value deserialisers if one is wanted.
+- **Snapshots show and detect change; they prove nothing.** T29 added insta and the rule,
+  which `docs/reference/testing.md` states: a snapshot shows a reviewer what a value
+  looks like and makes a change to it visible in a diff. It is never the test of a
+  clause, so no line of "What the tests must cover" and no row of the hand-back table
+  names one. Snapshots are `.snap` files, taken from fixed inputs after the module's
+  own tests are green, by tests named `snapshot_...`, from a text picture rendered in
+  test code. No `Display`, method or field is added to the library to feed one.
+  Here the record is shown as JSON, through the `json` feature T29 turned on for
+  insta. That is a picture of the stored shape for a reviewer and no promise of a
+  format: the library still has no format crate. An earlier ticket's snapshot that
+  changes has its diff read and its reason given in the hand-back notes.
 - **The metrics gate** (`rustqual.toml`, `clippy.toml`): a struct at most 20 methods and
   12 fields; a file at most 500 code lines before its first `#[cfg(test)]`; a function
   at most 60 lines, cognitive complexity 15, cyclomatic 10, nesting 4, five parameters;
@@ -113,6 +124,8 @@ name is this ticket's to choose and to report.
 - No change to `board.allium` or any module. If no clause says what the code needs,
   stop: that is a `spec-change` first.
 - No new dependency and no new feature flag.
+- No snapshot standing in for a test that asserts. `ReopeningIsExact` is proved by the
+  property of step 6 and never by two snapshot files that match.
 
 ## Files touched
 
@@ -122,6 +135,8 @@ name is this ticket's to choose and to report.
 | `crates/pawdoku/src/board.rs` | The module declaration and the two entries on `Board` |
 | `crates/pawdoku/tests/api_bounds.rs` | `Record` and the new error meet invariant 3; `Record` serialises under `serde` |
 | `crates/pawdoku/tests/board.rs` | Writing and reopening through the public API |
+| `crates/pawdoku/tests/snapshots.rs` | The snapshot tests of step 7 |
+| `crates/pawdoku/tests/snapshots/` | The `.snap` files those tests write |
 | `docs/explanation/architecture.md` | "What crosses each boundary": the record is the value a consumer keeps |
 | `docs/project/terminology.md` | The "Record, reopen" row, if the minimal record makes any of it untrue |
 | `docs/reference/testing.md` | The suite table |
@@ -169,19 +184,37 @@ name is this ticket's to choose and to report.
 
 6. **The exactness property.** A property plays an arbitrary sequence of the board's
    seven operations on the fixture below, writes the board, reopens the record, and
-   compares everything `Playing` exposes, using T27's snapshot helper: the whole
-   snapshot, moves and checks included, and not the picture alone. Then it plays a
+   compares everything `Playing` exposes, using T27's full-view helper: the whole
+   view, moves and checks included, and not the picture alone. Then it plays a
    second arbitrary sequence on both boards and compares after every step. Run it from
    a fresh board, from a board with moves undone, and from a solved board.
 
-7. **The pages.** `docs/explanation/architecture.md`: the record in "What crosses each
+7. **Snapshots**, once the list is empty. Take these in
+   `crates/pawdoku/tests/snapshots.rs`, each by a test named `snapshot_...`:
+
+   - the record of the board T27's named script leaves, as JSON, by
+     `assert_json_snapshot!`. The test is compiled only under the `serde` feature;
+     `just test` and `just snapshots-check` run with every feature, so it runs in the
+     gate. A reviewer sees what a consumer would store, and a renamed or reordered
+     field shows in the diff;
+   - the same record's `Debug`, which needs no feature;
+   - the board reopened from that record, drawn by T27's render helper. It is its own
+     file. A reviewer can lay it beside T27's picture of the scripted board, and the
+     two should read alike, but no test compares the files;
+   - the `Display` text of every reopening error, in one snapshot.
+
+   Accept with `just snapshots-accept` and read each file before committing it. List
+   them in the hand-back notes under "Snapshots taken".
+
+8. **The pages.** `docs/explanation/architecture.md`: the record in "What crosses each
    boundary", and that deserialising checks nothing while reopening checks everything.
    `docs/project/terminology.md`: re-read the "Record, reopen" row against the minimal
-   record and edit it only if a sentence is no longer true. `docs/reference/testing.md`
-   and `CHANGELOG.md` follow.
+   record and edit it only if a sentence is no longer true. `docs/reference/testing.md`,
+   with the snapshots taken, and `CHANGELOG.md` follow.
 
-8. Run `just fmt-check`, `just clippy`, `just metrics`, `just test`, `just wasm-check`,
-   `just features`, `just coverage`, `just doc` and `just check-docs`, then `just check`.
+9. Run `just fmt-check`, `just clippy`, `just metrics`, `just test`,
+   `just snapshots-check`, `just wasm-check`, `just features`, `just coverage`,
+   `just doc` and `just check-docs`, then `just check`.
    Quote the closing lines of each and the coverage line for `src/board`. Fill in the
    hand-back notes: the test list as it ended, as a table from clause to test name or
    reason; "Names later tickets need", with the signatures of writing and reopening and
@@ -250,6 +283,10 @@ From `docs/specs/board.allium`, by name.
   `src/board` exceeds 20 methods, by `just metrics`.
 - `Cargo.toml` and `Cargo.lock` are unchanged.
 - Line coverage of `src/board` is at or above 90 per cent.
+- The four snapshots of step 7 exist as `.snap` files, each taken by a test named
+  `snapshot_...`. None appears in the hand-back table as the test of a clause, and
+  nothing of the solution is in any of them. `just snapshots-check` is green, and any
+  earlier snapshot that changed has its reason in the hand-back notes.
 - `just check` is green.
 
 ## Verification
@@ -260,6 +297,7 @@ just fmt-check
 just clippy
 just metrics
 just test
+just snapshots-check
 just wasm-check
 just features
 just coverage
@@ -278,6 +316,8 @@ floor; `All checks passed and the worktree is unchanged.`
 ### The test list
 
 ### Names later tickets need
+
+### Snapshots taken
 
 ### What was verified, and how
 

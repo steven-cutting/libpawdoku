@@ -74,6 +74,17 @@ Facts that shape the work:
   still not panic. Give the refusal one conversion from the constructor's error and test
   that conversion directly; do not write a branch per impossible case that no input can
   reach, because unreachable lines count against the coverage floor.
+- **Snapshots show and detect change; they prove nothing.** T29 added insta and the rule,
+  which `docs/reference/testing.md` states: a snapshot shows a reviewer what a value
+  looks like and makes a change to it visible in a diff. It is never the test of a
+  clause, so no line of "What the tests must cover" and no row of the hand-back table
+  names one. Snapshots are `.snap` files, taken from fixed inputs after the module's
+  own tests are green, by tests named `snapshot_...`, from a text picture rendered in
+  test code. No `Display`, method or field is added to the library to feed one.
+  Here they are taken through the public API, in one integration test file of their
+  own, `crates/pawdoku/tests/snapshots.rs`. T25's
+  snapshots stay where they are; if this ticket's edits change one, the diff is read and
+  the reason given in the hand-back notes.
 - **T25 left the proof and the puzzle for this ticket.** `WellPosed`, `Puzzle` and the
   errors only they return are `pub(crate)`, with no doc examples; T25's hand-back notes
   list them. Make each public. Once `solve` calls the constructor and the types are
@@ -103,7 +114,8 @@ Read first: `AGENTS.md`; `tickets/CONVENTIONS.md` §11; `docs/specs/solver.alliu
 hand-back notes ("Names later tickets need"); `crates/pawdoku/src/sudoku.rs`;
 `docs/explanation/layering.md`, `docs/explanation/architecture.md` and
 `docs/explanation/solving-sudoku.md` (the module's cited source);
-`docs/reference/testing.md`; `.agents/skills/rust-change/SKILL.md` and
+`docs/reference/testing.md`, its Snapshots section included;
+`.agents/skills/rust-change/SKILL.md` and
 `.agents/skills/propagate/SKILL.md`; `rustqual.toml` and `clippy.toml`. Background only,
 never modified: `/Users/scutting/projects/pawdoku/prototypes/board/solver.py`, a plain
 backtracking counter that keeps none of this module's clauses about propagation or
@@ -129,10 +141,12 @@ name is this ticket's to choose and to report.
 - No solving from a puzzle in play. The search reads givens and nothing a player placed.
 - No trait for the solver, no generic over it, no budget, no randomness.
 - No benchmark, no fuzz target and no mutation job. Each is named under Handed back as a
-  trigger this ticket meets (step 7).
+  trigger this ticket meets (step 8).
 - No change to `solver.allium` or any module. If no clause says what the code needs,
   stop: that is a `spec-change` first.
 - No new dependency and no new feature flag.
+- No snapshot standing in for a test that asserts, and nothing added to the library so
+  that a snapshot can read it.
 - No change to `sudoku`'s behaviour. The edits to `src/sudoku.rs` are the visibility
   T25 deferred, the removed expectations and the doc examples.
 
@@ -147,6 +161,8 @@ name is this ticket's to choose and to report.
 | `crates/pawdoku/tests/api_bounds.rs` | Every new public type, `WellPosed` and `Puzzle` among them |
 | `crates/pawdoku/tests/solver.rs` | New: both entries through the public API |
 | `crates/pawdoku/tests/sudoku.rs` | `Puzzle` through the public API, now that one can be made: the `PuzzleSolving` surface end to end |
+| `crates/pawdoku/tests/snapshots.rs` | New: the render helper and the snapshot tests of step 6 |
+| `crates/pawdoku/tests/snapshots/` | The `.snap` files those tests write |
 | `docs/explanation/architecture.md` | The solver's place: the two entries, the one call to the constructor |
 | `docs/reference/testing.md` | The suite table; the oracle; the pinned guess counts and what they depend on |
 | `docs/project/repository-map.md` | The `src/` and `tests/` lines |
@@ -203,13 +219,38 @@ name is this ticket's to choose and to report.
    the constructor. Add to `tests/sudoku.rs` what could not be written before: a puzzle
    set from outside the crate, played and solved through its public API.
 
-6. **The pages.** `docs/explanation/architecture.md`: the two entries and which a caller
+6. **Snapshots**, once the list is empty. Create `crates/pawdoku/tests/snapshots.rs`.
+   It holds the render helper and every snapshot test taken through the public API,
+   and T27 and T28 add theirs to it. One file is deliberate. A helper module shared
+   between two files under `tests/` is compiled into each, and each then reports the
+   functions it does not call as dead code, which `just clippy` refuses and which no
+   `#[expect]` may silence here. One file also keeps the snapshot tests apart from the
+   tests that assert. The helper draws a grid as nine rows of digits with a dot for an
+   empty cell, and a search result as its verdict, its guess count and each solution
+   as a grid. It reads only the public API, and no line ends in a space. Then take
+   these, each by a test named `snapshot_...`:
+
+   - the `search` result for the fixture;
+   - for the puzzle that needs a guess;
+   - for the givens with two solutions, both grids shown;
+   - for one set of malformed givens;
+   - the proof `solve` gives for the fixture, givens and solution. This file holds a
+     solution on purpose: the proof exposes it;
+   - the `Display` text of the three refusals, in one snapshot.
+
+   The guess counts these files show follow from the tie-break, as the pinned test
+   says. Accept with `just snapshots-accept` and read each file before committing it.
+   List them in the hand-back notes under "Snapshots taken".
+
+7. **The pages.** `docs/explanation/architecture.md`: the two entries and which a caller
    wants; that the solver runs once per puzzle. `docs/reference/testing.md`: the suite
-   rows, the oracle, and that the pinned guess counts follow from the tie-break.
+   rows, the oracle, that the pinned guess counts follow from the tie-break, and the
+   snapshots taken.
    `docs/project/repository-map.md` and `CHANGELOG.md` follow.
 
-7. Run `just fmt-check`, `just clippy`, `just metrics`, `just test`, `just wasm-check`,
-   `just features`, `just coverage`, `just doc` and `just check-docs`, then `just check`.
+8. Run `just fmt-check`, `just clippy`, `just metrics`, `just test`,
+   `just snapshots-check`, `just wasm-check`, `just features`, `just coverage`,
+   `just doc` and `just check-docs`, then `just check`.
    Quote the closing lines of each, the coverage line for the module, and how long
    `just test` takes. Fill in the hand-back notes: the test list as it ended, as a table
    from clause to test name or reason; "Names later tickets need", with every public
@@ -290,6 +331,10 @@ From `docs/specs/solver.allium`, by name.
   this ticket is public, has a doc example that runs and asserts, and is named in
   `tests/api_bounds.rs` if it is a type.
 - Line coverage of `src/solver` alone is at or above 90 per cent.
+- The six snapshots of step 6 exist as `.snap` files, each taken by a test named
+  `snapshot_...` through the public API. None appears in the hand-back table as the
+  test of a clause. `just snapshots-check` is green, and any snapshot of T25's that
+  changed has its reason in the hand-back notes.
 - `just check` is green.
 
 ## Verification
@@ -300,6 +345,7 @@ just fmt-check
 just clippy
 just metrics
 just test
+just snapshots-check
 just wasm-check
 just features
 just coverage
@@ -318,6 +364,8 @@ worktree is unchanged.`
 ### The test list
 
 ### Names later tickets need
+
+### Snapshots taken
 
 ### What was verified, and how
 

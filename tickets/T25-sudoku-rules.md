@@ -2,7 +2,7 @@
 id: T25
 title: "The rules in Rust: the sudoku module, the proof value and Puzzle"
 status: open
-depends_on: [T23, T24]
+depends_on: [T23, T24, T29]
 parallel_with: []
 branch: ticket/t25-sudoku-rules
 estimated_size: L
@@ -70,6 +70,15 @@ Facts that shape the work:
   items, so a bare `#[expect]` would be unfulfilled there and fail the gate. An
   expectation that stops being needed fails `just clippy` by itself, which is how the
   later ticket is told. Add one only where clippy reports the item.
+- **Snapshots show and detect change; they prove nothing.** T29 added insta and the rule,
+  which `docs/reference/testing.md` states: a snapshot shows a reviewer what a value
+  looks like and makes a change to it visible in a diff. It is never the test of a
+  clause, so no line of "What the tests must cover" and no row of the hand-back table
+  names one. Snapshots are `.snap` files, taken from fixed inputs after the module's
+  own tests are green, by tests named `snapshot_...`, from a text picture rendered in
+  test code. No `Display`, method or field is added to the library to feed one.
+  Here the snapshots sit inside the module, because `Puzzle` is crate-only until T26.
+  insta writes each file to a `snapshots/` directory beside the test's own file.
 - **The value types are unconstrained, as in the specification.** `Position` is a row
   and a column and `Given` a position and a digit, each a plain integer. A given off the
   grid or out of range is representable, because refusing it is a rule of the solver
@@ -107,6 +116,7 @@ Read first: `AGENTS.md`; `tickets/CONVENTIONS.md` §11; `docs/specs/sudoku.alliu
 full; the decision T23 wrote; `docs/explanation/layering.md` and
 `docs/explanation/architecture.md`; `docs/reference/testing.md`;
 `.agents/skills/rust-change/SKILL.md` and `.agents/skills/propagate/SKILL.md`;
+`tickets/T29-snapshot-harness.md`, the rule and its hand-back notes;
 `crates/pawdoku/src/random.rs` as the model for a public type, an error enum and its
 tests; `rustqual.toml` and `clippy.toml`. Background only, never modified: the Python
 prototype at `/Users/scutting/projects/pawdoku/prototypes/board/` (`grid.py`,
@@ -118,13 +128,14 @@ and not to this design.
 `pawdoku::sudoku` exists and does what `sudoku.allium` says: the value types, the proof,
 a `Puzzle` with its eighty-one cells, placing and erasing, conflicts, and solved as a
 final state. Every rule, invariant, guarantee and surface clause of the module has a
-named test, listed in the hand-back notes. `just check` is green with the coverage floor
+named test, listed in the hand-back notes. The puzzle as its surface shows it is
+snapshotted for review. `just check` is green with the coverage floor
 held by this module's own tests and no suppression beyond the stated `dead_code`
 expectations.
 
 Names later tickets are written against, fixed here: `sudoku::Position`, `sudoku::Given`,
 `sudoku::WellPosed`, `sudoku::Puzzle`. The last two are crate-only here and public from
-T26. Every other name is this ticket's to choose and to report (step 7).
+T26. Every other name is this ticket's to choose and to report (step 8).
 
 ## Non-goals
 
@@ -134,8 +145,10 @@ T26. Every other name is this ticket's to choose and to report (step 7).
 - No public way to ask a `Puzzle` about its solution.
 - No public `WellPosed` or `Puzzle`, and no public error that only they return. T26
   makes them public.
-- No new dependency and no new feature flag. `thiserror`, optional `serde` and
-  `proptest` for tests are the whole list (decision 0007).
+- No new dependency and no new feature flag. `thiserror`, optional `serde`, and
+  `proptest` and `insta` for tests are the whole list (decision 0007, T29).
+- No snapshot standing in for a test that asserts, and nothing added to the library so
+  that a snapshot can read it.
 - No change to `sudoku.allium` or any other module. If no clause says what the code
   needs, stop: that is a `spec-change` first.
 - No threshold moved and no lint suppressed, other than the `dead_code` expectations
@@ -150,6 +163,7 @@ T25 to T28 run in sequence, so the files they share are edited by one ticket at 
 | --- | --- |
 | `crates/pawdoku/src/sudoku.rs` | New: the module |
 | `crates/pawdoku/src/sudoku/` | New only if a limit asks for a split; one file per part |
+| `crates/pawdoku/src/snapshots/` | New: the `.snap` files of step 5; under `src/sudoku/` instead if the module is split and the tests sit there |
 | `crates/pawdoku/src/lib.rs` | `pub mod sudoku;`, the crate overview, and where `SIDE` lives (first open point) |
 | `crates/pawdoku/tests/api_bounds.rs` | Every new public type meets invariant 3; the value types serialise under `serde` |
 | `crates/pawdoku/tests/sudoku.rs` | New: what an outside crate can reach here, which is the value types |
@@ -207,21 +221,40 @@ T25 to T28 run in sequence, so the files they share are edited by one ticket at 
      the style of `RandomError`: one lowercase sentence that carries the offending
      values. A unit test pins each variant's text.
 
-5. **Doc examples.** Every public item carries one that runs and asserts: `Position`,
+5. **Snapshots**, once the list is empty. Write one render helper in the module's test
+   code that draws a puzzle as text from what `PuzzleSolving` exposes: nine rows of
+   digits with a dot for an empty cell, in the fixture's own layout; which cells are
+   given; which conflict; and the status with `is_full` and `is_consistent`. No line
+   ends in a space. Then take these, each by a test named `snapshot_...`:
+
+   - the fixture as set;
+   - the fixture after a short fixed script: a placement, a placement that conflicts
+     with a given, a placement over the player's own digit, and an erasure;
+   - `Puzzle`'s `Debug` for the fixture, which a reviewer can see holds no solution;
+   - the `Display` text of every error the module defines, one line each, in one
+     snapshot.
+
+   Accept them with `just snapshots-accept` and read each file before committing it:
+   a picture that looks wrong is a bug to fix with a test that asserts, not a snapshot
+   to accept. List them in the hand-back notes under "Snapshots taken".
+
+6. **Doc examples.** Every public item carries one that runs and asserts: `Position`,
    `Given`, the constants and any public error. `WellPosed`, `Puzzle` and their errors
    are crate-only here. They carry doc comments and no examples, because a doc example
    cannot reach a crate-only item. List in the hand-back notes every item T26 is to make
    public, so that it can write their examples.
 
-6. **The pages.** `docs/explanation/architecture.md` gains a section on how
+7. **The pages.** `docs/explanation/architecture.md` gains a section on how
    well-posedness reaches the rules, citing the decision and saying plainly that "only
    the solver calls the constructor" is a rule review holds. `docs/reference/testing.md`
-   gains the suite rows, the fixture and why this module's tests build the proof by
-   hand. `docs/project/repository-map.md` and `CHANGELOG.md` follow. Each page stays
+   gains the suite rows, the fixture, why this module's tests build the proof by
+   hand, and the snapshots taken. `docs/project/repository-map.md` and
+   `CHANGELOG.md` follow. Each page stays
    within what `docs/manifest.yml` says it owns.
 
-7. Run `just fmt-check`, `just clippy`, `just metrics`, `just test`, `just wasm-check`,
-   `just features`, `just coverage`, `just doc` and `just check-docs`, then `just check`.
+8. Run `just fmt-check`, `just clippy`, `just metrics`, `just test`,
+   `just snapshots-check`, `just wasm-check`, `just features`, `just coverage`,
+   `just doc` and `just check-docs`, then `just check`.
    Quote the closing lines of each and the coverage line for the module. Fill in the
    hand-back notes: the test list as it ended, as a table from clause to test name; and
    "Names later tickets need", which lists every public item and every crate-only one
@@ -293,6 +326,9 @@ From `docs/specs/sudoku.allium`, by name. Each is owed at least one test.
   answer's on the answer alone. No `qual:allow` line.
 - Line coverage of `src/sudoku` alone is at or above 90 per cent.
 - `tests/api_bounds.rs` names every new public type.
+- The four snapshots of step 5 exist as `.snap` files, each taken by a test named
+  `snapshot_...`. None appears in the hand-back table as the test of a clause, and no
+  public or crate-only item exists only to feed one. `just snapshots-check` is green.
 - `just check` is green.
 
 ## Verification
@@ -303,6 +339,7 @@ just fmt-check
 just clippy
 just metrics
 just test
+just snapshots-check
 just wasm-check
 just features
 just coverage
@@ -321,6 +358,8 @@ worktree is unchanged.`
 ### The test list
 
 ### Names later tickets need
+
+### Snapshots taken
 
 ### What was verified, and how
 

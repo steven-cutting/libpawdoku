@@ -70,6 +70,16 @@ Facts that shape the work:
   accessors, and the module is `src/board.rs` plus `src/board/<part>.rs`. Never a
   suppression and never a moved number. If structure cannot meet a limit, stop and
   report.
+- **Snapshots show and detect change; they prove nothing.** T29 added insta and the rule,
+  which `docs/reference/testing.md` states: a snapshot shows a reviewer what a value
+  looks like and makes a change to it visible in a diff. It is never the test of a
+  clause, so no line of "What the tests must cover" and no row of the hand-back table
+  names one. Snapshots are `.snap` files, taken from fixed inputs after the module's
+  own tests are green, by tests named `snapshot_...`, from a text picture rendered in
+  test code. No `Display`, method or field is added to the library to feed one.
+  Here they are taken through `Board` alone, so no snapshot of a board can hold the
+  solution. An earlier ticket's snapshot that changes has its diff read and its reason
+  given in the hand-back notes.
 - **T25 left one thing for this ticket.** The puzzle's crate-only answer carries a
   `dead_code` expectation, under `cfg_attr(not(test), ...)`, naming T27. Once the check
   calls it, the expectation is unfulfilled and `just clippy` fails until the line is
@@ -84,7 +94,8 @@ Read first: `AGENTS.md`; `tickets/CONVENTIONS.md` §11; `docs/specs/board.allium
 `tickets/T25-sudoku-rules.md` and `tickets/T26-solver.md` ("Names later tickets need");
 `crates/pawdoku/src/sudoku.rs` and `crates/pawdoku/src/solver.rs`;
 `docs/explanation/layering.md` and `docs/explanation/architecture.md`;
-`docs/reference/testing.md`; `docs/project/terminology.md` (the board's words: move,
+`docs/reference/testing.md`, its Snapshots section included;
+`docs/project/terminology.md` (the board's words: move,
 standing, undone, upkeep, note, mark, check); `.agents/skills/rust-change/SKILL.md` and
 `.agents/skills/propagate/SKILL.md`; `rustqual.toml` and `clippy.toml`. Background only,
 never modified: `/Users/scutting/projects/pawdoku/prototypes/board/board.py`, which
@@ -116,6 +127,8 @@ is this ticket's to choose and to report.
   beyond the one removed attribute. If no clause says what the code needs, stop: that is
   a `spec-change` first.
 - No new dependency and no new feature flag.
+- No snapshot standing in for a test that asserts, and nothing added to `Board` so
+  that a snapshot can read it: the method cap is not spent on pictures.
 
 ## Files touched
 
@@ -127,6 +140,8 @@ is this ticket's to choose and to report.
 | `crates/pawdoku/src/lib.rs` | `pub mod board;` and the crate overview |
 | `crates/pawdoku/tests/api_bounds.rs` | Every new public type |
 | `crates/pawdoku/tests/board.rs` | New: a puzzle played through `Board` alone |
+| `crates/pawdoku/tests/snapshots.rs` | The board's picture added to T26's render helper, and the snapshot tests of step 6 |
+| `crates/pawdoku/tests/snapshots/` | The `.snap` files those tests write |
 | `docs/explanation/architecture.md` | The board as the playable abstraction: what it owns, what it hands out |
 | `docs/reference/testing.md` | The suite table; how the state-machine property is built |
 | `docs/project/repository-map.md` | The `src/` and `tests/` lines |
@@ -173,13 +188,16 @@ is this ticket's to choose and to report.
      through `note_after` on the latest standing move, which `TheMovesReplayToTheBoard`
      pins to the board. When no move stands, no digit of the player's stands and no
      note waits. A picture that leaves the waiting notes out proves half the guarantee.
-   - **The snapshot:** everything `Playing` exposes. The picture, the puzzle's three
+   - **The full view:** everything `Playing` exposes. The picture, the puzzle's three
      facts, `can_undo` and `can_redo`, each cell's given and conflict flags, every move
      with its index, kind, target, digit, undone flag and readings, and every check.
      It is what a refused operation leaves alone and what T28 compares across
      reopening.
 
-   Undo and redo do not restore the snapshot, and no test may ask them to. A move taken
+   Both are values that tests compare with assertions. Neither is an insta snapshot,
+   which is step 6's and proves nothing.
+
+   Undo and redo do not restore the full view, and no test may ask them to. A move taken
    back stays on the record as undone, `can_redo` becomes true, and a check asked
    meanwhile is kept.
 
@@ -189,7 +207,7 @@ is this ticket's to choose and to report.
    record. After every step it checks:
 
    - the seventeen invariants as far as the surface shows them;
-   - a refused operation: the snapshot is unchanged;
+   - a refused operation: the full view is unchanged;
    - an undo: the picture equals the one taken before the move taken back. That move is
      still on the record with its index, now undone; no other move changed; the checks
      are unchanged; `can_redo` is true;
@@ -201,15 +219,36 @@ is this ticket's to choose and to report.
    - reading back: for every move on the record, standing or undone, `digit_after` and
      `note_after` over every cell equal the picture taken after that move was made.
 
-6. Remove the `dead_code` expectation on the puzzle's answer once the check calls it.
+6. **Snapshots**, once the list is empty. In `crates/pawdoku/tests/snapshots.rs`,
+   extend T26's render helper with the board as
+   text, read through `Board` alone: the grid; each cell's note, shown or waiting;
+   the givens and the conflicts; `can_undo` and `can_redo`; every move with its index,
+   kind, target, digit and whether it is undone; and every check with its answer. No
+   line ends in a space. Then take these in the same file, each by a test named
+   `snapshot_...`:
 
-7. **The pages.** `docs/explanation/architecture.md`: the board owns its puzzle and
+   - the board as opened on the fixture;
+   - the board after one fixed script that uses every kind of move, upkeep striking a
+     peer's mark, an undo, a redo, a move that discards an undone one, and a check
+     answered each way. Write the script once and name it: T28 writes this same board
+     to a record;
+   - the fixture played to the end, solved;
+   - the `Display` text of every refusal the module defines, in one snapshot.
+
+   Accept with `just snapshots-accept` and read each file before committing it. List
+   them in the hand-back notes under "Snapshots taken", with the script's name.
+
+7. Remove the `dead_code` expectation on the puzzle's answer once the check calls it.
+
+8. **The pages.** `docs/explanation/architecture.md`: the board owns its puzzle and
    hands out values; why it has no constructor from a puzzle; the reading of a puzzle
-   with no board. `docs/reference/testing.md`: the suite rows and the property.
+   with no board. `docs/reference/testing.md`: the suite rows, the property and the
+   snapshots taken.
    `docs/project/repository-map.md` and `CHANGELOG.md` follow.
 
-8. Run `just fmt-check`, `just clippy`, `just metrics`, `just test`, `just wasm-check`,
-   `just features`, `just coverage`, `just doc` and `just check-docs`, then `just check`.
+9. Run `just fmt-check`, `just clippy`, `just metrics`, `just test`,
+   `just snapshots-check`, `just wasm-check`, `just features`, `just coverage`,
+   `just doc` and `just check-docs`, then `just check`.
    Quote the closing lines of each and the coverage line for the module. Fill in the
    hand-back notes: the test list as it ended, as a table from clause to test name or
    reason; and "Names later tickets need", with every public item's signature and what
@@ -306,6 +345,11 @@ From `docs/specs/board.allium`, by name.
   expectation in `src/sudoku.rs` is gone and nothing else in that file changed.
 - No struct in `src/board` exceeds 20 methods, by `just metrics`.
 - Line coverage of `src/board` alone is at or above 90 per cent.
+- The four snapshots of step 6 exist as `.snap` files, each taken by a test named
+  `snapshot_...` through `Board` alone, and none shows anything read from the solution
+  but a check's yes or no. None appears in the hand-back table as the test of a
+  clause. `just snapshots-check` is green, and any earlier snapshot that changed has
+  its reason in the hand-back notes.
 - `just check` is green.
 
 ## Verification
@@ -316,6 +360,7 @@ just fmt-check
 just clippy
 just metrics
 just test
+just snapshots-check
 just wasm-check
 just features
 just coverage
@@ -333,6 +378,8 @@ total at or above the floor; `All checks passed and the worktree is unchanged.`
 ### The test list
 
 ### Names later tickets need
+
+### Snapshots taken
 
 ### What was verified, and how
 
