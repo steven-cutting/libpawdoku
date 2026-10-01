@@ -69,9 +69,9 @@ Facts that shape the work:
   all be undone, and none need be a placement, since a mark can discard the placement
   that was checked. Say so in the type's documentation. `is_right` is worked
   out from the solution, so a record cannot lie about it.
-- **No format crate.** The workspace has three dependencies and gains none (decision
-  0007). `Record` derives `Serialize` and `Deserialize` under the existing `serde`
-  feature. Tests that need a malformed record build one field by field inside the
+- **No format crate.** After T29 the workspace has four dependencies, two that may
+  ship and two for tests, and it gains none here (decision 0007). `Record` derives
+  `Serialize` and `Deserialize` under the existing `serde` feature. Tests that need a malformed record build one field by field inside the
   module. `crates/pawdoku/src/random.rs` shows how a test drives a derived `Deserialize`
   with serde's own value deserialisers if one is wanted.
 - **Snapshots show and detect change; they prove nothing.** T29 added insta and the rule,
@@ -211,7 +211,13 @@ name is this ticket's to choose and to report.
    Accept with `just snapshots-accept` and read each file before committing it. List
    them in the hand-back notes under "Snapshots taken".
 
-8. **The pages.** `docs/explanation/architecture.md`: the record in "What crosses each
+8. **Doc examples and the pages.** Every public item this ticket adds has a doc
+   example that runs and asserts (`AGENTS.md`: "a doctest on every public item"):
+   `Record`, writing, reopening, and the reopening error. `missing_docs` and `just doc` do not
+   notice an absent example, so the hand-back notes list each public item beside the
+   doctest that covers it; `just test` runs them.
+
+   `docs/explanation/architecture.md`: the record in "What crosses each
    boundary", and that deserialising checks nothing while reopening checks everything.
    `docs/project/terminology.md`: re-read the "Record, reopen" row against the minimal
    record and edit it only if a sentence is no longer true. `docs/reference/testing.md`,
@@ -285,6 +291,8 @@ From `docs/specs/board.allium`, by name.
 - `Record` holds nothing derived and nothing read from the solution, read by inspection
   of its fields and stated in the hand-back notes.
 - `Board` and `Puzzle` implement neither `Serialize` nor `Deserialize`.
+- Every public item this ticket adds has a doc example that runs and asserts, and
+  the hand-back notes list each beside its doctest.
 - Every line under "What the tests must cover" maps to a named test in the hand-back
   table, and every `just plan-spec board` obligation T27 marked T28's is in the table or
   struck with a reason.

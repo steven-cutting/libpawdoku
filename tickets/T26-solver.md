@@ -66,9 +66,14 @@ Facts that shape the work:
   rule `solver_imports_sudoku` already covers; `mod.rs` is banned. Never by a
   suppression and never by moving a number. If structure cannot meet one, stop and
   report.
-- **The search is synchronous.** A caller sees a search only once it has concluded, so
-  `SearchResult`'s `status` is always `concluded` in Rust and needs no field. Record that
-  reading in the hand-back notes.
+- **The search is synchronous.** `SearchResult` exposes `search.status`. A caller of
+  `search` is handed a search only once it has concluded, and T23 added the sentence
+  to `solver.allium` that says so: such a caller "has no status to read". So the
+  result has no status field and no accessor. Say so in the result type's
+  documentation, and strike `search.status` in the hand-back table with that sentence
+  as the reason. If the sentence is not above `surface SearchResult` when this ticket
+  starts, stop and report: without it the surface asks for a status a caller can
+  read.
 - **The proof constructor's other errors cannot come from a correct search.** A solution
   that is not full, or a given that does not match it, would be a bug here. `solve` must
   still not panic. Give the refusal one conversion from the constructor's error and test
@@ -242,7 +247,15 @@ name is this ticket's to choose and to report.
    says. Accept with `just snapshots-accept` and read each file before committing it.
    List them in the hand-back notes under "Snapshots taken".
 
-7. **The pages.** `docs/explanation/architecture.md`: the two entries and which a caller
+7. **Doc examples and the pages.** Every public item this ticket adds has a doc
+   example that runs and asserts (`AGENTS.md`: "a doctest on every public item"):
+   `search`, `solve`, the result and each of its accessors, the verdict, the refusal,
+   and the givens type if it is new. That is beside the items of step 5, which T25
+   left. `missing_docs` and `just doc` do not
+   notice an absent example, so the hand-back notes list each public item beside the
+   doctest that covers it; `just test` runs them.
+
+   `docs/explanation/architecture.md`: the two entries and which a caller
    wants; that the solver runs once per puzzle. `docs/reference/testing.md`: the suite
    rows, the oracle, that the pinned guess counts follow from the tie-break, and the
    snapshots taken.
@@ -298,7 +311,8 @@ From `docs/specs/solver.allium`, by name.
 - **`SameGivensSameResult`.** The same givens give the same verdict, solutions and guess
   count on every call, and whatever order the givens are handed over in.
 - **`SearchResult`.** Everything the surface exposes can be read: the verdict, the guess
-  count, and each solution's digit at every position.
+  count, and each solution's digit at every position. `search.status` is the one
+  exception, struck under T23's sentence.
 - **The invariants a result can show:** `SolvedBranchesAreSolutions` (each solution is
   full, conflict-free and holds every given), `SolutionsAreDistinct`,
   `NoMoreSolutionsThanSought`, `VerdictMatchesSolutions`. The other eight
@@ -330,6 +344,10 @@ From `docs/specs/solver.allium`, by name.
 - `pawdoku::sudoku` exports `WellPosed` and `Puzzle`. Each item T25 left crate-only for
   this ticket is public, has a doc example that runs and asserts, and is named in
   `tests/api_bounds.rs` if it is a type.
+- Every public item of `solver` has a doc example that runs and asserts, and the
+  hand-back notes list each beside its doctest.
+- The result has no status field or accessor, its documentation says why, and
+  `solver.allium` carries T23's sentence.
 - Line coverage of `src/solver` alone is at or above 90 per cent.
 - The six snapshots of step 6 exist as `.snap` files, each taken by a test named
   `snapshot_...` through the public API. None appears in the hand-back table as the

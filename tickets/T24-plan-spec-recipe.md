@@ -113,7 +113,11 @@ the propagate skill names the recipe where it names the subcommand.
    that chains to `sudoku/PlaceDigit`) and say whether anything in them comes from the
    imported file. If `plan` does not read imports, the recipe is still right, since each
    module is planned by its own ticket; say so on the commands page, so that nobody
-   expects `plan-spec board` to list the rules' obligations.
+   expects `plan-spec board` to list the rules' obligations. The recipe's comment is
+   then wrong where it says `plan` "resolves the module's imports from beside it":
+   replace that sentence with one that says `plan` takes one file and plans that
+   module alone, reading no import. The comment and the commands page say the same
+   thing, whichever way the experiment falls.
 
 4. The pages:
 

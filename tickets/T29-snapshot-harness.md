@@ -160,21 +160,29 @@ Names later tickets are written against, fixed here: the recipes `snapshots-chec
    merged. Run `just initialize` if `.pixi/` is absent; it uses the network and this
    ticket authorises it. Run `just check` and confirm it is green before any edit.
 
-2. **Check the claims.** Each of the five under Context is confirmed from crates.io,
-   conda-forge and the tool's own `--help` on the day, and the result is written in the
-   hand-back notes with the versions found. This uses the network and this ticket
-   authorises it. If `cargo-insta` is not on conda-forge for both platforms, it goes in
-   `tools.txt` as a release binary instead. If a flag has another name, use the one the
-   tool prints. If no mode fails a mismatch without writing a file, stop and report:
-   the gate depends on it.
+2. **Check the claims**, in two parts, and write each result in the hand-back notes
+   with the versions found.
+
+   - Before any edit: the versions and the platforms, read from crates.io and
+     conda-forge. If `cargo-insta` is not on conda-forge for both platforms, it goes
+     in `tools.txt` as a release binary instead.
+   - After step 3 has installed the tool and before step 4 builds on it: the flags,
+     from the tool's own `--help`, and what `INSTA_UPDATE=no` does, from a trial run
+     on a snapshot made to mismatch. If a flag has another name, use the one the
+     tool prints. If no mode fails a mismatch without writing a file, stop and
+     report: the gate depends on it.
+
+   The two registry lookups here, and `just lock` and `just sync` in step 3, use the
+   network. This ticket authorises those four and no other network use.
 
 3. **The dependency and the tool.**
 
    - `Cargo.toml`: `insta` in `[workspace.dependencies]` as a full `x.y.z` caret range,
      with `default-features = false` and `features = ["json"]`. Beside it, the reason:
      snapshots for review and change detection, tests only, and `json` for the record's
-     snapshot in T28. Correct the comment that says only three crates: three may ship,
-     and two more serve the tests.
+     snapshot in T28. Correct the comment that says only three crates: there are four,
+     of which `serde` and `thiserror` may ship and `proptest` and `insta` serve the
+     tests.
    - `crates/pawdoku/Cargo.toml`: `insta = { workspace = true }` under
      `[dev-dependencies]`.
    - `pyproject.toml`: `cargo-insta`, pinned exactly to the release that matches the
@@ -222,8 +230,11 @@ Names later tickets are written against, fixed here: the recipes `snapshots-chec
 
    - `just test` and `just snapshots-check` are green.
    - Change one character of the committed `.snap` file. `just test`,
-     `just coverage` and `just snapshots-check` each fail and name the snapshot, and
-     `git status` shows only the edit: no pending file was written.
+     `just coverage` and `just snapshots-check` each fail and name the snapshot.
+     After each one, `git status --short --ignored` shows the edit and, under the
+     snapshot directories, no `.snap.new` and no `.pending-snap` file. Plain
+     `git status` cannot show this, because step 5 ignores both patterns, and the
+     gate's own worktree check leaves ignored paths out for the same reason.
    - `just snapshots-accept` restores the file, and `git diff` is empty.
    - Add a `.snap` file no test refers to. `just snapshots-check` fails and names it;
      `just test` does not. Remove it.

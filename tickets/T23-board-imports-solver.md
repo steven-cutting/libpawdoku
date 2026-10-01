@@ -84,8 +84,16 @@ already permit: how anything is stored is excluded by each module, and
   moves forward and has to become a statement about the result; and
   `ARecordIsEnoughOnItsOwn` 771-776, which says reopening asks the solver "for its
   verdict and nothing more", untrue once reopening takes the proof.
+- `board.allium` again, for how T27 builds undo and redo: Excludes 66-68 and the `Undo`
+  comment 420-422 say a cell's digit is written back and "no rule of the rules is
+  asked to run again". T27 puts the digit back through the puzzle's own placing and
+  erasing, so that `Puzzle` keeps one way to write a cell. The two cannot be told
+  apart from outside, but the text forbids the second, so the text says less.
 - `sudoku.allium`: one sentence in the `SetPuzzle` comment (159-168), so that the proof
   value has a clause to answer to.
+- `solver.allium`: one sentence in the comment above `surface SearchResult` (638-639).
+  The surface exposes `search.status`, and T26's `search` is a function that hands
+  back a search only once it has concluded, so a caller has no status to read.
 
 An unreferenced `use` is not a diagnostic: `generation.allium` imports `solver` and
 `reach` and names neither, and the nine modules check clean on the pinned binary
@@ -137,8 +145,9 @@ gates and the metrics probe naming ten rules, the board's under its new name.
 
 | Path | Change |
 | --- | --- |
-| `docs/specs/board.allium` | The `use` line and five comment edits (step 2) |
+| `docs/specs/board.allium` | The `use` line and seven comment edits (step 2) |
 | `docs/specs/sudoku.allium` | One sentence in the `SetPuzzle` comment (step 3) |
+| `docs/specs/solver.allium` | One sentence in the comment above `surface SearchResult` (step 3) |
 | `docs/explanation/layering.md` | The `board` and `solver` rows, the prose, and the reason the edge is safe (step 5) |
 | `docs/explanation/specifications.md` | Line 36, the board paragraph's import sentence |
 | `docs/how-to/work-with-the-specs.md` | Line 21, the `board.allium` row's last sentence |
@@ -164,7 +173,7 @@ gates and the metrics probe naming ten rules, the board's under its new name.
    use "./solver.allium" as solver
    ```
 
-   Then the five comment edits. The wording below is the ticket writer's proposal; keep
+   Then the seven comment edits. The wording below is the ticket writer's proposal; keep
    the `--` prefix, the indent and the wrap width of the lines around each.
 
    - Excludes 73-75 becomes: "Finding the solution. solution_digit_at below is a black
@@ -186,6 +195,15 @@ gates and the metrics probe naming ten rules, the board's under its new name.
      board already open, since there need be none. The solution is not in the record:
      reopening puts the record's givens to the solver, as setting a puzzle does, and the
      solver finds it again."
+   - Excludes 66-68, the sentence beginning "Undo and redo write a cell's digit back"
+     becomes: "Undo and redo put a cell's digit back to what a move the rules
+     admitted left there; they restore states the rules reached and record no move
+     of their own."
+   - The `Undo` comment 420-422, the sentence beginning "The cell's digit is written
+     back" becomes: "The cell's digit is put back to what a move the rules admitted
+     left there. That state stood on an unsolved puzzle, so no guard of the rules
+     can refuse it and it cannot solve the puzzle. Whether it is put back through
+     the rules' own placing and erasing or written directly is not said here."
 
    Re-read the whole module afterwards for any other sentence the import makes untrue,
    and record each one found under Deviations.
@@ -195,6 +213,11 @@ gates and the metrics probe naming ten rules, the board's under its new name.
    verdict with it, and the one solution it rests on, so that the count is not taken
    twice; the solution is then kept with the puzzle, and nothing this module exposes is
    read from it." Nothing else in the module changes.
+
+   **`solver.allium`.** In the comment above `surface SearchResult`, after "since it
+   draws nothing.", add: "A caller that is handed a search only once it has concluded
+   has no status to read: being handed it says concluded." Nothing else in the
+   module changes.
 
 4. **`rustqual.toml`.** In the board rule: `name` becomes
    `board_imports_sudoku_and_solver`; `"crate::solver"` leaves `forbid_path_prefix`;
@@ -243,7 +266,9 @@ gates and the metrics probe naming ten rules, the board's under its new name.
      as it is set, and every reopening one more; a `Puzzle` cannot be made without the
      solver, so `sudoku`'s own tests build the proof by hand; nothing outside the crate
      can ask a `Puzzle` about its solution, so code on the two-step path reads the
-     digits from the proof before it sets the puzzle, or does without them.
+     digits from the proof before it sets the puzzle, or does without them; the
+     modules no longer say how undo puts a digit back, and a search's status is
+     something no caller reads.
    - **What would reopen this:** a second solver, or a need to swap one in; a module
      that must import the board; a consumer that needs the solution through a `Puzzle`;
      a measured cost of solving at reopening that a stored solution would remove.
@@ -269,6 +294,8 @@ gates and the metrics probe naming ten rules, the board's under its new name.
   the solver is not imported or that reopening asks only for a verdict.
 - The diff of `docs/specs/` touches comment lines and the one `use` line and nothing
   else; the count of `open question` lines per module is unchanged.
+- No sentence of `board.allium` says that undo or redo runs no rule, and the comment
+  above `SearchResult` in `solver.allium` carries the sentence of step 3.
 - `just metrics` is green; `rustqual.toml` holds ten rules, none named
   `board_imports_sudoku`; the sabotage run of step 4 failed as described and was
   reverted.
@@ -305,14 +332,21 @@ unchanged.`
 
 ## Open points
 
-- **The wording.** Steps 2 and 3 carry the ticket writer's proposals for seven sentences.
+- **The wording.** Steps 2 and 3 carry the ticket writer's proposals for ten sentences.
   The executing agent applies them as written; the maintainer may reword any of them at
   review. Two say something the modules did not say before and deserve a second look:
   "A record that no board could have been written to is refused", and the proof sentence
   in `sudoku.allium`.
+- **Three sentences loosen the text to fit the build.** The two on undo and redo and
+  the one on a search's status are there because T27 and T26 would otherwise differ
+  from what the modules say. The maintainer may prefer to keep the text. Then T27
+  needs a crate-only write on `Puzzle` that undo and redo use and no move does, and
+  T26 needs a status a caller can read, which would always say concluded. Both
+  tickets stop and report if their sentence is not in the module.
 - **The game restates these clauses.** Pawdoku holds its restated text equal to this
   repository's by test (`tickets/T06-spec-migration.md`, hand-back). The edits to
-  `board.allium` and `sudoku.allium` are changes the game must take; list them under
+  `board.allium`, `sudoku.allium` and `solver.allium` are changes the game must take
+  wherever it restates them; list them under
   Handed back with the old and new sentences. Editing the game is separately authorised
   and is not this ticket's.
 - **The decision's number.** 0014 unless the release record has taken it by the day this

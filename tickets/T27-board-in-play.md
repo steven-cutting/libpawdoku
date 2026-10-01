@@ -48,10 +48,15 @@ Facts that shape the work:
   its own is `sudoku.allium`'s `PuzzleSolving` surface, which stands as the rules' own
   boundary. `OneBoardToAPuzzle` holds by ownership: a board owns its puzzle and no
   second board can reach it. Record this reading in the module's documentation.
-- **Undo and redo go through the puzzle's own two moves.** `board.allium` writes a
-  cell's digit back directly on undo and redo. `Puzzle` offers only placing and erasing,
-  and those are enough. Undoing a placement erases or places what stood before; undoing
-  an erasure places the digit again; redo does the move again. None of these can solve
+- **Undo and redo go through the puzzle's own two moves.** `board.allium` says where a
+  cell's digit ends up on undo and redo, and after T23 it does not say how it is put
+  there: "Whether it is put back through the rules' own placing and erasing or
+  written directly is not said here." If that sentence is not in the `Undo` comment
+  when this ticket starts, stop and report: the text then asks for a direct write,
+  and whether `Puzzle` gains one is the maintainer's. `Puzzle` offers only placing
+  and erasing, and those are enough. Undoing a placement erases or places what stood
+  before; undoing an erasure places the digit again; redo does the move again. None of
+  these can solve
   the puzzle or be refused by the rules. Undo restores a state that stood before a move,
   and every move requires an unsolved puzzle, so that state was not complete. Redo
   restores the state after a move that was then undone, and undo is refused once the
@@ -240,7 +245,14 @@ is this ticket's to choose and to report.
 
 7. Remove the `dead_code` expectation on the puzzle's answer once the check calls it.
 
-8. **The pages.** `docs/explanation/architecture.md`: the board owns its puzzle and
+8. **Doc examples and the pages.** Every public item this ticket adds has a doc
+   example that runs and asserts (`AGENTS.md`: "a doctest on every public item"):
+   `Board`, its constructor, each operation and each reading, every value the board
+   hands out with its accessors, and each error. `missing_docs` and `just doc` do not
+   notice an absent example, so the hand-back notes list each public item beside the
+   doctest that covers it; `just test` runs them.
+
+   `docs/explanation/architecture.md`: the board owns its puzzle and
    hands out values; why it has no constructor from a puzzle; the reading of a puzzle
    with no board. `docs/reference/testing.md`: the suite rows, the property and the
    snapshots taken.
@@ -344,6 +356,8 @@ From `docs/specs/board.allium`, by name.
 - No recursion. No `#[allow]`, no `#[expect]` added, no `qual:allow` line; the answer's
   expectation in `src/sudoku.rs` is gone and nothing else in that file changed.
 - No struct in `src/board` exceeds 20 methods, by `just metrics`.
+- Every public item of `board` has a doc example that runs and asserts, and the
+  hand-back notes list each beside its doctest.
 - Line coverage of `src/board` alone is at or above 90 per cent.
 - The four snapshots of step 6 exist as `.snap` files, each taken by a test named
   `snapshot_...` through `Board` alone, and none shows anything read from the solution
