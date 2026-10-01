@@ -71,9 +71,10 @@ Facts that shape the work:
   out from the solution, so a record cannot lie about it.
 - **No format crate.** After T29 the workspace has four dependencies, two that may
   ship and two for tests, and it gains none here (decision 0007). `Record` derives
-  `Serialize` and `Deserialize` under the existing `serde` feature. Tests that need a malformed record build one field by field inside the
-  module. `crates/pawdoku/src/random.rs` shows how a test drives a derived `Deserialize`
-  with serde's own value deserialisers if one is wanted.
+  `Serialize` and `Deserialize` under the existing `serde` feature. Tests that need a
+  malformed record build one field by field inside the module.
+  `crates/pawdoku/src/random.rs` shows how a test drives a derived `Deserialize` with
+  serde's own value deserialisers if one is wanted.
 - **Snapshots show and detect change; they prove nothing.** T29 added insta and the rule,
   which `docs/reference/testing.md` states: a snapshot shows a reviewer what a value
   looks like and makes a change to it visible in a diff. It is never the test of a

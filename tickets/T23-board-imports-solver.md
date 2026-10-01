@@ -123,7 +123,9 @@ record; `docs/decisions/README.md` ("Writing a new one").
 ## Goal
 
 `board.allium` imports `solver.allium` and says why; every page and rule that restates
-what the board imports agrees with it; `sudoku.allium` carries the proof sentence; a
+what the board imports agrees with it; `sudoku.allium` carries the proof sentence;
+`board.allium` no longer says how undo and redo put a digit back, and `solver.allium`
+says a caller handed a concluded search reads no status; a
 decision record states the eight decisions above and their consequences. `just check` is
 green, with `9 specifications, no diagnostics and no findings.` from both specification
 gates and the metrics probe naming ten rules, the board's under its new name.
@@ -278,7 +280,8 @@ gates and the metrics probe naming ten rules, the board's under its new name.
    row to `docs/decisions/README.md` and move its "next decision" sentence on by one.
 
 7. `CHANGELOG.md`, under Unreleased: the board may import the solver, with the rule's new
-   name; the count of decision records, which reads "Thirteen" today.
+   name; the comment sentences changed in `board.allium`, `sudoku.allium` and
+   `solver.allium`, in one line; the count of decision records, which reads "Thirteen" today.
 
 8. Run `just check-specs`, `just analyse-specs`, `just check-docs` and `just check`.
    Quote the closing lines of each. Fill in the hand-back notes, including the list for
@@ -332,7 +335,7 @@ unchanged.`
 
 ## Open points
 
-- **The wording.** Steps 2 and 3 carry the ticket writer's proposals for ten sentences.
+- **The wording.** Steps 2 and 3 carry the ticket writer's proposals for nine comment edits.
   The executing agent applies them as written; the maintainer may reword any of them at
   review. Two say something the modules did not say before and deserve a second look:
   "A record that no board could have been written to is refused", and the proof sentence
@@ -341,8 +344,12 @@ unchanged.`
   the one on a search's status are there because T27 and T26 would otherwise differ
   from what the modules say. The maintainer may prefer to keep the text. Then T27
   needs a crate-only write on `Puzzle` that undo and redo use and no move does, and
-  T26 needs a status a caller can read, which would always say concluded. Both
-  tickets stop and report if their sentence is not in the module.
+  T26 needs a status a caller can read, which would always say concluded: one
+  accessor, and the cheaper of the two paths, set against a constant in the public
+  surface. Both tickets stop and report if their sentence is not in the module. The
+  undo sentences rest on placing and erasing doing nothing but set a cell's digit; if
+  `PlaceDigit` or `EraseDigit` ever gains another effect, undo through them would run
+  it, and the choice is looked at again.
 - **The game restates these clauses.** Pawdoku holds its restated text equal to this
   repository's by test (`tickets/T06-spec-migration.md`, hand-back). The edits to
   `board.allium`, `sudoku.allium` and `solver.allium` are changes the game must take

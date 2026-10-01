@@ -173,7 +173,8 @@ Names later tickets are written against, fixed here: the recipes `snapshots-chec
      report: the gate depends on it.
 
    The two registry lookups here, and `just lock` and `just sync` in step 3, use the
-   network. This ticket authorises those four and no other network use.
+   network. With `just initialize` in step 1, those are the network uses this ticket
+   authorises, and it authorises no other.
 
 3. **The dependency and the tool.**
 

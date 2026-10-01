@@ -61,7 +61,8 @@ Facts that shape the work:
   and every move requires an unsolved puzzle, so that state was not complete. Redo
   restores the state after a move that was then undone, and undo is refused once the
   puzzle is solved, so that state was not complete either. If an implementation finds a
-  case this argument misses, stop and report; do not add a back door to `sudoku`.
+  case this argument misses, stop and report; a second way to write a cell in `sudoku`
+  is the maintainer's to allow and not this ticket's to add.
 - **Reading back never takes a move back.** `digit_after` and `note_after` for any move,
   standing or undone, are computed from the moves forward and leave the board as it was.
 - **The method cap is real here.** `rustqual.toml` allows a struct 20 methods and 12
