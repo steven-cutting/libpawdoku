@@ -1,5 +1,5 @@
 ---
-name: code-review
+name: review-change
 description: Review a change in this repository against its invariants, specifications, tests, and documentation contract.
 ---
 
