@@ -138,7 +138,7 @@ the propagate skill names the recipe where it names the subcommand.
 
 - `just plan-spec sudoku`, `just plan-spec solver` and `just plan-spec board` each exit
   0 and print one JSON document whose `diagnostics` array is empty and whose
-  `obligations` array is not.
+  `obligations` array is not empty.
 - `just plan-spec` with a module that does not exist fails with a non-zero exit.
 - `pyproject.toml` is unchanged, and `just check` runs the same gates as before and is
   green.

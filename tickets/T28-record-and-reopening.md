@@ -60,7 +60,9 @@ Facts that shape the work:
   gone, so `after_move` can exceed the count of moves the record holds, and the digit
   cannot be compared with any state the record can rebuild. Reopening holds a check to
   what it can: the target is on the grid and not a given, the digit is in range, and
-  `after_move` is not negative. Say so in the type's documentation. `is_right` is worked
+  `after_move` is at least 1. A check needs a player's digit in its cell, and only a
+  standing move puts one there, so no board writes a check after no move. Say so in the
+  type's documentation. `is_right` is worked
   out from the solution, so a record cannot lie about it.
 - **No format crate.** The workspace has three dependencies and gains none (decision
   0007). `Record` derives `Serialize` and `Deserialize` under the existing `serde`
@@ -227,7 +229,7 @@ From `docs/specs/board.allium`, by name.
   an empty cell; a mark written where a digit stands; a mark struck that is not there; a
   move after the puzzle is solved; an undone count greater than the count of moves;
   undone moves in a record whose moves solve the puzzle; a check on a given, on a
-  position off the grid, or with a digit out of range.
+  position off the grid, with a digit out of range, or with an `after_move` of 0.
 - **What cannot be read back is accepted and documented.** A check whose `after_move`
   exceeds the moves the record holds reopens, and keeps its `after_move`.
 - **Refusal leaves nothing behind.** A refused reopening returns an error and no board.
@@ -301,5 +303,5 @@ floor; `All checks passed and the worktree is unchanged.`
   record larger than the minimal form the maintainer chose. If the gap matters, it is a
   question for the specification: what a check keeps.
 - **`after_move` as a count.** It is an integer that is never negative, so an unsigned
-  type makes one of the refusals impossible to write. The agent chooses the type and
-  strikes the line from the test list with that reason if so.
+  type makes a negative count impossible to write. The agent chooses the type. Zero
+  stays writable whatever the type, and its refusal is tested either way.

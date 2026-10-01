@@ -13,9 +13,10 @@ estimated_size: L
 ## Context
 
 T25 built `pawdoku::sudoku`: the value types, the proof value `WellPosed` and `Puzzle`.
-Nothing can make a proof yet, so nothing outside the crate can make a puzzle. This ticket
-builds `pawdoku::solver` from `docs/specs/solver.allium`: the search that gives a set of
-givens its verdict of none, one or many. It is the one caller of the proof's constructor.
+Nothing can make a proof yet, so T25 left both crate-only. This ticket builds
+`pawdoku::solver` from `docs/specs/solver.allium`: the search that gives a set of givens
+its verdict of none, one or many. It is the one caller of the proof's constructor, and
+it makes `WellPosed` and `Puzzle` public, because outside code can now make them.
 
 The design was decided by the maintainer on 2026-09-30 and is recorded in the decision
 T23 wrote (`docs/decisions/0014-board-imports-solver.md`, unless renumbered). What this
@@ -73,12 +74,13 @@ Facts that shape the work:
   still not panic. Give the refusal one conversion from the constructor's error and test
   that conversion directly; do not write a branch per impossible case that no input can
   reach, because unreachable lines count against the coverage floor.
-- **T25 left two things for this ticket.** The constructor carries a `dead_code`
-  expectation, under `cfg_attr(not(test), ...)`, naming T26; now that `solve` calls it,
-  the expectation is unfulfilled and `just clippy` fails until the line is removed. And
-  the doc
-  examples on `WellPosed` and `Puzzle` compile without running; T25's hand-back notes
-  name them, and they can now run through `solve`.
+- **T25 left the proof and the puzzle for this ticket.** `WellPosed`, `Puzzle` and the
+  errors only they return are `pub(crate)`, with no doc examples; T25's hand-back notes
+  list them. Make each public. Once `solve` calls the constructor and the types are
+  public, every `dead_code` expectation naming T26 is unfulfilled, and `just clippy`
+  fails until its `cfg_attr` line is removed. The one on the puzzle's answer names T27
+  and stays. Each item made public gets a doc example that makes its value through
+  `solve` and asserts.
 
 The fixture from T25, with thirty givens, one solution, and solved by naked and hidden
 singles alone, so its guess count is zero:
@@ -117,7 +119,8 @@ stated reason, listed in the hand-back notes. `just check` is green with the cov
 floor held by this module's own tests and no suppression.
 
 Names later tickets are written against, fixed here: `solver::search` and
-`solver::solve`. Every other name is this ticket's to choose and to report.
+`solver::solve`; and `sudoku::WellPosed` and `sudoku::Puzzle` become public. Every other
+name is this ticket's to choose and to report.
 
 ## Non-goals
 
@@ -130,8 +133,8 @@ Names later tickets are written against, fixed here: `solver::search` and
 - No change to `solver.allium` or any module. If no clause says what the code needs,
   stop: that is a `spec-change` first.
 - No new dependency and no new feature flag.
-- No change to `sudoku`'s behaviour. The edits to `src/sudoku.rs` are the removed
-  expectation and the doc examples.
+- No change to `sudoku`'s behaviour. The edits to `src/sudoku.rs` are the visibility
+  T25 deferred, the removed expectations and the doc examples.
 
 ## Files touched
 
@@ -139,9 +142,9 @@ Names later tickets are written against, fixed here: `solver::search` and
 | --- | --- |
 | `crates/pawdoku/src/solver.rs` | New: the module's surface |
 | `crates/pawdoku/src/solver/` | New: one file per part, as the limits ask |
-| `crates/pawdoku/src/sudoku.rs` | The constructor's `dead_code` expectation removed, the whole `cfg_attr` line; the doc examples T25 named rewritten to run through `solve` |
+| `crates/pawdoku/src/sudoku.rs` | `WellPosed`, `Puzzle` and their errors made public; each `dead_code` expectation naming T26 removed, the whole `cfg_attr` line; their doc examples, running through `solve`, and the `compile_fail` example. If T25 split the module, the file under `src/sudoku/` that holds them |
 | `crates/pawdoku/src/lib.rs` | `pub mod solver;` and the crate overview |
-| `crates/pawdoku/tests/api_bounds.rs` | Every new public type |
+| `crates/pawdoku/tests/api_bounds.rs` | Every new public type, `WellPosed` and `Puzzle` among them |
 | `crates/pawdoku/tests/solver.rs` | New: both entries through the public API |
 | `crates/pawdoku/tests/sudoku.rs` | `Puzzle` through the public API, now that one can be made: the `PuzzleSolving` surface end to end |
 | `docs/explanation/architecture.md` | The solver's place: the two entries, the one call to the constructor |
@@ -192,11 +195,13 @@ Names later tickets are written against, fixed here: `solver::search` and
    alone and a set of givens with exactly two solutions, and cite where each came from.
 
 5. **`solve` and the hand-over to `sudoku`.** Call the proof's constructor with the
-   givens and the one solution when the verdict is `one`. Remove the
-   `dead_code` expectation on the constructor. Rewrite the doc examples T25 named so that
-   each makes its value through `solve` and asserts. Add to `tests/sudoku.rs` what could
-   not be written before: a puzzle set from outside the crate, played and solved through
-   its public API.
+   givens and the one solution when the verdict is `one`. Make public the items T25
+   listed, and remove every `dead_code` expectation naming T26. Give each newly public
+   item a doc example that makes its value through `solve` and asserts. Add the
+   `compile_fail` example that shows outside code cannot call the proof's constructor;
+   such an example passes for any compile error, so keep it to the one line that names
+   the constructor. Add to `tests/sudoku.rs` what could not be written before: a puzzle
+   set from outside the crate, played and solved through its public API.
 
 6. **The pages.** `docs/explanation/architecture.md`: the two entries and which a caller
    wants; that the solver runs once per puzzle. `docs/reference/testing.md`: the suite
@@ -264,6 +269,8 @@ From `docs/specs/solver.allium`, by name.
 - **`solve`.** The proof for the fixture, holding its givens and its solution; a refusal
   for no solution, for several, and for eighty-one givens that agree with a valid grid;
   the conversion from the constructor's error, tested directly.
+- **`OnlyWellPosedPuzzlesArePosed`, from outside.** With `WellPosed` public, the
+  `compile_fail` example shows that outside code cannot call its constructor.
 - **The pinned tie-break.** The guess count of one puzzle that needs a guess.
 
 ## Acceptance criteria
@@ -278,8 +285,10 @@ From `docs/specs/solver.allium`, by name.
   table, and every `just plan-spec solver` obligation is in the table or struck with a
   reason.
 - No recursion, in code or tests. No `#[allow]`, no `#[expect]` added, no `qual:allow`
-  line; the constructor's expectation is gone.
-- The doc examples on `WellPosed` and `Puzzle` run and assert.
+  line; every expectation naming T26 is gone, and the answer's, naming T27, remains.
+- `pawdoku::sudoku` exports `WellPosed` and `Puzzle`. Each item T25 left crate-only for
+  this ticket is public, has a doc example that runs and asserts, and is named in
+  `tests/api_bounds.rs` if it is a type.
 - Line coverage of `src/solver` alone is at or above 90 per cent.
 - `just check` is green.
 

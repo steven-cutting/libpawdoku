@@ -42,9 +42,10 @@ ticket builds none of it; it records it as a decision so that T25 to T28 cite a 
    built from it, so no `Puzzle` exists whose givens `SetPuzzle` would refuse, and
    `sudoku` never names `crate::solver`.
    - Its constructor is `pub(crate)` and fallible: it returns a `Result` and never
-     panics. It always checks that there are fewer givens than cells, that the solution
-     is full and free of conflict, and that every given matches the solution at its
-     position. Uniqueness is the one thing it takes on the solver's word.
+     panics. It always checks that there are fewer givens than cells; that the solution
+     is full, every digit in range, and free of conflict; and that every given is on the
+     grid and matches the solution at its position. Uniqueness is the one thing it takes
+     on the solver's word.
    - Rust cannot restrict visibility to one sibling module, so "only the solver calls
      the constructor" is held by review inside the crate; outside the crate it is
      mechanical.

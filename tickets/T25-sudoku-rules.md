@@ -41,31 +41,35 @@ What this ticket needs from it:
   no, and that answer is `pub(crate)`, for the board's check. The digits are never
   exposed through `Puzzle`. "Solved" is the specification's definition, full and
   consistent, never a comparison with the stored solution.
-- **The proof exposes what the solver found.** `WellPosed` has public read access to its
+- **The proof exposes what the solver found.** `WellPosed` gives read access to its
   givens and its solution, because `solver.allium`'s `SearchResult` exposes the solution
   to whoever asked for the search. Its `Debug` may show both. What is hidden is the
   solution once it is inside a `Puzzle`.
 
 Facts that shape the work:
 
-- **Nothing outside the crate can make a `Puzzle` until T26.** Doctests and the files
-  under `crates/pawdoku/tests/` compile as outside crates. So in this ticket the
-  behaviour of `WellPosed` and `Puzzle` is proved by unit tests inside the module, which
-  are what the coverage floor counts, and their doc examples compile without running
-  (step 5). T26 rewrites those examples to run through the solver.
+- **`WellPosed` and `Puzzle` stay crate-only until T26.** Doctests and the files under
+  `crates/pawdoku/tests/` compile as outside crates, and nothing outside the crate can
+  make a proof until T26's `solve` exists. A public item needs a doc example that runs
+  and asserts (`AGENTS.md`, `docs/reference/testing.md`), and neither type could have
+  one here. So this ticket declares both `pub(crate)`, with the errors only they return.
+  T26 makes them public, and `solve` lets each have a doc example that runs. Their names
+  are fixed now all the same. Their behaviour is proved by unit tests inside the module,
+  which are what the coverage floor counts.
 - **This module's tests cannot call the solver.** They build a proof through the
   `pub(crate)` constructor from a puzzle and solution checked by hand. The fixture is
   below.
-- **Two items are dead until later tickets use them.** The proof's constructor and the
-  yes-or-no answer have no caller outside tests here, so `just clippy` will report each
-  as dead code. Each carries
+- **The crate-only items are dead until later tickets use them.** Outside tests nothing
+  here calls the proof's constructor, `Puzzle` and its methods, or the yes-or-no answer,
+  so `just clippy` will report them as dead code. Each item clippy reports carries
   `#[cfg_attr(not(test), expect(dead_code, reason = "..."))]` naming the ticket that
-  lifts it (T26 for the constructor, T27 for the answer). The `not(test)` matters:
-  `just clippy` checks the library twice, once as it ships and once with its tests, and
-  in the second the tests call both items, so a bare `#[expect]` would be unfulfilled
-  there and fail the gate. An expectation that stops being needed fails `just clippy`
-  by itself, which is how the later ticket is told. Add one only where clippy reports
-  the item.
+  lifts it: T26 for everything `solve` and the public API will reach, T27 for the
+  answer. Put the answer's expectation on the answer itself, so that it stays when T26
+  removes the others. The `not(test)` matters: `just clippy` checks the library twice,
+  once as it ships and once with its tests, and in the second the tests call these
+  items, so a bare `#[expect]` would be unfulfilled there and fail the gate. An
+  expectation that stops being needed fails `just clippy` by itself, which is how the
+  later ticket is told. Add one only where clippy reports the item.
 - **The value types are unconstrained, as in the specification.** `Position` is a row
   and a column and `Given` a position and a digit, each a plain integer. A given off the
   grid or out of range is representable, because refusing it is a rule of the solver
@@ -115,11 +119,12 @@ and not to this design.
 a `Puzzle` with its eighty-one cells, placing and erasing, conflicts, and solved as a
 final state. Every rule, invariant, guarantee and surface clause of the module has a
 named test, listed in the hand-back notes. `just check` is green with the coverage floor
-held by this module's own tests and no suppression beyond the two stated expectations.
+held by this module's own tests and no suppression beyond the stated `dead_code`
+expectations.
 
 Names later tickets are written against, fixed here: `sudoku::Position`, `sudoku::Given`,
-`sudoku::WellPosed`, `sudoku::Puzzle`. Every other name is this ticket's to choose and
-to report (step 7).
+`sudoku::WellPosed`, `sudoku::Puzzle`. The last two are crate-only here and public from
+T26. Every other name is this ticket's to choose and to report (step 7).
 
 ## Non-goals
 
@@ -127,11 +132,14 @@ to report (step 7).
 - No `Deserialize` on `WellPosed` and no serialisation of `Puzzle` at all: deserialising
   a proof would forge one, and a puzzle holds the solution.
 - No public way to ask a `Puzzle` about its solution.
+- No public `WellPosed` or `Puzzle`, and no public error that only they return. T26
+  makes them public.
 - No new dependency and no new feature flag. `thiserror`, optional `serde` and
   `proptest` for tests are the whole list (decision 0007).
 - No change to `sudoku.allium` or any other module. If no clause says what the code
   needs, stop: that is a `spec-change` first.
-- No threshold moved and no lint suppressed, other than the two expectations above.
+- No threshold moved and no lint suppressed, other than the `dead_code` expectations
+  above.
 - No variants: other sizes, irregular boxes, diagonals. The side is nine.
 
 ## Files touched
@@ -187,9 +195,9 @@ T25 to T28 run in sequence, so the files they share are edited by one ticket at 
      and `Serialize` and `Deserialize` under the `serde` feature.
    - A set of givens. The representation is yours (`alloc` only: no `HashMap`); two
      givens that agree are one given.
-   - `WellPosed`: the givens and the solution, the `pub(crate)` constructor with one
-     error for each thing it checks, and public read access to both parts.
-   - `Puzzle`: set from a proof; eighty-one cells, each with its row, column, band,
+   - `WellPosed`, crate-only: the givens and the solution, the `pub(crate)` constructor
+     with one error for each thing it checks, and read access to both parts.
+   - `Puzzle`, crate-only: set from a proof; eighty-one cells, each with its row, column, band,
      stack, digit, whether it is given and whether it conflicts; the status; `is_full`,
      `is_consistent`; placing and erasing with one error for each `requires` the rule
      states, and one for a position that names no cell; solved the moment the grid is
@@ -199,12 +207,11 @@ T25 to T28 run in sequence, so the files they share are edited by one ticket at 
      the style of `RandomError`: one lowercase sentence that carries the offending
      values. A unit test pins each variant's text.
 
-5. **Doc examples.** Every public item carries one. Those on `Position`, `Given` and the
-   constants run as written. Those on `WellPosed` and `Puzzle` cannot make a value from
-   outside the crate yet, so each wraps its body in a hidden function that takes the
-   proof or the puzzle as an argument and is never called: the example compiles, shows
-   the call, and asserts nothing at run time. Say so in one line of the hand-back notes
-   and name the items, so that T26 can rewrite them to run.
+5. **Doc examples.** Every public item carries one that runs and asserts: `Position`,
+   `Given`, the constants and any public error. `WellPosed`, `Puzzle` and their errors
+   are crate-only here. They carry doc comments and no examples, because a doc example
+   cannot reach a crate-only item. List in the hand-back notes every item T26 is to make
+   public, so that it can write their examples.
 
 6. **The pages.** `docs/explanation/architecture.md` gains a section on how
    well-posedness reaches the rules, citing the decision and saying plainly that "only
@@ -217,8 +224,9 @@ T25 to T28 run in sequence, so the files they share are edited by one ticket at 
    `just features`, `just coverage`, `just doc` and `just check-docs`, then `just check`.
    Quote the closing lines of each and the coverage line for the module. Fill in the
    hand-back notes: the test list as it ended, as a table from clause to test name; and
-   "Names later tickets need", which lists every public item and the two crate-only ones
-   with their signatures. Set `status: done` here and in `tickets/README.md`, commit on
+   "Names later tickets need", which lists every public item and every crate-only one
+   with their signatures, each crate-only item marked with the ticket that makes it
+   public (T26) or calls it (T27). Set `status: done` here and in `tickets/README.md`, commit on
    the ticket branch, and stop before pushing.
 
 ### What the tests must cover
@@ -252,10 +260,11 @@ From `docs/specs/sudoku.allium`, by name. Each is owed at least one test.
   `CellsSitOnTheGrid`, `CellsSitInTheirBox`, `DigitsAreInRange`,
   `GivenCellsHoldTheirGiven`, `GivensNeverConflict`, `SolvedMeansComplete`. And the one
   stated in prose: a puzzle's givens never change.
-- **`PuzzleSetting`, `OnlyWellPosedPuzzlesArePosed`.** Held by the type: no public
-  constructor makes a proof. A `compile_fail` doc example shows that outside code cannot
-  call the constructor. Such an example passes for any compile error, so keep it to the
-  one line that names the constructor.
+- **`PuzzleSetting`, `OnlyWellPosedPuzzlesArePosed`.** Held by the type: a `Puzzle` is
+  made only from a proof, and the proof only through its constructor, which refuses
+  what `SetPuzzle` refuses. Outside the crate neither type can be named yet. T26 adds
+  the `compile_fail` example that shows outside code cannot call the constructor, once
+  the type is public.
 - **`PuzzleSolving`.** Everything the surface exposes can be read. What it provides
   agrees with the rules, and the oracle for a refusal is the rule and not the surface: a
   move is accepted exactly when every `requires` clause of its rule holds and its
@@ -268,18 +277,20 @@ From `docs/specs/sudoku.allium`, by name. Each is owed at least one test.
 
 ## Acceptance criteria
 
-- `pawdoku::sudoku` exports `Position`, `Given`, `WellPosed` and `Puzzle`. No path in
-  `src/sudoku` names another engine module.
-- Nothing public makes a `WellPosed`, and the only way to make a `Puzzle` takes one. The
-  yes-or-no answer is `pub(crate)`.
+- `pawdoku::sudoku` exports `Position`, `Given` and the constants. `WellPosed` and
+  `Puzzle` exist, `pub(crate)`. No path in `src/sudoku` names another engine module.
+- Nothing makes a `WellPosed` but its `pub(crate)` constructor, and the only way to make
+  a `Puzzle` takes one. The yes-or-no answer is `pub(crate)`.
+- Every public item has a doc example that runs and asserts.
 - `WellPosed` does not implement `Deserialize`; `Puzzle` implements neither `Serialize`
   nor `Deserialize`.
 - Every line under "What the tests must cover" maps to a named test in the hand-back
   table, and every `just plan-spec sudoku` obligation is in the table or struck with a
   reason.
 - No `unwrap`, `expect`, `panic!` or indexing that can fail outside test code; no
-  `#[allow]`; the only expectations added are the two `dead_code` ones, each under
-  `cfg_attr(not(test), ...)` with a reason naming T26 or T27. No `qual:allow` line.
+  `#[allow]`; the only expectations added are `dead_code` ones on items clippy reports,
+  each under `cfg_attr(not(test), ...)` with a reason naming T26 or T27, and the
+  answer's on the answer alone. No `qual:allow` line.
 - Line coverage of `src/sudoku` alone is at or above 90 per cent.
 - `tests/api_bounds.rs` names every new public type.
 - `just check` is green.
@@ -330,9 +341,9 @@ worktree is unchanged.`
   and something left to play. The name says the first. It is fixed here because T26 to
   T28 are written against it; the maintainer may rename it at review, and a rename is
   then a change to those tickets too.
-- **The `compile_fail` example** is the only mechanical proof that outside code cannot
-  make a proof. If the maintainer wants a stronger one, it is a UI test and a new
-  dependency, which is a T02 hand-back under decision 0007.
+- **The `compile_fail` example**, which T26 writes, is the only mechanical proof that
+  outside code cannot make a proof. If the maintainer wants a stronger one, it is a UI
+  test and a new dependency, which is a T02 hand-back under decision 0007.
 - **A second fixture.** One puzzle is enough for the rules. T26 needs more (a puzzle
   that takes a guess, givens with several solutions, givens with none) and finds them
   itself.

@@ -92,7 +92,8 @@ T23 to T28 are the first engine modules, strictly in sequence: the spec change t
 edits, and T22, whose boundary rule it renames. T25 to T28 each edit files the one
 before it also edited (`crates/pawdoku/src/lib.rs`, `crates/pawdoku/tests/api_bounds.rs`,
 `docs/reference/testing.md`, `docs/explanation/architecture.md`, `CHANGELOG.md`, and
-`crates/pawdoku/src/sudoku.rs` for one attribute each in T26 and T27). That is not two
+`crates/pawdoku/src/sudoku.rs`, whose crate-only types T26 makes public and from which
+T27 removes one attribute). That is not two
 owners of one path in the sense of CONVENTIONS.md §11, which is about lanes that run at
 once: here no two are ever open together. The solver T20 and T21 wait for, in T19's
 hand-back notes, is T26.
