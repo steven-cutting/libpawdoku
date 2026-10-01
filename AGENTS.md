@@ -80,8 +80,10 @@ These hold everywhere. Breaking one is a defect, not a trade-off.
   `.pre-commit-fix.yaml` is the mutating counterpart run only by `just fix`.
   pixi owns the tools and the Python environment (`pyproject.toml` is the
   manifest, `pixi.lock` the pin) and rustup owns the compiler (decision 0011);
-  the one tool conda-forge lacks is pinned in `tools.txt` and installed with
-  the Allium checker into the gitignored `.tools/bin`.
+  tools conda-forge lacks are pinned in `tools.txt`, installed from release
+  binaries only, or in `tools-source.txt`, which alone may build from source
+  (decision 0013), and land with the Allium checker in the gitignored
+  `.tools/bin`.
 
 Details belong to their owning pages: [Testing](docs/reference/testing.md),
 [Quality gates](docs/reference/quality-gates.md),

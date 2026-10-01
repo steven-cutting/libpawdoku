@@ -22,9 +22,10 @@ just install-toolchain
 # anything is built with it.
 just check-toolchain
 
-# What conda-forge lacks, from `tools.txt` into `.tools/bin` through the
-# environment's cargo-binstall: one of the two network downloads in the
-# first-run path that no lockfile accounts for.
+# What conda-forge lacks, from `tools.txt` and `tools-source.txt` into
+# `.tools/bin` through the environment's cargo-binstall, the second list built
+# from source: one of the two network downloads in the first-run path that no
+# lockfile accounts for.
 just install-tools
 
 # The other one. The Allium checker for docs/specs/, pinned and checksummed in

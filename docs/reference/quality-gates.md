@@ -21,23 +21,24 @@ is ignored.
 | 4 | `fmt-check` | Every Rust file is as rustfmt would write it. |
 | 5 | `toml-check` | Every TOML file is as taplo would write it, and passes taplo's lint. |
 | 6 | `clippy` | Every lint in the workspace table is clean over every crate target and feature, for the host platform, with warnings as errors. |
-| 7 | `features` | Every feature combination compiles. |
-| 8 | `wasm-check` | The core compiles for `wasm32-unknown-unknown`, the target wasm-bindgen uses, and for `wasm32v1-none`, which has no standard library: the proof that the core is `no_std`. |
-| 9 | `test-doc` | Every doc example compiles and passes. |
-| 10 | `coverage` | Every unit and integration test passes, and line coverage is at or above the floor. Doctests are gate 9's. |
-| 11 | `doc` | rustdoc is warning-free under `--cfg docsrs`, intra-doc links and missing docs included. |
-| 12 | `deny` | Every dependency that ships has an allowed licence, no banned crate is in that graph, and every source is crates.io. Development dependencies are outside the graph. |
-| 13 | `deps-unused` | No crate declares a dependency it does not use. |
-| 14 | `check-docs` | The documentation contract holds. |
-| 15 | `check-agents` | The agent contract holds. |
-| 16 | `check-specs` | Every specification reports an empty `diagnostics` array. |
-| 17 | `analyse-specs` | Every specification reports an empty `findings` array too. |
-| 18 | `check-clean` | The run changed nothing. |
+| 7 | `metrics` | Every function is within the complexity, length, nesting and parameter thresholds and none that holds logic calls itself, every struct within the cohesion and size thresholds, every file within the length threshold, every module within the coupling thresholds, and no module names one the layering table forbids it by a `crate::` path (relative paths, an alias of the crate and re-exports through `lib.rs` are out of the rules' sight, as [Layering](../explanation/layering.md) records); and the probe below proves the boundary rules are live. |
+| 8 | `features` | Every feature combination compiles. |
+| 9 | `wasm-check` | The core compiles for `wasm32-unknown-unknown`, the target wasm-bindgen uses, and for `wasm32v1-none`, which has no standard library: the proof that the core is `no_std`. |
+| 10 | `test-doc` | Every doc example compiles and passes. |
+| 11 | `coverage` | Every unit and integration test passes, and line coverage is at or above the floor. Doctests are gate 10's. |
+| 12 | `doc` | rustdoc is warning-free under `--cfg docsrs`, intra-doc links and missing docs included. |
+| 13 | `deny` | Every dependency that ships has an allowed licence, no banned crate is in that graph, and every source is crates.io. Development dependencies are outside the graph. |
+| 14 | `deps-unused` | No crate declares a dependency it does not use. |
+| 15 | `check-docs` | The documentation contract holds. |
+| 16 | `check-agents` | The agent contract holds. |
+| 17 | `check-specs` | Every specification reports an empty `diagnostics` array. |
+| 18 | `analyse-specs` | Every specification reports an empty `findings` array too. |
+| 19 | `check-clean` | The run changed nothing. |
 
 Gates 4 and 5 also run inside `lint`, as two of its hooks. The duplication is deliberate:
 a regression names itself in the list of gates rather than being one line inside `lint`.
 
-Gates 16 and 17 cost the gate something real: the pinned `allium` binary lives in the
+Gates 17 and 18 cost the gate something real: the pinned `allium` binary lives in the
 gitignored `.tools/bin/`, which is a per-worktree install, so a worktree that has never
 run `just initialize` fails `just lint` and `just check` until `just install-allium`
 puts one there. The alternative was a gate that skipped itself whenever its tool was
@@ -55,6 +56,25 @@ only where the checker itself is wrong, on the terms in
 [Work with the specifications](../how-to/work-with-the-specs.md); a finding cannot be
 waived at all.
 
+Gate 7 does not trust a green run either. rustqual skips its architecture section without
+a word when the section is switched off or misconfigured, and exits 0 over a directory that
+does not exist; either way it reports every boundary as met. And its version decides what
+it reports, so `just metrics` first fails unless `rustqual --version` matches the pin in
+`tools-source.txt`, rather than let a missing `.tools/bin/rustqual` fall through to
+another on `PATH`. Then it runs rustqual twice. The first run is over `crates/pawdoku`, with warnings as failures. The
+second, the probe, is over `tests/fixtures/metrics-violation/`, a directory shaped like a
+crate that breaks every boundary rule once, half with a `use` line and half with an inline
+`crate::` path, and one from a child module, `src/technique/catalogue.rs`, so the `/**`
+arm of the rules' globs is proved beside the `.rs` arm. The probe passes only if rustqual exits 1 there (0 is no findings, 2 a
+configuration it could not read) and the rules it names are exactly the `name =` lines of
+`rustqual.toml`, each once, so a rule that stopped matching shows up as the one missing
+from the list, and a rule that matches more than the fixture breaks shows up twice.
+The probe proves the boundary rules alone. Nothing proves the complexity, cohesion and
+coupling sections are running with the numbers written, and
+[Decision 0013](../decisions/0013-metrics-gate.md) records that as a risk it accepted.
+Like gates 17 and 18, gate 7 needs a per-worktree binary: `just install-tools` builds
+`.tools/bin/rustqual` from source, and a worktree without it fails the gate.
+
 One check is still deliberately missing from the table. `check-links-online` needs the
 network, and a check that can fail because a third party is down is not a gate. It is
 listed in [Commands](commands.md).
@@ -68,7 +88,7 @@ configuration, and it is the one installed as the pre-commit hook.
 
 | Hook | Checks |
 | --- | --- |
-| `fmt-check`, `toml-check`, `deps-unused` | Gates 4, 5 and 13, when a Rust file, a TOML file or a manifest is among the files. Each runs through its `just` recipe: a git hook does not inherit the `Justfile`'s `PATH`, so routing through the recipe is what lets it find the environment's tools, and it keeps each tool's arguments in one place. |
+| `fmt-check`, `toml-check`, `deps-unused` | Gates 4, 5 and 14, when a Rust file, a TOML file or a manifest is among the files. Each runs through its `just` recipe: a git hook does not inherit the `Justfile`'s `PATH`, so routing through the recipe is what lets it find the environment's tools, and it keeps each tool's arguments in one place. |
 | `validate-docs`, `validate-agents` | The two contracts, so a hook catches them before the aggregate does. |
 | `check-specs`, `analyse-specs` | The specifications, through `allium`. Needs the pinned binary; see above. |
 | `editorconfig-checker` | Whitespace, line endings, final newlines. |
@@ -109,11 +129,12 @@ dirty tree, so it is a line in the `fix` recipe itself.
 
 `.github/workflows/ci.yml` runs the same recipes in five gate jobs, each on Ubuntu and
 each starting with the repository's composite setup action, which installs the pixi
-environment, the toolchain, the `tools.txt` binaries and the hook environments.
+environment, the toolchain, the tools `tools.txt` and `tools-source.txt` pin, and the hook
+environments.
 
 | Job | Runs |
 | --- | --- |
-| `rust` | `check-toolchain`, `lock-check`, `fmt-check`, `toml-check`, `clippy`, `features`, `test`, `doc`, `deps-unused` |
+| `rust` | `check-toolchain`, `lock-check`, `fmt-check`, `toml-check`, `clippy`, `metrics`, `features`, `test`, `doc`, `deps-unused` |
 | `coverage` | `coverage`, then uploads `lcov.info` as an artifact kept for seven days |
 | `wasm` | `wasm-check` |
 | `deny` | `deny` |
@@ -154,3 +175,4 @@ There is no deployment: nothing publishes on a push to `main`.
 - [Documentation contract](documentation-contract.md)
 - [Agent contract](agent-contract.md)
 - [Decision 0009](../decisions/0009-rust-quality-gate.md)
+- [Decision 0013](../decisions/0013-metrics-gate.md)

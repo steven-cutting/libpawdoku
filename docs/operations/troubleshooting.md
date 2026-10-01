@@ -77,10 +77,10 @@ as [Develop locally](../how-to/develop-locally.md) describes, then run
 
 The pixi environment under `.pixi/` and the binaries under `.tools/bin/` are installed
 per worktree, and a fresh worktree has neither. `pixi install --frozen` restores the
-environment, `just install-tools` the `tools.txt` binaries and `just install-allium` the
-`allium` checker; `just initialize` does all three. A worktree that was renamed or moved
-needs `pixi install --frozen` again even though `.pixi/` is there: the `bg-*` scripts'
-shebangs name the Python at the worktree's old absolute path.
+environment, `just install-tools` the tools `tools.txt` and `tools-source.txt` pin, and
+`just install-allium` the `allium` checker; `just initialize` does all three. A worktree
+that was renamed or moved needs `pixi install --frozen` again even though `.pixi/` is
+there: the `bg-*` scripts' shebangs name the Python at the worktree's old absolute path.
 
 ## `just lock-check` or `pixi install --locked` fails on `pixi.lock`
 
@@ -117,13 +117,34 @@ The target is not installed. `just install-toolchain` installs every target
 `rust-toolchain.toml` names, through rustup; a cargo that is not rustup's cannot, which
 `just check-toolchain` would also have reported.
 
-## `just install-tools` refuses to build from source
+## `just install-tools` will not compile a tool in `tools.txt`
 
-`--disable-strategies compile` is deliberate: a tool that cannot be installed from a
-release binary fails loudly rather than compiling at bootstrap. The pin in `tools.txt`
-names a version with no release binary for this host; choose one that has one. To see
+The refusal comes from the `tools.txt` pass, and it is deliberate: that list is
+binary-only (`--disable-strategies compile`), so a tool that cannot be installed from a
+release binary fails loudly rather than compiling at bootstrap. The pin names a version
+with no release binary for this host; choose one that has one. A tool with no release
+binary for any version belongs in `tools-source.txt` instead, which may compile, and only
+on a decision record that accepts the build, as decision 0013 does for rustqual. To see
 which cargo-binstall is running, ask it with `cargo binstall -V -v`: `cargo --list -v`
 names the last one on `PATH`, not the one cargo runs.
+
+## rustqual's source build fails with no toolchain
+
+The `tools-source.txt` pass compiles rustqual with whichever toolchain rustup selects.
+From inside the repository, that is the one `rust-toolchain.toml` pins; from anywhere
+else it is rustup's default, and on a machine with no default rustup has no toolchain
+to choose, so the build fails before it starts. `just` runs every recipe from the
+repository root wherever it is called, so this happens only to a `cargo binstall` or
+`cargo install` run by hand elsewhere: run `just install-toolchain`, then
+`just install-tools`. A build that fails partway on a network error can simply be run
+again; `--locked` means it resolves the same versions each time.
+
+## `just metrics` reports the wrong rustqual
+
+`metrics: rustqual missing on PATH, tools-source.txt pins 1.8.3` means
+`.tools/bin/rustqual` is absent, and a version in place of `missing` means the binary
+found is not the pin, as after a bump to `tools-source.txt`. Run `just install-tools`.
+The gate refuses any other rustqual because its version decides what the gate reports.
 
 ## prek behaves as if a pin had not moved
 

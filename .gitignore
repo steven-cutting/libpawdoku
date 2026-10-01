@@ -33,9 +33,9 @@ target/
 .pixi/
 
 # The pinned allium binary, installed by `just install-allium`, and the
-# binaries tools.txt pins because conda-forge lacks them, installed by
-# `just install-tools`. Ignored for the same reason as target/: a binary Git
-# can see aborts the snapshot.
+# tools tools.txt and tools-source.txt pin because conda-forge lacks them,
+# installed by `just install-tools`. Ignored for the same reason as target/: a
+# binary Git can see aborts the snapshot.
 .tools/
 
 # Raw profiles cargo-llvm-cov leaves behind when a run is interrupted before

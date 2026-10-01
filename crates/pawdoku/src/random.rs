@@ -6,6 +6,8 @@
 //! [`ReplayStream`] is the fake a test uses to script its draws. How a draw becomes a
 //! decision is the consuming module's arithmetic, not this module's.
 //!
+//! **Not final.** This is a draft: it may change once implementation starts.
+//!
 //! ```
 //! use pawdoku::random::{RandomStream, SeededStream};
 //!
@@ -359,6 +361,34 @@ mod tests {
         assert!(format!("{error:?}").starts_with("Exhausted"));
     }
 
+    /// The fields of a serialised `ReplayStream`, `draws` then `index`, handed to a
+    /// deserializer one at a time as the elements of a sequence.
+    #[cfg(feature = "serde")]
+    struct Fields(Option<vec::Vec<f64>>, Option<u64>);
+
+    #[cfg(feature = "serde")]
+    impl<'de> serde::de::SeqAccess<'de> for Fields {
+        type Error = serde::de::value::Error;
+
+        fn next_element_seed<T: serde::de::DeserializeSeed<'de>>(
+            &mut self,
+            seed: T,
+        ) -> Result<Option<T::Value>, Self::Error> {
+            use serde::de::IntoDeserializer;
+            use serde::de::value::SeqDeserializer;
+
+            if let Some(draws) = self.0.take() {
+                return seed
+                    .deserialize(SeqDeserializer::new(draws.into_iter()))
+                    .map(Some);
+            }
+            self.1
+                .take()
+                .map(|index| seed.deserialize(index.into_deserializer()))
+                .transpose()
+        }
+    }
+
     /// Feeds a serialised `ReplayStream`, a sequence of `draws` then `index`, to a
     /// deserializer, through serde's own value deserializers: no format crate needed.
     #[cfg(feature = "serde")]
@@ -367,29 +397,7 @@ mod tests {
         index: u64,
     ) -> Result<ReplayStream, serde::de::value::Error> {
         use serde::Deserialize;
-        use serde::de::value::{Error, SeqAccessDeserializer, SeqDeserializer};
-        use serde::de::{DeserializeSeed, IntoDeserializer, SeqAccess};
-
-        struct Fields(Option<vec::Vec<f64>>, Option<u64>);
-
-        impl<'de> SeqAccess<'de> for Fields {
-            type Error = Error;
-
-            fn next_element_seed<T: DeserializeSeed<'de>>(
-                &mut self,
-                seed: T,
-            ) -> Result<Option<T::Value>, Error> {
-                if let Some(draws) = self.0.take() {
-                    return seed
-                        .deserialize(SeqDeserializer::new(draws.into_iter()))
-                        .map(Some);
-                }
-                self.1
-                    .take()
-                    .map(|index| seed.deserialize(index.into_deserializer()))
-                    .transpose()
-            }
-        }
+        use serde::de::value::SeqAccessDeserializer;
 
         ReplayStream::deserialize(SeqAccessDeserializer::new(Fields(Some(draws), Some(index))))
     }

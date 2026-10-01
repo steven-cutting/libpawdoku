@@ -804,3 +804,8 @@ the two will drift.
 - Whether the nesting guardrail should be 4 in both tools, which means moving the one
   test block at `random.rs:382` (test code, so T02's or the next Rust ticket's), or 5
   in clippy as drafted.
+
+All three were answered by the maintainer on 2026-09-29 and are carried into
+`T22-metrics-gate.md`: the required gate with the stated exit; route B, a
+`tools-source.txt` beside `tools.txt`; and nesting 4 in both tools, so T22 moves the test
+block at `random.rs:382`.

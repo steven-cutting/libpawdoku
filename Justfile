@@ -3,10 +3,11 @@ set shell := ["sh", "-eu", "-c"]
 
 # pixi owns every tool binary and the Python environment (.pixi/envs/default;
 # pyproject.toml is the manifest, pixi.lock the pin). Tools conda-forge lacks
-# (tools.txt) live in .tools/bin, and so does the Allium checker. Every recipe,
-# and every hook that runs through a recipe, sees both first; cargo finds
-# cargo-nextest and friends on PATH by name. Neither directory holds a cargo, so
-# rustup's proxy stays first for the compiler (check-toolchain proves it).
+# (tools.txt, and tools-source.txt for those with no release binary) live in
+# .tools/bin, and so does the Allium checker. Every recipe, and every hook that
+# runs through a recipe, sees both first; cargo finds cargo-nextest and friends
+# on PATH by name. Neither directory holds a cargo, so rustup's proxy stays
+# first for the compiler (check-toolchain proves it).
 export PATH := justfile_directory() / ".pixi" / "envs" / "default" / "bin" + ":" + justfile_directory() / ".tools" / "bin" + ":" + env("PATH")
 
 # Line-coverage floor over crates/pawdoku/src/**. Lower the complexity, not the
@@ -34,10 +35,21 @@ check-toolchain:
 install-toolchain:
     rustup toolchain install
 
-# Tools conda-forge lacks (tools.txt) into .tools/bin (network). cargo-binstall
-# comes from the pixi environment.
+# Tools conda-forge lacks into .tools/bin (network). cargo-binstall comes from
+# the pixi environment. tools.txt is binary-only: a release archive or nothing.
+# tools-source.txt holds tools with no release binary, so its loop may compile,
+# and cargo-binstall passes --locked through to `cargo install`. It tries a
+# signed cargo-quickinstall build first, and would take one that appeared for
+# the pin; --only-signed refuses an unsigned one, and an upstream release
+# asset, which nothing would sign, is refused too (decision 0013). That pass runs without a GitHub token, so no build script it
+# compiles can read one; its one quickinstall lookup needs no rate-limit lift.
+# A pass whose list is empty is skipped, since cargo binstall with no crate
+# fails; the guard is plain sh, so it holds for GNU and BSD alike. sed, not
+# grep, strips the comments: it exits 0 on a list with no pins but still fails,
+# and so fails the recipe, when the file is missing or unreadable.
 install-tools:
-    grep -v '^#' tools.txt | xargs cargo binstall --root .tools --no-confirm --locked --disable-strategies compile
+    pins=$(sed -e '/^#/d' -e '/^$/d' tools.txt); [ -z "$pins" ] || cargo binstall --root .tools --no-confirm --locked --disable-strategies compile $pins
+    pins=$(sed -e '/^#/d' -e '/^$/d' tools-source.txt); [ -z "$pins" ] || env -u GITHUB_TOKEN -u GH_TOKEN cargo binstall --root .tools --no-confirm --locked --disable-strategies crate-meta-data --only-signed --no-discover-github-token $pins
 
 # The Allium checker for docs/specs/, pinned and checksummed in the tooling
 # package. Downloads over the network into .tools/bin, which Git ignores.
@@ -126,6 +138,36 @@ toml-check:
 # local build never breaks mid-edit; this is where warnings become failures.
 clippy:
     cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+
+# Gate 7: complexity, cohesion, coupling and the module boundaries of
+# docs/explanation/layering.md, through rustqual against rustqual.toml. The
+# probe follows because a misconfigured architecture section is silent: the
+# fixture breaks each boundary rule once, so rustqual must exit 1 (0 is no
+# findings, 2 a configuration it could not read) and name every rule exactly
+# once; a rule named twice matches more than the fixture breaks. `want`
+# reads every `name =` line in rustqual.toml, which is right while the pattern
+# rules are the only tables there with a `name` key. The version check comes
+# first: rustqual's version decides what the gate reports, so a missing
+# .tools/bin/rustqual must not fall through to another one on PATH.
+metrics:
+    #!/bin/sh
+    set -eu
+    pin=$(sed -n 's/^rustqual@//p' tools-source.txt)
+    have=$(rustqual --version 2>/dev/null | sed -n 's/^rustqual //p')
+    if [ "$have" != "$pin" ]; then
+        printf 'metrics: rustqual %s on PATH, tools-source.txt pins %s; run just install-tools\n' "${have:-missing}" "$pin" >&2
+        exit 1
+    fi
+    rustqual crates/pawdoku --config rustqual.toml --fail-on-warnings --format github
+    status=0
+    out=$(rustqual tests/fixtures/metrics-violation --config rustqual.toml --format github 2>&1) || status=$?
+    want=$(sed -n 's/^name = "\(.*\)"$/\1/p' rustqual.toml | sort)
+    got=$(printf '%s\n' "$out" | sed -n 's|.*architecture/pattern/\([a-z_]*\) .*|\1|p' | sort)
+    if [ "$status" -ne 1 ] || [ "$want" != "$got" ]; then
+        printf '%s\n' "$out" >&2
+        printf 'metrics: probe exited %s, want 1\nrules named:\n%s\nrules fired:\n%s\n' "$status" "$want" "$got" >&2
+        exit 1
+    fi
 
 # Every feature combination compiles. Not --no-dev-deps: that rewrites Cargo.toml
 # while it runs and would trip the worktree snapshot on a crash.

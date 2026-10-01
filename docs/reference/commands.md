@@ -27,10 +27,10 @@ writes.
 
 | Recipe | Purpose |
 | --- | --- |
-| `just initialize` | One explicit first run. Installs the pixi environment from `pixi.lock`, the pinned toolchain, the `tools.txt` binaries and the pinned `allium` binary; fetches the Cargo dependencies; normalises formatting; and installs the hook from the primary checkout; a secondary worktree skips the hook and says so. Over the network. Never stages, commits, tags or pushes. |
+| `just initialize` | One explicit first run. Installs the pixi environment from `pixi.lock`, the pinned toolchain, the binaries `tools.txt` and `tools-source.txt` list and the pinned `allium` binary; fetches the Cargo dependencies; normalises formatting; and installs the hook from the primary checkout; a secondary worktree skips the hook and says so. Over the network. Never stages, commits, tags or pushes. |
 | `just check-toolchain` | Refuse to go on unless `cargo` is rustup's proxy, then print the active toolchain, which must be the one `rust-toolchain.toml` pins. Gate 1. |
 | `just install-toolchain` | Install the toolchain, components and targets `rust-toolchain.toml` names, through rustup. Over the network when any of them is missing. |
-| `just install-tools` | Install the binaries conda-forge lacks, listed in `tools.txt`, into `.tools/bin/` through the environment's cargo-binstall. Over the network; refuses to build from source. |
+| `just install-tools` | Install the tools conda-forge lacks into `.tools/bin/` through the environment's cargo-binstall, in two passes. The `tools.txt` pass takes a release binary or fails, never compiling; the `tools-source.txt` pass, for a tool with no release binary, takes a signed cargo-quickinstall build if one exists and otherwise builds from crates.io source with `--locked`. Over the network. |
 | `just install-allium` | Download, verify and install the pinned `allium` binary into `.tools/bin/`. Over the network; no lockfile can name a binary. |
 | `just sync` | Install `Cargo.lock` and `pixi.lock` exactly as committed; never rewrites either. Run after pulling. Over the network. |
 | `just lock` | Relock both: `Cargo.lock` at the versions the manifests allow, and `pixi.lock` against `pyproject.toml`. Over the network. |
@@ -44,7 +44,7 @@ writes.
 | --- | --- |
 | `just build` | Build every crate with every feature. Outside `just check`. |
 | `just test` | Every unit and integration test through cargo-nextest, then every doctest through `cargo test --doc`, because nextest cannot run doctests. Outside `just check`, where `coverage` and `test-doc` run the same tests. |
-| `just test-doc` | Every doctest. Gate 9. |
+| `just test-doc` | Every doctest. Gate 10. |
 
 ## Format
 
@@ -61,13 +61,14 @@ writes.
 | `just fmt-check` | rustfmt, checking. Gate 4. |
 | `just toml-check` | taplo's formatting check and its lint over every TOML file. Gate 5. |
 | `just clippy` | Clippy over every crate target (the library, its tests, and any examples or benches) with every feature, for the host platform, with warnings as errors. The wasm targets are compiled by `wasm-check`, not linted. Gate 6. |
-| `just features` | Every feature combination compiles, through cargo-hack's powerset. Gate 7. |
-| `just wasm-check` | The core compiles for `wasm32-unknown-unknown` and for `wasm32v1-none`, which has no standard library, under every feature combination. Gate 8. |
-| `just coverage` | Every nextest test under instrumentation, with the floor of 90 per cent of lines enforced; writes `target/llvm-cov/lcov.info`. Gate 10. |
-| `just doc` | rustdoc over the workspace with warnings as errors and `--cfg docsrs`. Gate 11. |
-| `just deny` | cargo-deny's licence, ban and source checks over every dependency that ships, offline once `just sync` has run. Gate 12. |
+| `just metrics` | rustqual against `rustqual.toml`: complexity, cohesion and coupling thresholds and the module boundaries of [Layering](../explanation/layering.md), with warnings as failures; then the probe, which requires the fixture under `tests/fixtures/metrics-violation/` to break every boundary rule. Gate 7. |
+| `just features` | Every feature combination compiles, through cargo-hack's powerset. Gate 8. |
+| `just wasm-check` | The core compiles for `wasm32-unknown-unknown` and for `wasm32v1-none`, which has no standard library, under every feature combination. Gate 9. |
+| `just coverage` | Every nextest test under instrumentation, with the floor of 90 per cent of lines enforced; writes `target/llvm-cov/lcov.info`. Gate 11. |
+| `just doc` | rustdoc over the workspace with warnings as errors and `--cfg docsrs`. Gate 12. |
+| `just deny` | cargo-deny's licence, ban and source checks over every dependency that ships, offline once `just sync` has run. Gate 13. |
 | `just audit` | cargo-deny's advisory check against the RustSec database. Over the network, so outside `just check`; CI runs it weekly in its own workflow. |
-| `just deps-unused` | cargo-shear: a dependency a crate declares and never uses. Gate 13. |
+| `just deps-unused` | cargo-shear: a dependency a crate declares and never uses. Gate 14. |
 
 ## Documents
 

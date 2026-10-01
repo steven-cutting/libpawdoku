@@ -17,7 +17,7 @@ what a doc example is for.
 
 `just doc` runs `cargo doc` over the workspace with every feature and no dependencies,
 with `RUSTDOCFLAGS="-D warnings --cfg docsrs"`. The result opens at
-`target/doc/pawdoku/index.html`. It is gate 11 of `just check`, so a broken intra-doc
+`target/doc/pawdoku/index.html`. It is gate 12 of `just check`, so a broken intra-doc
 link, a link to a private item or an undocumented public item fails the gate rather than
 producing a page with a hole in it.
 
@@ -33,7 +33,7 @@ outright, and a missing crate-level doc and unescaped backticks, which warn.
 ## Doc examples are tests
 
 Every public item with a contract worth stating carries an example — today every type,
-trait, method and constant does — and `just test-doc` (gate 9) compiles and runs each
+trait, method and constant does — and `just test-doc` (gate 10) compiles and runs each
 one, so an example that stops being true stops the gate. Examples are not counted toward
 the coverage floor, because the coverage tooling cannot measure doctests on a stable
 toolchain. The division of labour follows: an example shows the contract to a reader and

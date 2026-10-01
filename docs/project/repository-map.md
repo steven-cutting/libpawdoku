@@ -17,9 +17,11 @@ under `crates/` as siblings, each depending on the engine and none on another.
 ├── Cargo.toml              The workspace: members, shared dependencies, lints, profiles
 ├── Cargo.lock              The pin for every crate; every gate passes --locked
 ├── rust-toolchain.toml     The exact toolchain, its components and its two wasm targets
-├── tools.txt               The one tool conda-forge lacks, installed into .tools/bin
+├── tools.txt               Tools conda-forge lacks, from release binaries into .tools/bin
+├── tools-source.txt        Tools conda-forge lacks with no release binary, built into .tools/bin
 ├── rustfmt.toml            Rust formatting
 ├── clippy.toml             Clippy's thresholds; the lint table itself is in Cargo.toml
+├── rustqual.toml           The metrics gate: thresholds and the module-boundary rules
 ├── taplo.toml              TOML formatting and lint
 ├── deny.toml               Licences, bans, sources and advisories
 ├── .config/nextest.toml    The test runner's profiles
@@ -29,6 +31,7 @@ under `crates/` as siblings, each depending on the engine and none on another.
 │       │   ├── lib.rs      The crate root: no_std with alloc, every public item
 │       │   └── random.rs   The randomness boundary and its fake
 │       └── tests/          Integration tests: the API bounds and the boundary
+├── tests/fixtures/         The metrics probe's fixture, never compiled
 ├── docs/                   This handbook, plus specs/
 │   └── specs/              The Allium modules: behaviour is decided here
 ├── scripts/                The first-run script
@@ -53,7 +56,8 @@ under `crates/` as siblings, each depending on the engine and none on another.
 | `.agents/skills/` | Canonical agent procedures. The two bridge trees, `.claude/skills/` and `.codex/skills/`, point at them and add nothing. |
 | `allium-skill-reference/` | Vendored reference material for the Allium skills, kept outside `.agents/` and ignored by every linter (decision 0010). |
 | `.pixi/envs/default/bin` | Every tool `pyproject.toml` pins and the tooling package's console scripts, installed from `pixi.lock`. First on `PATH` inside every recipe, and nowhere else. |
-| `.tools/bin` | cargo-hack from `tools.txt`, and the Allium checker. On `PATH` inside every recipe, after the pixi environment. |
+| `.tools/bin` | cargo-hack from `tools.txt`, rustqual from `tools-source.txt`, and the Allium checker. On `PATH` inside every recipe, after the pixi environment. |
+| `tests/fixtures/metrics-violation/` | A directory shaped like a crate, with no manifest, that breaks every module-boundary rule once. `just metrics` requires rustqual to fail on it; nothing compiles it. |
 | `target/` | Cargo's build output. `just coverage` writes its report under `target/llvm-cov/`. |
 
 Which of these may import which is not a matter of taste; see

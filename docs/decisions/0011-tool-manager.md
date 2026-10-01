@@ -48,7 +48,9 @@ and `check-toolchain` keeps refusing any cargo that is not rustup's proxy.
 `cargo-hack` alone; cargo-binstall, itself a pixi dependency, installs it into
 `.tools/bin`, beside the Allium checker the tooling package puts there. The hooks that
 prek pins (typos, lychee, shellcheck, actionlint, markdownlint-cli2, editorconfig-checker,
-ripsecrets) keep their pins in the hook configuration.
+ripsecrets) keep their pins in the hook configuration. `tools-source.txt` is the second
+escape hatch, added by [decision 0013](0013-metrics-gate.md), for a tool that also has no
+release binary: it lists rustqual, which cargo-binstall builds from source.
 
 ## Consequences
 
@@ -73,8 +75,8 @@ packages it.
 
 ## What would reopen this
 
-cargo-hack appearing on conda-forge, which empties `tools.txt` and removes cargo-binstall;
-that is a pin move, not a new decision. conda-forge shipping the `wasm32v1-none` standard
+cargo-hack appearing on conda-forge, which empties `tools.txt`, and with rustqual there too
+(decision 0013) removes cargo-binstall; that is a pin move, not a new decision. conda-forge shipping the `wasm32v1-none` standard
 library and llvm-tools for its Rust package, which would make a pixi-owned compiler
 possible and would reopen the question of who owns the Rust pin. pixi's PyPI git
 resolution failing for the tooling package, which would return the Python side to uv

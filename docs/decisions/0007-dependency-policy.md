@@ -31,7 +31,7 @@ every crate inherits from; a crate manifest names a dependency with `workspace =
 and never a version of its own. `Cargo.lock` is committed and is the pin. Every cargo
 invocation in a gate that resolves dependencies carries `--locked`, so a recipe that
 would need to change the lockfile fails instead, and `just lock-check` proves the lockfile matches the manifests.
-cargo-deny checks licences, bans and sources offline at gate 12 of `just check`, and
+cargo-deny checks licences, bans and sources offline at gate 13 of `just check`, and
 checks advisories in `just audit`, which runs in CI only, because the RustSec fetch can
 fail for reasons unrelated to the diff. `cargo-shear` fails the gate on a dependency
 nothing uses. `rust-version` follows the toolchain pin until the crate is first
