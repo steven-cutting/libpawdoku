@@ -1,0 +1,317 @@
+---
+id: T27
+title: "The board in play: notes, moves, undo and redo, reading back, and the check"
+status: open
+depends_on: [T26]
+parallel_with: []
+branch: ticket/t27-board-in-play
+estimated_size: L
+---
+
+# T27: The board in play: notes, moves, undo and redo, reading back, and the check
+
+## Context
+
+T25 built the rules (`pawdoku::sudoku`) and T26 the solver (`pawdoku::solver`). This
+ticket builds `pawdoku::board` from `docs/specs/board.allium`: one puzzle as it is being
+played. It keeps a note in every cell, every move the player has made so that the latest
+can be taken back and re-taken, the board as it stood after any move, and one question
+about one cell, answered yes or no. T28 adds the record and reopening; this ticket
+builds everything else in the module.
+
+The design was decided by the maintainer on 2026-09-30 and is recorded in the decision
+T23 wrote (`docs/decisions/0014-board-imports-solver.md`, unless renumbered). What this
+ticket needs from it:
+
+- **The board imports the solver.** T23 changed `board.allium`, the layering table and
+  the boundary rule, now `board_imports_sudoku_and_solver`. `src/board` may name
+  `crate::sudoku`, `crate::solver` and `crate::random`, and no other engine module.
+- **A board opens from givens in one call.** It runs `solver::solve` itself and sets the
+  puzzle from the proof. The caller hands over givens and gets a board or a refusal.
+- **The board is the playable abstraction, and it hides its puzzle.** A `Board` owns its
+  `Puzzle` and hands out values of its own. No method returns the puzzle, a reference to
+  it, a `&mut` to anything, or one of its internal collections. Everything the `Playing`
+  surface exposes is read through the board.
+- **The check reads the solution through the puzzle's crate-only answer.** `Puzzle`
+  keeps the solution privately and answers yes or no for one digit at one position; that
+  answer is `pub(crate)` and this module is its one caller. The digits never leave.
+- **Solved is the rules' definition**, full and consistent, read from the puzzle.
+
+Facts that shape the work:
+
+- **No board from a puzzle.** `Board` has no constructor that takes a `Puzzle`. A puzzle
+  already played on would arrive with digits no move recorded, against
+  `TheMovesReplayToTheBoard` and `EveryMoveIsTheBoards`.
+- **A puzzle with no board is not a defect.** `OpenBoard` gives every puzzle that is set
+  a board, and the two-step path (solve, then set) yields a `Puzzle` with none. The
+  reading: `OpenBoard` is this module's view, of puzzles set through it. A `Puzzle` on
+  its own is `sudoku.allium`'s `PuzzleSolving` surface, which stands as the rules' own
+  boundary. `OneBoardToAPuzzle` holds by ownership: a board owns its puzzle and no
+  second board can reach it. Record this reading in the module's documentation.
+- **Undo and redo go through the puzzle's own two moves.** `board.allium` writes a
+  cell's digit back directly on undo and redo. `Puzzle` offers only placing and erasing,
+  and those are enough. Undoing a placement erases or places what stood before; undoing
+  an erasure places the digit again; redo does the move again. None of these can solve
+  the puzzle or be refused by the rules. Undo restores a state that stood before a move,
+  and every move requires an unsolved puzzle, so that state was not complete. Redo
+  restores the state after a move that was then undone, and undo is refused once the
+  puzzle is solved, so that state was not complete either. If an implementation finds a
+  case this argument misses, stop and report; do not add a back door to `sudoku`.
+- **Reading back never takes a move back.** `digit_after` and `note_after` for any move,
+  standing or undone, are computed from the moves forward and leave the board as it was.
+- **The method cap is real here.** `rustqual.toml` allows a struct 20 methods and 12
+  fields, LCOM4 at most 2, a file 500 code lines before its first `#[cfg(test)]` and
+  1000 for test code, a function 60 lines, cognitive complexity 15, cyclomatic 10,
+  nesting 4, five parameters, and no recursion. `Playing` exposes five facts about the
+  board, six about each cell, every move with its readings and every check, and offers
+  seven operations; T28 adds two more. One flat `Board` would be a god object and would
+  fail the gate. Use the specification's own four entities: the board hands back small
+  values (a cell as the board shows it, a move, a check), each with its own few
+  accessors, and the module is `src/board.rs` plus `src/board/<part>.rs`. Never a
+  suppression and never a moved number. If structure cannot meet a limit, stop and
+  report.
+- **T25 left one thing for this ticket.** The puzzle's crate-only answer carries
+  `#[expect(dead_code)]` naming T27. Once the check calls it, the expectation is
+  unfulfilled and `just clippy` fails until the attribute is removed.
+- **The module's one open question is not this ticket's to answer.** "What, if anything,
+  is counted from the checks - wrong answers, checks made - and is it shown to the
+  player?" The board exposes the checks, as `Playing` does. It adds no count, no tally
+  of wrong answers and no method that returns one.
+
+Read first: `AGENTS.md`; `tickets/CONVENTIONS.md` §11; `docs/specs/board.allium` and
+`docs/specs/sudoku.allium` in full; the decision T23 wrote; the hand-back notes of
+`tickets/T25-sudoku-rules.md` and `tickets/T26-solver.md` ("Names later tickets need");
+`crates/pawdoku/src/sudoku.rs` and `crates/pawdoku/src/solver.rs`;
+`docs/explanation/layering.md` and `docs/explanation/architecture.md`;
+`docs/reference/testing.md`; `docs/project/terminology.md` (the board's words: move,
+standing, undone, upkeep, note, mark, check); `.agents/skills/rust-change/SKILL.md` and
+`.agents/skills/propagate/SKILL.md`; `rustqual.toml` and `clippy.toml`. Background only,
+never modified: `/Users/scutting/projects/pawdoku/prototypes/board/board.py`, which
+models this module in Python with the puzzle exposed; it is a guide to behaviour and not
+to this design.
+
+## Goal
+
+`pawdoku::board` exists and does what `board.allium` says of a board in play: opening,
+the four moves with upkeep, undo and redo, reading back, and the check. A consumer plays
+a whole puzzle through `Board` alone. Every rule, invariant and guarantee of the module
+outside the record has a named test or a stated reason, listed in the hand-back notes.
+`just check` is green with the coverage floor held by this module's own tests and no
+suppression.
+
+The name later tickets are written against, fixed here: `board::Board`. Every other name
+is this ticket's to choose and to report.
+
+## Non-goals
+
+- No record and no reopening: `contract Recording`, `surface Reopening`,
+  `ReopeningIsExact`, `WritingChangesNothing`, `AReopenedBoardIsTheSameBoard` and
+  `ARecordIsEnoughOnItsOwn` are T28's. `Board` does not serialise.
+- No count read off the checks, and no answer to the open question.
+- No hint, no timer, nothing drawn, and no words for a surface.
+- No way to reach the puzzle or the solution through a board, other than the yes or no
+  of a check the player asked for.
+- No change to `board.allium` or any module, and no change to `sudoku` or `solver`
+  beyond the one removed attribute. If no clause says what the code needs, stop: that is
+  a `spec-change` first.
+- No new dependency and no new feature flag.
+
+## Files touched
+
+| Path | Change |
+| --- | --- |
+| `crates/pawdoku/src/board.rs` | New: the module's surface |
+| `crates/pawdoku/src/board/` | New: one file per part, as the limits ask |
+| `crates/pawdoku/src/sudoku.rs` | The answer's `#[expect(dead_code)]` removed, and nothing else |
+| `crates/pawdoku/src/lib.rs` | `pub mod board;` and the crate overview |
+| `crates/pawdoku/tests/api_bounds.rs` | Every new public type |
+| `crates/pawdoku/tests/board.rs` | New: a puzzle played through `Board` alone |
+| `docs/explanation/architecture.md` | The board as the playable abstraction: what it owns, what it hands out |
+| `docs/reference/testing.md` | The suite table; how the state-machine property is built |
+| `docs/project/repository-map.md` | The `src/` and `tests/` lines |
+| `CHANGELOG.md` | Under Unreleased, Added |
+| `tickets/README.md` | T27's row set `done` |
+| `tickets/T27-board-in-play.md` | `status:`, hand-back notes |
+
+## Steps
+
+1. Create the worktree on `ticket/t27-board-in-play` from `main` after T26 has merged.
+   Run `just initialize` if `.pixi/` is absent; it uses the network and this ticket
+   authorises it. Run `just check` and confirm it is green before any edit.
+
+2. **Write the test list before any code.** One line per expected test: a name taken
+   from the clause it proves and what it expects. Seed it from "What the tests must
+   cover" below. Then run `just plan-spec board` and add any obligation the list lacks.
+   Strike the ones that belong to the record and mark them T28's. Put the list in the
+   hand-back notes under "The test list" before the first test is written.
+
+3. **Work the list one line at a time.**
+
+   - Take one line. Write the test, run `just test`, and see it fail for the reason the
+     line expects.
+   - Write the least code that makes it pass. Then tidy with the tests green.
+   - Before taking the next line, re-read the whole list against what the loop taught.
+     Add the lines it revealed, strike the ones that proved wrong or redundant, and
+     reorder so that the next line is the smallest step. Note each change to the list in
+     the hand-back notes in one line, with its reason.
+
+   Repeat until the list is empty. Run `just clippy` and `just metrics` every few loops:
+   the method cap is easier to meet at ten methods than at twenty-five. A good order is
+   opening, then one placement, then erasure, then marks, then upkeep, then undo, then
+   redo, then reading back, then the check.
+
+4. **Prefer tests through the public API.** A board is meant to be driven from outside,
+   so most of the list belongs in `crates/pawdoku/tests/board.rs`. Tests that need the
+   solution take it from `solver::solve`, whose proof exposes it. Write one test helper
+   that gathers everything `Playing` exposes into a single comparable value, so that
+   "exactly as it stood" is an equality.
+
+5. **The state-machine property.** A property drives arbitrary sequences of the seven
+   operations, refused ones included, against a board opened on the fixture below. After
+   every step it checks the seventeen invariants as far as the surface shows them; that
+   a refused operation left the snapshot unchanged; that undo returned the snapshot
+   taken before the move and redo the one taken after; and that the reading at each
+   move equals the snapshot taken when that move was made.
+
+6. Remove the `#[expect(dead_code)]` on the puzzle's answer once the check calls it.
+
+7. **The pages.** `docs/explanation/architecture.md`: the board owns its puzzle and
+   hands out values; why it has no constructor from a puzzle; the reading of a puzzle
+   with no board. `docs/reference/testing.md`: the suite rows and the property.
+   `docs/project/repository-map.md` and `CHANGELOG.md` follow.
+
+8. Run `just fmt-check`, `just clippy`, `just metrics`, `just test`, `just wasm-check`,
+   `just features`, `just coverage`, `just doc` and `just check-docs`, then `just check`.
+   Quote the closing lines of each and the coverage line for the module. Fill in the
+   hand-back notes: the test list as it ended, as a table from clause to test name or
+   reason; and "Names later tickets need", with every public item's signature and what
+   T28 needs of the board's inside to write a record. Set `status: done` here and in
+   `tickets/README.md`, commit on the ticket branch, and stop before pushing.
+
+The fixture: thirty givens, one solution, rows top to bottom.
+
+```text
+puzzle       solution
+53..7....    534678912
+6..195...    672195348
+.98....6.    198342567
+8...6...3    859761423
+4..8.3..1    426853791
+7...2...6    713924856
+.6....28.    961537284
+...419..5    287419635
+....8..79    345286179
+```
+
+### What the tests must cover
+
+From `docs/specs/board.allium`, by name.
+
+- **`OpenBoard` and `LayOutBoard`.** Opening on well-posed givens gives a board with
+  eighty-one cells, every note empty, no move and no check. Opening is refused for
+  givens with no solution, with several, and with nothing left to play.
+- **`Place`.** Refused on a solved puzzle, on a given cell, for a digit outside 1 to 9,
+  and when the cell already holds that digit: the board's own guard, so nothing is
+  recorded and nothing undone is discarded. A placement over the player's other digit is
+  a move and remembers what it displaced. A conflicting placement is a move.
+- **Upkeep.** A placed digit is struck from the note of every peer that holds it, notes
+  hidden beneath a digit included, and from no other cell; the target's own note is
+  kept. Erasing gives nothing back to the peers.
+- **`Erase`.** Refused on a solved puzzle and on a cell that holds no digit of the
+  player's. The note beneath the digit shows again.
+- **`WriteMark` and `StrikeMark`.** Each refusal: a solved puzzle, a cell that does not
+  accept marks, a digit out of range, a mark already written, a mark not there. A mark a
+  placed peer rules out may still be written.
+- **`Undo` and `Redo`.** Each kind of move taken back exactly and re-taken exactly;
+  both refused with nothing to act on; both refused once the puzzle is solved.
+- **`CheckCell`.** Yes for the solution's digit and no for another; refused on a solved
+  puzzle, on an empty cell and on a given. A check records the digit as it stood and how
+  many moves stood; it is not a move, and undo does not remove it.
+- **Derived values.** `can_undo`, `can_redo`, `holds_players_digit`, `accepts_marks`,
+  `shows_note`, the latest standing move and the next to redo.
+- **The seventeen invariants:** `OneBoardToAPuzzle` (by ownership; say so),
+  `TheBoardIsWhole`, `OneBoardCellToAPosition`, `MarksAreDigits`, `NoMarkInAGiven`,
+  `MovesNeverTouchAGiven`, `MoveIndicesRunFromOne`, `MoveIndicesAreDistinct`,
+  `MovesCarryWhatTheirKindNeeds`, `UndoneMovesAreTheLatest`, `WhatIsReTakenComesNext`,
+  `ASolvedBoardHasNothingUndone`, `UpkeepStrikesPeersOfAPlacement`,
+  `TheMovesReplayToTheBoard`, `ChecksRunFromOne`, `CheckIndicesAreDistinct`,
+  `ACheckIsOnAPlayersCell`.
+- **The eleven guarantees of `Playing`:** `EveryMoveIsTheBoards`, `UndoAndRedoAreExact`,
+  `ANewMoveDiscardsWhatWasUndone`, `AMarkIsAMove`, `UndoStopsWithThePuzzle`,
+  `EveryPastBoardIsReadable`, `GivensNeverMove`, `ANoteWaitsBeneathADigit`,
+  `EveryCheckIsKept`, `ACheckNeverTellsTheDigit`, `TheSolutionIsNeverShown`. The last
+  two are held by the shape of the API as well as by tests: no public item of the module
+  returns a digit read from the solution. State that in the hand-back notes after
+  reading the module's public surface item by item.
+- **What `Playing` exposes and provides.** Everything it lists can be read through the
+  board; a note is shown only while its cell is empty; each operation is refused exactly
+  when its `when` clause is false.
+- **A whole game.** The fixture played to the end through `Board`: solved, and then
+  every move, undo, redo and check refused.
+
+## Acceptance criteria
+
+- `pawdoku::board` exports `Board`. Nothing in `src/board` names an engine module other
+  than `sudoku` and `solver`.
+- No public item of `board` returns a `Puzzle`, a reference to one, a `&mut` to
+  anything, or a digit read from the solution. `Board` has no constructor that takes a
+  `Puzzle`.
+- No public item returns a count of checks or of wrong answers.
+- Every line under "What the tests must cover" maps to a named test in the hand-back
+  table, and every `just plan-spec board` obligation is in the table, struck with a
+  reason, or marked T28's.
+- No recursion. No `#[allow]`, no `#[expect]` added, no `qual:allow` line; the answer's
+  expectation in `src/sudoku.rs` is gone and nothing else in that file changed.
+- No struct in `src/board` exceeds 20 methods, by `just metrics`.
+- Line coverage of `src/board` alone is at or above 90 per cent.
+- `just check` is green.
+
+## Verification
+
+```sh
+just plan-spec board
+just fmt-check
+just clippy
+just metrics
+just test
+just wasm-check
+just features
+just coverage
+just doc
+just check-docs
+just check
+```
+
+Expected: the obligation list the table accounts for; each recipe green with no warning;
+`metrics` reporting no finding; both wasm targets under both feature sets; the coverage
+total at or above the floor; `All checks passed and the worktree is unchanged.`
+
+## Hand-back notes
+
+### The test list
+
+### Names later tickets need
+
+### What was verified, and how
+
+### Deviations, and why
+
+### Handed back
+
+## Open points
+
+- **Opening from a proof.** A caller that has already solved the givens pays for a
+  second search when it opens a board. A constructor that takes the proof would save
+  it, and would be safe, since a proof has not been played on. The decision says a board
+  opens from givens in one call, so the ticket builds that alone and leaves the second
+  constructor to the maintainer.
+- **How a cell is addressed.** The specification's stimuli take a cell. The ticket
+  expects operations to take a `Position` and to refuse one that names no cell, as
+  `Puzzle` does. If a typed cell handle reads better, it is the agent's choice and is
+  reported under "Names later tickets need".
+- **What a refused operation returns.** One error per `requires` clause is the rule. Two
+  clauses can fail at once (a given cell on a solved puzzle); which is reported first is
+  the agent's choice, fixed by a test and stated in the documentation.
+- **The check and the open question.** The checks are exposed in order, so a consumer
+  can count them itself. Nothing here counts for it. If the maintainer answers the open
+  question, that is a `spec-change` and a later ticket.

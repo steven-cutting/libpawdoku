@@ -33,6 +33,12 @@ authoritative; this table is a snapshot.
 | T12 | Board migration: board.allium adapted, and the alignment with the game at add73be7 | `T12-board-migration.md` | T06, T07, T08, T11 | none | done |
 | T19 | Puzzle design objectives: the research report in the docs, the gaps in the specs, and the generation module's skeleton | `T19-puzzle-design-objectives.md` | T06, T08, T12 | none | done |
 | T22 | Metrics gate: clippy thresholds and rustqual as gate 7, with the boundary rules from the layering table | `T22-metrics-gate.md` | S09 | none | done |
+| T23 | Spec change: board imports solver, the proof sentence in sudoku, and decision 0014 | `T23-board-imports-solver.md` | T12, T22 | none | open |
+| T24 | A plan-spec recipe: the test obligations allium derives from one module | `T24-plan-spec-recipe.md` | T23 | none | open |
+| T25 | The rules in Rust: the sudoku module, the proof value and Puzzle | `T25-sudoku-rules.md` | T23, T24 | none | open |
+| T26 | The solver in Rust: the search, its result and the proof | `T26-solver.md` | T25 | none | open |
+| T27 | The board in play: notes, moves, undo and redo, reading back, and the check | `T27-board-in-play.md` | T26 | none | open |
+| T28 | The record and reopening: a board written down whole and had again | `T28-record-and-reopening.md` | T27 | none | open |
 
 Spike tickets. Each weighs options and ends in a recommendation; none blocks the build and
 none is picked up before T11.
@@ -69,6 +75,8 @@ D01 ── D02 ── T00 ──┬── T01 ───────────�
                     ├── T08 ──────────────────┤    └── C01 (also after T04)
                     └── T09 ──────────────────┘
 C02 hangs off D01 alone (D01 kept the Python checkers; decision 0004)
+
+T12, T22 ── T23 ── T24 ── T25 ── T26 ── T27 ── T28   (the first engine modules)
 ```
 
 The graph is acyclic: D01, then D02, then T00, then nine parallel lanes, then T11 and T10
@@ -77,6 +85,17 @@ because it counts the modules T12 made eight. S06, S07 and S08 follow T19 in seq
 each reading the hand-back notes of the one before. T22 follows S09, the spike that
 chose its tool and thresholds. T04 needs the remote T01 creates before its proof run, but its files can be
 written in parallel with T01.
+
+T23 to T28 are the first engine modules, strictly in sequence: the spec change that lets
+`board` import `solver`, the recipe that prints a module's test obligations, then
+`sudoku`, `solver`, the board in play, and the record. T23 follows T12, whose module it
+edits, and T22, whose boundary rule it renames. T25 to T28 each edit files the one
+before it also edited (`crates/pawdoku/src/lib.rs`, `crates/pawdoku/tests/api_bounds.rs`,
+`docs/reference/testing.md`, `docs/explanation/architecture.md`, `CHANGELOG.md`, and
+`crates/pawdoku/src/sudoku.rs` for one attribute each in T26 and T27). That is not two
+owners of one path in the sense of CONVENTIONS.md §11, which is about lanes that run at
+once: here no two are ever open together. The solver T20 and T21 wait for, in T19's
+hand-back notes, is T26.
 
 ## How to pick up a ticket
 
