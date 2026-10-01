@@ -1,7 +1,7 @@
 ---
 id: T23
 title: "Spec change: board imports solver, the proof sentence in sudoku, and decision 0014"
-status: open
+status: done
 depends_on: [T12, T22]
 parallel_with: []
 branch: ticket/t23-board-imports-solver
@@ -329,9 +329,165 @@ unchanged.`
 
 ### What was verified, and how
 
+Run on 2026-10-01 in the worktree, after `just initialize`.
+
+- **Before any edit.** `just check-specs` ended
+  `allium check: 9 specifications, no diagnostics and no findings.` and
+  `just analyse-specs` ended
+  `allium analyse: 9 specifications, no diagnostics and no findings.`; `just metrics`
+  was green. 0014 was the next free number: `docs/decisions/` ended at 0013.
+- **After the specification edits.** Both gates end with the same two lines.
+  `git diff -U0 docs/specs`, with comment lines filtered out, shows one line,
+  `+use "./solver.allium" as solver`. `grep -c 'open question'` gives 2 for
+  `board.allium` and 0 for `sudoku.allium` and `solver.allium`, as before. No
+  `allium-ignore` directive exists under `docs/specs/`. `board.allium` has two `use`
+  lines, `sudoku` then `solver`, and a search of it for "not imported", "no rule" and
+  "verdict and nothing" finds nothing.
+- **`just toml-check`** is clean; taplo kept the shorter array one path to a line.
+- **`just metrics`** is green on the tree; `rustqual.toml` holds ten `name` keys.
+- **The sabotage run.** With the fixture's `board.rs` naming `crate::solver::item()` in
+  place of `crate::generation::item()`, `just metrics` failed:
+
+  ```text
+  ::error::Quality analysis: 9 finding(s) (0 IOSP violation(s)), 68.5% quality score
+  metrics: probe exited 1, want 1
+  rules named:
+  board_imports_sudoku_and_solver
+  effort_imports_sudoku_and_technique
+  generation_imports_sudoku_solver_technique_reach
+  human_solving_imports_sudoku_and_technique
+  lapse_imports_sudoku_and_technique
+  random_imports_nothing
+  reach_imports_sudoku_and_technique
+  solver_imports_sudoku
+  sudoku_imports_nothing
+  technique_imports_sudoku
+  rules fired:
+  effort_imports_sudoku_and_technique
+  generation_imports_sudoku_solver_technique_reach
+  human_solving_imports_sudoku_and_technique
+  lapse_imports_sudoku_and_technique
+  random_imports_nothing
+  reach_imports_sudoku_and_technique
+  solver_imports_sudoku
+  sudoku_imports_nothing
+  technique_imports_sudoku
+  error: recipe `metrics` failed with exit code 1
+  ```
+
+  Ten named, nine fired, the board's missing. The fixture was reverted, its diff is the
+  doc comment alone, and `just metrics` is green again.
+- **`just check-docs`** ends `Validated 41 pages and 42 canonical topics.`; the manifest
+  held 40 pages at `main`.
+- **`just check`** ends `All checks passed and the worktree is unchanged.`, with both
+  specification lines above and `Quality score: 100.0% (35 functions analyzed)` inside
+  it.
+
 ### Deviations, and why
 
+- **The re-read of `board.allium`** (step 2) found no further sentence the import makes
+  untrue. The nine edits are the ticket's wording, rewrapped to the width of the lines
+  around each.
+- **The search of step 5** found no further restatement in `docs/`, `AGENTS.md`,
+  `.agents/` or `README.md`. Three sentences were read and left, because each says the
+  solver is not imported by the rules, which stays true: `sudoku.allium` line 32,
+  `docs/explanation/specifications.md` ("not imported by them") and the `solver.allium`
+  row of `docs/how-to/work-with-the-specs.md`. `docs/README.md` does not restate the
+  import.
+- **`docs/explanation/layering.md`** also gains a link to decision 0014, in the
+  paragraph that gives the reason and under Related pages. The ticket did not ask for
+  it; a reason with no pointer to its record seemed the worse page.
+- **`CHANGELOG.md`.** The two new lines sit under the existing `### Added`, since
+  nothing is released yet and a `### Changed` would have nothing to be a change from.
+- **The branch** is `ticket/T23-board-imports-solver`, as Supacode named it, not the
+  lowercase the `branch:` field gives.
+- **An untracked log.** The first `just check` failed its read-only snapshot on a log
+  file this session had written at the root. It was moved under `ai_tmp/` and the run
+  repeated; the result quoted above is the second run.
+
 ### Handed back
+
+- **`docs/manifest.yml` is a frozen file** (`CONVENTIONS.md` §11). The entry for 0014
+  was added on this branch, as T22 added 0013's, and is named here so that the edit is
+  seen.
+- **For the game.** Pawdoku holds its restated clauses equal to this repository's by
+  test, so each sentence below is a change it must take wherever it restates the old
+  one. Line breaks differ in the modules; the words are these.
+
+  `board.allium`, the `use` lines: `use "./solver.allium" as solver` is new, directly
+  under the `sudoku` line.
+
+  `board.allium`, Excludes, the rules:
+
+  - Old: "Undo and redo write a cell's digit back to what a move the rules admitted
+    left there; they restore states the rules reached and make no move of their own."
+  - New: "Undo and redo put a cell's digit back to what a move the rules admitted left
+    there; they restore states the rules reached and record no move of their own."
+
+  `board.allium`, Excludes, finding the solution:
+
+  - Old: "solution_digit_at below is a black box for that reason, as solution_count is
+    in sudoku.allium; solver.allium decides it and is not imported."
+  - New: "solution_digit_at below is a black box for that reason, as solution_count is
+    in sudoku.allium; solver.allium decides it, and is imported so that a board can
+    ask."
+
+  `board.allium`, Dependencies, a new second paragraph:
+
+  - New: "solver.allium, for the one solution of the givens: the search runs once, as
+    the puzzle is set, and the check reads what it found. Nothing imports this module,
+    so the import closes no cycle."
+
+  `board.allium`, the `Undo` comment:
+
+  - Old: "The cell's digit is written back to what a move the rules admitted left
+    there, so no rule of the rules is asked to run again."
+  - New: "The cell's digit is put back to what a move the rules admitted left there.
+    That state stood on an unsolved puzzle, so no guard of the rules can refuse it and
+    it cannot solve the puzzle. Whether it is put back through the rules' own placing
+    and erasing or written directly is not said here."
+
+  `board.allium`, the `CheckCell` comment:
+
+  - Old: "solver.allium says how it is found."
+  - New: "solver.allium finds it: it is what the one solved branch of the search of
+    these givens holds, found once as the puzzle is set and not again for each check."
+
+  `board.allium`, the `reopen` comment in `Recording`:
+
+  - Old: "No move is re-made and no rule of this module runs for what the record
+    holds."
+  - New: "The moves and checks the board then holds are the record's own, with the
+    indices they had and the same moves undone: reopening adds none and discards none.
+    How the board is made whole is not said here. A record that no board could have
+    been written to is refused."
+
+  `board.allium`, `ARecordIsEnoughOnItsOwn`:
+
+  - Old: "A record carries everything reopening needs. Nothing else is consulted: not
+    wherever it was kept, not the solution's digits, since SetPuzzle's guard asks the
+    solver for its verdict and nothing more, not any other record and not a board
+    already open, since there need be none."
+  - New: "A record carries everything reopening needs. Nothing else is consulted: not
+    wherever it was kept, not any other record and not a board already open, since
+    there need be none. The solution is not in the record: reopening puts the record's
+    givens to the solver, as setting a puzzle does, and the solver finds it again."
+
+  `sudoku.allium`, the `SetPuzzle` comment, added after "its verdict is one exactly
+  when this is 1.":
+
+  - New: "Whoever sets a puzzle may bring that verdict with it, and the one solution it
+    rests on, so that the count is not taken twice; the solution is then kept with the
+    puzzle, and nothing this module exposes is read from it."
+
+  `solver.allium`, the comment above `surface SearchResult`, added after "since it
+  draws nothing.":
+
+  - New: "A caller that is handed a search only once it has concluded has no status to
+    read: being handed it says concluded."
+
+- **Not done here, each separately authorised:** pushing the branch, opening the pull
+  request, and any edit to the game.
 
 ## Open points
 
