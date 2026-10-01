@@ -63,16 +63,16 @@
 --     re-decided here. The guards a move restates below are the rules' own,
 --     read from the puzzle so that a move the rules would refuse is never
 --     recorded; one guard is the board's own, that a placement changes the
---     digit. Undo and redo write a cell's digit back to what a move the
---     rules admitted left there; they restore states the rules reached and
---     make no move of their own.
+--     digit. Undo and redo put a cell's digit back to what a move the rules
+--     admitted left there; they restore states the rules reached and record
+--     no move of their own.
 --   - Where a puzzle comes from. A board opens on whatever sudoku.allium's
 --     PuzzleSetting admits, so this module has no setting surface of its own.
 --     Reopening a record puts its givens to SetPuzzle, so a reopened board
 --     too opens on what PuzzleSetting admits.
 --   - Finding the solution. solution_digit_at below is a black box for that
---     reason, as solution_count is in sudoku.allium; solver.allium decides it
---     and is not imported.
+--     reason, as solution_count is in sudoku.allium; solver.allium decides
+--     it, and is imported so that a board can ask.
 --   - Hints, which are reach.allium's and stand in the context of the
 --     board's puzzle; timers; and any count read off the checks, which is
 --     the open question below.
@@ -88,6 +88,10 @@
 --   the grid. It does not import this module in return: a board reads its
 --   puzzle and the puzzle knows nothing of the board.
 --
+--   solver.allium, for the one solution of the givens: the search runs once,
+--   as the puzzle is set, and the check reads what it found. Nothing imports
+--   this module, so the import closes no cycle.
+--
 -- Vocabulary
 --   sudoku.allium's words stand: given, digit, unit, peer, conflict, solved.
 --   technique.allium's mark stands, a candidate as the player has it
@@ -102,6 +106,7 @@
 --   board written down; reopen, to have it again.
 
 use "./sudoku.allium" as sudoku
+use "./solver.allium" as solver
 
 ------------------------------------------------------------
 -- Enumerations
@@ -417,9 +422,11 @@ rule Undo {
     -- By kind, the exact reverse of what the move did. A placement leaves
     -- the cell as it stood, digit or none, and gives the digit back to every
     -- note upkeep struck it from; an erasure puts the digit back; a written
-    -- mark is struck and a struck mark written. The cell's digit is written
-    -- back to what a move the rules admitted left there, so no rule of the
-    -- rules is asked to run again.
+    -- mark is struck and a struck mark written. The cell's digit is put back
+    -- to what a move the rules admitted left there. That state stood on an
+    -- unsolved puzzle, so no guard of the rules can refuse it and it cannot
+    -- solve the puzzle. Whether it is put back through the rules' own
+    -- placing and erasing or written directly is not said here.
     ensures:
         for move in taken_back:
             move.is_undone = true
@@ -476,8 +483,10 @@ rule CheckCell {
     -- solution_digit_at is a black box: the digit the one solution of these
     -- givens holds at this row and column. The givens are well-posed, since
     -- SetPuzzle admits no others, so there is one solution and one digit.
-    -- solver.allium says how it is found. The answer is a yes or a no and
-    -- the digit itself goes nowhere.
+    -- solver.allium finds it: it is what the one solved branch of the search
+    -- of these givens holds, found once as the puzzle is set and not again
+    -- for each check. The answer is a yes or a no and the digit itself goes
+    -- nowhere.
     ensures:
         Check.created(
             board: board,
@@ -625,9 +634,12 @@ contract Recording {
     -- a puzzle the rules would not pose is refused, and the board OpenBoard
     -- opens on the puzzle so set is made whole from the record: every digit,
     -- every note shown or waiting, every move with its index and whether it
-    -- is undone, and every check as written. No move is re-made and no rule
-    -- of this module runs for what the record holds. The puzzle is a new one
-    -- with the one board OpenBoard gives it, so OneBoardToAPuzzle stands.
+    -- is undone, and every check as written. The moves and checks the board
+    -- then holds are the record's own, with the indices they had and the
+    -- same moves undone: reopening adds none and discards none. How the
+    -- board is made whole is not said here. A record that no board could
+    -- have been written to is refused. The puzzle is a new one with the one
+    -- board OpenBoard gives it, so OneBoardToAPuzzle stands.
     reopen: (record: Record) -> Board
 
     @invariant ReopeningIsExact
@@ -770,10 +782,10 @@ surface Reopening {
 
     @guarantee ARecordIsEnoughOnItsOwn
         -- A record carries everything reopening needs. Nothing else is
-        -- consulted: not wherever it was kept, not the solution's digits,
-        -- since SetPuzzle's guard asks the solver for its verdict and nothing
-        -- more, not any other record and not a board already open, since
-        -- there need be none.
+        -- consulted: not wherever it was kept, not any other record and not
+        -- a board already open, since there need be none. The solution is
+        -- not in the record: reopening puts the record's givens to the
+        -- solver, as setting a puzzle does, and the solver finds it again.
 }
 
 ------------------------------------------------------------

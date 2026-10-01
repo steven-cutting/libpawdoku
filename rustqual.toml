@@ -179,10 +179,9 @@ forbidden_in = ["src/human_solving{.rs,/**}"]
 reason = "layering: human_solving may import only sudoku, technique and random"
 
 [[architecture.pattern]]
-name = "board_imports_sudoku"
+name = "board_imports_sudoku_and_solver"
 forbid_path_prefix = [
   "crate::technique",
-  "crate::solver",
   "crate::reach",
   "crate::effort",
   "crate::lapse",
@@ -190,7 +189,7 @@ forbid_path_prefix = [
   "crate::generation",
 ]
 forbidden_in = ["src/board{.rs,/**}"]
-reason = "layering: board may import only sudoku and random"
+reason = "layering: board may import only sudoku, solver and random"
 
 [[architecture.pattern]]
 name = "generation_imports_sudoku_solver_technique_reach"

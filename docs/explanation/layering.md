@@ -15,24 +15,28 @@ implements it may use what its specification imports and nothing above it.
 | Module | Imports | Imported by |
 | --- | --- | --- |
 | `sudoku` | nothing | every other specification module |
-| `solver` | `sudoku` | `generation` |
+| `solver` | `sudoku` | `board`, `generation` |
 | `technique` | `sudoku` | `reach`, `effort`, `lapse`, `human-solving`, `generation` |
 | `reach` | `sudoku`, `technique` | `generation` |
 | `effort` | `sudoku`, `technique` | nothing |
 | `lapse` | `sudoku`, `technique` | nothing |
 | `human-solving` | `sudoku`, `technique` | nothing |
-| `board` | `sudoku` | nothing |
+| `board` | `sudoku`, `solver` | nothing |
 | `generation` | `sudoku`, `solver`, `technique`, `reach` | nothing |
 | `random` | nothing | whichever module draws |
 
 `sudoku` is the rules and sits beneath everything. `solver` and `technique` stand on it
 alone. The four models of a player — `reach`, `effort`, `lapse` and `human-solving` —
 each stand on `sudoku` and `technique` and never on each other. `board`, the puzzle in
-play, imports the rules alone, and nothing imports it. `generation`, the setter that is
-a program, is the one module that stands on a model: it imports the rules, the solver,
-the catalogue and `reach`, because a candidate puzzle is accepted on a `reach` run, and
-nothing imports it. It is a skeleton today, and its Rust module arrives with its
-triggers. `random` is not a specification
+play, imports the rules and the solver, and nothing imports it: a board answers a check
+against the puzzle's one solution, and only the solver finds one. The edge is safe
+because the board is a leaf, so no cycle can arise through it, and because the claim
+under "Why the direction matters" is about the four models, none of which gains an
+import ([decision 0014](../decisions/0014-board-imports-solver.md)). `generation`, the
+setter that is a program, is the one module that stands on a model: it imports the
+rules, the solver, the catalogue and `reach`, because a candidate puzzle is accepted on a
+`reach` run, and nothing imports it. It is a skeleton today, and its Rust module arrives
+with its triggers. `random` is not a specification
 module: it is the randomness boundary in `crates/pawdoku/src/random.rs`, beside the
 others rather than beneath them, and it is used by whichever module draws.
 
@@ -99,3 +103,4 @@ wrong layer is usually code that is hard to test.
 - [Testing](../reference/testing.md)
 - [Decision 0003](../decisions/0003-effects-behind-traits.md)
 - [Decision 0013](../decisions/0013-metrics-gate.md)
+- [Decision 0014](../decisions/0014-board-imports-solver.md)

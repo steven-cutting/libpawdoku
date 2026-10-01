@@ -29,12 +29,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   they cite, and an eighth, `board.allium`, for a puzzle as it is being played.
 - A handbook of twenty-five pages under `docs/`, held to the documentation contract and
   reachable from its map.
-- Thirteen architecture decision records, from the engine as a library of its own to the
-  metrics gate.
+- Fourteen architecture decision records, from the engine as a library of its own to the
+  board's import of the solver.
 - A `metrics` gate, seventh in `just check`: rustqual, built from source from its pin in
   `tools-source.txt`, holds thresholds for complexity, cohesion and coupling and the
   module boundaries of the layering table, with a probe that proves the boundary rules
   live. Clippy gains thresholds for cognitive complexity, nesting depth, function length
   and parameter count.
+- The board may import the solver: `board.allium` gains a second `use` line, the layering
+  table follows it, and the boundary rule is renamed `board_imports_sudoku_and_solver`
+  and no longer forbids `crate::solver`.
+- Comment sentences changed in `board.allium`, `sudoku.allium` and `solver.allium`: why
+  the solver is imported, the proof a puzzle may be set with, undo and redo no longer
+  said to run no rule, and a concluded search's status that no caller reads.
 
 [Unreleased]: https://github.com/steven-cutting/libpawdoku/commits/main/
