@@ -34,7 +34,7 @@ authoritative; this table is a snapshot.
 | T19 | Puzzle design objectives: the research report in the docs, the gaps in the specs, and the generation module's skeleton | `T19-puzzle-design-objectives.md` | T06, T08, T12 | none | done |
 | T22 | Metrics gate: clippy thresholds and rustqual as gate 7, with the boundary rules from the layering table | `T22-metrics-gate.md` | S09 | none | done |
 | T23 | Spec change: board imports solver, the proof sentence in sudoku, and decision 0014 | `T23-board-imports-solver.md` | T12, T22 | none | done |
-| T24 | A plan-spec recipe: the test obligations allium derives from one module | `T24-plan-spec-recipe.md` | T23 | none | open |
+| T24 | A plan-spec recipe: the test obligations allium derives from one module | `T24-plan-spec-recipe.md` | T23 | none | done |
 | T29 | The snapshot harness: insta, its recipes and the rule for what a snapshot is for | `T29-snapshot-harness.md` | T24 | none | open |
 | T25 | The rules in Rust: the sudoku module, the proof value and Puzzle | `T25-sudoku-rules.md` | T23, T24, T29 | none | open |
 | T26 | The solver in Rust: the search, its result and the proof | `T26-solver.md` | T25 | none | open |

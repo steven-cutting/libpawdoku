@@ -47,6 +47,11 @@ another module's `Excludes`, it belongs there.
    a finding cannot be waived.
 6. Run `just test`, then `just check`.
 
+When deriving tests from a clause, run `just plan-spec <module>` for a starting list
+of test obligations as raw JSON. Treat it as suggestions: strike an obligation that
+names storage the module excludes, or that no observable behaviour can show, with a
+reason. A clause the output misses is still owed a test.
+
 ## Handle an open question
 
 An `open question` block records a product decision nobody has made yet, so the gap is

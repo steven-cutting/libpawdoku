@@ -9,6 +9,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `just plan-spec <module>` prints Allium's JSON test obligations as a suggestion list outside the gate.
 - A Cargo workspace with `crates/pawdoku` as its one member, and `rust-toolchain.toml`
   pinning Rust 1.98.1 with its components and both WebAssembly targets.
 - The Apache-2.0 licence, in `LICENSE` at the root, with no per-file headers.
