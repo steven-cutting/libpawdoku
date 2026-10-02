@@ -139,6 +139,12 @@ impl Journal {
         self.standing
     }
 
+    /// Every move on the record as the board keeps it, in the order made, standing and
+    /// undone alike.
+    pub(super) fn made(&self) -> &[Made] {
+        &self.made
+    }
+
     /// Whether any move is undone.
     pub(super) const fn has_undone(&self) -> bool {
         self.standing < self.made.len()

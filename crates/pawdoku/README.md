@@ -5,9 +5,9 @@ catalogue of human solving techniques, a difficulty rating and hints. It is buil
 specified module at a time, and so far holds the randomness boundary the others will use,
 the rules in `sudoku` with a puzzle that can be set and played, the search in `solver`
 that gives a set of givens its verdict and the proof a puzzle is set from, and the board
-in `board` that a player plays on, with notes, undo and a check. It is `no_std` with
-`alloc`, so it has no clock, threads, filesystem or network, and runs the same in a
-browser, in Python and on the command line.
+in `board` that a player plays on, with notes, undo, a check and a record it reopens
+from. It is `no_std` with `alloc`, so it has no clock, threads, filesystem or network,
+and runs the same in a browser, in Python and on the command line.
 
 Randomness is its one effect. The caller supplies a seeded stream of draws through the
 `random` module's trait, and the same seed and generator always give the same draws.

@@ -3,7 +3,9 @@
 //! test here is named `snapshot_...`. The helpers read the public API and nothing else.
 //!
 //! A board is drawn through `Board` alone, so no picture of one holds anything read
-//! from the solution but a check's yes or no.
+//! from the solution but a check's yes or no. A record is shown as it prints and, under
+//! the `serde` feature, as JSON: a picture of what a consumer would store, and no
+//! promise of a format, since the library has none.
 //!
 //! The guess counts these pictures show follow from the solver's tie-break, as
 //! `the_guess_counts_follow_from_the_tie_break` in `tests/solver.rs` says, and so does
@@ -12,8 +14,8 @@
 #[cfg(test)]
 mod tests {
     use core::fmt::Write;
-    use pawdoku::board::{Board, BoardCell, MoveKind, PlayError};
-    use pawdoku::solver::{SearchResult, search, solve};
+    use pawdoku::board::{Board, BoardCell, MoveKind, PlayError, ReopenError};
+    use pawdoku::solver::{SearchResult, SolveError, search, solve};
     use pawdoku::sudoku::{Given, Grid, Position};
 
     /// The rules' fixture: thirty givens, one solution, solved by singles alone.
@@ -357,6 +359,86 @@ mod tests {
         let mut picture = String::from("PlayError (Display)\n");
         for (case, refused) in refusals {
             writeln!(picture, "{case}: {}", refused.unwrap_err()).unwrap();
+        }
+        insta::assert_snapshot!(picture);
+    }
+
+    // The record -----------------------------------------------------------------
+
+    /// What a consumer would store of the board `THE_SCRIPTED_GAME` leaves, were JSON
+    /// its format. A renamed or reordered field shows here.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn snapshot_the_record_of_the_scripted_game_as_json() {
+        insta::assert_json_snapshot!(played(&THE_SCRIPTED_GAME).write());
+    }
+
+    #[test]
+    fn snapshot_the_record_of_the_scripted_game() {
+        let record = played(&THE_SCRIPTED_GAME).write();
+        insta::assert_snapshot!(format!("{record:#?}\n"));
+    }
+
+    /// To lay beside the picture of the scripted board: the two should read alike.
+    #[test]
+    fn snapshot_the_board_reopened_from_the_record() {
+        let record = played(&THE_SCRIPTED_GAME).write();
+        insta::assert_snapshot!(render_board(&Board::reopen(&record).unwrap()));
+    }
+
+    /// Each refusal is made by hand here, which is shorter than deserialising a
+    /// malformed record for each; the record's unit tests show a record that earns each.
+    #[test]
+    fn snapshot_the_reopening_refusals() {
+        let given = Position::new(1, 1);
+        let refusals = [
+            (
+                "more moves undone than moves",
+                ReopenError::TooManyUndone {
+                    undone: 3,
+                    moves: 2,
+                },
+            ),
+            (
+                "checks and no move",
+                ReopenError::ChecksWithoutMoves { checks: 2 },
+            ),
+            (
+                "givens the solver refuses",
+                ReopenError::Givens {
+                    source: SolveError::ManySolutions,
+                },
+            ),
+            (
+                "a move the board refuses",
+                ReopenError::Move {
+                    index: 7,
+                    source: PlayError::GivenCell { position: given },
+                },
+            ),
+            (
+                "a move after the puzzle is solved",
+                ReopenError::MoveAfterSolved { index: 52 },
+            ),
+            (
+                "moves undone on a solved puzzle",
+                ReopenError::UndoneWhenSolved { undone: 1 },
+            ),
+            (
+                "a check no board answers",
+                ReopenError::Check {
+                    index: 2,
+                    source: PlayError::DigitOutOfRange { digit: 10 },
+                },
+            ),
+            (
+                "a check asked after no move",
+                ReopenError::CheckAfterNoMove { index: 4 },
+            ),
+        ];
+        let mut picture = String::from("ReopenError (Display)\n");
+        for (case, refusal) in refusals {
+            writeln!(picture, "{case}: {refusal}").unwrap();
         }
         insta::assert_snapshot!(picture);
     }

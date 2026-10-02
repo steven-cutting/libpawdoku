@@ -1,0 +1,315 @@
+---
+source: crates/pawdoku/tests/snapshots.rs
+expression: "format!(\"{record:#?}\\n\")"
+---
+Record {
+    givens: {
+        Given {
+            position: Position {
+                row: 1,
+                column: 1,
+            },
+            digit: 5,
+        },
+        Given {
+            position: Position {
+                row: 1,
+                column: 2,
+            },
+            digit: 3,
+        },
+        Given {
+            position: Position {
+                row: 1,
+                column: 5,
+            },
+            digit: 7,
+        },
+        Given {
+            position: Position {
+                row: 2,
+                column: 1,
+            },
+            digit: 6,
+        },
+        Given {
+            position: Position {
+                row: 2,
+                column: 4,
+            },
+            digit: 1,
+        },
+        Given {
+            position: Position {
+                row: 2,
+                column: 5,
+            },
+            digit: 9,
+        },
+        Given {
+            position: Position {
+                row: 2,
+                column: 6,
+            },
+            digit: 5,
+        },
+        Given {
+            position: Position {
+                row: 3,
+                column: 2,
+            },
+            digit: 9,
+        },
+        Given {
+            position: Position {
+                row: 3,
+                column: 3,
+            },
+            digit: 8,
+        },
+        Given {
+            position: Position {
+                row: 3,
+                column: 8,
+            },
+            digit: 6,
+        },
+        Given {
+            position: Position {
+                row: 4,
+                column: 1,
+            },
+            digit: 8,
+        },
+        Given {
+            position: Position {
+                row: 4,
+                column: 5,
+            },
+            digit: 6,
+        },
+        Given {
+            position: Position {
+                row: 4,
+                column: 9,
+            },
+            digit: 3,
+        },
+        Given {
+            position: Position {
+                row: 5,
+                column: 1,
+            },
+            digit: 4,
+        },
+        Given {
+            position: Position {
+                row: 5,
+                column: 4,
+            },
+            digit: 8,
+        },
+        Given {
+            position: Position {
+                row: 5,
+                column: 6,
+            },
+            digit: 3,
+        },
+        Given {
+            position: Position {
+                row: 5,
+                column: 9,
+            },
+            digit: 1,
+        },
+        Given {
+            position: Position {
+                row: 6,
+                column: 1,
+            },
+            digit: 7,
+        },
+        Given {
+            position: Position {
+                row: 6,
+                column: 5,
+            },
+            digit: 2,
+        },
+        Given {
+            position: Position {
+                row: 6,
+                column: 9,
+            },
+            digit: 6,
+        },
+        Given {
+            position: Position {
+                row: 7,
+                column: 2,
+            },
+            digit: 6,
+        },
+        Given {
+            position: Position {
+                row: 7,
+                column: 7,
+            },
+            digit: 2,
+        },
+        Given {
+            position: Position {
+                row: 7,
+                column: 8,
+            },
+            digit: 8,
+        },
+        Given {
+            position: Position {
+                row: 8,
+                column: 4,
+            },
+            digit: 4,
+        },
+        Given {
+            position: Position {
+                row: 8,
+                column: 5,
+            },
+            digit: 1,
+        },
+        Given {
+            position: Position {
+                row: 8,
+                column: 6,
+            },
+            digit: 9,
+        },
+        Given {
+            position: Position {
+                row: 8,
+                column: 9,
+            },
+            digit: 5,
+        },
+        Given {
+            position: Position {
+                row: 9,
+                column: 5,
+            },
+            digit: 8,
+        },
+        Given {
+            position: Position {
+                row: 9,
+                column: 8,
+            },
+            digit: 7,
+        },
+        Given {
+            position: Position {
+                row: 9,
+                column: 9,
+            },
+            digit: 9,
+        },
+    },
+    moves: [
+        WriteMark {
+            target: Position {
+                row: 1,
+                column: 4,
+            },
+            digit: 4,
+        },
+        WriteMark {
+            target: Position {
+                row: 1,
+                column: 4,
+            },
+            digit: 6,
+        },
+        WriteMark {
+            target: Position {
+                row: 1,
+                column: 4,
+            },
+            digit: 9,
+        },
+        StrikeMark {
+            target: Position {
+                row: 1,
+                column: 4,
+            },
+            digit: 9,
+        },
+        WriteMark {
+            target: Position {
+                row: 1,
+                column: 3,
+            },
+            digit: 2,
+        },
+        Place {
+            target: Position {
+                row: 1,
+                column: 3,
+            },
+            digit: 4,
+        },
+        Place {
+            target: Position {
+                row: 2,
+                column: 2,
+            },
+            digit: 3,
+        },
+        Erase {
+            target: Position {
+                row: 2,
+                column: 2,
+            },
+        },
+        Place {
+            target: Position {
+                row: 3,
+                column: 1,
+            },
+            digit: 5,
+        },
+        WriteMark {
+            target: Position {
+                row: 2,
+                column: 2,
+            },
+            digit: 1,
+        },
+        Place {
+            target: Position {
+                row: 2,
+                column: 2,
+            },
+            digit: 7,
+        },
+    ],
+    undone: 1,
+    checks: [
+        Asked {
+            after_move: 6,
+            target: Position {
+                row: 1,
+                column: 3,
+            },
+            digit: 4,
+        },
+        Asked {
+            after_move: 7,
+            target: Position {
+                row: 2,
+                column: 2,
+            },
+            digit: 3,
+        },
+    ],
+}

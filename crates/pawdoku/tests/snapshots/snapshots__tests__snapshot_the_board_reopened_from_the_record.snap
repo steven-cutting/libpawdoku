@@ -1,0 +1,64 @@
+---
+source: crates/pawdoku/tests/snapshots.rs
+expression: "render_board(&Board::reopen(&record).unwrap())"
+---
+status: Unsolved
+full: false
+consistent: false
+can undo: true
+can redo: true
+
+digits
+534.7....
+6..195...
+598....6.
+8...6...3
+4..8.3..1
+7...2...6
+.6....28.
+...419..5
+....8..79
+
+givens
+53..7....
+6..195...
+.98....6.
+8...6...3
+4..8.3..1
+7...2...6
+.6....28.
+...419..5
+....8..79
+
+conflicts
+x........
+.........
+x........
+.........
+.........
+.........
+.........
+.........
+.........
+
+notes
+row 1, column 3: 2 (waiting)
+row 1, column 4: 6
+row 2, column 2: 1
+
+moves
+1: write mark 4 at row 1, column 4
+2: write mark 6 at row 1, column 4
+3: write mark 9 at row 1, column 4
+4: strike mark 9 at row 1, column 4
+5: write mark 2 at row 1, column 3
+6: place 4 at row 1, column 3
+7: place 3 at row 2, column 2
+8: erase at row 2, column 2
+9: place 5 at row 3, column 1
+10: write mark 1 at row 2, column 2
+11: place 7 at row 2, column 2 (undone)
+
+checks
+1: after move 6, 4 at row 1, column 3: right
+2: after move 7, 3 at row 2, column 2: wrong
