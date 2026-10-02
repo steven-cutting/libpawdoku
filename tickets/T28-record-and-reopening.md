@@ -423,6 +423,13 @@ Changes to the list, one line each, as the loops ran:
   then mapped an undo's refusal through a closure no record could reach. The guard
   went, and the board's own refusal of an undo on a solved puzzle is the refusal, so
   no line of the file is unreachable.
+- Added after the Codex review: U `a_check_of_the_digit_that_solves_the_puzzle_is_refused`,
+  which failed first, on a record that reopened; U
+  `a_malformed_record_deserialises_and_is_refused_at_reopening`, under `serde`.
+- Replaced after the Codex review: U `a_record_holds_nothing_of_the_solution` looked
+  for the solution's rows in records that held no check. It is now two tests:
+  `a_record_holds_what_it_states_and_no_answer`, on the record of a board with a check
+  answered each way, and `a_record_prints_no_row_of_the_solution`, the narrower look.
 - Struck, as expected: `surface-actor.Reopening`.
 - What the gates taught. Clippy refuses a block nested five deep, so the test that
   looks for the solution in what a record prints gathers the rows first. The metrics
@@ -443,7 +450,7 @@ snapshot test.
 | The same checks with the same answers | B `checks_reopen_with_their_indices_and_their_answers`; U `a_record_built_by_hand_reopens` | none |
 | A solved board | B `a_solved_board_reopens_solved` | none |
 | `AReopenedBoardIsTheSameBoard` | P, from a fresh board, a board with moves undone and a solved board: the full view equal after reopening, then what each board answers and the full view equal after every step of a second script | none |
-| `ARecordIsEnoughOnItsOwn` | B `two_reopenings_of_one_record_are_independent_boards`: reopened after the board written is dropped, and a move and a check on one reopening show on neither the other nor the record. By shape: `Board::reopen` takes the record and nothing else. U `a_record_holds_nothing_of_the_solution` | none |
+| `ARecordIsEnoughOnItsOwn` | B `two_reopenings_of_one_record_are_independent_boards`: reopened after the board written is dropped, and a move and a check on one reopening show on neither the other nor the record. By shape: `Board::reopen` takes the record and nothing else. U `a_record_holds_what_it_states_and_no_answer`, U `a_record_prints_no_row_of_the_solution` | none |
 | A record of a puzzle the rules would not pose is refused | U `givens_with_no_solution_are_refused`, `givens_with_several_solutions_are_refused`, `givens_that_leave_nothing_to_play_are_refused` | none |
 | A move on a given cell | U `a_move_on_a_given_is_refused` | none |
 | A digit out of range | U `a_move_with_a_digit_out_of_range_is_refused`, for a placement and a mark | none |
@@ -456,12 +463,14 @@ snapshot test.
 | An undone count greater than the count of moves | U `more_undone_moves_than_moves_are_refused`, `usize::MAX` among them | none |
 | Undone moves in a record whose moves solve the puzzle | U `undone_moves_on_a_solved_puzzle_are_refused` | none |
 | A check on a given, off the grid, with a digit out of range, with an `after_move` of 0 | U `a_check_on_a_given_is_refused`, `a_check_off_the_grid_is_refused`, `a_check_with_a_digit_out_of_range_is_refused`, `a_check_after_no_move_is_refused` | none |
+| A check of the digit that solves a puzzle with one cell to play | U `a_check_of_the_digit_that_solves_the_puzzle_is_refused`; not in the ticket's list, see "Deviations" | none |
 | A check, sound in itself, in a record that holds no move | U `checks_in_a_record_with_no_move_are_refused` | none |
 | Which refusal is reported first | U `refusals_come_in_a_fixed_order` | none |
 | What cannot be read back is accepted | B `a_check_after_moves_since_discarded_reopens_and_keeps_its_after_move`, the two boards a player can reach; U `a_check_that_cannot_be_read_back_is_accepted`, a record no board wrote. Documented on `Record` | none |
 | Refusal leaves nothing behind | By the type: `Board::reopen` returns a board or an error, never both, and borrows the record. U `a_refused_reopening_leaves_the_record_as_it_was` | none |
 | The stable text of each refusal | U `reopening_refusal_texts_are_stable`, U `a_refusal_names_its_source` | none |
 | `serde`: `Record` meets the serialisation bounds | A `streams_and_value_types_serialise_under_the_serde_feature` | none |
+| Deserialising checks nothing; reopening checks everything | U `a_malformed_record_deserialises_and_is_refused_at_reopening`, through serde's own value deserialisers | none |
 | Without `serde` the crate compiles with no serde in its surface | `just features` and `just wasm-check`, which build without the feature; every serde derive in `record.rs` is behind `cfg_attr(feature = "serde", ...)` | none |
 | `Board` and `Puzzle` do not serialise | A `a_board_and_a_puzzle_do_not_serialise`, at compile time | none |
 | `Record` and `ReopenError` meet invariant 3 | A, both bounds tests | none |
@@ -473,7 +482,9 @@ snapshot test.
 `undone`, a count; and `checks`, a list of `{ after_move, target, digit }`. Nothing
 derived: no cell's digit, no note, no `digit_before`, no `struck_from`, no index and no
 `is_right`. Nothing read from the solution: writing reads the puzzle's givens, the
-journal and the checks, and never calls `is_solution_digit`.
+journal and the checks, and never calls `is_solution_digit`. U
+`a_record_holds_what_it_states_and_no_answer` holds the names of the fields, at every
+depth, to exactly these.
 
 ### Names later tickets need
 
@@ -505,8 +516,9 @@ The choices this ticket made:
 - **The order of refusals**, fixed by `refusals_come_in_a_fixed_order` and stated under
   `# Errors` on `Board::reopen`: `TooManyUndone`, `ChecksWithoutMoves`, `Givens`; then
   the first move that fails, `MoveAfterSolved` before `Move`; `UndoneWhenSolved`; then
-  the first check that fails, off the grid, a given, a digit out of range, and last
-  `CheckAfterNoMove`. The two counts come before the search, so a record that fails
+  the first check that fails: off the grid, a given, a digit out of range, then
+  `CheckAfterNoMove`, and last `Check` carrying `PlayError::Solved` for the digit that
+  would have solved the puzzle. The two counts come before the search, so a record that fails
   them costs no search.
 - **A refusal's text closes with its cause.** `Givens`, `Move` and `Check` carry the
   solver's or the board's refusal as their source, and print it too: "move 3 of the
@@ -540,8 +552,9 @@ The reopened board's picture was laid beside T27's
 two files are the same, line for line. No test compares them.
 
 The refusals are made by hand in the snapshot test, where T27's were each got by asking
-a board. No malformed record can be built outside the crate without a format crate,
-since a record's fields are private; the unit tests show a record that earns each.
+a board. A malformed record can be had outside the crate only by deserialising one, and
+a deserialiser for each of eight would be longer than the picture; the unit tests show
+a record that earns each.
 
 No earlier snapshot changed.
 
@@ -561,12 +574,12 @@ Closing lines of each recipe, from the last run:
 | --- | --- |
 | `just fmt-check` | `cargo fmt --all --check` (no diagnostic) |
 | `just clippy` | ``Finished `dev` profile [unoptimized + debuginfo] target(s)``, no warning |
-| `just metrics` | `::notice::Quality score: 100.0% (579 functions analyzed)`, no finding, and the probe satisfied |
-| `just test` | `247 tests run: 247 passed, 0 skipped`; `test result: ok. 111 passed; 0 failed` and `ok. 1 passed` (the `compile_fail` example) for the doctests |
+| `just metrics` | `::notice::Quality score: 100.0% (586 functions analyzed)`, no finding, and the probe satisfied |
+| `just test` | `250 tests run: 250 passed, 0 skipped`; `test result: ok. 111 passed; 0 failed` and `ok. 1 passed` (the `compile_fail` example) for the doctests |
 | `just snapshots-check` | `info: no unreferenced snapshots found`; `info: no snapshots to review` |
 | `just wasm-check` | both feature sets on `wasm32-unknown-unknown` and on `wasm32v1-none`, each `Finished` |
 | `just features` | `--no-default-features` and `--features serde`, each `Finished` |
-| `just coverage` | `TOTAL` lines `99.86%` (2797 lines, 4 missed); `Finished report saved to target/llvm-cov/lcov.info` |
+| `just coverage` | `TOTAL` lines `99.86%` (2888 lines, 4 missed); `Finished report saved to target/llvm-cov/lcov.info` |
 | `just doc` | `Generated .../target/doc/pawdoku/index.html` |
 | `just check-docs` | `Validated 41 pages and 42 canonical topics.` |
 | `just check` | `The worktree matches the check baseline.`; `All checks passed and the worktree is unchanged.` |
@@ -586,12 +599,17 @@ Coverage of `src/board`, from the same report:
 | `board/moves.rs` | 31 | 0 | 100.00% |
 | `board/note.rs` | 97 | 0 | 100.00% |
 | `board/reading.rs` | 24 | 0 | 100.00% |
-| `board/record.rs` | 487 | 0 | 100.00% |
+| `board/record.rs` | 578 | 1 | 99.83% |
 
-The four missed lines are the ones T27 reported, three in `random.rs` and one in
-`sudoku/puzzle.rs`; this ticket touched neither.
+Three of the four missed lines are in `random.rs`, which this ticket did not touch.
+The fourth is in `record.rs`, in test code: the generic deserialiser of
+`a_malformed_record_deserialises_and_is_refused_at_reopening` is compiled once for
+each field's type, and the line that hands over the count runs in one of those copies
+and not the others. `lcov.info` shows every line of the file executed. `sudoku/puzzle.rs`, where T27
+reported one missed line, shows none in this run; this ticket did not touch it, and
+why the figure moved was not looked into.
 
-**The tests were shown to bite.** Thirteen deliberate breaks, each made, run through
+**The tests were shown to bite.** Fourteen deliberate breaks, each made, run through
 `just test` and reverted. Those runs stop at the first failures, so a row is what failed
 before the run stopped. P is the property.
 
@@ -609,6 +627,7 @@ before the run stopped. P is the property.
 | A check's digit is not held to its range | `a_check_with_a_digit_out_of_range_is_refused` |
 | The moves are made latest first | Five of the refusal tests, on the index reported |
 | Writing says no move is undone | P, `undone_moves_reopen_undone_and_are_re_taken_the_same`, `a_record_is_written_from_a_board_at_any_point`, and two more |
+| A check of the digit that solves the puzzle is accepted, which is the code as first committed | `a_check_of_the_digit_that_solves_the_puzzle_is_refused` |
 | Writing leaves the checks out | P, `checks_reopen_with_their_indices_and_their_answers`, and four more |
 
 The `proptest-regressions` file the breaks left was deleted; it recorded failures of
@@ -624,11 +643,44 @@ Acceptance criteria read against the code:
 - **No recursion**, no `#[allow]`, no `#[expect]` added, no `qual:allow` line. No struct
   in `src/board` exceeds 20 methods: `Board` has 19, `Journal` 10.
 - **`Cargo.toml` and `Cargo.lock` are unchanged**, both manifests.
-- **`record.rs` has about 175 code lines** before its first `#[cfg(test)]`, of the 500
+- **`record.rs` has about 180 code lines** before its first `#[cfg(test)]`, of the 500
   allowed, and `tests/board.rs` is inside the thousand a test file is allowed.
+
+**A Codex adversarial review, round 1**, was run at the maintainer's request on commit
+`4882c44`. Its report is scratch, under `ai_tmp/`. It ran `just test` and
+`just plan-spec board`, read the whole diff, and found the replay, the refusal order,
+the bounds, the snapshots and the figures above sound. It made three findings, and all
+three were answered:
+
+- **An impossible check was accepted.** On a puzzle with one cell left to play, the
+  right digit solves the puzzle as it is placed, and nothing is checked on a solved
+  puzzle; so no board answered a check of that digit, and a record that held one
+  reopened. The review reasoned it and did not run it. The test was written first and
+  failed: the record reopened to a solved board holding the check. Reopening now
+  refuses it, as `ReopenError::Check` carrying `PlayError::Solved`, which is what a
+  board says of that check. It is the one case of its kind: with two cells to play the
+  other can be left empty, and a wrong digit never solves.
+- **The test that a record holds nothing of the solution proved less than its name.**
+  Its two records held no check, so an answer stored beside a check would have passed.
+  The test now reads the record of a board with a check answered each way, holds the
+  names of its fields at every depth to the ten stated, and holds that it prints no
+  boolean. The search for a row of the solution stays, named for what it is. That an
+  added `is_right` fails the new test is reasoned from its text and was not run: the
+  change would not compile without rewriting the tests' own fixtures.
+- **A sentence was false in three places.** The testing page, a comment in
+  `tests/snapshots.rs` and these notes said a malformed record cannot be built outside
+  the crate without a format crate. serde's own value deserialisers build one, as
+  `random.rs` already shows. The three now say so, and a unit test deserialises a
+  record with one move undone and none made, and sees it refused at reopening.
 
 ### Deviations, and why
 
+- **A check is held to one thing the ticket does not list.** The ticket holds a check
+  to four things and says reopening "accepts the rest". The Codex review found a fifth
+  that can be recognised from the givens alone: the right digit of a puzzle with one
+  cell to play. `board.allium` says a record that no board could have been written to
+  is refused, so it is refused, and `Record`'s documentation lists it with the others.
+  The third open point stands for everything else about a check's digit.
 - **Eight variants where step 5 lists six.** The ticket asks for one variant for each
   way a record fails to read back and then names six. Two ways it describes elsewhere
   fit none of them. Moves undone on a solved puzzle is not a move after the puzzle is
@@ -646,7 +698,7 @@ Acceptance criteria read against the code:
   same two edits.
 - **The refusals' snapshot is made by hand**, as "Snapshots taken" says.
 - **Step 3, one line at a time.** The ten B tests were written before any code and
-  failed to compile; the twenty-odd U tests were written with the types they build
+  failed to compile; the U tests, twenty-eight as they ended, were written with the types they build
   records from, against a reopening that did nothing, and failed on their assertions.
   Reopening was then written in one piece and not a refusal at a time. The breaks
   above are what shows each test holds its own clause.
@@ -669,9 +721,9 @@ Acceptance criteria read against the code:
   here: the refusal tests, the order test, and a property whose records are all sound.
   Nothing generates malformed records at random; a fuzz target, or a proptest strategy
   over the record's private fields, would.
-- **A check's digit**, the third open point, stands as the ticket leaves it. Reopening
-  refuses the four impossible checks it can recognise and accepts the rest, and
-  `Record` documents it.
+- **A check's digit**, the third open point, stands. Reopening refuses the five
+  impossible checks it can recognise, the ticket's four and the one the review found,
+  and accepts the rest, and `Record` documents it.
 - **Reopening costs one search**, as opening does, and makes every move again. Its
   cost was not measured: the tests that reopen the solved fixture's fifty-one moves
   take about twenty milliseconds each, process start included, and that is all that

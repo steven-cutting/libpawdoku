@@ -846,8 +846,9 @@ impl Board {
     ///   undone;
     /// - for the first check that fails, [`ReopenError::Check`] when its target is off
     ///   the grid, its target is a given or its digit is not from 1 to 9, in that
-    ///   order, and otherwise [`ReopenError::CheckAfterNoMove`] when it was asked after
-    ///   no move.
+    ///   order; then [`ReopenError::CheckAfterNoMove`] when it was asked after no move;
+    ///   and last [`ReopenError::Check`] again, carrying [`PlayError::Solved`], when
+    ///   its digit would have solved the puzzle as it was placed.
     ///
     /// ```
     /// use pawdoku::board::Board;

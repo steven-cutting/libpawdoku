@@ -269,8 +269,10 @@ record that fails them costs no search.
 **One thing cannot be read back.** A check holds the digit that stood in its cell when
 it was asked, and after an undo and a new move the moves that stood then may be gone.
 So a check is held to what can be known: its target is a cell that is not a given, its
-digit is from 1 to 9, it was asked after at least one move, and a record with a check
-has a move. Its digit is not compared with any move, and its count of moves may exceed
+digit is from 1 to 9, it was asked after at least one move, a record with a check has
+a move, and its digit is not the right one for a puzzle with a single cell to play,
+which would have solved the puzzle before anything could be asked. Its digit is not
+compared with any move, and its count of moves may exceed
 the moves the record holds. Its answer is never stored, so a record cannot lie about
 it. `Record`'s documentation says the same, and that no promise is made yet that a
 record written by one version of the engine reopens in another.

@@ -42,9 +42,10 @@ use alloc::vec::Vec;
 /// it was asked, and after an undo and a new move the moves that stood then may be
 /// gone from the record. So a check is held to what can be known: its target is a cell
 /// of the grid that is not a given, its digit is from 1 to 9, it was asked after at
-/// least one move, and a record that holds a check holds a move. Its digit is not
-/// compared with any move, and its count of moves may exceed the moves the record
-/// holds. Its answer is not in the record, so a record cannot lie about it: the answer
+/// least one move, a record that holds a check holds a move, and its digit is not one
+/// that would have solved the puzzle as it was placed, which is so only for the right
+/// digit of a puzzle with one cell to play. Its digit is not compared with any move,
+/// and its count of moves may exceed the moves the record holds. Its answer is not in the record, so a record cannot lie about it: the answer
 /// is worked out again from the solution.
 ///
 /// # Across versions
@@ -185,6 +186,9 @@ impl Asked {
         require(in_range(digit), out_of_range)?;
         require(after_move >= 1, ReopenError::CheckAfterNoMove { index })?;
         let is_right = board.puzzle.is_solution_digit(target, digit);
+        // With one cell to play, its right digit solves the puzzle as it is placed.
+        let to_play = board.cells().filter(|cell| !cell.is_given()).count();
+        require(!is_right || to_play > 1, refused(PlayError::Solved))?;
         Ok(Check::new(index, after_move, target, digit, is_right))
     }
 }
@@ -264,7 +268,9 @@ pub enum ReopenError {
         undone: usize,
     },
     /// One of the record's checks is one no board answers: its target is off the grid
-    /// or a given, or its digit is not from 1 to 9.
+    /// or a given, its digit is not from 1 to 9, or its digit solves the puzzle, which
+    /// the right digit does where one cell is left to play. The source is what a board
+    /// says of such a check.
     #[error("check {index} of the record does not read back: {source}")]
     Check {
         /// Which check, counted from 1 in the record's order.
@@ -350,7 +356,7 @@ pub(super) fn reopened(record: &Record) -> Result<Board, ReopenError> {
 #[cfg(test)]
 mod tests {
     use super::{Asked, Record, ReopenError, Written};
-    use crate::board::{Board, PlayError};
+    use crate::board::{Board, Check, PlayError};
     use crate::solver::{SolveError, solve};
     use crate::sudoku::{Given, Position, WellPosedError};
     use alloc::collections::BTreeSet;
@@ -702,6 +708,49 @@ mod tests {
         );
     }
 
+    /// The fixture with every cell given but [`FREE`]: one cell is left to play, and
+    /// placing its digit, a 4, solves the puzzle.
+    fn one_cell_to_play(moves: &[Written], checks: &[Asked]) -> Record {
+        let mut givens = givens(&solution());
+        givens.remove(&Given::new(FREE, 4));
+        Record {
+            givens,
+            moves: moves.to_vec(),
+            undone: 0,
+            checks: checks.to_vec(),
+        }
+    }
+
+    /// Where one cell is left to play, its right digit solves the puzzle as it is
+    /// placed, and nothing is checked on a solved puzzle. So no board answered a check
+    /// of that digit, whatever moves the record holds.
+    #[test]
+    fn a_check_of_the_digit_that_solves_the_puzzle_is_refused() {
+        let marked = Written::WriteMark {
+            target: FREE,
+            digit: 2,
+        };
+        let source = PlayError::Solved;
+        for made in [PLACED, marked] {
+            assert_eq!(
+                refusal(&one_cell_to_play(&[made], &[SOUND])),
+                refused_check(1, source.clone())
+            );
+        }
+
+        // A wrong digit there solves nothing, so its check was asked and reopens; and
+        // with two cells to play the right digit may be checked, as everywhere above.
+        let wrong = Written::Place {
+            target: FREE,
+            digit: 9,
+        };
+        let asked = Asked { digit: 9, ..SOUND };
+        let board = Board::reopen(&one_cell_to_play(&[wrong, PLACED], &[asked])).unwrap();
+        let answers: Vec<bool> = board.checks().map(Check::is_right).collect();
+        assert_eq!(answers, [false]);
+        assert!(Board::reopen(&one_cell_to_play(&[PLACED], &[])).is_ok());
+    }
+
     /// What cannot be read back is accepted: a check after more moves than the record
     /// holds, of a digit no move of the record placed. Its answer is worked out from
     /// the solution, so the record cannot lie about it.
@@ -868,19 +917,116 @@ mod tests {
             .collect()
     }
 
-    /// A record holds the givens and what the player did, and nothing read from the
-    /// solution: no row of it is in what a record prints, as digits or as a list.
+    /// A board with a move of every kind on it, one of them undone, and a check
+    /// answered each way.
+    fn played() -> Board {
+        let mut board = Board::open(givens(FIXTURE)).unwrap();
+        board.write_mark(BESIDE, 7).unwrap();
+        board.strike_mark(BESIDE, 7).unwrap();
+        board.place(FREE, 9).unwrap();
+        assert!(!board.check(FREE).unwrap().is_right());
+        board.place(FREE, 4).unwrap();
+        assert!(board.check(FREE).unwrap().is_right());
+        board.erase(FREE).unwrap();
+        board.undo().unwrap();
+        board
+    }
+
+    /// Every field a record has, at any depth, by the names its `Debug` prints them
+    /// under. `Debug` and the serde traits are derived from the same fields, and no
+    /// attribute skips or renames one, so these are the fields a record serialises.
+    fn fields(record: &Record) -> BTreeSet<String> {
+        let printed = format!("{record:#?}");
+        let words = printed.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_' || c == ':'));
+        let names = words.filter_map(|word| word.strip_suffix(':'));
+        names.map(String::from).collect()
+    }
+
+    /// A record holds the givens, what the player did and what the player asked, and
+    /// nothing derived or read from the solution: its fields are the ones stated and
+    /// no others, a check's answer is not among them, and it has no boolean to hold
+    /// one. The board it was written from holds a check answered each way.
     #[test]
-    fn a_record_holds_nothing_of_the_solution() {
+    fn a_record_holds_what_it_states_and_no_answer() {
+        let record = played().write();
+        let stated = [
+            "givens",
+            "position",
+            "row",
+            "column",
+            "digit",
+            "moves",
+            "target",
+            "undone",
+            "checks",
+            "after_move",
+        ];
+        assert_eq!(fields(&record), stated.map(String::from).into());
+        let printed = format!("{record:?}");
+        assert!(!printed.contains("true") && !printed.contains("false"));
+        // The record looked at is not an empty one: both checks and every move are in it.
+        assert_eq!(record.checks.len(), 2);
+        assert_eq!(record.moves.len(), 5);
+        assert_eq!(record.undone, 1);
+    }
+
+    /// A narrower look at the same thing: no row of the solution is in what a record
+    /// prints, as digits or as a list.
+    #[test]
+    fn a_record_prints_no_row_of_the_solution() {
         let board = Board::open(givens(FIXTURE)).unwrap();
-        let mut marked = board.clone();
-        marked.write_mark(FREE, 2).unwrap();
-        let printed = [board.write(), marked.write()]
+        let printed = [board.write(), played().write()]
             .map(|record| [format!("{record:?}"), format!("{record:#?}")]);
         for text in printed.as_flattened() {
             let text: String = text.split_whitespace().collect();
             let shown = rows_as_printed().into_iter().find(|row| text.contains(row));
             assert_eq!(shown, None);
         }
+    }
+
+    /// The four fields of a serialised record, handed to a deserialiser one at a time
+    /// as the elements of a sequence: no givens, no moves, one move undone, no checks.
+    /// It counts the fields handed over.
+    #[cfg(feature = "serde")]
+    struct Fields(u8);
+
+    #[cfg(feature = "serde")]
+    impl<'de> serde::de::SeqAccess<'de> for Fields {
+        type Error = serde::de::value::Error;
+
+        fn next_element_seed<T: serde::de::DeserializeSeed<'de>>(
+            &mut self,
+            seed: T,
+        ) -> Result<Option<T::Value>, Self::Error> {
+            use serde::de::IntoDeserializer;
+            use serde::de::value::SeqDeserializer;
+
+            // The derived visitor asks for a struct's four fields and no more: the
+            // third is the undone count, and the others are sequences, here empty.
+            self.0 += 1;
+            if self.0 == 3 {
+                return seed.deserialize(1_usize.into_deserializer()).map(Some);
+            }
+            let nothing = SeqDeserializer::new(core::iter::empty::<u8>());
+            seed.deserialize(nothing).map(Some)
+        }
+    }
+
+    /// Deserialising checks nothing, and reopening checks everything: a record no
+    /// board wrote arrives through serde's own value deserialisers, with no format
+    /// crate, as it could from any caller, and is refused when it is reopened.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn a_malformed_record_deserialises_and_is_refused_at_reopening() {
+        use serde::Deserialize;
+        use serde::de::value::SeqAccessDeserializer;
+
+        let arrived = Record::deserialize(SeqAccessDeserializer::new(Fields(0))).unwrap();
+        let (undone, moves) = (1, 0);
+        assert_eq!(arrived.undone, undone);
+        assert_eq!(
+            refusal(&arrived),
+            ReopenError::TooManyUndone { undone, moves }
+        );
     }
 }

@@ -386,8 +386,8 @@ mod tests {
         insta::assert_snapshot!(render_board(&Board::reopen(&record).unwrap()));
     }
 
-    /// No malformed record can be built from outside the crate, so each refusal is
-    /// made by hand here; the unit tests of the record show a record that earns each.
+    /// Each refusal is made by hand here, which is shorter than deserialising a
+    /// malformed record for each; the record's unit tests show a record that earns each.
     #[test]
     fn snapshot_the_reopening_refusals() {
         let given = Position::new(1, 1);
