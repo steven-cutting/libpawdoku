@@ -1,0 +1,8 @@
+---
+source: crates/pawdoku/tests/snapshots.rs
+expression: picture
+---
+SolveError (Display)
+no solution: the givens have no solution
+several solutions: the givens have more than one solution
+nothing left to play: 81 givens leave nothing to play: a puzzle has fewer givens than its 81 cells

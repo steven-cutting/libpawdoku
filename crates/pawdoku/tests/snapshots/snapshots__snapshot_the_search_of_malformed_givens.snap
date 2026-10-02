@@ -1,0 +1,11 @@
+---
+source: crates/pawdoku/tests/snapshots.rs
+expression: picture
+---
+givens
+row 1, column 1: 5
+row 0, column 10: 3
+row 2, column 2: 12
+
+verdict: None
+guesses: 0

@@ -1,7 +1,7 @@
 ---
 id: T26
 title: "The solver in Rust: the search, its result and the proof"
-status: open
+status: done
 depends_on: [T25]
 parallel_with: []
 branch: ticket/t26-solver
@@ -383,15 +383,487 @@ worktree is unchanged.`
 
 ### The test list
 
+The list as first written on 2026-10-01, before any test or code, seeded from "What the
+tests must cover" and then checked against the 101 obligations of `just plan-spec solver`.
+One line is one expected test: its name, then what it expects. O is
+`crates/pawdoku/tests/solver.rs`, through the public API; B is the unit tests of the
+branch, the grid of candidates, under `src/solver/`; S is `src/solver.rs`.
+
+`RefuseMalformedGivens` and `BeginSearch` (O):
+
+1. `a_given_off_the_grid_gets_none_with_no_guess`: row 0, row 10, column 0 and column 10
+   each get `none`, zero guesses and no solution.
+2. `a_digit_out_of_range_gets_none_with_no_guess`: 0, 10 and 255.
+3. `two_digits_to_one_position_get_none_with_no_guess`.
+4. `two_givens_that_agree_are_one_given`: the fixture with a given handed over twice
+   gets what the fixture gets.
+5. `anything_may_be_handed_over`: the empty set, givens in conflict and eighty-one
+   givens each come back with a verdict: `many`, `none` and `one`.
+
+Propagation (O, then B for each rule alone):
+
+1. `singles_alone_solve_the_fixture_with_no_guess`: `one`, zero guesses, the fixture's
+   solution. `GuessesAreTheLastResort` as far as a result shows it.
+2. `hidden_singles_solve_a_puzzle_with_no_naked_single`: givens after which no empty
+   cell has one candidate, solved with zero guesses.
+3. B `a_placed_digit_leaves_its_peers_candidates`: `EliminateFromPeers`.
+4. B `a_cell_with_one_candidate_takes_it`: `PlaceNakedSingle`.
+5. B `a_digit_with_one_place_in_a_unit_is_placed_there`: `PlaceHiddenSingle`, in a row,
+   in a column and in a box, on a cell that has other candidates.
+6. B `the_root_holds_each_given_placed_and_every_other_cell_open`: `LayOutRootBranch`.
+
+Contradiction (O for the result, B for the kind):
+
+1. `givens_in_conflict_get_none_with_no_guess`: one digit twice in a row, in a column
+   and in a box.
+2. `a_cell_with_no_candidate_ends_the_search_with_no_guess`.
+3. `a_unit_with_no_place_for_a_digit_ends_the_search_with_no_guess`.
+4. `a_cell_that_is_the_only_place_for_two_digits_ends_the_search_with_no_guess`.
+5. B `each_kind_of_contradiction_is_read_from_the_cells`: the three sets of givens
+   above, each showing its own kind and neither of the others before anything is placed.
+6. B `two_peers_placed_with_one_digit_each_lose_it`.
+7. B `a_cell_that_is_the_only_place_for_two_digits_is_not_placed`.
+
+Splitting (O, B):
+
+1. `a_published_puzzle_that_needs_a_guess_is_solved`: Norvig's hard puzzle gets `one`,
+   its published solution, and at least one guess.
+2. `the_guess_counts_follow_from_the_tie_break`: the pinned counts.
+3. B `a_branch_is_split_on_the_first_cell_with_the_fewest_candidates`: one child for
+   each candidate, the lowest digit first, each child its parent with the guess placed
+   (`LayOutChildBranch`).
+
+The verdict (O):
+
+1. `the_second_solution_concludes_many_with_both_exposed`: two solutions, different.
+2. `one_solution_concludes_one` and `no_solution_concludes_none`: with the fixture and
+   with the fixture spoiled.
+3. `the_empty_grid_concludes_many_and_stops_at_two`: `AlwaysConcludes` on the hardest
+   case for a search that did not go depth first, and `NeverCountsPastTwo`.
+
+Guarantees and invariants, by property (O):
+
+1. `every_search_concludes`: arbitrary givens, malformed ones included, return.
+2. `the_verdict_agrees_with_the_oracle`: `VerdictIsTrue`, against a plain counter.
+3. `the_same_givens_get_the_same_result_in_any_order`: `SameGivensSameResult`.
+4. `a_result_keeps_its_invariants`: `SolvedBranchesAreSolutions`,
+   `SolutionsAreDistinct`, `NoMoreSolutionsThanSought` and `VerdictMatchesSolutions`,
+   each asserted under its own name.
+5. `the_result_exposes_the_verdict_the_guesses_and_every_digit`: `SearchResult`.
+6. B `the_inside_of_a_search_keeps_its_invariants`: `PlacedCellsKeepOnlyTheirDigit`,
+   `CandidatesAreDigits` and `GuessesAreOnFewestCandidates` on every branch of a search.
+
+`solve` (O, S):
+
+1. `solve_gives_the_proof_for_the_fixture`: holding its givens and its solution.
+2. `solve_refuses_givens_with_no_solution`, `..._with_several_solutions` and
+   `..._that_leave_nothing_to_play`.
+3. `solve_gives_a_proof_exactly_when_the_verdict_is_one`: by property, eighty-one
+   givens apart.
+4. S `the_refusal_converts_from_the_proofs_error`: the conversion, called directly.
+5. `refusal_texts_are_stable`.
+6. S `two_solutions_are_sought`: `config.solutions_sought`.
+
+From outside the crate (`tests/sudoku.rs`, `tests/api_bounds.rs`, doctests):
+
+1. `a_puzzle_set_from_outside_is_played_and_solved`: solve, set, play, solved.
+2. `the_surface_can_be_read_from_outside`: everything `PuzzleSolving` exposes.
+3. The `compile_fail` example on `WellPosed`: `OnlyWellPosedPuzzlesArePosed` from outside.
+4. Every new public type in the two bounds tests.
+
+Expected to be struck, with the observable test that stands in: the obligations that
+name `Branch.status`, `parent`, `depth` and `guess`, and the search's projections over
+branches. The implementation is expected to keep a stack of grids and nothing else of a
+branch.
+
+Changes to the list, one line each, as the loops ran:
+
+- The first run was against a `search` that answered `none` for everything. The three
+  malformed-givens lines and `two_givens_that_agree_are_one_given` were green against
+  it, as the ticket's suggested first line expects, and
+  `singles_alone_solve_the_fixture_with_no_guess` failed on its assertion (`None` where
+  `One` was expected).
+- The search was then written whole, not one rule to a loop: the grid of candidates, the
+  three rules, the three kinds of contradiction, the split and the stack went in
+  together, because the fixture cannot go green on less than all of propagation. The
+  fixture line went green with it, and every later line was green on arrival. Each was
+  then shown to bite by breaking the code on purpose; "What was verified" lists the
+  breaks. "Deviations" records this against step 3.
+- Split in two: `one_solution_concludes_one` and `no_solution_concludes_none`.
+- Added: `a_split_counts_one_guess_whatever_its_children`, because the pinned counts
+  alone did not say that a split is one guess whatever the number of its children.
+- Added: `the_oracle_counts_the_fixtures`, so the oracle is itself held to known counts
+  before the solver is compared with it.
+- Added: four tests of the candidate set, two of the unit tables, and
+  `a_position_has_a_place_exactly_when_it_is_on_the_grid`, for the storage the branch
+  stands on.
+- Added: `a_digit_is_the_sole_place_in_the_unit_the_picture_names`, which holds each
+  hidden-single picture to the one unit it claims. It caught the first box picture,
+  which made the cell the only place in all three units.
+- Added from outside the crate: `each_refusal_reads_as_its_text`,
+  `the_moves_are_offered_and_refused_from_outside` and
+  `a_puzzle_set_from_outside_does_not_print_its_solution`.
+- Corrected: `a_result_keeps_its_invariants` first failed on its own assertion, which
+  called a result with no solutions "two equal solutions". The test was wrong and the
+  solver was not; the `proptest-regressions/` file it left was deleted.
+- Corrected: the first strategy of `the_inside_of_a_search_keeps_its_invariants` spoiled
+  nearly every case, so no search it made ever split. The coverage report showed the
+  lines that check `GuessesAreOnFewestCandidates` never ran. The strategy now thins the
+  solution until searches split, and the report shows those lines run.
+- Struck, as expected: the obligations about a branch's status, parent, depth and guess
+  and about which branch works next. The table gives each its reason and the test that
+  stands in.
+
+The list as it ended, from clause to test. O is `crates/pawdoku/tests/solver.rs`, S is
+`src/solver.rs`, B is `src/solver/branch.rs` and C is `src/solver/candidates.rs`. No row
+names a snapshot test.
+
+| Clause | Test, or the reason there is none | `plan-spec` obligations |
+| --- | --- | --- |
+| `BeginSearch`: anything may be handed over, and a search begins with no guess | O `anything_may_be_handed_over` | `rule-success.BeginSearch`, `rule-entity-creation.BeginSearch.1`, `surface-provides.Solving` |
+| `RefuseMalformedGivens`: a given off the grid | O `a_given_off_the_grid_gets_none_with_no_guess` | `rule-success.RefuseMalformedGivens`, `when-set.RefuseMalformedGivens.Search.verdict` |
+| `RefuseMalformedGivens`: a digit out of range | O `a_digit_out_of_range_gets_none_with_no_guess` | none |
+| `RefuseMalformedGivens`: two digits to one position | O `two_digits_to_one_position_get_none_with_no_guess` | none |
+| Two givens that agree are one given | O `two_givens_that_agree_are_one_given` | none |
+| `givens_are_well_formed`, and `OpenRootBranch` only for givens that are | B `no_root_is_opened_for_givens_that_are_not_well_formed` | `derived.Search.givens_are_well_formed`, `rule-failure.OpenRootBranch.1`, `rule-failure.RefuseMalformedGivens.1` |
+| `OpenRootBranch` and `LayOutRootBranch`: each given placed, every other cell open | B `the_root_holds_each_given_placed_and_every_other_cell_open` | `rule-success.OpenRootBranch`, `rule-entity-creation.OpenRootBranch.1`, `rule-success.LayOutRootBranch`, `entity-relationship.Branch.cells`, `entity-optional.BranchCell.digit` |
+| A cell's row, column, band and stack: its place in the grid and its units | B `a_position_has_a_place_exactly_when_it_is_on_the_grid`, `the_units_are_nine_rows_nine_columns_and_nine_boxes` | `entity-fields.BranchCell` |
+| `row_mates`, `column_mates`, `box_mates` and `peers` | B `a_cells_mates_are_its_twenty_peers_by_row_column_and_box` | `entity-relationship.BranchCell.row_mates`, `entity-relationship.BranchCell.column_mates`, `entity-relationship.BranchCell.box_mates`, `entity-relationship.BranchCell.peers` |
+| `CandidatesAreDigits`, as the type holds it | C `every_digit_is_one_to_nine_each_once`, `candidates_are_digits_whatever_is_offered`, `sets_join_part_and_overlap`, `a_single_is_a_set_of_exactly_one_digit` | none |
+| `EliminateFromPeers` | B `a_placed_digit_leaves_its_peers_candidates` | `rule-success.EliminateFromPeers`, `derived.BranchCell.has_stale_candidate` |
+| A placed cell loses its own digit if a peer is placed with it | B `two_peers_placed_with_one_digit_each_lose_it` | none |
+| `PlaceNakedSingle`; a placed cell is not placed again | B `a_cell_with_one_candidate_takes_it` | `rule-success.PlaceNakedSingle`, `rule-failure.PlaceNakedSingle.2`, `derived.BranchCell.is_naked_single` |
+| `PlaceHiddenSingle`, in a row, a column and a box; a cell with several candidates is no naked single | B `a_digit_with_one_place_in_a_unit_is_placed_there`, `a_digit_is_the_sole_place_in_the_unit_the_picture_names` | `rule-success.PlaceHiddenSingle`, `rule-failure.PlaceNakedSingle.3`, `derived.BranchCell.is_hidden_single` |
+| `PlaceHiddenSingle` requires a cell that is not overdemanded | B `a_cell_that_is_the_only_place_for_two_digits_is_not_placed` | `rule-failure.PlaceHiddenSingle.3` |
+| Propagation: singles alone solve the fixture; `GuessesAreTheLastResort` | O `singles_alone_solve_the_fixture_with_no_guess` | none |
+| Propagation: the third rule apart from the second | O `hidden_singles_solve_a_puzzle_with_no_naked_single` | none |
+| Contradiction: the three kinds `DecideBranch` reads, each alone | B `each_kind_of_contradiction_is_read_from_the_cells` | `derived.BranchCell.is_contradictory`, `transition-edge.Branch.working.contradicted` |
+| Contradiction: a cell with no candidate ends its branch with no guess | O `a_cell_with_no_candidate_ends_the_search_with_no_guess` | none |
+| Contradiction: a unit with no place for a digit | O `a_unit_with_no_place_for_a_digit_ends_the_search_with_no_guess` | none |
+| Contradiction: a cell that is the only place for two digits | O `a_cell_that_is_the_only_place_for_two_digits_ends_the_search_with_no_guess` | none |
+| Contradiction: givens in conflict are found out this way | O `givens_in_conflict_get_none_with_no_guess` | none |
+| `DecideBranch`: settled and filled is solved; a full grid has nothing left to propagate; only a split has children | B `singles_alone_settle_the_fixture_into_its_solution` | `rule-success.DecideBranch`, `derived.Branch.is_settled`, `derived.Branch.is_decided`, `derived.Branch.is_filled`, `transition-edge.Branch.working.solved`, `rule-failure.PlaceHiddenSingle.2`, `projection.Branch.placed_cells` |
+| Splitting: on a cell with the fewest candidates, one child for each candidate; `LayOutChildBranch`; the tie-break's two orders | B `a_branch_is_split_on_the_first_cell_with_the_fewest_candidates` | `transition-edge.Branch.working.split`, `rule-success.LayOutChildBranch`, `projection.Branch.unplaced_cells`, `projection.Branch.fewest_candidate_cells`, `derived.BranchCell.has_fewest_candidates` |
+| Splitting: `guesses` rises by one for each split | O `a_split_counts_one_guess_whatever_its_children` | none |
+| Splitting: a published puzzle that needs a guess | O `a_published_puzzle_that_needs_a_guess_is_solved` | none |
+| The pinned tie-break | O `the_guess_counts_follow_from_the_tie_break` | none |
+| `ConcludeMany`: `many` at the second solution, both exposed and different | O `the_second_solution_concludes_many_with_both_exposed` | `rule-success.ConcludeMany`, `when-set.ConcludeMany.Search.verdict`, `projection.Search.solved_branches` |
+| `ConcludeExhausted`: `one` with its one solution | O `one_solution_concludes_one` | `rule-success.ConcludeExhausted`, `when-set.ConcludeExhausted.Search.verdict`, `derived.Search.is_exhausted` |
+| `ConcludeExhausted`: `none` with no solution | O `no_solution_concludes_none` | none |
+| `NeverCountsPastTwo`; `AlwaysConcludes` on the empty grid; `has_enough_solutions` | O `the_empty_grid_concludes_many_and_stops_at_two` | `derived.Search.has_enough_solutions` |
+| `config.solutions_sought` is 2 | S `two_solutions_are_sought` | `config-default.solutions_sought` |
+| `config.box_side` and `config.side`: `sudoku`'s two figures, which the solver reads and does not restate | `sudoku.rs`: `box_side_is_three_and_side_is_its_square` (T25) | `config-default.box_side`, `config-default.side` |
+| `AlwaysConcludes` | O `every_search_concludes` | `transition-edge.Search.searching.concluded` |
+| `VerdictIsTrue` | O `the_verdict_agrees_with_the_oracle`, with `the_oracle_counts_the_fixtures` holding the oracle itself | none |
+| `SameGivensSameResult` | O `the_same_givens_get_the_same_result_in_any_order` | none |
+| `SolvedBranchesAreSolutions`, `SolutionsAreDistinct`, `NoMoreSolutionsThanSought`, `VerdictMatchesSolutions` | O `a_result_keeps_its_invariants`, each asserted under its own name | `invariant.SolvedBranchesAreSolutions`, `invariant.SolutionsAreDistinct`, `invariant.NoMoreSolutionsThanSought`, `invariant.VerdictMatchesSolutions` |
+| `PlacedCellsKeepOnlyTheirDigit`, `CandidatesAreDigits`, `GuessesAreOnFewestCandidates` | B `the_inside_of_a_search_keeps_its_invariants`, each asserted under its own name on every branch of a search | `invariant.PlacedCellsKeepOnlyTheirDigit`, `invariant.CandidatesAreDigits`, `invariant.GuessesAreOnFewestCandidates` |
+| `OnlySplitBranchesHaveChildren` | B `the_inside_of_a_search_keeps_its_invariants` (a solved branch has no children) and `singles_alone_settle_the_fixture_into_its_solution`; `Decided::Split` is the one value that carries children | `invariant.OnlySplitBranchesHaveChildren` |
+| `SearchResult`: the verdict, the guesses and each solution's digit at every position | O `the_result_exposes_the_verdict_the_guesses_and_every_digit` | `surface-exposure.SearchResult`, `entity-fields.Search` |
+| `solve`: the proof for the fixture | O `solve_gives_the_proof_for_the_fixture` | none |
+| `solve`: the three refusals | O `solve_refuses_givens_with_no_solution`, `solve_refuses_givens_with_several_solutions`, `solve_refuses_givens_that_leave_nothing_to_play` | none |
+| `solve`: a proof exactly when the verdict is `one`, eighty-one givens apart | O `solve_gives_a_proof_exactly_when_the_verdict_is_one` | none |
+| `solve`: the conversion from the constructor's error | S `the_refusal_converts_from_the_proofs_error` | none |
+| Each refusal's `Display` text is stable | S `refusal_texts_are_stable`; O `each_refusal_reads_as_its_text` | none |
+| `OnlyWellPosedPuzzlesArePosed`, from outside | the `compile_fail` example on `sudoku::WellPosed`, which names `WellPosed::vouch` and nothing else | none |
+| `PuzzleSolving` end to end, from outside the crate | `tests/sudoku.rs`: `a_puzzle_set_from_outside_is_played_and_solved`, `the_moves_are_offered_and_refused_from_outside`, `the_surface_can_be_read_from_outside`, `a_puzzle_set_from_outside_does_not_print_its_solution` | none |
+| Invariant 3 for the new public types | `tests/api_bounds.rs`: `public_types_are_send_sync_and_static`, `public_types_are_clone_and_debug` | none |
+| `search.status`, and its transitions | struck: a result has no status value. `search` returns only a concluded search, and the sentence at `solver.allium` lines 638 to 641 says being handed it says concluded. `every_search_concludes` stands in; `verdict` is a method and so always present | `transition-rejected.Search.status`, `transition-terminal.Search.status`, `when-presence.Search.verdict`, `rule-failure.ConcludeMany.1`, `rule-failure.ConcludeExhausted.1` |
+| `Guess`, and a branch's `parent`, `guess` and `depth` | struck: the module excludes how the search is stored. A branch is its cells; a child is its parent with one cell placed, and nothing records the guess, the parent or the depth. `a_branch_is_split_on_the_first_cell_with_the_fewest_candidates` reads each child's guess from where it parts from its parent | `value-equality.Guess`, `entity-fields.Guess`, `entity-fields.Branch`, `entity-optional.Branch.parent`, `entity-optional.Branch.guess`, `rule-failure.LayOutRootBranch.1`, `rule-failure.LayOutChildBranch.1`, `invariant.ChildrenSitBelowTheirParent` |
+| `Branch.status` as a value; rules that require a working branch | struck: a branch has no status field. Waiting is being on the stack, working is being inside `Branch::decide`, and the three ends are the three values of `Decided`, tested above. Nothing can propagate a waiting or an ended branch, because `decide` takes the branch by value | `transition-rejected.Branch.status`, `transition-terminal.Branch.status`, `derived.BranchCell.is_live`, `derived.Branch.is_laid_out`, `rule-failure.EliminateFromPeers.1`, `rule-failure.PlaceNakedSingle.1`, `rule-failure.PlaceHiddenSingle.1`, `rule-failure.DecideBranch.1` |
+| Which branch works next: `is_ready`, `is_next`, `is_due`, `is_idle`, `AttendWaitingBranch`, and the projections over branches | struck: the waiting branches are a stack and the search takes its top. `the_guess_counts_follow_from_the_tie_break` stands in: the counts are those of a depth-first search that takes the lowest digit first, and the break "the highest digit is taken first" fails the tests. The empty grid concluding in 47 guesses is what breadth first would not do | `entity-relationship.Search.branches`, `projection.Search.working_branches`, `projection.Search.waiting_branches`, `projection.Search.ready_branches`, `derived.Search.is_idle`, `derived.Branch.is_ready`, `derived.Branch.is_next`, `derived.Branch.is_due`, `transition-edge.Branch.waiting.working`, `rule-success.AttendWaitingBranch`, `rule-failure.AttendWaitingBranch.1`, `rule-failure.AttendWaitingBranch.2`, `invariant.OneBranchWorksAtATime`, `invariant.TheDeepestBranchWorks` |
+| Abandoning what still waits: `waiting -> abandoned`, `ConcludedLeavesNothingOpen` | struck: the stack is dropped when `search` returns, so nothing is left open and nothing is marked. `the_empty_grid_concludes_many_and_stops_at_two` stands in: no branch is taken up after the second solution, or the result would hold a third and the guess count would not be 47 | `transition-edge.Branch.waiting.abandoned`, `invariant.ConcludedLeavesNothingOpen` |
+| A surface's actor | struck: neither surface declares one | `surface-actor.Solving`, `surface-actor.SearchResult` |
+
+101 obligations: 62 mapped to a test, 39 struck with a reason.
+
+`search.status` is exposed by the return. The sentence T23 added is in
+`docs/specs/solver.allium` above `surface SearchResult`, at lines 638 to 641: "A caller
+that is handed a search only once it has concluded reads the status from that alone:
+being handed it says concluded." `SearchResult` has no status field and no accessor, and
+its documentation quotes the sentence.
+
 ### Names later tickets need
+
+**The solver** (`pawdoku::solver`), every item with a doc example that runs:
+
+| Item | Signature |
+| --- | --- |
+| `search` | `#[must_use] pub fn search(givens: impl IntoIterator<Item = Given>) -> SearchResult` |
+| `solve` | `pub fn solve(givens: impl IntoIterator<Item = Given>) -> Result<WellPosed, SolveError>` |
+| `SearchResult` | `Debug, Clone, PartialEq, Eq`; `#[non_exhaustive]`, fields private; no serde; no status |
+| `SearchResult::verdict` | `pub const fn verdict(&self) -> Verdict` |
+| `SearchResult::guesses` | `pub const fn guesses(&self) -> u32` |
+| `SearchResult::solutions` | `pub fn solutions(&self) -> &[Grid<u8>]`: none, one or two, in the order found |
+| `Verdict` | `Debug, Clone, Copy, PartialEq, Eq`; `#[non_exhaustive]`; `None`, `One`, `Many` |
+| `SolveError` | `Debug, Clone, PartialEq, Eq, thiserror::Error`; `#[non_exhaustive]`; `NoSolution`, `SeveralSolutions`, `NotPosed(WellPosedError)`, with `From<WellPosedError>` |
+
+**The givens type.** Both entries take `impl IntoIterator<Item = Given>`: a
+`BTreeSet<Given>`, a `Vec<Given>`, an array or any iterator of givens by value. A
+borrowed collection is handed over as `givens.iter().copied()`. Both collect into a
+`BTreeSet<Given>`, so the order does not matter and a given handed over twice is one
+given. No new type was added for givens. The maintainer chose this shape on 2026-10-01.
+
+**The three refusals of `solve`**, with their `Display` text:
+
+| Refusal | When | Text |
+| --- | --- | --- |
+| `SolveError::NoSolution` | the verdict is `none`, malformed givens included | `the givens have no solution` |
+| `SolveError::SeveralSolutions` | the verdict is `many` | `the givens have more than one solution` |
+| `SolveError::NotPosed(WellPosedError::NothingLeftToPlay { givens: 81 })` | the verdict is `one` and every cell is given | the constructor's own: `81 givens leave nothing to play: a puzzle has fewer givens than its 81 cells` |
+
+`NotPosed` is transparent: its text and its source are the wrapped error's. The other
+five `WellPosedError` variants would arrive in it too, by the same conversion, and no
+givens reach them. The maintainer chose the wrapped shape on 2026-10-01.
+
+**The tie-break**, for the maintainer to confirm: among the empty cells with the fewest
+candidates, the first in grid order (topmost row, then leftmost column); among the
+children of a split, the lowest digit first. It is the rule the ticket suggested, and it
+is stated in the documentation of `pawdoku::solver` under "The tie-break".
+
+**`sudoku`, public now.** The paths T25 fixed exist: `sudoku::WellPosed` and
+`sudoku::Puzzle`. `proof` and `puzzle` are private modules and `src/sudoku.rs` re-exports
+`WellPosed`, `WellPosedError`, `Cell`, `MoveError`, `Puzzle` and `Status`. Signatures
+are as T25's notes list them, with `pub` for `pub(crate)` and `#[must_use]` on the
+getters, on `Puzzle::set`, `cell`, `is_full` and `is_consistent`.
+
+| Item | Change |
+| --- | --- |
+| `sudoku::Grid<T>` | `pub type Grid<T> = [[T; 9]; 9]`, public, as the maintainer chose: rows top to bottom, so row `r`, column `c` is `grid[r - 1][c - 1]` |
+| `WellPosed`, `WellPosed::givens`, `WellPosed::solution` | public; `solution` returns `&Grid<u8>` |
+| `WellPosed::vouch` | stays `pub(crate)`; `solver::solve` is its one caller outside test code |
+| `WellPosed::into_parts` | stays `pub(super)` |
+| `WellPosedError` | public |
+| `Puzzle` and `set`, `givens`, `status`, `cell`, `cells`, `is_full`, `is_consistent`, `place`, `erase` | public; `place` and `erase` gained an `# Errors` section that states the refusal order |
+| `Puzzle::is_solution_digit` | stays `pub(crate)` with its `dead_code` expectation, which names T27 |
+| `Status`, `Cell` and its seven getters, `MoveError` | public |
+| `sudoku::LINE`, `sudoku::in_range` | `pub(crate)` now, because the solver uses them; `at`, `at_mut`, `grid_positions` and `Position`'s `band`, `stack` and `is_peer_of` stay private to `sudoku` |
+
+For T27: a board opens from givens by calling `solver::solve(givens)` and
+`Puzzle::set(proof)`, and maps `SolveError` into its own refusal. The solution a test
+needs is `proof.solution()`, read before the proof is given to `Puzzle::set`.
+
+**Every public item beside the doctest that covers it.** `just test` runs them as
+`crates/pawdoku/src/<file> - <path> (line n)`.
+
+| Public item | Doctest |
+| --- | --- |
+| `pawdoku` (crate overview) | `src/lib.rs - (line 17)`: solve, then set |
+| `solver` (module) | `solver.rs - solver` |
+| `solver::search` | `solver.rs - solver::search` |
+| `solver::solve` | `solver.rs - solver::solve` |
+| `solver::SolveError` | `solver.rs - solver::SolveError` |
+| `solver::Verdict` | `solver/result.rs - solver::result::Verdict` |
+| `solver::SearchResult` | `solver/result.rs - solver::result::SearchResult` |
+| `SearchResult::verdict`, `guesses`, `solutions` | `solver/result.rs - solver::result::SearchResult::verdict`, `::guesses`, `::solutions` |
+| `sudoku` (module) | `sudoku.rs - sudoku` |
+| `sudoku::Grid` | `sudoku.rs - sudoku::Grid` |
+| `sudoku::WellPosed` | `sudoku/proof.rs - sudoku::proof::WellPosed`, and the `compile_fail` example beside it |
+| `WellPosed::givens`, `WellPosed::solution` | `sudoku/proof.rs - sudoku::proof::WellPosed::givens`, `::solution` |
+| `sudoku::WellPosedError` | `sudoku/proof.rs - sudoku::proof::WellPosedError` |
+| `sudoku::Status` | `sudoku/puzzle.rs - sudoku::puzzle::Status` |
+| `sudoku::Cell` | `sudoku/puzzle.rs - sudoku::puzzle::Cell` |
+| `Cell::row`, `column`, `band`, `stack`, `digit`, `is_given`, `is_conflicting` | `sudoku/puzzle.rs - sudoku::puzzle::Cell::row` and the six beside it |
+| `sudoku::MoveError` | `sudoku/puzzle.rs - sudoku::puzzle::MoveError` |
+| `sudoku::Puzzle` | `sudoku/puzzle.rs - sudoku::puzzle::Puzzle` |
+| `Puzzle::set`, `givens`, `status`, `cell`, `cells`, `is_full`, `is_consistent`, `place`, `erase` | `sudoku/puzzle.rs - sudoku::puzzle::Puzzle::set` and the eight beside it |
+
+Each of the `sudoku` examples makes its value through `solve`. `WellPosedError`'s makes
+its value by handing `solve` eighty-one givens. The variants of the errors and the
+variants of `Verdict` and `Status` are shown in their type's example and have none of
+their own.
 
 ### Snapshots taken
 
+All six are in `crates/pawdoku/tests/snapshots/`, taken by tests in
+`crates/pawdoku/tests/snapshots.rs` through the public API after the list was empty, and
+each file was read before it was committed. The render helpers draw from
+`SearchResult::verdict`, `guesses` and `solutions`, and from `WellPosed::givens` and
+`solution`; nothing was added to the library for them. The guess counts and the order of
+the two solutions follow from the tie-break.
+
+| Test | File | Shows |
+| --- | --- | --- |
+| `snapshot_the_search_of_the_fixture` | `snapshots__snapshot_the_search_of_the_fixture.snap` | The fixture's givens as a grid, then verdict `One`, 0 guesses and the one solution |
+| `snapshot_the_search_of_a_puzzle_that_needs_a_guess` | `snapshots__snapshot_the_search_of_a_puzzle_that_needs_a_guess.snap` | Norvig's puzzle, verdict `One`, 50 guesses and its solution |
+| `snapshot_the_search_of_givens_with_two_solutions` | `snapshots__snapshot_the_search_of_givens_with_two_solutions.snap` | The fixture without one given, verdict `Many`, 1 guess and both grids |
+| `snapshot_the_search_of_malformed_givens` | `snapshots__snapshot_the_search_of_malformed_givens.snap` | Three givens listed, one off the grid and one with the digit 12, then verdict `None`, 0 guesses and no solution |
+| `snapshot_the_proof_of_the_fixture` | `snapshots__snapshot_the_proof_of_the_fixture.snap` | The proof's givens and its solution, each as a grid. This file holds a solution on purpose: the proof exposes it |
+| `snapshot_the_three_refusals` | `snapshots__snapshot_the_three_refusals.snap` | The `Display` text of the three refusals, one line each |
+
+None of T25's four snapshots under `src/sudoku/snapshots/` changed.
+
 ### What was verified, and how
+
+Done on 2026-10-01 in the supplied Supacode worktree, on `69025ae`, the merge of T25.
+The worktree was clean and `.pixi/` and `.tools/bin` were present, so `just initialize`
+was not run. `just check` was green before any edit. Commands used rustup's cargo
+through `PATH="$HOME/.cargo/bin:$PATH"`.
+
+`just plan-spec solver` printed 101 obligations and an empty `diagnostics` array; the
+table above accounts for each.
+
+Closing lines of each recipe, from the last run:
+
+| Recipe | Closing output |
+| --- | --- |
+| `just fmt-check` | `cargo fmt --all --check` (no diagnostic) |
+| `just clippy` | ``Finished `dev` profile [unoptimized + debuginfo] target(s)``, no warning |
+| `just metrics` | `::notice::Quality score: 100.0% (296 functions analyzed)`, no finding, no recursion among them, and the probe satisfied |
+| `just test` | `141 tests run: 141 passed, 0 skipped`; `test result: ok. 56 passed; 0 failed` and `ok. 1 passed` (the `compile_fail` example) for the doctests |
+| `just snapshots-check` | `info: no unreferenced snapshots found`; `info: no snapshots to review` |
+| `just wasm-check` | both feature sets on `wasm32-unknown-unknown` and on `wasm32v1-none`, each `Finished` |
+| `just features` | `--no-default-features` and `--features serde`, each `Finished` |
+| `just coverage` | `TOTAL` lines `99.77%` (1737 lines, 4 missed); `Finished report saved to target/llvm-cov/lcov.info` |
+| `just doc` | `Generated .../target/doc/pawdoku/index.html` |
+| `just check-docs` | `Validated 41 pages and 42 canonical topics.` |
+| `just check` | `The worktree matches the check baseline.`; `All checks passed and the worktree is unchanged.` |
+
+`just test` takes about 1.2 seconds of wall time once built, 0.3 of them in nextest; it
+took about the same before this ticket. The slowest solver test is
+`the_inside_of_a_search_keeps_its_invariants`, at 0.4 seconds under coverage and less
+without. No test costs a second, so nothing is reported under "Speed".
+
+Coverage of the module alone, from the same report:
+
+| File | Lines | Missed | Cover |
+| --- | --- | --- | --- |
+| `solver.rs` | 52 | 0 | 100.00% |
+| `solver/branch.rs` | 502 | 0 | 100.00% |
+| `solver/candidates.rs` | 65 | 0 | 100.00% |
+| `solver/result.rs` | 12 | 0 | 100.00% |
+| `solver/search.rs` | 17 | 0 | 100.00% |
+
+The two tables in `branch.rs` are built when the crate is compiled, so nothing ran their
+builders under instrumentation until `the_units_are_nine_rows_nine_columns_and_nine_boxes`
+called them again and compared. The four missed lines are three in `random.rs`, which
+this ticket did not touch, and the one T25 reported in `sudoku/puzzle.rs`.
+
+**The guess counts were checked against a second implementation.** Before the Rust was
+written, a model of `solver.allium` was written in Python in `ai_tmp/`, from the
+specification's text, with sets for candidates and the rules fired one at a time. It
+gave 0 guesses for the fixture, 50 for Norvig's puzzle, 1 for the two-solution givens
+and 47 for the empty grid, and the Rust gave the same four when it first ran. Then 160
+further sets of givens, thinned from the two solutions at six densities and a quarter of
+them spoiled, were put to both: the verdict, the guess count and the solutions agreed on
+all 160 (118 `many` with 1,723 guesses between them, 27 `none`, 15 `one`). The model, the
+cases and the test that read them are scratch and are not in the commit. Norvig's
+solution and the uniqueness of each fixture were also counted by a third, plain counter
+in the same scratch file.
+
+**The published puzzle** was read from <https://norvig.com/sudoku.html> on 2026-10-01,
+with the maintainer's leave for the one fetch: the essay's `grid2` and the solution it
+prints. `tests/solver.rs` cites it. The two-solution givens and the hidden-single puzzle
+were made from the fixture and say so beside their constants.
+
+**The tests that were green on arrival were shown to bite.** Fifteen deliberate breaks,
+each made, run through `just test` and reverted:
+
+| Break | Tests that failed |
+| --- | --- |
+| Hidden singles are never placed | `hidden_singles_solve_a_puzzle_with_no_naked_single`, and two snapshots |
+| Naked singles are never placed | `the_guess_counts_follow_from_the_tie_break`, and a snapshot |
+| A unit with no place for a digit is not a contradiction | `each_kind_of_contradiction_is_read_from_the_cells` |
+| A cell that is the only place for two digits is not a contradiction | `each_kind_of_contradiction_is_read_from_the_cells` |
+| A cell with no candidate is not a contradiction | `each_kind_of_contradiction_is_read_from_the_cells` |
+| A hidden single is placed in an overdemanded cell | `a_cell_that_is_the_only_place_for_two_digits_is_not_placed` |
+| The highest digit is taken first | `the_second_solution_concludes_many_with_both_exposed`, `the_result_exposes_the_verdict_the_guesses_and_every_digit`, and a snapshot |
+| The split is on the last cell with the fewest candidates | `a_branch_is_split_on_the_first_cell_with_the_fewest_candidates` |
+| The split is on the first empty cell, fewest or not | `a_branch_is_split_on_the_first_cell_with_the_fewest_candidates` |
+| Three solutions are sought | `two_solutions_are_sought` |
+| A digit out of range is accepted | `no_root_is_opened_for_givens_that_are_not_well_formed` |
+| Two digits to one position are accepted | `no_root_is_opened_for_givens_that_are_not_well_formed` |
+| A guess is counted for each child | `a_split_counts_one_guess_whatever_its_children`, and two snapshots |
+| A placed digit stays among its peers' candidates | the run did not finish in five minutes and was stopped |
+| `WellPosed::vouch` is public | the `compile_fail` example, which then compiles |
+
+Those runs stop at the first failures, so each row is what failed before the run
+stopped, not everything that would have. Snapshot tests appear because they run in the
+same suite and a changed result changes a picture; no clause rests on them.
+
+Acceptance criteria read against the code:
+
+- **The one caller.** Outside test code `WellPosed::vouch` is called once, at
+  `crates/pawdoku/src/solver.rs` in `solve`. The other calls are in `#[cfg(test)]` code
+  under `src/sudoku/`, as T25 left them.
+- **What `src/solver` names.** `crate::sudoku` and nothing else of the engine: no
+  `crate::random`, no trait, no generic parameter for a solver, no budget argument. The
+  one generic is the givens' `impl IntoIterator`. `just metrics` holds the boundary rule
+  `solver_imports_sudoku`.
+- **No recursion**, in code or tests: the search and the oracle each keep a list, and
+  `just metrics` reports no finding.
+- **Suppressions.** No `#[allow]`, no `qual:allow`, and no `#[expect]` on any item. The
+  twenty expectations naming T26 are gone, and the one on `Puzzle::is_solution_digit`,
+  naming T27, remains. The two new files under `tests/` open with the crate-level
+  `#![expect(clippy::tests_outside_test_module, ...)]` that every integration test file
+  here opens with; "Deviations" says why.
+- **No panic in the library.** Outside test code `src/solver` has no `unwrap`, `expect`,
+  `panic!` or run-time indexing. The two tables are indexed while they are built, at
+  compile time; a running search reads them through `get` and iterators.
 
 ### Deviations, and why
 
+- **The loops were not one line each.** The first test was red on its assertion, and
+  then the whole search went in at once, because no part of propagation turns the
+  fixture green alone. Most lines were therefore green on arrival. The deliberate breaks
+  above are how each was shown to prove something, as T25 did.
+- **Two crate-level `#![expect]` lines were added**, at the head of `tests/solver.rs`
+  and `tests/snapshots.rs`, against the criterion "no `#[expect]` added". Every
+  integration test file in the crate opens with the same line, because
+  `tests_outside_test_module` cannot tell an integration test file from library code.
+  The alternative was a `#[cfg(test)] mod tests` wrapper in each file, unlike the three
+  that exist. No item-level expectation was added.
+- **`README.md` and `crates/pawdoku/README.md` are edited**, one sentence each, though
+  the ticket does not list them: each said the crate held the randomness boundary and
+  the value types alone. T25's review asked for the same fix to the same sentences and
+  the maintainer accepted it. Revert them if the lane should not have.
+- **`sudoku::LINE` and `sudoku::in_range` are `pub(crate)`.** T25's notes left widening a
+  helper to this ticket. The solver uses these two and no other.
+- **`Verdict::None`.** The variants are the specification's words, `none`, `one` and
+  `many`. `Verdict::None` reads close to `Option::None`; a consumer that writes
+  `use Verdict::*` would shadow it. The names can change at review; the behaviour is
+  fixed.
+- **`guesses` is a `u32`**, not a `usize`, so that its width is the same on every target
+  and a binding sees one type.
+- **No serde on the new types.** Nothing asks for one yet, as T25 decided for `WellPosed`.
+- **The second two-solution set.** The ticket asks for one set with exactly two
+  solutions. There are two: the fixture without one given, which the snapshot shows, and
+  the fixture's solution with four cells emptied, which gives a split whose two children
+  are both solved at once.
+- **The branch** is `ticket/T26-solver`, as Supacode made it, not the `branch:` field's
+  `ticket/t26-solver`.
+- **Commands outside the recipes.** A Python model and its scripts in `ai_tmp/`; one
+  temporary file under `tests/` that read the model's cases, run through `just test` and
+  deleted; and one `cargo llvm-cov report`, which printed nothing and was replaced by
+  reading `just coverage`. None is needed to reproduce anything here.
+- **Choices the ticket left open**, for review: the result's solutions are a slice of
+  grids, in the order found; the refusal is named `SolveError` and its third variant
+  `NotPosed`; the parts are `candidates.rs`, `branch.rs`, `search.rs` and `result.rs`.
+
 ### Handed back
+
+T26 is done here and in the ticket index.
+
+Triggers this ticket meets, each for the maintainer to pick up and none built here:
+
+- **S03's benchmark recipe**, whose trigger is "once the solver exists". `solver::search`
+  on Norvig's puzzle and on the empty grid are the two natural first benchmarks.
+- **T14**, the mutation job S03 drafted, whose trigger is "once tests exist". The fifteen
+  breaks above are a hand-made sample of what it would do.
+- **T16**, the command-line crate S04 drafted, whose `solve` subcommand "lands with the
+  solver". `solver::solve` and `solver::search` are what it wraps.
+- **T20 and T21**, drafted in T19's hand-back notes, each of which waits for the solver
+  in Rust.
+- **rustqual's pin.** Decision 0013 and `docs/how-to/maintain-dependencies.md` hold the
+  pin at 1.8.3 "until the solver has landed under it". It has: `just metrics` reports no
+  finding with the solver in the crate, with no suppression and no threshold moved.
+
+Still open, for the maintainer:
+
+- **The tie-break**, to confirm: first cell in grid order, lowest digit first.
+- **`docs/tutorials/first-change.md`** is still T30's.
+- **No fuzz target** is triggered: S03 adopts cargo-fuzz "when a parser exists", and
+  the solver is not one.
 
 ## Open points
 
