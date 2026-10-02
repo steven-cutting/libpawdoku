@@ -60,6 +60,10 @@ pub const SIDE: u8 = BOX_SIDE * BOX_SIDE;
 /// be made, because refusing it is a rule's business and not a property of the type.
 /// Two positions are equal when their rows and their columns are.
 ///
+/// The specification's `Integer` is a `u8` here. A row or a column may be anything
+/// from 0 to 255, so a position can lie off the grid on either side, at 0 or at 10 and
+/// above; one below 0 cannot be made.
+///
 /// ```
 /// use pawdoku::sudoku::Position;
 ///
@@ -153,6 +157,9 @@ impl Position {
 /// A given is a plain value, as in the specification: its position may be off the grid
 /// and its digit out of range, because refusing either is a rule's business. Two givens
 /// are equal when their positions and their digits are, so a set holds a given once.
+///
+/// The digit is a `u8`, as a position's row and column are: it may be out of range on
+/// either side, at 0 or at 10 and above, and one below 0 cannot be made.
 ///
 /// ```
 /// use pawdoku::sudoku::{Given, Position};

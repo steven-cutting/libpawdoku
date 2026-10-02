@@ -40,6 +40,7 @@ authoritative; this table is a snapshot.
 | T26 | The solver in Rust: the search, its result and the proof | `T26-solver.md` | T25 | none | open |
 | T27 | The board in play: notes, moves, undo and redo, reading back, and the check | `T27-board-in-play.md` | T26 | none | open |
 | T28 | The record and reopening: a board written down whole and had again | `T28-record-and-reopening.md` | T27 | none | open |
+| T30 | The first-change tutorial: an exercise that can be followed again | `T30-first-change-tutorial.md` | T25 | T26 to T28 | open |
 
 Spike tickets. Each weighs options and ends in a recommendation; none blocks the build and
 none is picked up before T11.
@@ -77,7 +78,8 @@ D01 ── D02 ── T00 ──┬── T01 ───────────�
                     └── T09 ──────────────────┘
 C02 hangs off D01 alone (D01 kept the Python checkers; decision 0004)
 
-T12, T22 ── T23 ── T24 ── T29 ── T25 ── T26 ── T27 ── T28   (the first engine modules)
+T12, T22 ── T23 ── T24 ── T29 ── T25 ──┬── T26 ── T27 ── T28   (the first engine modules)
+                                       └── T30   (the tutorial T25 left unfollowable)
 ```
 
 The graph is acyclic: D01, then D02, then T00, then nine parallel lanes, then T11 and T10
@@ -101,6 +103,10 @@ T27 removes one attribute). That is not two
 owners of one path in the sense of CONVENTIONS.md §11, which is about lanes that run at
 once: here no two are ever open together. The solver T20 and T21 wait for, in T19's
 hand-back notes, is T26.
+
+T30 follows T25, which moved the items the first-change tutorial's exercise is built on.
+It edits one page, `docs/tutorials/first-change.md`, that none of T26 to T28 lists, so it
+may run beside them.
 
 ## How to pick up a ticket
 

@@ -763,21 +763,42 @@ ones, each under `cfg_attr(not(test), ...)`.
   review; one `MoveError` serves both moves; `Puzzle` has no `is_complete` accessor,
   because the surface exposes `is_full` and `is_consistent` and no more; `Puzzle` has
   no `PartialEq`, because a derived one would compare the stored solution; and
-  `WellPosed` has no `Serialize`, because nothing asks for one yet.
+  `WellPosed` has no `Serialize`, because nothing asks for one yet. The maintainer
+  confirmed `u8` in review round 1, below.
+
+### Review round 1
+
+Pull request 26, reviewed at `8041afa` by Codex and by Copilot on 2026-10-01. They
+raised the same two findings, in four comments.
+
+- **Signed integers for `Position` and `Given`: declined**, by the maintainer's
+  decision. The finding: `sudoku.allium` gives both an `Integer`, a `u8` cannot hold
+  -1, and so a malformed value never reaches `RefuseMalformedGivens`. It does reach it.
+  A row, a column or a digit may be 0 or anything from 10 to 255, so a position off the
+  grid on either side and a digit out of range on either side can all be made, and
+  `a_proof_is_refused_for_a_given_off_the_grid` and
+  `placing_is_refused_where_no_cell_is` refuse (0, 1), (1, 0), (10, 1) and (1, 10).
+  What a `u8` leaves out is the negatives, and any finite type leaves something out.
+  The docs of `Position` and `Given` now say which values each admits.
+- **Stale pages: accepted for the two READMEs, deferred for the tutorial.** `README.md`
+  and `crates/pawdoku/README.md` said the crate held the randomness boundary alone;
+  both now name the figures and the value types of `sudoku`. Neither page was in this
+  ticket's list; the edit is a sentence in each. The tutorial stays handed back, by the
+  maintainer's decision, and has an owner: `tickets/T30-first-change-tutorial.md`,
+  drafted in this round and added to the index.
+
+`just check` was green on the tree this round committed.
 
 ### Handed back
 
-T25 is done here and in the ticket index. Committed on the ticket branch and not pushed.
+T25 is done here and in the ticket index.
 
-Three pages outside this ticket's list still describe the crate as it was, and each
-needs an owner:
+One page outside this ticket's list still describes the crate as it was:
 
 - `docs/tutorials/first-change.md` walks a reader through adding `BOX_SIDE` beside
   `SIDE` in `lib.rs`. Both now exist, in `sudoku`, so the exercise cannot be followed.
   It needs a new exercise, which is a choice for the maintainer and not a sentence to
-  correct.
-- `README.md` (line 8) and `crates/pawdoku/README.md` (line 5) say the crate so far
-  holds the randomness boundary alone.
+  correct. T30 owns it.
 
 For T26: the list under "Names later tickets need", the re-exports, the expectations
 to remove, and the `compile_fail` example this ticket leaves to it.
