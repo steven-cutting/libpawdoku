@@ -9,6 +9,13 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- The board in play, `pawdoku::board`, from `board.allium`. A `Board` opens from givens
+  in one call, owns its puzzle and hands out values of its own: `BoardCell`, `Note`,
+  `Move` and `Check`. It places and erases digits, writes and strikes marks, keeps the
+  peers' notes up after a placement, takes the latest move back and re-takes it, reads
+  back the board as it stood after any move, and answers a check of one cell yes or no.
+  A refused operation changes nothing and says why with a `PlayError`. The record and
+  reopening are not here yet.
 - The solver, `pawdoku::solver`, from `solver.allium`. `search` gives any givens a
   verdict of none, one or many, the solutions found and the count of guesses; `solve`
   gives the proof a puzzle is set from, or one of three refusals. With it

@@ -1,0 +1,51 @@
+---
+source: crates/pawdoku/tests/snapshots.rs
+expression: "render_board(&played(&[]))"
+---
+status: Unsolved
+full: false
+consistent: true
+can undo: false
+can redo: false
+
+digits
+53..7....
+6..195...
+.98....6.
+8...6...3
+4..8.3..1
+7...2...6
+.6....28.
+...419..5
+....8..79
+
+givens
+53..7....
+6..195...
+.98....6.
+8...6...3
+4..8.3..1
+7...2...6
+.6....28.
+...419..5
+....8..79
+
+conflicts
+.........
+.........
+.........
+.........
+.........
+.........
+.........
+.........
+.........
+
+notes
+none
+
+moves
+none
+
+checks
+none
