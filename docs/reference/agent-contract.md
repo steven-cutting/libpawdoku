@@ -41,13 +41,14 @@ here, which stays until the tooling package makes the list configurable (decisio
 ## What a skill must be
 
 This library carries fourteen canonical skills, one directory each under
-`.agents/skills/`, in two groups. Seven are the house's own: `code-review`,
+`.agents/skills/`, in two groups. Seven are the house's own: `review-change`,
 `fix-quality`, `plan-change`, `project-check`, `review-docs`, `spec-change` and
-`rust-change`. Seven are vendored from `juxt/allium`, with `skills-lock.json` recording
-their source: `allium`, `distill`, `elicit`, `propagate`, `tend`, `weed` and `witness`.
-Five are byte for byte; `allium` and `propagate` each carry one edited line that names
-this repository's recipes and test layout. Each skill has two bridges, so there are
-twenty-eight.
+`rust-change`. `review-change` is the games' `code-review` renamed, so that it does not
+shadow Claude Code's built-in `/code-review`. Seven are vendored from `juxt/allium`,
+with `skills-lock.json` recording their source: `allium`, `distill`, `elicit`,
+`propagate`, `tend`, `weed` and `witness`. Five are byte for byte; `allium` and
+`propagate` each carry one edited line that names this repository's recipes and test
+layout. Each skill has two bridges, so there are twenty-eight.
 
 Frontmatter of exactly two keys:
 

@@ -94,7 +94,7 @@ deliberate, so a module's surface is the one it meant to export, and `lib.rs` is
 file to read for re-exports in review.
 `mod_module_files` bans `mod.rs`, so every module is the file named after it and the
 graph above can be read from the file tree. What the rules cannot see is left to review,
-to the `rust-change` and `code-review` skills, and to the shape of the tests: code in the
+to the `rust-change` and `review-change` skills, and to the shape of the tests: code in the
 wrong layer is usually code that is hard to test.
 
 ## Related pages
