@@ -616,7 +616,7 @@ given. No new type was added for givens. The maintainer chose this shape on 2026
 five `WellPosedError` variants would arrive in it too, by the same conversion, and no
 givens reach them. The maintainer chose the wrapped shape on 2026-10-01.
 
-**The tie-break**, for the maintainer to confirm: among the empty cells with the fewest
+**The tie-break**, confirmed by the maintainer on 2026-10-01: among the empty cells with the fewest
 candidates, the first in grid order (topmost row, then leftmost column); among the
 children of a split, the lowest digit first. It is the rule the ticket suggested, and it
 is stated in the documentation of `pawdoku::solver` under "The tie-break".
@@ -892,7 +892,6 @@ Triggers this ticket meets, each for the maintainer to pick up and none built he
 
 Still open, for the maintainer:
 
-- **The tie-break**, to confirm: first cell in grid order, lowest digit first.
 - **`docs/tutorials/first-change.md`** is still T30's.
 - **No fuzz target** is triggered: S03 adopts cargo-fuzz "when a parser exists", and
   the solver is not one.
@@ -903,6 +902,7 @@ Still open, for the maintainer:
   digit. Any fixed rule satisfies the module. The choice changes guess counts, which a
   consumer may come to record, so the rule chosen is stated in the module's
   documentation and in the hand-back notes for the maintainer to confirm.
+  **Confirmed on 2026-10-01:** the first cell in grid order, the lowest digit first.
 - **What `search` exposes of the search's inside.** The surface exposes the verdict, the
   guesses and the solutions, and the ticket builds exactly that. Branches, depth and the
   guess taken at each split are not exposed. `generation.allium` may later ask for more;
