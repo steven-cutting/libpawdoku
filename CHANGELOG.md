@@ -9,6 +9,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- The solver, `pawdoku::solver`, from `solver.allium`. `search` gives any givens a
+  verdict of none, one or many, the solutions found and the count of guesses; `solve`
+  gives the proof a puzzle is set from, or one of three refusals. With it
+  `sudoku::WellPosed`, `sudoku::Puzzle`, `Cell`, `Status`, `Grid` and the two errors
+  become public, so a puzzle can be made from outside the crate: solve, then set.
 - The first engine module, `pawdoku::sudoku`, from `sudoku.allium`: the constants
   `BOX_SIDE` and `SIDE`, and the value types `Position` and `Given`. Inside the crate
   until the solver arrives: the proof value `WellPosed`, and a `Puzzle` set from it with

@@ -6,13 +6,6 @@ use alloc::collections::BTreeSet;
 
 /// The solution with every cell's digit read out, or the first cell, in grid order,
 /// that is empty or holds something out of range.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "nothing reaches it until T26: the solver makes the proof and `Puzzle` becomes public"
-    )
-)]
 fn filled(solution: &Grid<Option<u8>>) -> Result<Grid<u8>, WellPosedError> {
     let mut digits = [[0; LINE]; LINE];
     for (position, cell) in grid_positions().zip(digits.iter_mut().flatten()) {
@@ -29,13 +22,6 @@ fn filled(solution: &Grid<Option<u8>>) -> Result<Grid<u8>, WellPosedError> {
 
 /// Refuses a solution in which two peers hold one digit, naming the first such pair in
 /// grid order.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "nothing reaches it until T26: the solver makes the proof and `Puzzle` becomes public"
-    )
-)]
 fn consistent(solution: &Grid<u8>) -> Result<(), WellPosedError> {
     let holds = |position| at(solution, position);
     let conflict = grid_positions().find_map(|first| {
@@ -54,13 +40,6 @@ fn consistent(solution: &Grid<u8>) -> Result<(), WellPosedError> {
 }
 
 /// Refuses a given that is off the grid or whose digit is not the solution's there.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "nothing reaches it until T26: the solver makes the proof and `Puzzle` becomes public"
-    )
-)]
 fn matches(given: Given, solution: &Grid<u8>) -> Result<(), WellPosedError> {
     match at(solution, given.position) {
         None => Err(WellPosedError::GivenOffGrid { given }),
@@ -73,16 +52,34 @@ fn matches(given: Given, solution: &Grid<u8>) -> Result<(), WellPosedError> {
 ///
 /// The `Display` text of each variant is stable API: bindings build their exceptions
 /// from it.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "nothing reaches it until T26: the solver makes the proof and `Puzzle` becomes public"
-    )
-)]
+///
+/// `pawdoku::solver::solve` is the proof's one maker, and it hands the constructor a
+/// solution a search found. So the one variant a caller meets is
+/// [`NothingLeftToPlay`](Self::NothingLeftToPlay); the others say the solution itself is
+/// wrong, and would mean a defect in the solver.
+///
+/// ```
+/// use pawdoku::solver::{SolveError, solve};
+/// use pawdoku::sudoku::{Given, Position, WellPosedError};
+///
+/// // Every cell of a valid grid as a given: one solution, and nothing left to play.
+/// let digit = |row: u8, column: u8| (3 * (row % 3) + row / 3 + column) % 9 + 1;
+/// let every_cell = (0..9).flat_map(|row| {
+///     (0..9).map(move |column| Given::new(Position::new(row + 1, column + 1), digit(row, column)))
+/// });
+///
+/// let Err(SolveError::NotPosed(error)) = solve(every_cell) else {
+///     panic!("eighty-one givens are refused");
+/// };
+/// assert_eq!(error, WellPosedError::NothingLeftToPlay { givens: 81 });
+/// assert_eq!(
+///     error.to_string(),
+///     "81 givens leave nothing to play: a puzzle has fewer givens than its 81 cells"
+/// );
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
-pub(crate) enum WellPosedError {
+pub enum WellPosedError {
     /// The givens leave the player nothing to do.
     #[error("{givens} givens leave nothing to play: a puzzle has fewer givens than its 81 cells")]
     NothingLeftToPlay {
@@ -155,27 +152,44 @@ pub(crate) enum WellPosedError {
 /// `SetPuzzle` admits only givens that leave something to play and have exactly one
 /// solution. This module cannot count solutions, so a puzzle is set from this value
 /// and from nothing else, and whoever makes one vouches for the uniqueness.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "nothing reaches it until T26: the solver makes the proof and `Puzzle` becomes public"
-    )
-)]
+///
+/// Only `pawdoku::solver::solve` makes one: it is the solver that knows the solution is
+/// the only one. Whoever holds a proof may read its givens and its solution.
+///
+/// ```
+/// use pawdoku::solver::solve;
+/// use pawdoku::sudoku::{Given, Position, Puzzle};
+///
+/// // Thirty givens, rows top to bottom, a dot for an empty cell.
+/// let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+///     .bytes()
+///     .zip(0_u8..)
+///     .filter(|(cell, _)| cell.is_ascii_digit())
+///     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+///
+/// let proof = solve(givens)?;
+/// assert_eq!(proof.givens().len(), 30);
+/// assert_eq!(proof.solution()[0], [5, 3, 4, 6, 7, 8, 9, 1, 2]);
+///
+/// // A puzzle is set from the proof, and setting cannot fail.
+/// let puzzle = Puzzle::set(proof);
+/// assert!(!puzzle.is_full());
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// Outside the crate there is no other way to make a proof. The constructor cannot be
+/// named, so this does not compile:
+///
+/// ```compile_fail
+/// let _ = pawdoku::sudoku::WellPosed::vouch;
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
-pub(crate) struct WellPosed {
+pub struct WellPosed {
     givens: BTreeSet<Given>,
     solution: Grid<u8>,
 }
 
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "nothing reaches it until T26: the solver makes the proof and `Puzzle` becomes public"
-    )
-)]
 impl WellPosed {
     /// Makes the proof, on its caller's word that `solution` is the only solution
     /// `givens` have.
@@ -200,13 +214,54 @@ impl WellPosed {
     }
 
     /// The givens the proof is about.
-    pub(crate) const fn givens(&self) -> &BTreeSet<Given> {
+    ///
+    /// ```
+    /// use pawdoku::solver::solve;
+    /// use pawdoku::sudoku::{Given, Position};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let proof = solve(givens)?;
+    /// assert_eq!(proof.givens().len(), 30);
+    /// assert!(proof.givens().contains(&Given::new(Position::new(1, 1), 5)));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[must_use]
+    pub const fn givens(&self) -> &BTreeSet<Given> {
         &self.givens
     }
 
     /// The one solution of the givens: rows top to bottom, and in each row the columns
     /// left to right.
-    pub(crate) const fn solution(&self) -> &Grid<u8> {
+    ///
+    /// ```
+    /// use pawdoku::solver::solve;
+    /// use pawdoku::sudoku::{Given, Position};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let proof = solve(givens)?;
+    /// let solution = proof.solution();
+    ///
+    /// // The digit at row 5, column 5.
+    /// assert_eq!(solution[4][4], 5);
+    /// // Every given's cell holds the given's digit.
+    /// assert!(proof.givens().iter().all(|given| {
+    ///     let position = given.position();
+    ///     solution[usize::from(position.row() - 1)][usize::from(position.column() - 1)] == given.digit()
+    /// }));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[must_use]
+    pub const fn solution(&self) -> &Grid<u8> {
         &self.solution
     }
 

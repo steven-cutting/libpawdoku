@@ -8,7 +8,10 @@
 )]
 
 use pawdoku::random::{RandomError, RandomStream, ReplayStream, SeededStream};
-use pawdoku::sudoku::{Given, Position};
+use pawdoku::solver::{SearchResult, SolveError, Verdict};
+use pawdoku::sudoku::{
+    Cell, Given, Grid, MoveError, Position, Puzzle, Status, WellPosed, WellPosedError,
+};
 
 const fn assert_send_sync<T: Send + Sync + 'static>() {}
 const fn assert_clone_debug<T: Clone + core::fmt::Debug>() {}
@@ -21,6 +24,16 @@ fn public_types_are_send_sync_and_static() {
     assert_send_sync::<RandomError>();
     assert_send_sync::<Position>();
     assert_send_sync::<Given>();
+    assert_send_sync::<Grid<u8>>();
+    assert_send_sync::<WellPosed>();
+    assert_send_sync::<WellPosedError>();
+    assert_send_sync::<Puzzle>();
+    assert_send_sync::<Status>();
+    assert_send_sync::<Cell>();
+    assert_send_sync::<MoveError>();
+    assert_send_sync::<SearchResult>();
+    assert_send_sync::<Verdict>();
+    assert_send_sync::<SolveError>();
 }
 
 #[test]
@@ -30,6 +43,16 @@ fn public_types_are_clone_and_debug() {
     assert_clone_debug::<RandomError>();
     assert_clone_debug::<Position>();
     assert_clone_debug::<Given>();
+    assert_clone_debug::<Grid<u8>>();
+    assert_clone_debug::<WellPosed>();
+    assert_clone_debug::<WellPosedError>();
+    assert_clone_debug::<Puzzle>();
+    assert_clone_debug::<Status>();
+    assert_clone_debug::<Cell>();
+    assert_clone_debug::<MoveError>();
+    assert_clone_debug::<SearchResult>();
+    assert_clone_debug::<Verdict>();
+    assert_clone_debug::<SolveError>();
 }
 
 #[test]

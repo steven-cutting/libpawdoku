@@ -6,28 +6,46 @@
 //! specification's value types, plain and unconstrained, and [`BOX_SIDE`] and [`SIDE`]
 //! are its two figures.
 //!
-//! The rest of the module is inside the crate for now. `SetPuzzle` admits only givens
-//! with exactly one solution, and this module cannot count solutions, so a puzzle is
-//! set from a proof value, `WellPosed`, that only the solver will make. Until the
-//! solver exists nothing outside the crate could make one, so the proof, the `Puzzle`
-//! it sets and their errors are crate-only, and become public with the solver.
+//! `SetPuzzle` admits only givens with exactly one solution, and this module cannot
+//! count solutions. So a [`Puzzle`] is set from a proof value, [`WellPosed`], and from
+//! nothing else, and the proof is made by the solver alone: `pawdoku::solver::solve`
+//! gives one for givens it finds exactly one solution to. Setting a puzzle is therefore
+//! two steps, solve and then set, and the second cannot fail.
 //! `docs/explanation/architecture.md` says how well-posedness reaches the rules.
+//!
+//! A puzzle in play is read through [`Cell`] values and its [`Status`], and changed by
+//! the two moves, [`Puzzle::place`] and [`Puzzle::erase`], which refuse with a
+//! [`MoveError`].
 //!
 //! **Not final.** This is a draft: it may change as implementation continues.
 //!
 //! ```
-//! use pawdoku::sudoku::{Given, Position, SIDE};
+//! use pawdoku::solver::solve;
+//! use pawdoku::sudoku::{Given, Position, Puzzle, Status};
 //!
-//! let corner = Position::new(SIDE, SIDE);
-//! let given = Given::new(corner, 9);
-//! assert_eq!(given.position().row(), 9);
-//! assert_eq!(given.digit(), 9);
+//! // Thirty givens, rows top to bottom, a dot for an empty cell.
+//! let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+//!     .bytes()
+//!     .zip(0_u8..)
+//!     .filter(|(cell, _)| cell.is_ascii_digit())
+//!     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+//!
+//! let mut puzzle = Puzzle::set(solve(givens)?);
+//! assert_eq!(puzzle.status(), Status::Unsolved);
+//!
+//! // The third cell of the first row is empty, and its digit is 4.
+//! puzzle.place(Position::new(1, 3), 4)?;
+//! assert!(puzzle.is_consistent());
+//! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
 #[cfg(test)]
 mod fixture;
-pub(crate) mod proof;
-pub(crate) mod puzzle;
+mod proof;
+mod puzzle;
+
+pub use proof::{WellPosed, WellPosedError};
+pub use puzzle::{Cell, MoveError, Puzzle, Status};
 
 /// The side of a box: three cells across and three down, and three boxes to a band and
 /// to a stack.
@@ -119,13 +137,6 @@ impl Position {
     }
 }
 
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "nothing reaches it until T26: the solver makes the proof and `Puzzle` becomes public"
-    )
-)]
 impl Position {
     /// Which band a row is in, or which stack a column is: lines 1 to 3 are box 1,
     /// 4 to 6 box 2 and 7 to 9 box 3, as `CellsSitInTheirBox` says.
@@ -217,34 +228,40 @@ impl Given {
 }
 
 /// The side of the grid as a length.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "nothing reaches it until T26: the solver makes the proof and `Puzzle` becomes public"
-    )
-)]
-const LINE: usize = SIDE as usize;
+pub(crate) const LINE: usize = SIDE as usize;
 
 /// One value for every position of the grid: rows top to bottom, and in each row the
 /// columns left to right.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "nothing reaches it until T26: the solver makes the proof and `Puzzle` becomes public"
-    )
-)]
-pub(crate) type Grid<T> = [[T; LINE]; LINE];
+///
+/// Rows and columns count from 1 and an array counts from 0, so what the grid holds at
+/// row `r`, column `c` is `grid[r - 1][c - 1]`. A solution is a `Grid<u8>`: a digit in
+/// every cell.
+///
+/// This is a name for a plain array and defines no type of its own. `Grid<u8>` is the
+/// one grid the public API hands out, and it is `Send`, `Sync`, `Clone` and `Debug` as
+/// every public type is.
+///
+/// ```
+/// use pawdoku::solver::solve;
+/// use pawdoku::sudoku::{Given, Grid, Position};
+///
+/// // `givens` are the thirty givens of the example in the module's documentation.
+/// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+/// #     .bytes()
+/// #     .zip(0_u8..)
+/// #     .filter(|(cell, _)| cell.is_ascii_digit())
+/// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+/// let proof = solve(givens)?;
+/// let solution: &Grid<u8> = proof.solution();
+///
+/// // Row 1, column 3.
+/// assert_eq!(solution[0][2], 4);
+/// assert_eq!(solution.len(), 9);
+/// # Ok::<(), pawdoku::solver::SolveError>(())
+/// ```
+pub type Grid<T> = [[T; LINE]; LINE];
 
 /// What a grid holds at `position`, or nothing where the grid has no such cell.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "nothing reaches it until T26: the solver makes the proof and `Puzzle` becomes public"
-    )
-)]
 fn at<T: Copy>(grid: &Grid<T>, position: Position) -> Option<T> {
     let row = usize::from(position.row).checked_sub(1)?;
     let column = usize::from(position.column).checked_sub(1)?;
@@ -252,13 +269,6 @@ fn at<T: Copy>(grid: &Grid<T>, position: Position) -> Option<T> {
 }
 
 /// The place a grid keeps for `position`, or nothing where the grid has no such cell.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "nothing reaches it until T26: the solver makes the proof and `Puzzle` becomes public"
-    )
-)]
 fn at_mut<T>(grid: &mut Grid<T>, position: Position) -> Option<&mut T> {
     let row = usize::from(position.row).checked_sub(1)?;
     let column = usize::from(position.column).checked_sub(1)?;
@@ -267,26 +277,12 @@ fn at_mut<T>(grid: &mut Grid<T>, position: Position) -> Option<&mut T> {
 
 /// Every position from row 1, column 1 to row [`SIDE`], column [`SIDE`], each once, a
 /// row at a time.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "nothing reaches it until T26: the solver makes the proof and `Puzzle` becomes public"
-    )
-)]
 fn grid_positions() -> impl Iterator<Item = Position> {
     (1..=SIDE).flat_map(|row| (1..=SIDE).map(move |column| Position::new(row, column)))
 }
 
 /// Whether `digit` is one a cell may hold: from 1 to [`SIDE`].
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "nothing reaches it until T26: the solver makes the proof and `Puzzle` becomes public"
-    )
-)]
-const fn in_range(digit: u8) -> bool {
+pub(crate) const fn in_range(digit: u8) -> bool {
     1 <= digit && digit <= SIDE
 }
 

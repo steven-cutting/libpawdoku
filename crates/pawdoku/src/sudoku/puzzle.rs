@@ -8,16 +8,38 @@ use alloc::vec::Vec;
 use core::fmt;
 
 /// Whether a puzzle is still to be solved. Solved is final.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "nothing reaches it until T26: the solver makes the proof and `Puzzle` becomes public"
-    )
-)]
+///
+/// ```
+/// use pawdoku::solver::solve;
+/// use pawdoku::sudoku::{Given, Position, Puzzle, Status};
+///
+/// // `givens` are the thirty givens of the example in the module's documentation.
+/// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+/// #     .bytes()
+/// #     .zip(0_u8..)
+/// #     .filter(|(cell, _)| cell.is_ascii_digit())
+/// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+/// let proof = solve(givens)?;
+/// let solution = *proof.solution();
+/// let mut puzzle = Puzzle::set(proof);
+/// assert_eq!(puzzle.status(), Status::Unsolved);
+///
+/// // Fill every cell the setter left with the solution's digit.
+/// let empty: Vec<Position> = puzzle
+///     .cells()
+///     .filter(|cell| !cell.is_given())
+///     .map(|cell| Position::new(cell.row(), cell.column()))
+///     .collect();
+/// for position in empty {
+///     let digit = solution[usize::from(position.row() - 1)][usize::from(position.column() - 1)];
+///     puzzle.place(position, digit)?;
+/// }
+/// assert_eq!(puzzle.status(), Status::Solved);
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
-pub(crate) enum Status {
+pub enum Status {
     /// The grid is not yet complete.
     Unsolved,
     /// Every cell holds a digit and none conflicts.
@@ -26,64 +48,208 @@ pub(crate) enum Status {
 
 /// One cell of a puzzle as it stands: where it sits, what it holds and how it stands
 /// with its peers. A value, read from the puzzle and never written back.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "nothing reaches it until T26: the solver makes the proof and `Puzzle` becomes public"
-    )
-)]
+///
+/// ```
+/// use pawdoku::solver::solve;
+/// use pawdoku::sudoku::{Given, Position, Puzzle};
+///
+/// // `givens` are the thirty givens of the example in the module's documentation.
+/// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+/// #     .bytes()
+/// #     .zip(0_u8..)
+/// #     .filter(|(cell, _)| cell.is_ascii_digit())
+/// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+/// let puzzle = Puzzle::set(solve(givens)?);
+///
+/// // Row 1 begins 5, 3 and an empty cell.
+/// let given = puzzle.cell(Position::new(1, 1)).expect("row 1, column 1 is a cell");
+/// assert_eq!((given.row(), given.column()), (1, 1));
+/// assert_eq!(given.digit(), Some(5));
+/// assert!(given.is_given());
+///
+/// let empty = puzzle.cell(Position::new(1, 3)).expect("row 1, column 3 is a cell");
+/// assert_eq!(empty.digit(), None);
+/// assert!(!empty.is_given());
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
-pub(crate) struct Cell {
+pub struct Cell {
     position: Position,
     digit: Option<u8>,
     is_given: bool,
     is_conflicting: bool,
 }
 
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "nothing reaches it until T26: the solver makes the proof and `Puzzle` becomes public"
-    )
-)]
 impl Cell {
     /// The cell's row, counted from the top.
-    pub(crate) const fn row(self) -> u8 {
+    ///
+    /// ```
+    /// use pawdoku::solver::solve;
+    /// use pawdoku::sudoku::{Given, Position, Puzzle};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let puzzle = Puzzle::set(solve(givens)?);
+    /// let cell = puzzle.cell(Position::new(4, 7)).expect("row 4, column 7 is a cell");
+    /// assert_eq!(cell.row(), 4);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[must_use]
+    pub const fn row(self) -> u8 {
         self.position.row
     }
 
     /// The cell's column, counted from the left.
-    pub(crate) const fn column(self) -> u8 {
+    ///
+    /// ```
+    /// use pawdoku::solver::solve;
+    /// use pawdoku::sudoku::{Given, Position, Puzzle};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let puzzle = Puzzle::set(solve(givens)?);
+    /// let cell = puzzle.cell(Position::new(4, 7)).expect("row 4, column 7 is a cell");
+    /// assert_eq!(cell.column(), 7);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[must_use]
+    pub const fn column(self) -> u8 {
         self.position.column
     }
 
     /// The band of the cell's box, counted from the top.
-    pub(crate) const fn band(self) -> u8 {
+    ///
+    /// ```
+    /// use pawdoku::solver::solve;
+    /// use pawdoku::sudoku::{Given, Position, Puzzle};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let puzzle = Puzzle::set(solve(givens)?);
+    /// // Rows 4 to 6 are the second band.
+    /// let cell = puzzle.cell(Position::new(4, 7)).expect("row 4, column 7 is a cell");
+    /// assert_eq!(cell.band(), 2);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[must_use]
+    pub const fn band(self) -> u8 {
         self.position.band()
     }
 
     /// The stack of the cell's box, counted from the left.
-    pub(crate) const fn stack(self) -> u8 {
+    ///
+    /// ```
+    /// use pawdoku::solver::solve;
+    /// use pawdoku::sudoku::{Given, Position, Puzzle};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let puzzle = Puzzle::set(solve(givens)?);
+    /// // Columns 7 to 9 are the third stack.
+    /// let cell = puzzle.cell(Position::new(4, 7)).expect("row 4, column 7 is a cell");
+    /// assert_eq!(cell.stack(), 3);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[must_use]
+    pub const fn stack(self) -> u8 {
         self.position.stack()
     }
 
     /// The digit the cell holds, or nothing while it is empty.
-    pub(crate) const fn digit(self) -> Option<u8> {
+    ///
+    /// ```
+    /// use pawdoku::solver::solve;
+    /// use pawdoku::sudoku::{Given, Position, Puzzle};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let mut puzzle = Puzzle::set(solve(givens)?);
+    /// let digit_at = |puzzle: &Puzzle, position| puzzle.cell(position).and_then(|cell| cell.digit());
+    ///
+    /// assert_eq!(digit_at(&puzzle, Position::new(1, 1)), Some(5));
+    /// assert_eq!(digit_at(&puzzle, Position::new(1, 3)), None);
+    /// puzzle.place(Position::new(1, 3), 4)?;
+    /// assert_eq!(digit_at(&puzzle, Position::new(1, 3)), Some(4));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[must_use]
+    pub const fn digit(self) -> Option<u8> {
         self.digit
     }
 
     /// Whether the setter wrote the cell's digit, which is then never the player's to
     /// change.
-    pub(crate) const fn is_given(self) -> bool {
+    ///
+    /// ```
+    /// use pawdoku::solver::solve;
+    /// use pawdoku::sudoku::{Given, Position, Puzzle};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let mut puzzle = Puzzle::set(solve(givens)?);
+    /// puzzle.place(Position::new(1, 3), 4)?;
+    ///
+    /// let is_given = |position| puzzle.cell(position).is_some_and(|cell| cell.is_given());
+    /// assert!(is_given(Position::new(1, 1)));
+    /// // A digit the player placed is not a given.
+    /// assert!(!is_given(Position::new(1, 3)));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[must_use]
+    pub const fn is_given(self) -> bool {
         self.is_given
     }
 
     /// Whether the cell holds a digit that one of its peers holds too. A conflict is
     /// two peers holding one digit, and both cells are in it.
-    pub(crate) const fn is_conflicting(self) -> bool {
+    ///
+    /// ```
+    /// use pawdoku::solver::solve;
+    /// use pawdoku::sudoku::{Given, Position, Puzzle};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let mut puzzle = Puzzle::set(solve(givens)?);
+    /// // A second 5 in row 1, beside the given 5 at its head.
+    /// puzzle.place(Position::new(1, 3), 5)?;
+    ///
+    /// let conflicts = |position| puzzle.cell(position).is_some_and(|cell| cell.is_conflicting());
+    /// assert!(conflicts(Position::new(1, 1)));
+    /// assert!(conflicts(Position::new(1, 3)));
+    /// assert!(!conflicts(Position::new(1, 2)));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[must_use]
+    pub const fn is_conflicting(self) -> bool {
         self.is_conflicting
     }
 }
@@ -93,16 +259,31 @@ impl Cell {
 ///
 /// The `Display` text of each variant is stable API: bindings build their exceptions
 /// from it.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "nothing reaches it until T26: the solver makes the proof and `Puzzle` becomes public"
-    )
-)]
+///
+/// ```
+/// use pawdoku::solver::solve;
+/// use pawdoku::sudoku::{Given, MoveError, Position, Puzzle};
+///
+/// // `givens` are the thirty givens of the example in the module's documentation.
+/// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+/// #     .bytes()
+/// #     .zip(0_u8..)
+/// #     .filter(|(cell, _)| cell.is_ascii_digit())
+/// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+/// let mut puzzle = Puzzle::set(solve(givens)?);
+///
+/// let given = Position::new(1, 1);
+/// let refusal = puzzle.place(given, 6).unwrap_err();
+/// assert_eq!(refusal, MoveError::GivenCell { position: given });
+/// assert_eq!(refusal.to_string(), "the cell at row 1, column 1 holds a given");
+///
+/// assert_eq!(puzzle.place(Position::new(1, 3), 10), Err(MoveError::DigitOutOfRange { digit: 10 }));
+/// assert_eq!(puzzle.erase(Position::new(0, 3)), Err(MoveError::NoSuchCell { position: Position::new(0, 3) }));
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
-pub(crate) enum MoveError {
+pub enum MoveError {
     /// The position is off the grid, so there is no cell to move on.
     #[error("row {}, column {} names no cell of the grid", .position.row, .position.column)]
     NoSuchCell {
@@ -137,33 +318,62 @@ pub(crate) enum MoveError {
 ///
 /// A puzzle is set from a proof and from nothing else, so none exists whose givens
 /// `SetPuzzle` would refuse. It keeps the proof's solution and never hands it out.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "nothing reaches it until T26: the solver makes the proof and `Puzzle` becomes public"
-    )
-)]
+///
+/// ```
+/// use pawdoku::solver::solve;
+/// use pawdoku::sudoku::{Given, Position, Puzzle, Status};
+///
+/// // Thirty givens, rows top to bottom, a dot for an empty cell.
+/// let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+///     .bytes()
+///     .zip(0_u8..)
+///     .filter(|(cell, _)| cell.is_ascii_digit())
+///     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+///
+/// // Solve, then set: the proof is the only thing a puzzle is set from.
+/// let mut puzzle = Puzzle::set(solve(givens)?);
+/// assert_eq!(puzzle.status(), Status::Unsolved);
+/// assert_eq!(puzzle.givens().len(), 30);
+///
+/// puzzle.place(Position::new(1, 3), 4)?;
+/// assert!(puzzle.is_consistent());
+/// puzzle.erase(Position::new(1, 3))?;
+/// assert!(!puzzle.is_full());
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Clone)]
 #[non_exhaustive]
-pub(crate) struct Puzzle {
+pub struct Puzzle {
     givens: BTreeSet<Given>,
     digits: Grid<Option<u8>>,
     solution: Grid<u8>,
     status: Status,
 }
 
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "nothing reaches it until T26: the solver makes the proof and `Puzzle` becomes public"
-    )
-)]
 impl Puzzle {
     /// `SetPuzzle` and `LayOutGrid` in one step: the puzzle, unsolved, with a cell at
     /// every position, each given's cell holding its digit and every other cell empty.
-    pub(crate) fn set(proof: WellPosed) -> Self {
+    ///
+    /// ```
+    /// use pawdoku::solver::solve;
+    /// use pawdoku::sudoku::{Given, Position, Puzzle};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let proof = solve(givens)?;
+    /// let puzzle = Puzzle::set(proof.clone());
+    ///
+    /// assert_eq!(puzzle.givens(), proof.givens());
+    /// // Every given's cell holds its digit, and every other cell is empty.
+    /// assert_eq!(puzzle.cells().filter(|cell| cell.digit().is_some()).count(), 30);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[must_use]
+    pub fn set(proof: WellPosed) -> Self {
         let (givens, solution) = proof.into_parts();
         let mut digits = [[None; LINE]; LINE];
         for given in &givens {
@@ -180,17 +390,74 @@ impl Puzzle {
     }
 
     /// What the setter supplied. No move changes it.
-    pub(crate) const fn givens(&self) -> &BTreeSet<Given> {
+    ///
+    /// ```
+    /// use pawdoku::solver::solve;
+    /// use pawdoku::sudoku::{Given, Position, Puzzle};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let mut puzzle = Puzzle::set(solve(givens)?);
+    /// let before = puzzle.givens().clone();
+    /// assert!(before.contains(&Given::new(Position::new(1, 1), 5)));
+    ///
+    /// puzzle.place(Position::new(1, 3), 4)?;
+    /// assert_eq!(puzzle.givens(), &before);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[must_use]
+    pub const fn givens(&self) -> &BTreeSet<Given> {
         &self.givens
     }
 
     /// Whether the puzzle is solved.
-    pub(crate) const fn status(&self) -> Status {
+    ///
+    /// ```
+    /// use pawdoku::solver::solve;
+    /// use pawdoku::sudoku::{Given, Position, Puzzle, Status};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let puzzle = Puzzle::set(solve(givens)?);
+    /// assert_eq!(puzzle.status(), Status::Unsolved);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[must_use]
+    pub const fn status(&self) -> Status {
         self.status
     }
 
     /// The cell at `position` as it stands, or nothing where the grid has no cell.
-    pub(crate) fn cell(&self, position: Position) -> Option<Cell> {
+    ///
+    /// ```
+    /// use pawdoku::solver::solve;
+    /// use pawdoku::sudoku::{Given, Position, Puzzle};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let puzzle = Puzzle::set(solve(givens)?);
+    ///
+    /// let cell = puzzle.cell(Position::new(9, 9)).expect("row 9, column 9 is a cell");
+    /// assert_eq!(cell.digit(), Some(9));
+    /// // Row 0 and column 10 are off the grid.
+    /// assert!(puzzle.cell(Position::new(0, 1)).is_none());
+    /// assert!(puzzle.cell(Position::new(1, 10)).is_none());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[must_use]
+    pub fn cell(&self, position: Position) -> Option<Cell> {
         let digit = at(&self.digits, position)?;
         Some(Cell {
             position,
@@ -201,23 +468,112 @@ impl Puzzle {
     }
 
     /// Every cell as it stands, a row at a time from the top.
-    pub(crate) fn cells(&self) -> impl Iterator<Item = Cell> + '_ {
+    ///
+    /// ```
+    /// use pawdoku::solver::solve;
+    /// use pawdoku::sudoku::{Given, Position, Puzzle};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let puzzle = Puzzle::set(solve(givens)?);
+    ///
+    /// assert_eq!(puzzle.cells().count(), 81);
+    /// let first_row: Vec<Option<u8>> = puzzle.cells().take(9).map(|cell| cell.digit()).collect();
+    /// assert_eq!(first_row[..3], [Some(5), Some(3), None]);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn cells(&self) -> impl Iterator<Item = Cell> + '_ {
         grid_positions().filter_map(|position| self.cell(position))
     }
 
     /// Whether every cell holds a digit. Counted, as the specification counts it.
-    pub(crate) fn is_full(&self) -> bool {
+    ///
+    /// ```
+    /// use pawdoku::solver::solve;
+    /// use pawdoku::sudoku::{Given, Position, Puzzle};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let puzzle = Puzzle::set(solve(givens)?);
+    /// // Fifty-one cells are still empty.
+    /// assert!(!puzzle.is_full());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[must_use]
+    pub fn is_full(&self) -> bool {
         let filled = self.digits.iter().flatten().filter(|digit| digit.is_some());
         filled.count() == LINE * LINE
     }
 
     /// Whether no cell conflicts with a peer.
-    pub(crate) fn is_consistent(&self) -> bool {
+    ///
+    /// ```
+    /// use pawdoku::solver::solve;
+    /// use pawdoku::sudoku::{Given, Position, Puzzle};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let mut puzzle = Puzzle::set(solve(givens)?);
+    /// assert!(puzzle.is_consistent());
+    ///
+    /// // A second 5 in row 1 conflicts with the given at its head.
+    /// puzzle.place(Position::new(1, 3), 5)?;
+    /// assert!(!puzzle.is_consistent());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[must_use]
+    pub fn is_consistent(&self) -> bool {
         !grid_positions().any(|position| self.conflicts(position))
     }
 
     /// `PlaceDigit`: writes `digit` in the cell at `position`.
-    pub(crate) fn place(&mut self, position: Position, digit: u8) -> Result<(), MoveError> {
+    ///
+    /// A digit that conflicts with a peer may be placed, as on paper; it shows as a conflict
+    /// and does not solve the puzzle. The placement that completes the grid solves it at once.
+    ///
+    /// # Errors
+    ///
+    /// The first of these that applies, in this order:
+    ///
+    /// - [`MoveError::NoSuchCell`] when `position` is off the grid;
+    /// - [`MoveError::AlreadySolved`] when the puzzle is solved;
+    /// - [`MoveError::GivenCell`] when the cell holds a given;
+    /// - [`MoveError::DigitOutOfRange`] when `digit` is not from 1 to 9.
+    ///
+    /// ```
+    /// use pawdoku::solver::solve;
+    /// use pawdoku::sudoku::{Given, MoveError, Position, Puzzle};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let mut puzzle = Puzzle::set(solve(givens)?);
+    ///
+    /// puzzle.place(Position::new(1, 3), 4)?;
+    /// let digit = puzzle.cell(Position::new(1, 3)).and_then(|cell| cell.digit());
+    /// assert_eq!(digit, Some(4));
+    ///
+    /// // A given is never the player's to change.
+    /// let refusal = puzzle.place(Position::new(1, 1), 4);
+    /// assert_eq!(refusal, Err(MoveError::GivenCell { position: Position::new(1, 1) }));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn place(&mut self, position: Position, digit: u8) -> Result<(), MoveError> {
         let cell = self.players_cell(position)?;
         if !in_range(digit) {
             return Err(MoveError::DigitOutOfRange { digit });
@@ -228,7 +584,38 @@ impl Puzzle {
     }
 
     /// `EraseDigit`: empties the cell at `position`.
-    pub(crate) fn erase(&mut self, position: Position) -> Result<(), MoveError> {
+    ///
+    /// # Errors
+    ///
+    /// The first of these that applies, in this order:
+    ///
+    /// - [`MoveError::NoSuchCell`] when `position` is off the grid;
+    /// - [`MoveError::AlreadySolved`] when the puzzle is solved;
+    /// - [`MoveError::GivenCell`] when the cell holds a given;
+    /// - [`MoveError::EmptyCell`] when the cell holds no digit.
+    ///
+    /// ```
+    /// use pawdoku::solver::solve;
+    /// use pawdoku::sudoku::{Given, MoveError, Position, Puzzle};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let mut puzzle = Puzzle::set(solve(givens)?);
+    /// let here = Position::new(1, 3);
+    ///
+    /// puzzle.place(here, 4)?;
+    /// puzzle.erase(here)?;
+    /// assert_eq!(puzzle.cell(here).and_then(|cell| cell.digit()), None);
+    ///
+    /// // There is nothing left to erase.
+    /// assert_eq!(puzzle.erase(here), Err(MoveError::EmptyCell { position: here }));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn erase(&mut self, position: Position) -> Result<(), MoveError> {
         let cell = self.players_cell(position)?;
         if cell.is_none() {
             return Err(MoveError::EmptyCell { position });
@@ -303,13 +690,6 @@ impl fmt::Debug for Puzzle {
 
 /// A grid drawn a row to a string: each cell's digit, or a dot where `digit_at` gives
 /// none.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "nothing reaches it until T26: the solver makes the proof and `Puzzle` becomes public"
-    )
-)]
 fn picture(digit_at: impl Fn(Position) -> Option<u8>) -> Vec<String> {
     let cell = |position| {
         digit_at(position)
@@ -323,7 +703,7 @@ fn picture(digit_at: impl Fn(Position) -> Option<u8>) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::super::fixture::{EXCHANGED, PUZZLE, SOLUTION, are_peers, fixture, givens, grid};
-    use super::super::proof::{WellPosed, WellPosedError};
+    use super::super::{WellPosed, WellPosedError};
     use super::super::{at, grid_positions};
     use super::{Cell, Given, MoveError, Position, Puzzle, Status};
     use alloc::collections::{BTreeMap, BTreeSet};

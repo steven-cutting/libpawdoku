@@ -34,15 +34,24 @@ itself stays `no_std`. This departs from the games' rule that tests are never co
 with the code: in Rust a unit test can reach a private item only from inside its module,
 and [Decision 0009](../decisions/0009-rust-quality-gate.md) records the deviation.
 
-Three integration tests exist. `tests/api_bounds.rs` holds, at compile time, that every
+Five integration test files exist. `tests/api_bounds.rs` holds, at compile time, that every
 public type is `Send + Sync + 'static`, `Clone` and `Debug`, and that the boundary trait
 is usable as a trait object. `tests/random.rs` holds the boundary's contract from outside
 the crate: the same seed gives the same stream, indexed from zero; the first draws of seed
 zero are pinned bit for bit, so a changed generator must change `RANDOM_VERSION`; the fake
-replays its script and then reports exhaustion. `tests/sudoku.rs` holds what an outside
-crate can reach of the rules, which until the solver exists is the two figures and the
-two value types: a puzzle cannot be made from outside the crate yet, so the rules
-themselves are proved by the unit tests inside `src/sudoku/`.
+replays its script and then reports exhaustion. `tests/sudoku.rs` holds the rules from
+outside the crate: the two figures, the value types, and a puzzle made the way outside
+code makes one, solved and then set, and played to its end; each rule is proved clause
+by clause by the unit tests inside `src/sudoku/`. `tests/solver.rs` holds the solver's
+two entries, and is where most of the solver's clauses are proved, because what
+`solver.allium` promises is what a result shows. `tests/snapshots.rs` holds the
+snapshot tests of the solver and the proof, and no test that asserts; the board's and
+the record's join them there. The randomness boundary's one snapshot test stays in
+`tests/random.rs`, beside the tests of the values it pictures.
+
+A helper shared between two files under `tests/` would be compiled into each, and each
+would report the functions it does not call as dead code. So each file carries the few
+helpers and fixtures it uses, and the snapshot tests share one file.
 
 When a property test fails, proptest writes the failing case to a `proptest-regressions/`
 file beside the test that produced it. That file is committed, so the case is replayed
@@ -98,6 +107,53 @@ The invariants and the surface are held by property: a script of placements and
 erasures, refused ones included, runs on the fixture from some way towards its solution,
 so that some scripts solve it and go on. The oracle for a refusal is a model written
 from the rules' `requires` clauses in test code, never the implementation.
+
+## The solver's tests
+
+`tests/solver.rs` drives `search` and `solve` through the public API. The unit tests in
+`src/solver/branch.rs` look inside one branch, where a result cannot: each propagation
+rule alone, each kind of contradiction alone, and the cell a split is made on.
+
+**The fixtures**, each with where it came from stated beside it in the file:
+
+| Givens | What they are for |
+| --- | --- |
+| The rules' fixture | Singles alone solve it: verdict `one`, no guess. |
+| Norvig's `grid2`, from the essay `solver.allium` cites, with the solution the essay prints | Seventeen givens and one solution that singles cannot reach: a puzzle that needs a guess. |
+| The rules' fixture without its given at row 3, column 8 | Exactly two solutions. |
+| The fixture's solution with four cells emptied | Exactly two solutions, found in one split. |
+| Thirty-four cells of the fixture's solution | No empty cell has one candidate to begin with, so the first placement is a hidden single's. |
+| Three small sets, one for each kind of contradiction | No two of their givens conflict, and each leaves a cell with no candidate, a unit with no place for a digit, or a cell that is the only place for two digits. |
+
+**The oracle.** `VerdictIsTrue` ties the verdict to `sudoku.allium`'s `solution_count`,
+so the test needs a count the solver did not produce. `count_solutions` in
+`tests/solver.rs` is one: it tries digits cell by cell in grid order with no candidates
+and no propagation, stops at two, and keeps its place in a list where another would
+recurse. A property compares it with `search`. Its inputs are chosen to keep it quick:
+cells of the fixture's solution with at most some four in ten removed, which have one
+solution or many; such a set, denser still, with one digit changed, which mostly has
+none; and arbitrary givens with one added that is certainly malformed, which the oracle
+counts as none without a search. A sparse set that is well-formed and has no solution
+can take a plain counter a very long time: five scattered givens that leave a row no
+place for a digit are enough. No strategy the oracle is handed can produce one. The
+properties that call the solver alone take arbitrary givens with no such limit.
+
+**The pinned guess counts follow from the tie-break, not from the specification.**
+`solver.allium` leaves the order of tied cells and tied branches to the implementation.
+The module documents its rule: the first cell in grid order, and the lowest digit first.
+`the_guess_counts_follow_from_the_tie_break` pins what that rule gives: 0 for the
+fixture, 50 for Norvig's puzzle, 1 for the two-solution givens and 47 for the empty
+grid. Another rule would be the same solver with other numbers, so a change to these is
+a change to the tie-break and is to be read as one. The same holds for which two
+solutions are found for givens with many, and in which order.
+
+**Properties.** Over givens of every kind, malformed ones included: every search
+returns; the same givens get the same result on a second call, reversed and shuffled;
+each solution is full, free of conflict and holds every given; two solutions differ;
+there are never more than two; the verdict matches their number; and `solve` gives a
+proof exactly when the verdict is `one`, eighty-one givens apart. Inside the crate, a
+property walks whole searches a branch at a time and holds the three invariants the
+implementation has the structure for.
 
 ## Coverage
 
@@ -170,9 +226,14 @@ explains the commands in order.
 | In-module tests, `sudoku/proof.rs` | `SetPuzzle` through the proof: refused for eighty-one givens, for a solution that is not full, has a digit out of range or has two peers holding one digit, for a given off the grid, and for a given that is not the solution's, two disagreeing givens included; an accepted proof gives back its givens and its solution; the stable `Display` text of each error. |
 | In-module tests, `sudoku/puzzle.rs` | `LayOutGrid`, `PlaceDigit`, `EraseDigit` and `PuzzleSolved`, each `requires` clause refused by name; solved at once, final, and not a comparison with the stored solution; `is_full`, `is_consistent` and conflicts; the yes-or-no answer, total over any position; a `Debug` that leaves the solution out; the stable `Display` text of each error; and, by property over scripts of moves, the eight invariants, the givens never changing, and a move accepted exactly when its rule allows it. |
 | `sudoku/puzzle.rs`: four `snapshot_` tests | Show the fixture as set, the fixture after each of four scripted moves, `Puzzle`'s `Debug`, and the `Display` text of every error the module defines, for review and change detection; they prove no clause. Their files are under `src/sudoku/snapshots/`. |
-| Doctests | Every public item's example, among them `SIDE`'s and `BOX_SIDE`'s values, the value types' equality, `RANDOM_VERSION`'s name, and the trait used as a trait object. |
-| `tests/api_bounds.rs` | Every public type is `Send + Sync + 'static`, `Clone` and `Debug`; the boundary trait is usable as a trait object; under the `serde` feature, both streams and both value types serialise. |
-| `tests/sudoku.rs` | From outside the crate: the side is the square of the box side; the value types compare by their fields; a position off the grid and a given out of range can be made; two givens that agree are one given. |
+| In-module tests, `solver.rs` | Two solutions are sought; the refusal's one conversion from the proof's error, called directly with every variant; the stable `Display` text of each refusal. |
+| In-module tests, `solver/candidates.rs` | A set of digits holds only digits from 1 to 9, whatever is offered; sets join, part and overlap; a single is a set of exactly one. |
+| In-module tests, `solver/branch.rs` | The units and each cell's twenty peers; `LayOutRootBranch`, and no root for malformed givens; `EliminateFromPeers`, `PlaceNakedSingle` and `PlaceHiddenSingle`, each alone, the last in a row, a column and a box; each kind of contradiction read from the cells; an overdemanded cell not placed; the split on the first cell with the fewest candidates, one child for each candidate, lowest digit first; and, by property over whole searches, `PlacedCellsKeepOnlyTheirDigit`, `CandidatesAreDigits` and `GuessesAreOnFewestCandidates`. |
+| Doctests | Every public item's example, among them `SIDE`'s and `BOX_SIDE`'s values, the value types' equality, `RANDOM_VERSION`'s name, the trait used as a trait object, a puzzle solved, set and played, and the one `compile_fail` example, which shows outside code cannot name the proof's constructor. |
+| `tests/api_bounds.rs` | Every public type is `Send + Sync + 'static`, `Clone` and `Debug`, the proof, the puzzle and the solver's result among them; the boundary trait is usable as a trait object; under the `serde` feature, both streams and both value types serialise. |
+| `tests/sudoku.rs` | From outside the crate: the side is the square of the box side; the value types compare by their fields; a position off the grid and a given out of range can be made; two givens that agree are one given; a puzzle solved and set from outside is played to its end and is then final; each move is offered and refused; everything `PuzzleSolving` exposes can be read; a puzzle does not print its solution. |
+| `tests/solver.rs` | `RefuseMalformedGivens` for each way givens are malformed; anything may be handed over; singles alone solve the fixture; hidden singles solve a puzzle with no naked single; conflicts and each kind of contradiction end the search with no guess; a published puzzle that needs a guess; the pinned guess counts; `none`, `one` and `many`, the last with both solutions; the empty grid stopping at two; `solve`'s proof and its three refusals; the oracle; and the properties above. |
+| `tests/snapshots.rs`: six `snapshot_` tests | Show the search result for the fixture, for the puzzle that needs a guess, for the givens with two solutions and for malformed givens; the proof `solve` gives for the fixture, givens and solution; and the `Display` text of the three refusals. For review and change detection; they prove no clause. Their files are under `tests/snapshots/`. |
 | `tests/random.rs` | The same seed draws the same stream bit for bit; seed zero draws the golden stream; the fake replays its script and is then exhausted, directly and behind a trait object; every draw is in the unit interval. |
 | `tests/random.rs`: `snapshot_the_randomness_boundary` | Shows seed zero's first eight draws and each error's `Display` text for review and change detection; proves no clause. Its file is under `tests/snapshots/`. |
 
