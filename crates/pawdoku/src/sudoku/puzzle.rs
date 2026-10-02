@@ -661,13 +661,6 @@ impl Puzzle {
 impl Puzzle {
     /// Whether `digit` is the solution's at `position`: the one question a puzzle
     /// answers about its solution, yes or no. It is no wherever the grid has no cell.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "the board's check is its one caller, and T27 builds the board"
-        )
-    )]
     pub(crate) fn is_solution_digit(&self, position: Position, digit: u8) -> bool {
         at(&self.solution, position) == Some(digit)
     }

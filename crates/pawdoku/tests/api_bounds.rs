@@ -7,6 +7,7 @@
     reason = "an integration test file is its own test module"
 )]
 
+use pawdoku::board::{Board, BoardCell, Check, Move, MoveKind, Note, PlayError};
 use pawdoku::random::{RandomError, RandomStream, ReplayStream, SeededStream};
 use pawdoku::solver::{SearchResult, SolveError, Verdict};
 use pawdoku::sudoku::{
@@ -34,6 +35,13 @@ fn public_types_are_send_sync_and_static() {
     assert_send_sync::<SearchResult>();
     assert_send_sync::<Verdict>();
     assert_send_sync::<SolveError>();
+    assert_send_sync::<Board>();
+    assert_send_sync::<BoardCell>();
+    assert_send_sync::<Note>();
+    assert_send_sync::<Move>();
+    assert_send_sync::<MoveKind>();
+    assert_send_sync::<Check>();
+    assert_send_sync::<PlayError>();
 }
 
 #[test]
@@ -53,6 +61,13 @@ fn public_types_are_clone_and_debug() {
     assert_clone_debug::<SearchResult>();
     assert_clone_debug::<Verdict>();
     assert_clone_debug::<SolveError>();
+    assert_clone_debug::<Board>();
+    assert_clone_debug::<BoardCell>();
+    assert_clone_debug::<Note>();
+    assert_clone_debug::<Move>();
+    assert_clone_debug::<MoveKind>();
+    assert_clone_debug::<Check>();
+    assert_clone_debug::<PlayError>();
 }
 
 #[test]

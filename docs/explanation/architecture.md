@@ -27,7 +27,8 @@ every crate inherits, the dependency table every crate draws from, and the
 `crates/pawdoku` is the engine and today the only member. `src/lib.rs` is the crate
 root, `src/random.rs` is the randomness boundary, `src/sudoku.rs` with the files under
 `src/sudoku/` is the rules, `src/solver.rs` with the files under `src/solver/` is the
-solver, and `tests/` holds the integration tests. Behaviour arrives
+solver, `src/board.rs` with the files under `src/board/` is the board, and `tests/`
+holds the integration tests. Behaviour arrives
 as one Rust module per specification module, and a module may use only what its
 specification imports, in the direction
 [Layering and dependency direction](layering.md) describes.
@@ -145,6 +146,89 @@ status field, no parent and no depth; where it is says what it is. The module al
 the one order the specification leaves open, and documents it: among tied cells the
 first in grid order, and among a split's children the lowest digit first. Counts of
 guesses depend on that rule, so changing it changes what consumers may have recorded.
+
+## The board
+
+`board` is `board.allium` in Rust, less the record: one puzzle as it is being played.
+A `Board` is the playable abstraction
+([decision 0014](../decisions/0014-board-imports-solver.md)). It is what a consumer
+plays on, and the one thing in the engine that changes as a game goes on.
+
+**A board owns its puzzle and hands out values.** The `Puzzle` is a private field, and
+no method returns it, a reference to it, a `&mut` to anything, or one of the board's own
+collections. Everything the `Playing` surface exposes is read through the board, as
+values that are copies:
+
+| The board hands out | Which is |
+| --- | --- |
+| `BoardCell` | One cell as it stands: its position, its digit, whether it is given, whether it conflicts, and its note while the note is shown. |
+| `Note` | One cell's marks. |
+| `Move` | One move on the record: its index, kind, target and digit, whether it is undone, and the board as it stood once it had been made. |
+| `Check` | One check as asked and answered: its index, how many moves stood, its target, the player's digit, and yes or no. |
+
+That shape is what holds two guarantees. Nothing reaches the puzzle in play except
+through the board, so every placement and erasure is recorded, kept up and reversible
+(`EveryMoveIsTheBoards`). And no public item of the module returns a digit read from the
+solution: the one place the solution is consulted is `Board::check`, which calls the
+puzzle's crate-only answer and keeps the yes or no (`ACheckNeverTellsTheDigit`,
+`TheSolutionIsNeverShown`).
+
+It also keeps `Board` small. `Playing` exposes five facts about the board, six about
+each cell, every move with its readings and every check, and offers seven operations;
+one flat type holding all of that would be a god object, and the metrics gate caps a
+type at twenty methods. `Board` has seventeen: one to open, nine to read and seven
+operations. The record's two will make nineteen. What a cell, a move or a check can say is a
+method of that value. Inside, the board is four parts: the puzzle, the notes, the
+journal of moves, and the checks.
+
+**A board opens from givens, in one call, and from nothing else.** `Board::open` puts
+the givens to `solver::solve` and sets the puzzle from the proof, so what it refuses is
+what the solver refuses. There is no constructor that takes a `Puzzle`. A puzzle that
+had already been played on would arrive holding digits no move recorded, against
+`TheMovesReplayToTheBoard` and `EveryMoveIsTheBoards`.
+
+**A puzzle with no board is not a defect.** `OpenBoard` gives every puzzle that is set a
+board, and the two-step path, solve and then set, yields a `Puzzle` with none. The
+reading: `OpenBoard` is this module's view, of the puzzles set through it. A `Puzzle`
+on its own is `sudoku.allium`'s `PuzzleSolving` surface, which stands as the rules' own
+boundary and not as a second way into a board. `OneBoardToAPuzzle` holds by ownership:
+a board owns its puzzle, a cloned board owns a copy, and no second board can reach
+either.
+
+**The moves are a journal, and the undone moves are its tail.** The board keeps every
+move in the order made, each with what it displaced, and a count of how many stand. The
+moves after that count are the undone ones, so they are always the latest, a move's
+index is its place in the list, and a new move discards the tail by cutting the list at
+the count. Each kind of move carries what it needs and nothing else, by its type.
+
+**Undo and redo go through the puzzle's own two moves.** `Puzzle` offers placing and
+erasing and no other way to write a cell, and those are enough: undoing a placement
+erases, or places what stood before; undoing an erasure places the digit again; redo
+does the move again. `board.allium` does not say how the digit is put back. The rules
+cannot refuse any of these and none can solve the puzzle: undo restores a state that
+stood before a move, every move requires an unsolved puzzle, and an unsolved puzzle is
+never complete; redo restores the state after a move that was then undone, and undo is
+refused once the puzzle is solved. Both calls return a `Result`, and the board converts
+the rules' refusal into its own, so that a defect would be a refusal and never a panic.
+
+**Reading back goes forward.** A `Move` says what any cell held once it had been made.
+That reading is worked out when the moves are handed out, from the board as it was
+opened forward through the moves, and never by taking a move back, so it is the same
+for a standing move and an undone one and it cannot disturb the board.
+
+**Peers come from the rules' cells.** Upkeep strikes a placed digit from the peers'
+notes, and `sudoku` keeps its peer relation private. The board reads it off what a
+puzzle's cell exposes, its row, column, band and stack: two cells are peers when they
+share a row, a column, or both a band and a stack, and are not one cell.
+
+**A refusal says which clause failed.** The five operations on a cell take a `Position`,
+undo and redo take nothing, and each returns a `PlayError`, one variant for each `requires` clause of the board's rules and one for a
+position that names no cell. When several fail at once the first is reported, in a fixed
+order: a position off the grid, then a solved puzzle, then the rule's own clauses as
+`board.allium` writes them. A refused operation changes nothing.
+
+Nothing is counted from the checks. They are handed out in order, and whether wrong
+answers or checks made are counted, and shown, is an open question of `board.allium`.
 
 ## What crosses each boundary
 

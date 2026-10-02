@@ -1,0 +1,16 @@
+---
+source: crates/pawdoku/tests/snapshots.rs
+expression: picture
+---
+PlayError (Display)
+a position off the grid: row 0, column 10 names no cell of the grid
+placing on a given: the cell at row 1, column 1 holds a given
+a digit out of range: the digit 10 is outside 1 to 9
+erasing an empty cell: the cell at row 1, column 3 holds no digit of the player's
+striking a mark that is not written: the mark 4 is not written at row 1, column 3
+undo with no move standing: no move stands, so there is nothing to undo
+redo with no move undone: no move is undone, so there is nothing to redo
+writing a mark already written: the mark 4 is already written at row 1, column 3
+placing the digit that stands: the cell at row 1, column 3 already holds 4
+writing a mark beneath a digit: the cell at row 1, column 3 holds a digit and takes no marks
+undo on a solved puzzle: the puzzle is solved, and solved is final

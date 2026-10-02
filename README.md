@@ -6,8 +6,8 @@ The engine is a solver, a catalogue of the techniques a person solves with, a di
 rating and hints, built on a model of a human solver. Every rule comes from the
 specifications in `docs/specs/`, and the code is built from them one module at a time;
 today the crate holds the randomness boundary, the rules of sudoku with a puzzle that
-can be set and played, and the solver that shows a puzzle has one solution; the other
-modules follow them. The core is
+can be set and played, the solver that shows a puzzle has one solution, and the board a
+player plays on, with notes, undo and a check; the other modules follow them. The core is
 `no_std`, so the same code will run in a browser, in Python and on the command line.
 
 ## Prerequisites

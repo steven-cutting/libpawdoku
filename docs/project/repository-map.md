@@ -29,13 +29,15 @@ under `crates/` as siblings, each depending on the engine and none on another.
 │   └── pawdoku/            The engine
 │       ├── src/
 │       │   ├── lib.rs      The crate root: no_std with alloc, every public item
+│       │   ├── board.rs    The board in play: opening, the moves, undo and redo, the check
+│       │   ├── board/      The board's parts: the cell, the note, the move, the journal, the reading, the check, the refusal
 │       │   ├── random.rs   The randomness boundary and its fake
 │       │   ├── solver.rs   The solver's two entries, search and solve, and its refusal
 │       │   ├── solver/     The solver's parts: candidates, the branch, the search, the result
 │       │   ├── sudoku.rs   The rules: the grid's figures and the value types
 │       │   └── sudoku/     The rules' parts: the proof, the puzzle, the test fixture
 │       │       └── snapshots/  Committed .snap pictures of the puzzle and its errors
-│       └── tests/          Integration tests: the API bounds, the boundary, the rules, the solver
+│       └── tests/          Integration tests: the API bounds, the boundary, the rules, the solver, the board
 │           └── snapshots/  Committed .snap pictures of public values
 ├── tests/fixtures/         The metrics probe's fixture, never compiled
 ├── docs/                   This handbook, plus specs/
@@ -55,8 +57,8 @@ under `crates/` as siblings, each depending on the engine and none on another.
 
 | Directory | Responsibility |
 | --- | --- |
-| `crates/pawdoku/src/` | Pure behaviour. Given the same input it returns the same output, always; the one effect, randomness, sits behind the trait `random.rs` defines. `sudoku.rs` and `sudoku/` are the rules of `sudoku.allium`: `proof.rs` the proof a puzzle is set from, `puzzle.rs` the puzzle in play, `fixture.rs` what their tests share. `solver.rs` and `solver/` are the search of `solver.allium`: `candidates.rs` a set of digits, `branch.rs` one grid of candidates with the propagation rules and the split, `search.rs` the stack of waiting branches, `result.rs` what a search hands back. Every public item is documented, and its example is a test. |
-| `crates/pawdoku/tests/` | Integration tests: the bounds every public type must meet, the randomness boundary through its fake, the rules with a puzzle solved and set from outside, and the solver's two entries (`solver.rs`). `snapshots.rs` holds the snapshot tests of the solver and the proof, and no test that asserts; the randomness boundary's one snapshot stays in `random.rs`. `snapshots/` holds the committed pictures, for review and change detection. Unit tests sit in the module they test, a stated deviation recorded in decision 0009. |
+| `crates/pawdoku/src/` | Pure behaviour. Given the same input it returns the same output, always; the one effect, randomness, sits behind the trait `random.rs` defines. `sudoku.rs` and `sudoku/` are the rules of `sudoku.allium`: `proof.rs` the proof a puzzle is set from, `puzzle.rs` the puzzle in play, `fixture.rs` what their tests share. `solver.rs` and `solver/` are the search of `solver.allium`: `candidates.rs` a set of digits, `branch.rs` one grid of candidates with the propagation rules and the split, `search.rs` the stack of waiting branches, `result.rs` what a search hands back. `board.rs` and `board/` are the board in play of `board.allium`: `cell.rs` a cell as the board shows it, `note.rs` a cell's marks and the grid of them, `moves.rs` a move as the board hands it out, `journal.rs` the moves as the board keeps them, `reading.rs` the board as it stood after a move, `check.rs` a check, `error.rs` the refusal. Every public item is documented, and its example is a test. |
+| `crates/pawdoku/tests/` | Integration tests: the bounds every public type must meet, the randomness boundary through its fake, the rules with a puzzle solved and set from outside, the solver's two entries (`solver.rs`), the board's rules clause by clause (`board_rules.rs`), and a whole game and arbitrary scripts played through the board (`board.rs`). `snapshots.rs` holds the snapshot tests of the solver, the proof and the board, and no test that asserts; the randomness boundary's one snapshot stays in `random.rs`. `snapshots/` holds the committed pictures, for review and change detection. Unit tests sit in the module they test, a stated deviation recorded in decision 0009. |
 | `docs/specs/` | The Allium specifications. Behaviour is decided here, not in code. |
 | `scripts/` | `initialize.sh`, the first-run script. The two validators, the allium installer and runner, the gate runner and the ripsecrets wrapper are console scripts of `biscuit-games-tooling`, pinned in `pyproject.toml`. |
 | `.agents/skills/` | Canonical agent procedures. The two bridge trees, `.claude/skills/` and `.codex/skills/`, point at them and add nothing. |
