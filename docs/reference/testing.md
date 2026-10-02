@@ -118,8 +118,9 @@ the snapshot recipes validate both locks first and run cargo-insta offline.
 
 A changed snapshot asks whether the change was intended. The person who changed it reads
 the diff, reviews pending snapshots through `just snapshots-review` at a terminal, and
-accepts intended changes through `just snapshots-accept`, which reruns the tests and
-accepts without prompting. Give the reason in the pull request or hand-back notes.
+accepts intended changes through `just snapshots-accept`, which reruns the tests,
+accepts without prompting and deletes any `.snap` file no test refers to. Give the reason
+in the pull request or hand-back notes.
 The [snapshot workflow](../how-to/test-and-debug.md#read-and-accept-a-changed-snapshot)
 explains the commands in order.
 

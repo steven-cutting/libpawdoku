@@ -123,9 +123,11 @@ snapshots-review:
     cargo insta review --workspace
 
 # The snapshot recipe that writes: rerun and accept without a terminal.
-# Read the diff before committing, and explain each intended change.
+# Read the diff before committing, and explain each intended change. A .snap
+# file no test refers to, left by a renamed or removed test, is deleted, so the
+# deletion shows in the diff instead of blocking the accept.
 snapshots-accept: lock-check
-    INSTA_UPDATE=new CARGO_NET_OFFLINE=true cargo insta test --accept --unreferenced reject --test-runner nextest --disable-nextest-doctest --workspace --all-features
+    INSTA_UPDATE=new CARGO_NET_OFFLINE=true cargo insta test --accept --unreferenced delete --test-runner nextest --disable-nextest-doctest --workspace --all-features
 
 # ----------------------------------------------------------------- format ---
 

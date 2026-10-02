@@ -57,7 +57,8 @@ Framework configuration and conventions are described in
    behaviour's asserting tests green; the snapshot establishes no correctness.
 3. For an intended change, run `just snapshots-accept`. It checks both locks, reruns
    all unit and integration tests with every feature and accepts pending snapshots
-   without prompting. It works for an agent without a terminal as well.
+   without prompting. It also deletes a `.snap` file no test refers to, such as one a
+   renamed or removed test left behind. It works for an agent without a terminal as well.
 4. Read `git diff -- crates/pawdoku` before committing and explain the change in the
    pull request or hand-back notes. Run `just snapshots-check` again: it also rejects
    a `.snap` file no test refers to.

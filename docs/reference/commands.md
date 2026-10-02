@@ -46,7 +46,7 @@ writes.
 | `just test` | Every unit and integration test through cargo-nextest with `INSTA_UPDATE=no`: a snapshot mismatch fails without writing pending files. Then every doctest through `cargo test --doc`, because nextest cannot run doctests. Outside `just check`, where `coverage` and `test-doc` run the same tests. |
 | `just test-doc` | Every doctest. Gate 10. |
 | `just snapshots-review` | Open cargo-insta's interactive review of pending snapshots for a person at a terminal. |
-| `just snapshots-accept` | Check both locks, then rerun every unit and integration test with every feature through cargo-insta and nextest offline, and accept all pending snapshots without prompting. Writes `.snap` files; read the diff before committing and give the reason for the change. |
+| `just snapshots-accept` | Check both locks, then rerun every unit and integration test with every feature through cargo-insta and nextest offline, and accept all pending snapshots without prompting, deleting any `.snap` file no test refers to. Writes and deletes `.snap` files; read the diff before committing and give the reason for the change. |
 
 ## Format
 

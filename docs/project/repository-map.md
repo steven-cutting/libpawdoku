@@ -31,7 +31,7 @@ under `crates/` as siblings, each depending on the engine and none on another.
 │       │   ├── lib.rs      The crate root: no_std with alloc, every public item
 │       │   └── random.rs   The randomness boundary and its fake
 │       └── tests/          Integration tests: the API bounds and the boundary
-│           └── snapshots/ Committed .snap pictures of public values
+│           └── snapshots/  Committed .snap pictures of public values
 ├── tests/fixtures/         The metrics probe's fixture, never compiled
 ├── docs/                   This handbook, plus specs/
 │   └── specs/              The Allium modules: behaviour is decided here
