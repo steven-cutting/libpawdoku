@@ -6,30 +6,30 @@ use alloc::vec::Vec;
 /// How many solutions a set of givens has, as far as any verdict needs to know: none,
 /// one, or more than one.
 ///
-/// Givens are well-posed exactly when their verdict is [`Verdict::One`].
+/// Givens are well-posed exactly when their verdict is [`Verdict::OneSolution`].
 ///
 /// ```
 /// use pawdoku::solver::{Verdict, search};
 /// use pawdoku::sudoku::{Given, Position};
 ///
 /// // No givens at all leave every grid open.
-/// assert_eq!(search([]).verdict(), Verdict::Many);
+/// assert_eq!(search([]).verdict(), Verdict::ManySolutions);
 ///
 /// // Two fives in one row cannot both stand.
 /// let fives = [1, 2].map(|column| Given::new(Position::new(1, column), 5));
-/// assert_eq!(search(fives).verdict(), Verdict::None);
+/// assert_eq!(search(fives).verdict(), Verdict::NoSolution);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Verdict {
     /// The givens have no solution: they are malformed, they conflict, or nothing
     /// completes them.
-    None,
+    NoSolution,
     /// The givens have exactly one solution, which the result holds.
-    One,
+    OneSolution,
     /// The givens have two solutions or more. The result holds two of them and the
     /// search looked for no third.
-    Many,
+    ManySolutions,
 }
 
 /// A search that has concluded: its verdict, the solutions it found and the guesses it
@@ -52,7 +52,7 @@ pub enum Verdict {
 ///     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
 ///
 /// let result = search(givens);
-/// assert_eq!(result.verdict(), Verdict::One);
+/// assert_eq!(result.verdict(), Verdict::OneSolution);
 /// assert_eq!(result.guesses(), 0);
 /// assert_eq!(result.solutions().len(), 1);
 /// ```
@@ -70,14 +70,14 @@ impl SearchResult {
     /// ```
     /// use pawdoku::solver::{Verdict, search};
     ///
-    /// assert_eq!(search([]).verdict(), Verdict::Many);
+    /// assert_eq!(search([]).verdict(), Verdict::ManySolutions);
     /// ```
     #[must_use]
     pub const fn verdict(&self) -> Verdict {
         match self.solutions.as_slice() {
-            [] => Verdict::None,
-            [_] => Verdict::One,
-            _ => Verdict::Many,
+            [] => Verdict::NoSolution,
+            [_] => Verdict::OneSolution,
+            _ => Verdict::ManySolutions,
         }
     }
 

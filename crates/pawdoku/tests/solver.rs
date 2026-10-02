@@ -200,7 +200,7 @@ fn grid(rows: [&str; 9]) -> Grid<u8> {
 
 /// What `RefuseMalformedGivens` leaves: `none`, nothing guessed and nothing found.
 fn assert_refused(result: &SearchResult) {
-    assert_eq!(result.verdict(), Verdict::None);
+    assert_eq!(result.verdict(), Verdict::NoSolution);
     assert_eq!(result.guesses(), 0);
     assert!(result.solutions().is_empty());
 }
@@ -241,7 +241,7 @@ fn two_digits_to_one_position_get_none_with_no_guess() {
 #[test]
 fn singles_alone_solve_the_fixture_with_no_guess() {
     let result = search(givens(FIXTURE));
-    assert_eq!(result.verdict(), Verdict::One);
+    assert_eq!(result.verdict(), Verdict::OneSolution);
     assert_eq!(result.guesses(), 0);
     assert_eq!(result.solutions(), [grid(FIXTURE_SOLUTION)]);
 }
@@ -256,13 +256,13 @@ fn two_givens_that_agree_are_one_given() {
 
 #[test]
 fn anything_may_be_handed_over() {
-    assert_eq!(search([]).verdict(), Verdict::Many);
+    assert_eq!(search([]).verdict(), Verdict::ManySolutions);
     let conflicting = [1, 9].map(|column| Given::new(Position::new(1, column), 5));
-    assert_eq!(search(conflicting).verdict(), Verdict::None);
+    assert_eq!(search(conflicting).verdict(), Verdict::NoSolution);
     let every_cell = givens(FIXTURE_SOLUTION);
     assert_eq!(every_cell.len(), 81);
     let result = search(every_cell);
-    assert_eq!(result.verdict(), Verdict::One);
+    assert_eq!(result.verdict(), Verdict::OneSolution);
     assert_eq!(result.guesses(), 0);
     assert_eq!(result.solutions(), [grid(FIXTURE_SOLUTION)]);
 }
@@ -298,7 +298,7 @@ fn hidden_singles_solve_a_puzzle_with_no_naked_single() {
     );
 
     let result = search(puzzle);
-    assert_eq!(result.verdict(), Verdict::One);
+    assert_eq!(result.verdict(), Verdict::OneSolution);
     assert_eq!(result.guesses(), 0);
     assert_eq!(result.solutions(), [grid(FIXTURE_SOLUTION)]);
 }
@@ -338,7 +338,7 @@ fn a_cell_that_is_the_only_place_for_two_digits_ends_the_search_with_no_guess() 
 #[test]
 fn a_published_puzzle_that_needs_a_guess_is_solved() {
     let result = search(givens(NEEDS_A_GUESS));
-    assert_eq!(result.verdict(), Verdict::One);
+    assert_eq!(result.verdict(), Verdict::OneSolution);
     assert_eq!(result.solutions(), [grid(NEEDS_A_GUESS_SOLUTION)]);
     assert!(result.guesses() >= 1);
 }
@@ -363,14 +363,14 @@ fn a_split_counts_one_guess_whatever_its_children() {
     // Four empty cells, two candidates each: one split, and its two children are both
     // solved by propagation alone.
     let result = search(givens(TWO_SOLUTIONS_DENSE));
-    assert_eq!(result.verdict(), Verdict::Many);
+    assert_eq!(result.verdict(), Verdict::ManySolutions);
     assert_eq!(result.guesses(), 1);
 }
 
 #[test]
 fn the_second_solution_concludes_many_with_both_exposed() {
     let result = search(givens(TWO_SOLUTIONS));
-    assert_eq!(result.verdict(), Verdict::Many);
+    assert_eq!(result.verdict(), Verdict::ManySolutions);
     let [first, second] = result.solutions() else {
         panic!("many exposes two solutions");
     };
@@ -384,7 +384,7 @@ fn the_second_solution_concludes_many_with_both_exposed() {
 #[test]
 fn one_solution_concludes_one() {
     let result = search(givens(FIXTURE));
-    assert_eq!(result.verdict(), Verdict::One);
+    assert_eq!(result.verdict(), Verdict::OneSolution);
     assert_eq!(result.solutions().len(), 1);
 }
 
@@ -395,21 +395,21 @@ fn no_solution_concludes_none() {
     let mut spoiled = givens(FIXTURE);
     spoiled.push(Given::new(Position::new(1, 3), 2));
     let result = search(spoiled);
-    assert_eq!(result.verdict(), Verdict::None);
+    assert_eq!(result.verdict(), Verdict::NoSolution);
     assert!(result.solutions().is_empty());
 }
 
 #[test]
 fn the_empty_grid_concludes_many_and_stops_at_two() {
     let result = search([]);
-    assert_eq!(result.verdict(), Verdict::Many);
+    assert_eq!(result.verdict(), Verdict::ManySolutions);
     assert_eq!(result.solutions().len(), 2);
 }
 
 #[test]
 fn the_result_exposes_the_verdict_the_guesses_and_every_digit() {
     let result = search(givens(TWO_SOLUTIONS));
-    assert_eq!(result.verdict(), Verdict::Many);
+    assert_eq!(result.verdict(), Verdict::ManySolutions);
     assert_eq!(result.guesses(), 1);
     let pictures = [FIXTURE_SOLUTION, OTHER_SOLUTION];
     for (solution, picture) in result.solutions().iter().zip(pictures) {
@@ -443,17 +443,14 @@ fn solve_refuses_givens_with_no_solution() {
 
 #[test]
 fn solve_refuses_givens_with_several_solutions() {
-    assert_eq!(solve([]), Err(SolveError::SeveralSolutions));
-    assert_eq!(
-        solve(givens(TWO_SOLUTIONS)),
-        Err(SolveError::SeveralSolutions)
-    );
+    assert_eq!(solve([]), Err(SolveError::ManySolutions));
+    assert_eq!(solve(givens(TWO_SOLUTIONS)), Err(SolveError::ManySolutions));
 }
 
 #[test]
 fn solve_refuses_givens_that_leave_nothing_to_play() {
     let every_cell = givens(FIXTURE_SOLUTION);
-    assert_eq!(search(every_cell.clone()).verdict(), Verdict::One);
+    assert_eq!(search(every_cell.clone()).verdict(), Verdict::OneSolution);
     assert_eq!(
         solve(every_cell.clone()),
         Err(SolveError::NotPosed(WellPosedError::NothingLeftToPlay {
@@ -652,7 +649,7 @@ proptest! {
     #[test]
     fn every_search_concludes(givens in any_givens()) {
         let result = search(givens);
-        let concluded = matches!(result.verdict(), Verdict::None | Verdict::One | Verdict::Many);
+        let concluded = matches!(result.verdict(), Verdict::NoSolution | Verdict::OneSolution | Verdict::ManySolutions);
         prop_assert!(concluded);
     }
 
@@ -661,9 +658,9 @@ proptest! {
         givens in prop_oneof![thinned(0.5..1.0), spoiled(), arbitrary()]
     ) {
         let verdict = match count_solutions(&givens) {
-            0 => Verdict::None,
-            1 => Verdict::One,
-            _ => Verdict::Many,
+            0 => Verdict::NoSolution,
+            1 => Verdict::OneSolution,
+            _ => Verdict::ManySolutions,
         };
         prop_assert_eq!(search(givens).verdict(), verdict);
     }
@@ -691,8 +688,8 @@ proptest! {
         prop_assert!(distinct, "SolutionsAreDistinct");
         prop_assert!(solutions.len() <= 2, "NoMoreSolutionsThanSought");
         let count = match result.verdict() {
-            Verdict::None => 0,
-            Verdict::One => 1,
+            Verdict::NoSolution => 0,
+            Verdict::OneSolution => 1,
             _ => 2,
         };
         prop_assert_eq!(solutions.len(), count, "VerdictMatchesSolutions");
@@ -704,17 +701,17 @@ proptest! {
         let distinct: BTreeSet<Given> = givens.iter().copied().collect();
         match solve(givens) {
             Ok(proof) => {
-                prop_assert_eq!(result.verdict(), Verdict::One);
+                prop_assert_eq!(result.verdict(), Verdict::OneSolution);
                 prop_assert_eq!(result.solutions(), [*proof.solution()]);
                 prop_assert_eq!(proof.givens(), &distinct);
                 prop_assert!(distinct.len() < 81);
             }
-            Err(SolveError::NoSolution) => prop_assert_eq!(result.verdict(), Verdict::None),
-            Err(SolveError::SeveralSolutions) => prop_assert_eq!(result.verdict(), Verdict::Many),
+            Err(SolveError::NoSolution) => prop_assert_eq!(result.verdict(), Verdict::NoSolution),
+            Err(SolveError::ManySolutions) => prop_assert_eq!(result.verdict(), Verdict::ManySolutions),
             Err(refusal) => {
                 let nothing_left = WellPosedError::NothingLeftToPlay { givens: 81 };
                 prop_assert_eq!(refusal, SolveError::NotPosed(nothing_left));
-                prop_assert_eq!(result.verdict(), Verdict::One);
+                prop_assert_eq!(result.verdict(), Verdict::OneSolution);
                 prop_assert_eq!(distinct.len(), 81);
             }
         }

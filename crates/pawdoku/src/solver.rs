@@ -56,7 +56,7 @@
 //!         .collect();
 //!
 //! let result = search(givens.clone());
-//! assert_eq!(result.verdict(), Verdict::One);
+//! assert_eq!(result.verdict(), Verdict::OneSolution);
 //!
 //! let puzzle = Puzzle::set(solve(givens)?);
 //! assert_eq!(puzzle.givens().len(), 30);
@@ -96,7 +96,7 @@ pub enum SolveError {
     NoSolution,
     /// The verdict is many: the givens leave the answer open.
     #[error("the givens have more than one solution")]
-    SeveralSolutions,
+    ManySolutions,
     /// The givens have one solution and the proof's constructor still refused them.
     ///
     /// For any givens a caller can hand over, the reason is
@@ -113,7 +113,7 @@ pub enum SolveError {
 /// every rule it sets off, run to the search's conclusion.
 ///
 /// Nothing is required of the givens. They may be empty, conflict, or name positions
-/// the grid does not have; the worst of them get [`Verdict::None`]. They are read as a
+/// the grid does not have; the worst of them get [`Verdict::NoSolution`]. They are read as a
 /// set, so the order they come in does not matter and a given handed over twice is one
 /// given.
 ///
@@ -134,13 +134,13 @@ pub enum SolveError {
 ///
 /// // Singles alone solve this one: nothing is guessed.
 /// let result = search(givens.iter().copied());
-/// assert_eq!(result.verdict(), Verdict::One);
+/// assert_eq!(result.verdict(), Verdict::OneSolution);
 /// assert_eq!(result.guesses(), 0);
 /// assert_eq!(result.solutions()[0][0], [5, 3, 4, 6, 7, 8, 9, 1, 2]);
 ///
 /// // A digit that is not from 1 to 9 has no solution, and nothing is searched.
 /// let malformed = givens.into_iter().chain([Given::new(Position::new(9, 1), 0)]);
-/// assert_eq!(search(malformed).verdict(), Verdict::None);
+/// assert_eq!(search(malformed).verdict(), Verdict::NoSolution);
 /// ```
 #[must_use]
 pub fn search(givens: impl IntoIterator<Item = Given>) -> SearchResult {
@@ -158,7 +158,7 @@ pub fn search(givens: impl IntoIterator<Item = Given>) -> SearchResult {
 /// Three refusals, and no other outcome for any givens:
 ///
 /// - [`SolveError::NoSolution`] when the givens have no solution;
-/// - [`SolveError::SeveralSolutions`] when they have more than one;
+/// - [`SolveError::ManySolutions`] when they have more than one;
 /// - [`SolveError::NotPosed`] when they have one and leave nothing to play, because
 ///   every cell is given.
 ///
@@ -179,7 +179,7 @@ pub fn search(givens: impl IntoIterator<Item = Given>) -> SearchResult {
 /// assert_eq!(proof.solution()[8], [3, 4, 5, 2, 8, 6, 1, 7, 9]);
 ///
 /// // No givens at all have many solutions.
-/// assert_eq!(solve([]), Err(SolveError::SeveralSolutions));
+/// assert_eq!(solve([]), Err(SolveError::ManySolutions));
 ///
 /// // The whole solution as givens has one solution, and nothing left to play.
 /// let every_cell = proof.solution().iter().zip(1..).flat_map(|(row, r)| {
@@ -196,7 +196,7 @@ pub fn solve(givens: impl IntoIterator<Item = Given>) -> Result<WellPosed, Solve
     match search::run(&givens).solutions() {
         [] => Err(SolveError::NoSolution),
         [solution] => Ok(WellPosed::vouch(givens, solution.map(|row| row.map(Some)))?),
-        _ => Err(SolveError::SeveralSolutions),
+        _ => Err(SolveError::ManySolutions),
     }
 }
 
@@ -246,7 +246,7 @@ mod tests {
         let texts = [
             (SolveError::NoSolution, "the givens have no solution"),
             (
-                SolveError::SeveralSolutions,
+                SolveError::ManySolutions,
                 "the givens have more than one solution",
             ),
             (

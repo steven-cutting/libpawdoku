@@ -481,8 +481,8 @@ Changes to the list, one line each, as the loops ran:
 - The first run was against a `search` that answered `none` for everything. The three
   malformed-givens lines and `two_givens_that_agree_are_one_given` were green against
   it, as the ticket's suggested first line expects, and
-  `singles_alone_solve_the_fixture_with_no_guess` failed on its assertion (`None` where
-  `One` was expected).
+  `singles_alone_solve_the_fixture_with_no_guess` failed on its assertion (no solution where
+  one was expected).
 - The search was then written whole, not one rule to a loop: the grid of candidates, the
   three rules, the three kinds of contradiction, the split and the stack went in
   together, because the fixture cannot go green on less than all of propagation. The
@@ -595,8 +595,8 @@ its documentation quotes the sentence.
 | `SearchResult::verdict` | `pub const fn verdict(&self) -> Verdict` |
 | `SearchResult::guesses` | `pub const fn guesses(&self) -> u32` |
 | `SearchResult::solutions` | `pub fn solutions(&self) -> &[Grid<u8>]`: none, one or two, in the order found |
-| `Verdict` | `Debug, Clone, Copy, PartialEq, Eq`; `#[non_exhaustive]`; `None`, `One`, `Many` |
-| `SolveError` | `Debug, Clone, PartialEq, Eq, thiserror::Error`; `#[non_exhaustive]`; `NoSolution`, `SeveralSolutions`, `NotPosed(WellPosedError)`, with `From<WellPosedError>` |
+| `Verdict` | `Debug, Clone, Copy, PartialEq, Eq`; `#[non_exhaustive]`; `NoSolution`, `OneSolution`, `ManySolutions` |
+| `SolveError` | `Debug, Clone, PartialEq, Eq, thiserror::Error`; `#[non_exhaustive]`; `NoSolution`, `ManySolutions`, `NotPosed(WellPosedError)`, with `From<WellPosedError>` |
 
 **The givens type.** Both entries take `impl IntoIterator<Item = Given>`: a
 `BTreeSet<Given>`, a `Vec<Given>`, an array or any iterator of givens by value. A
@@ -609,7 +609,7 @@ given. No new type was added for givens. The maintainer chose this shape on 2026
 | Refusal | When | Text |
 | --- | --- | --- |
 | `SolveError::NoSolution` | the verdict is `none`, malformed givens included | `the givens have no solution` |
-| `SolveError::SeveralSolutions` | the verdict is `many` | `the givens have more than one solution` |
+| `SolveError::ManySolutions` | the verdict is `many` | `the givens have more than one solution` |
 | `SolveError::NotPosed(WellPosedError::NothingLeftToPlay { givens: 81 })` | the verdict is `one` and every cell is given | the constructor's own: `81 givens leave nothing to play: a puzzle has fewer givens than its 81 cells` |
 
 `NotPosed` is transparent: its text and its source are the wrapped error's. The other
@@ -684,10 +684,10 @@ the two solutions follow from the tie-break.
 
 | Test | File | Shows |
 | --- | --- | --- |
-| `snapshot_the_search_of_the_fixture` | `snapshots__snapshot_the_search_of_the_fixture.snap` | The fixture's givens as a grid, then verdict `One`, 0 guesses and the one solution |
-| `snapshot_the_search_of_a_puzzle_that_needs_a_guess` | `snapshots__snapshot_the_search_of_a_puzzle_that_needs_a_guess.snap` | Norvig's puzzle, verdict `One`, 50 guesses and its solution |
-| `snapshot_the_search_of_givens_with_two_solutions` | `snapshots__snapshot_the_search_of_givens_with_two_solutions.snap` | The fixture without one given, verdict `Many`, 1 guess and both grids |
-| `snapshot_the_search_of_malformed_givens` | `snapshots__snapshot_the_search_of_malformed_givens.snap` | Three givens listed, one off the grid and one with the digit 12, then verdict `None`, 0 guesses and no solution |
+| `snapshot_the_search_of_the_fixture` | `snapshots__snapshot_the_search_of_the_fixture.snap` | The fixture's givens as a grid, then verdict `OneSolution`, 0 guesses and the one solution |
+| `snapshot_the_search_of_a_puzzle_that_needs_a_guess` | `snapshots__snapshot_the_search_of_a_puzzle_that_needs_a_guess.snap` | Norvig's puzzle, verdict `OneSolution`, 50 guesses and its solution |
+| `snapshot_the_search_of_givens_with_two_solutions` | `snapshots__snapshot_the_search_of_givens_with_two_solutions.snap` | The fixture without one given, verdict `ManySolutions`, 1 guess and both grids |
+| `snapshot_the_search_of_malformed_givens` | `snapshots__snapshot_the_search_of_malformed_givens.snap` | Three givens listed, one off the grid and one with the digit 12, then verdict `NoSolution`, 0 guesses and no solution |
 | `snapshot_the_proof_of_the_fixture` | `snapshots__snapshot_the_proof_of_the_fixture.snap` | The proof's givens and its solution, each as a grid. This file holds a solution on purpose: the proof exposes it |
 | `snapshot_the_three_refusals` | `snapshots__snapshot_the_three_refusals.snap` | The `Display` text of the three refusals, one line each |
 
@@ -819,10 +819,12 @@ Acceptance criteria read against the code:
   the maintainer accepted it. Revert them if the lane should not have.
 - **`sudoku::LINE` and `sudoku::in_range` are `pub(crate)`.** T25's notes left widening a
   helper to this ticket. The solver uses these two and no other.
-- **`Verdict::None`.** The variants are the specification's words, `none`, `one` and
-  `many`. `Verdict::None` reads close to `Option::None`; a consumer that writes
-  `use Verdict::*` would shadow it. The names can change at review; the behaviour is
-  fixed.
+- **The verdict's variants are `NoSolution`, `OneSolution` and `ManySolutions`**, not
+  the specification's bare `none`, `one` and `many`. The maintainer chose them on
+  2026-10-01, after the first commit: a variant named `None` reads as Rust's
+  `Option::None`. The refusal's second variant was renamed from `SeveralSolutions` to
+  `ManySolutions` to match. Four snapshots changed with the names and with nothing else:
+  their `verdict:` line now reads `OneSolution`, `ManySolutions` or `NoSolution`.
 - **`guesses` is a `u32`**, not a `usize`, so that its width is the same on every target
   and a binding sees one type.
 - **No serde on the new types.** Nothing asks for one yet, as T25 decided for `WellPosed`.
