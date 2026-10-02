@@ -675,6 +675,13 @@ three were answered:
   `random.rs` already shows. The three now say so, and a unit test deserialises a
   record with one move undone and none made, and sees it refused at reopening.
 
+**The pull request's reviews, round 1.** Codex reviewed `4494fa0` on pull request 29
+and found no issue. Copilot made one finding, low severity: the count of cells left to
+play, which the last hold on a check needs, was taken by scanning the grid once for
+every check in the record, though it depends on the puzzle alone. It is now counted
+once per reopening, in `ask_again`, and handed to each check. No behaviour changed and
+the tests are as they were.
+
 ### Deviations, and why
 
 - **A check is held to one thing the ticket does not list.** The ticket holds a check

@@ -170,8 +170,9 @@ impl From<&Check> for Asked {
 
 impl Asked {
     /// The check as `board` keeps it, at `index`, with its answer worked out from the
-    /// solution, or the refusal of a check no board answered.
-    fn read_back(self, index: usize, board: &Board) -> Result<Check, ReopenError> {
+    /// solution, or the refusal of a check no board answered. `to_play` is how many
+    /// cells the puzzle leaves to play.
+    fn read_back(self, index: usize, board: &Board, to_play: usize) -> Result<Check, ReopenError> {
         let Self {
             after_move,
             target,
@@ -187,7 +188,6 @@ impl Asked {
         require(after_move >= 1, ReopenError::CheckAfterNoMove { index })?;
         let is_right = board.puzzle.is_solution_digit(target, digit);
         // With one cell to play, its right digit solves the puzzle as it is placed.
-        let to_play = board.cells().filter(|cell| !cell.is_given()).count();
         require(!is_right || to_play > 1, refused(PlayError::Solved))?;
         Ok(Check::new(index, after_move, target, digit, is_right))
     }
@@ -334,8 +334,10 @@ fn take_back(board: &mut Board, undone: usize) -> Result<(), ReopenError> {
 /// Puts every check of the record on `board`, in order, each held to what a check can
 /// be held to and answered again from the solution.
 fn ask_again(board: &mut Board, checks: &[Asked]) -> Result<(), ReopenError> {
+    // How many cells the puzzle leaves to play, the same for every check: counted once.
+    let to_play = board.cells().filter(|cell| !cell.is_given()).count();
     for (index, asked) in (1..).zip(checks) {
-        let check = asked.read_back(index, board)?;
+        let check = asked.read_back(index, board, to_play)?;
         board.checks.push(check);
     }
     Ok(())
