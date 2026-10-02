@@ -128,10 +128,13 @@ so the test needs a count the solver did not produce. `count_solutions` in
 `tests/solver.rs` is one: it tries digits cell by cell in grid order with no candidates
 and no propagation, stops at two, and keeps its place in a list where another would
 recurse. A property compares it with `search`. Its inputs are chosen to keep it quick:
-cells of the fixture's solution with some removed, which have one solution or many; a
-dense set with one digit changed, which mostly has none; and arbitrary givens, which are
-mostly malformed. A sparse set with no solution can take a plain counter a very long
-time, so none is generated for it.
+cells of the fixture's solution with at most some four in ten removed, which have one
+solution or many; such a set, denser still, with one digit changed, which mostly has
+none; and arbitrary givens with one added that is certainly malformed, which the oracle
+counts as none without a search. A sparse set that is well-formed and has no solution
+can take a plain counter a very long time: five scattered givens that leave a row no
+place for a digit are enough. No strategy the oracle is handed can produce one. The
+properties that call the solver alone take arbitrary givens with no such limit.
 
 **The pinned guess counts follow from the tie-break, not from the specification.**
 `solver.allium` leaves the order of tied cells and tied branches to the implementation.

@@ -684,12 +684,12 @@ the two solutions follow from the tie-break.
 
 | Test | File | Shows |
 | --- | --- | --- |
-| `snapshot_the_search_of_the_fixture` | `snapshots__snapshot_the_search_of_the_fixture.snap` | The fixture's givens as a grid, then verdict `OneSolution`, 0 guesses and the one solution |
-| `snapshot_the_search_of_a_puzzle_that_needs_a_guess` | `snapshots__snapshot_the_search_of_a_puzzle_that_needs_a_guess.snap` | Norvig's puzzle, verdict `OneSolution`, 50 guesses and its solution |
-| `snapshot_the_search_of_givens_with_two_solutions` | `snapshots__snapshot_the_search_of_givens_with_two_solutions.snap` | The fixture without one given, verdict `ManySolutions`, 1 guess and both grids |
-| `snapshot_the_search_of_malformed_givens` | `snapshots__snapshot_the_search_of_malformed_givens.snap` | Three givens listed, one off the grid and one with the digit 12, then verdict `NoSolution`, 0 guesses and no solution |
-| `snapshot_the_proof_of_the_fixture` | `snapshots__snapshot_the_proof_of_the_fixture.snap` | The proof's givens and its solution, each as a grid. This file holds a solution on purpose: the proof exposes it |
-| `snapshot_the_three_refusals` | `snapshots__snapshot_the_three_refusals.snap` | The `Display` text of the three refusals, one line each |
+| `snapshot_the_search_of_the_fixture` | `snapshots__tests__snapshot_the_search_of_the_fixture.snap` | The fixture's givens as a grid, then verdict `OneSolution`, 0 guesses and the one solution |
+| `snapshot_the_search_of_a_puzzle_that_needs_a_guess` | `snapshots__tests__snapshot_the_search_of_a_puzzle_that_needs_a_guess.snap` | Norvig's puzzle, verdict `OneSolution`, 50 guesses and its solution |
+| `snapshot_the_search_of_givens_with_two_solutions` | `snapshots__tests__snapshot_the_search_of_givens_with_two_solutions.snap` | The fixture without one given, verdict `ManySolutions`, 1 guess and both grids |
+| `snapshot_the_search_of_malformed_givens` | `snapshots__tests__snapshot_the_search_of_malformed_givens.snap` | Three givens listed, one off the grid and one with the digit 12, then verdict `NoSolution`, 0 guesses and no solution |
+| `snapshot_the_proof_of_the_fixture` | `snapshots__tests__snapshot_the_proof_of_the_fixture.snap` | The proof's givens and its solution, each as a grid. This file holds a solution on purpose: the proof exposes it |
+| `snapshot_the_three_refusals` | `snapshots__tests__snapshot_the_three_refusals.snap` | The `Display` text of the three refusals, one line each |
 
 None of T25's four snapshots under `src/sudoku/snapshots/` changed.
 
@@ -709,7 +709,7 @@ Closing lines of each recipe, from the last run:
 | --- | --- |
 | `just fmt-check` | `cargo fmt --all --check` (no diagnostic) |
 | `just clippy` | ``Finished `dev` profile [unoptimized + debuginfo] target(s)``, no warning |
-| `just metrics` | `::notice::Quality score: 100.0% (296 functions analyzed)`, no finding, no recursion among them, and the probe satisfied |
+| `just metrics` | `::notice::Quality score: 100.0% (297 functions analyzed)`, no finding, no recursion among them, and the probe satisfied |
 | `just test` | `141 tests run: 141 passed, 0 skipped`; `test result: ok. 56 passed; 0 failed` and `ok. 1 passed` (the `compile_fail` example) for the doctests |
 | `just snapshots-check` | `info: no unreferenced snapshots found`; `info: no snapshots to review` |
 | `just wasm-check` | both feature sets on `wasm32-unknown-unknown` and on `wasm32v1-none`, each `Finished` |
@@ -792,11 +792,9 @@ Acceptance criteria read against the code:
   `solver_imports_sudoku`.
 - **No recursion**, in code or tests: the search and the oracle each keep a list, and
   `just metrics` reports no finding.
-- **Suppressions.** No `#[allow]`, no `qual:allow`, and no `#[expect]` on any item. The
-  twenty expectations naming T26 are gone, and the one on `Puzzle::is_solution_digit`,
-  naming T27, remains. The two new files under `tests/` open with the crate-level
-  `#![expect(clippy::tests_outside_test_module, ...)]` that every integration test file
-  here opens with; "Deviations" says why.
+- **Suppressions.** No `#[allow]`, no `qual:allow` and no `#[expect]` added, on an item
+  or on a crate. The twenty expectations naming T26 are gone, and the one on
+  `Puzzle::is_solution_digit`, naming T27, remains.
 - **No panic in the library.** Outside test code `src/solver` has no `unwrap`, `expect`,
   `panic!` or run-time indexing. The two tables are indexed while they are built, at
   compile time; a running search reads them through `get` and iterators.
@@ -807,12 +805,12 @@ Acceptance criteria read against the code:
   then the whole search went in at once, because no part of propagation turns the
   fixture green alone. Most lines were therefore green on arrival. The deliberate breaks
   above are how each was shown to prove something, as T25 did.
-- **Two crate-level `#![expect]` lines were added**, at the head of `tests/solver.rs`
-  and `tests/snapshots.rs`, against the criterion "no `#[expect]` added". Every
-  integration test file in the crate opens with the same line, because
-  `tests_outside_test_module` cannot tell an integration test file from library code.
-  The alternative was a `#[cfg(test)] mod tests` wrapper in each file, unlike the three
-  that exist. No item-level expectation was added.
+- **The two new integration test files keep their tests in a `#[cfg(test)] mod tests`**,
+  unlike the three older ones, which open with a crate-level
+  `#![expect(clippy::tests_outside_test_module, ...)]`. The first commit followed the
+  older files; review round 1 held it to the criterion "no `#[expect]` added", and the
+  module is what meets it. The snapshot files are therefore named
+  `snapshots__tests__snapshot_...`.
 - **`README.md` and `crates/pawdoku/README.md` are edited**, one sentence each, though
   the ticket does not list them: each said the crate held the randomness boundary and
   the value types alone. T25's review asked for the same fix to the same sentences and
@@ -841,6 +839,38 @@ Acceptance criteria read against the code:
 - **Choices the ticket left open**, for review: the result's solutions are a slice of
   grids, in the order found; the refusal is named `SolveError` and its third variant
   `NotPosed`; the parts are `candidates.rs`, `branch.rs`, `search.rs` and `result.rs`.
+
+### Review round 1
+
+An adversarial review by Codex, run locally on 2026-10-01 over `69025ae..45cf0d8`, with
+the rename in `8356c7c` in its sight. It was asked to try to make the batch propagation
+passes and the place of the contradiction checks change a verdict, a solution or a guess
+count. It reported that a one-rule-at-a-time model and a batch model of its own agreed
+on 1,000 inputs and that it found no propagation or guess-count defect. Its sandbox was
+read-only, so it ran no recipe. Two findings, both accepted:
+
+- **The oracle could be handed givens it cannot count in any reasonable time.** The
+  property `the_verdict_agrees_with_the_oracle` drew from `arbitrary()`, which can make
+  sparse, well-formed givens with no solution. Codex's example is five givens that leave
+  row 9 no place for a 1: the plain counter fills eight rows every way before it finds
+  out. The run would have hung, rarely. The oracle's third strategy is now `malformed()`:
+  arbitrary givens with one added that is certainly off the grid or out of range, which
+  the oracle counts as none without a search. Its thinned sets are denser too, from six
+  cells in ten kept. `docs/reference/testing.md` said such inputs were not generated,
+  which was untrue of that arm, and now says what is enforced. `just test` with
+  `PROPTEST_CASES=30000` ran the property in 0.4 seconds. The properties that call the
+  solver alone still take arbitrary givens.
+- **The two crate-level `#![expect]` lines** broke the criterion as written. Both files
+  now keep their tests in a `#[cfg(test)] mod tests` and carry no expectation. The six
+  snapshot files were renamed by `just snapshots-accept` and their pictures did not
+  change. The oracle's loop lost a level of nesting to fit under the module.
+
+Also in this round, unasked: `every_search_concludes` asserted that the verdict was one
+of its three variants, which no result can fail. It now asserts only what returning
+shows, with a comment that says so.
+
+The three older integration test files still open with the expectation. Whether they
+follow these two is the maintainer's: it is outside this ticket's files.
 
 ### Handed back
 
