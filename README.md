@@ -5,7 +5,8 @@ The classic-sudoku engine behind Pawdoku, a Biscuit Games game: a Rust library.
 The engine is a solver, a catalogue of the techniques a person solves with, a difficulty
 rating and hints, built on a model of a human solver. Every rule comes from the
 specifications in `docs/specs/`, and the code is built from them one module at a time;
-today the crate holds the randomness boundary, and the modules follow it. The core is
+today the crate holds the randomness boundary and the first of the rules of sudoku, the
+grid's two figures and its value types, and the other modules follow them. The core is
 `no_std`, so the same code will run in a browser, in Python and on the command line.
 
 ## Prerequisites

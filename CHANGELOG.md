@@ -9,6 +9,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- The first engine module, `pawdoku::sudoku`, from `sudoku.allium`: the constants
+  `BOX_SIDE` and `SIDE`, and the value types `Position` and `Given`. Inside the crate
+  until the solver arrives: the proof value `WellPosed`, and a `Puzzle` set from it with
+  its eighty-one cells, placing and erasing, conflicts, and solved as a final state.
+  `SIDE` moves there from the crate root, which no longer exports a constant.
 - File snapshots through insta for review and change detection, with a randomness-boundary
   picture, a read-only `snapshots-check` gate that rejects orphans, and cargo-insta recipes
   to review and accept intended changes. Snapshot tests prove no specification clause.

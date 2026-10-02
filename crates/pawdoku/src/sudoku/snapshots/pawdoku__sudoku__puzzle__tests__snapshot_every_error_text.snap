@@ -1,0 +1,18 @@
+---
+source: crates/pawdoku/src/sudoku/puzzle.rs
+expression: picture
+---
+WellPosedError (Display)
+81 givens leave nothing to play: a puzzle has fewer givens than its 81 cells
+the solution has no digit at row 2, column 3
+the solution's digit at row 2, column 3 is 10, outside 1 to 9
+the solution holds 4 at row 2, column 3 and at row 2, column 8, which are peers
+the given 7 at row 0, column 10 is off the grid
+the given at row 2, column 3 is 7, and the solution's digit there is 2
+
+MoveError (Display)
+row 0, column 10 names no cell of the grid
+the puzzle is solved, and solved is final
+the cell at row 2, column 3 holds a given
+the digit 10 is outside 1 to 9
+the cell at row 2, column 3 is already empty
