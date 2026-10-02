@@ -872,6 +872,28 @@ shows, with a comment that says so.
 The three older integration test files still open with the expectation. Whether they
 follow these two is the maintainer's: it is outside this ticket's files.
 
+### Review round 2
+
+Pull request 27, reviewed at `6017049` by Codex and by Copilot on 2026-10-01. Three
+comments, two findings.
+
+- **`snapshots.rs` does not hold every public-API snapshot: accepted** (Copilot, twice).
+  `docs/reference/testing.md` and `docs/project/repository-map.md` said it did, and
+  `tests/random.rs` keeps `snapshot_the_randomness_boundary`, which T29 put there. Both
+  pages now say the file holds the solver's and the proof's snapshot tests and name the
+  one that stays in `random.rs`. The ticket's own step 6 uses the same wording; it is
+  left as written, being the instruction and not a description of the repository.
+- **Keep the generic `Grid<T>` alias private: declined** (Codex, P1). The finding:
+  `Grid<Rc<()>>` is not `Send`, so a public generic alias breaks invariant 3. A type
+  alias defines no type. `[[T; 9]; 9]` is an array a caller can write with or without
+  the name, and it has every bound its element has. The invariant is about the types
+  the crate defines and hands out, and the only grid it hands out is `Grid<u8>`, which
+  `tests/api_bounds.rs` holds to the bounds. The maintainer chose the public generic
+  alias on 2026-10-01, and T27 may want `Grid<Option<u8>>` for a board's digits. The
+  alias's documentation now says it names a plain array and which grid the API hands out.
+
+No re-review was asked, at the maintainer's instruction.
+
 ### Handed back
 
 T26 is done here and in the ticket index.

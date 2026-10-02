@@ -44,8 +44,10 @@ outside the crate: the two figures, the value types, and a puzzle made the way o
 code makes one, solved and then set, and played to its end; each rule is proved clause
 by clause by the unit tests inside `src/sudoku/`. `tests/solver.rs` holds the solver's
 two entries, and is where most of the solver's clauses are proved, because what
-`solver.allium` promises is what a result shows. `tests/snapshots.rs` holds every
-snapshot test taken through the public API, and no test that asserts.
+`solver.allium` promises is what a result shows. `tests/snapshots.rs` holds the
+snapshot tests of the solver and the proof, and no test that asserts; the board's and
+the record's join them there. The randomness boundary's one snapshot test stays in
+`tests/random.rs`, beside the tests of the values it pictures.
 
 A helper shared between two files under `tests/` would be compiled into each, and each
 would report the functions it does not call as dead code. So each file carries the few

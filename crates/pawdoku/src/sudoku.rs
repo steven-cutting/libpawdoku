@@ -237,6 +237,10 @@ pub(crate) const LINE: usize = SIDE as usize;
 /// row `r`, column `c` is `grid[r - 1][c - 1]`. A solution is a `Grid<u8>`: a digit in
 /// every cell.
 ///
+/// This is a name for a plain array and defines no type of its own. `Grid<u8>` is the
+/// one grid the public API hands out, and it is `Send`, `Sync`, `Clone` and `Debug` as
+/// every public type is.
+///
 /// ```
 /// use pawdoku::solver::solve;
 /// use pawdoku::sudoku::{Given, Grid, Position};
