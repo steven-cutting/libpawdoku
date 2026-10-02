@@ -12,11 +12,15 @@
 //! [`solver`] is the second, from `docs/specs/solver.allium`: the search that gives a set
 //! of givens its verdict of none, one or many solutions. A puzzle is made in two steps,
 //! [`solver::solve`] and then [`sudoku::Puzzle::set`], because only the solver can show
-//! that givens have exactly one solution.
+//! that givens have exactly one solution. [`board`] is the third, from
+//! `docs/specs/board.allium`: one puzzle as it is being played. A [`board::Board`] opens
+//! from givens in one call and is what a player plays on: it keeps a note in every
+//! cell and every move made, takes the latest move back and re-takes it, reads back
+//! the board as it stood after any move, and answers a check of one cell yes or no.
 //!
 //! ```
-//! use pawdoku::solver::solve;
-//! use pawdoku::sudoku::{Given, Position, Puzzle, Status};
+//! use pawdoku::board::Board;
+//! use pawdoku::sudoku::{Given, Position, Status};
 //!
 //! // Thirty givens, rows top to bottom, a dot for an empty cell.
 //! let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
@@ -25,9 +29,13 @@
 //!     .filter(|(cell, _)| cell.is_ascii_digit())
 //!     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
 //!
-//! let puzzle = Puzzle::set(solve(givens)?);
-//! assert_eq!(puzzle.status(), Status::Unsolved);
-//! # Ok::<(), pawdoku::solver::SolveError>(())
+//! let mut board = Board::open(givens)?;
+//! assert_eq!(board.status(), Status::Unsolved);
+//!
+//! // The third cell of the first row is empty, and its digit is 4.
+//! board.place(Position::new(1, 3), 4)?;
+//! assert!(board.check(Position::new(1, 3))?.is_right());
+//! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
 //! **Not final.** This is a draft: the public items, their names and their signatures
@@ -40,6 +48,7 @@ extern crate alloc;
 #[cfg(test)]
 extern crate std;
 
+pub mod board;
 pub mod random;
 pub mod solver;
 pub mod sudoku;
