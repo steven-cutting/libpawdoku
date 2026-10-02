@@ -100,9 +100,10 @@ rustdoc pair `missing_crate_level_docs` and `unescaped_backticks`.
 
 ## Values the specifications decide
 
-A figure a specification states is mirrored in code once, by name. `pawdoku::SIDE`
-mirrors `config.side` in `sudoku.allium`, the side of the grid, and a doctest and a unit
-test hold the mirror. A Rust constant that stands for a figure but has no `config` entry
+A figure a specification states is mirrored in code once, by name.
+`pawdoku::sudoku::SIDE` mirrors `config.side` in `sudoku.allium`, the side of the grid,
+and `pawdoku::sudoku::BOX_SIDE` mirrors `config.box_side`; a doctest and a unit test
+hold each mirror. A Rust constant that stands for a figure but has no `config` entry
 to name is drift the other way: the figure belongs in the specification first.
 
 ## Version pins

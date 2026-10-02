@@ -34,12 +34,15 @@ itself stays `no_std`. This departs from the games' rule that tests are never co
 with the code: in Rust a unit test can reach a private item only from inside its module,
 and [Decision 0009](../decisions/0009-rust-quality-gate.md) records the deviation.
 
-Two integration tests exist. `tests/api_bounds.rs` holds, at compile time, that every
+Three integration tests exist. `tests/api_bounds.rs` holds, at compile time, that every
 public type is `Send + Sync + 'static`, `Clone` and `Debug`, and that the boundary trait
 is usable as a trait object. `tests/random.rs` holds the boundary's contract from outside
 the crate: the same seed gives the same stream, indexed from zero; the first draws of seed
 zero are pinned bit for bit, so a changed generator must change `RANDOM_VERSION`; the fake
-replays its script and then reports exhaustion.
+replays its script and then reports exhaustion. `tests/sudoku.rs` holds what an outside
+crate can reach of the rules, which until the solver exists is the two figures and the
+two value types: a puzzle cannot be made from outside the crate yet, so the rules
+themselves are proved by the unit tests inside `src/sudoku/`.
 
 When a property test fails, proptest writes the failing case to a `proptest-regressions/`
 file beside the test that produced it. That file is committed, so the case is replayed
@@ -62,6 +65,39 @@ place `SeededStream` is driven directly.
 **Restriction lints relax inside tests only.** `clippy.toml` allows `unwrap`, `expect`,
 `panic`, indexing, `dbg!` and printing inside `#[cfg(test)]` code, and nowhere else, so a
 test can fail loudly while the library cannot.
+
+## The rules' fixture
+
+The tests of `sudoku` share one puzzle, in `src/sudoku/fixture.rs`: the example of the
+article `sudoku.allium` cites as its source. It has 30 givens and one solution, and
+naked and hidden singles alone solve it. Rows run top to bottom, a dot for an empty
+cell:
+
+```text
+puzzle       solution
+53..7....    534678912
+6..195...    672195348
+.98....6.    198342567
+8...6...3    859761423
+4..8.3..1    426853791
+7...2...6    713924856
+.6....28.    961537284
+...419..5    287419635
+....8..79    345286179
+```
+
+**These tests build the proof by hand.** A `Puzzle` is set from a `WellPosed`, and only
+the solver makes one; `sudoku` imports nothing, so its tests cannot call the solver. They
+pass the givens and the solution above, checked by hand, to the crate-only constructor
+([Architecture](../explanation/architecture.md) says why the proof exists). The same
+constructor lets a test state a proof no solver would make, such as no givens with one
+solution grid, which is how "solved is not a comparison with the stored solution" is
+shown: the puzzle is filled with a different valid grid and is solved.
+
+The invariants and the surface are held by property: a script of placements and
+erasures, refused ones included, runs on the fixture from some way towards its solution,
+so that some scripts solve it and go on. The oracle for a refusal is a model written
+from the rules' `requires` clauses in test code, never the implementation.
 
 ## Coverage
 
@@ -106,9 +142,10 @@ newline.
 
 Snapshots are `.snap` files, never inline in Rust source. They appear as their own diffs,
 and acceptance rewrites no source. A test in `src/foo.rs` stores files in
-`src/snapshots/`; a test in `tests/foo.rs` stores them in `tests/snapshots/`, beside the
-source file's directory. These files are committed. Pending `*.snap.new` and
-`*.pending-snap` files from runs outside the recipes are ignored.
+`src/snapshots/`; a test in `src/foo/bar.rs` stores them in `src/foo/snapshots/`; a test
+in `tests/foo.rs` stores them in `tests/snapshots/`, beside the source file's directory.
+These files are committed. Pending `*.snap.new` and `*.pending-snap` files from runs
+outside the recipes are ignored.
 
 `just test`, `just coverage` and `just snapshots-check` fail on a mismatch without
 writing a snapshot or pending file. The snapshot gate also rejects a `.snap` file no
@@ -128,9 +165,14 @@ explains the commands in order.
 
 | Suite | Covers |
 | --- | --- |
-| In-module tests | `lib.rs`: the grid's side squares to 81 cells. `random.rs`: the stable `Display` text of each error; a scripted draw outside `[0, 1)`, NaN included, rejected; the seeded index wrapping with its state; clones replaying the same draws; a deserialised script held to the same range check as a constructed one; and, by property, every seed drawing in range. |
-| Doctests | Every public item's example, among them `SIDE`'s value, `RANDOM_VERSION`'s name, and the trait used as a trait object. |
-| `tests/api_bounds.rs` | Every public type is `Send + Sync + 'static`, `Clone` and `Debug`; the boundary trait is usable as a trait object; under the `serde` feature, both streams serialise. |
+| In-module tests, `random.rs` | The stable `Display` text of each error; a scripted draw outside `[0, 1)`, NaN included, rejected; the seeded index wrapping with its state; clones replaying the same draws; a deserialised script held to the same range check as a constructed one; and, by property, every seed drawing in range. |
+| In-module tests, `sudoku.rs` | `box_side` is 3 and `side` its square; the value types equal when their fields are; two givens that agree are one given; every cell has twenty peers and is not among them. |
+| In-module tests, `sudoku/proof.rs` | `SetPuzzle` through the proof: refused for eighty-one givens, for a solution that is not full, has a digit out of range or has two peers holding one digit, for a given off the grid, and for a given that is not the solution's, two disagreeing givens included; an accepted proof gives back its givens and its solution; the stable `Display` text of each error. |
+| In-module tests, `sudoku/puzzle.rs` | `LayOutGrid`, `PlaceDigit`, `EraseDigit` and `PuzzleSolved`, each `requires` clause refused by name; solved at once, final, and not a comparison with the stored solution; `is_full`, `is_consistent` and conflicts; the yes-or-no answer, total over any position; a `Debug` that leaves the solution out; the stable `Display` text of each error; and, by property over scripts of moves, the eight invariants, the givens never changing, and a move accepted exactly when its rule allows it. |
+| `sudoku/puzzle.rs`: four `snapshot_` tests | Show the fixture as set, the fixture after each of four scripted moves, `Puzzle`'s `Debug`, and the `Display` text of every error the module defines, for review and change detection; they prove no clause. Their files are under `src/sudoku/snapshots/`. |
+| Doctests | Every public item's example, among them `SIDE`'s and `BOX_SIDE`'s values, the value types' equality, `RANDOM_VERSION`'s name, and the trait used as a trait object. |
+| `tests/api_bounds.rs` | Every public type is `Send + Sync + 'static`, `Clone` and `Debug`; the boundary trait is usable as a trait object; under the `serde` feature, both streams and both value types serialise. |
+| `tests/sudoku.rs` | From outside the crate: the side is the square of the box side; the value types compare by their fields; a position off the grid and a given out of range can be made; two givens that agree are one given. |
 | `tests/random.rs` | The same seed draws the same stream bit for bit; seed zero draws the golden stream; the fake replays its script and is then exhausted, directly and behind a trait object; every draw is in the unit interval. |
 | `tests/random.rs`: `snapshot_the_randomness_boundary` | Shows seed zero's first eight draws and each error's `Display` text for review and change detection; proves no clause. Its file is under `tests/snapshots/`. |
 

@@ -6,8 +6,13 @@
 //! line. Randomness is the one effect, and [`random`] is its boundary: a seeded stream
 //! of draws the caller supplies. See `docs/explanation/architecture.md`.
 //!
+//! Behaviour arrives one module to a specification module. [`sudoku`] is the first: the
+//! rules, from `docs/specs/sudoku.allium`, beneath every module to come. Today it
+//! exports the grid's two figures and the two value types; its puzzle stays inside the
+//! crate until the solver can make the proof a puzzle is set from.
+//!
 //! **Not final.** This is a draft: the public items, their names and their signatures
-//! may change once implementation starts.
+//! may change as implementation continues.
 
 #![no_std]
 
@@ -17,20 +22,4 @@ extern crate alloc;
 extern crate std;
 
 pub mod random;
-
-/// The side of a classic sudoku grid: nine cells to a row, a column and a box.
-///
-/// ```
-/// assert_eq!(pawdoku::SIDE, 9);
-/// ```
-pub const SIDE: u8 = 9;
-
-#[cfg(test)]
-mod tests {
-    use super::SIDE;
-
-    #[test]
-    fn a_grid_is_nine_by_nine() {
-        assert_eq!(usize::from(SIDE) * usize::from(SIDE), 81);
-    }
-}
+pub mod sudoku;

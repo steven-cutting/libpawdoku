@@ -18,9 +18,10 @@ This page is why.
 ## What a specification is for
 
 A figure looks like a detail and is not. The side of the grid is stated once, in
-`sudoku.allium`'s `config` block, as `side`, the square of `box_side`. `pawdoku::SIDE`
-mirrors it once, and a doctest and a unit test in `crates/pawdoku/src/lib.rs` hold the
-mirror, so a grid of the wrong size fails on the number rather than on a reviewer's eye.
+`sudoku.allium`'s `config` block, as `side`, the square of `box_side`.
+`pawdoku::sudoku::SIDE` and `pawdoku::sudoku::BOX_SIDE` mirror the two once, and a
+doctest and a unit test in `crates/pawdoku/src/sudoku.rs` hold the mirror, so a grid of
+the wrong size fails on the number rather than on a reviewer's eye.
 Left to prose, a figure like that drifts. Stated as a contract with a named guarantee, it
 is testable.
 
