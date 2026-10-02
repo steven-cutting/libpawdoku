@@ -392,6 +392,144 @@ total at or above the floor; `All checks passed and the worktree is unchanged.`
 
 ### The test list
 
+The list as first written on 2026-10-01, before any test or code, seeded from "What the
+tests must cover" and then checked against the 78 obligations of `just plan-spec board`.
+One line is one expected test: its name, then what it expects. B is
+`crates/pawdoku/tests/board.rs`, through the public API; U is a unit test in the part of
+`src/board/` it names.
+
+Opening, `OpenBoard` and `LayOutBoard` (B):
+
+1. `opening_gives_eighty_one_cells_no_note_no_move_and_no_check`: one cell to a position
+   in grid order, every note empty, nothing to undo or redo, unsolved.
+2. `a_board_shows_its_givens_and_leaves_every_other_cell_empty`: thirty given cells
+   holding the fixture's digits, fifty-one empty.
+3. `opening_is_refused_for_givens_with_no_solution`.
+4. `opening_is_refused_for_givens_with_several_solutions`.
+5. `opening_is_refused_for_givens_that_leave_nothing_to_play`.
+
+`Place` (B):
+
+1. `a_placement_puts_the_digit_in_the_cell_and_joins_the_record`: move 1, kind place,
+   its target and digit, standing.
+2. `placing_is_refused_on_a_given_cell`.
+3. `placing_is_refused_for_a_digit_out_of_range`: 0, 10 and 255.
+4. `placing_the_standing_digit_again_is_refused_and_discards_nothing`: nothing joins the
+   record and an undone move can still be re-taken.
+5. `a_placement_over_the_players_other_digit_is_a_move_that_remembers_what_it_displaced`.
+6. `a_conflicting_placement_is_a_move`: both cells conflict and the board is not
+   consistent.
+7. `a_position_off_the_grid_is_refused_by_every_operation`.
+8. `refusals_come_in_a_fixed_order`: off the grid, then solved, then the cell's own
+   clauses as written (the third open point).
+
+Upkeep (B):
+
+1. `a_placed_digit_is_struck_from_every_peer_that_holds_it_and_from_no_other_cell`: a
+   mark in the row, the column and the box goes, one outside stays, another digit's mark
+   in a peer stays.
+2. `upkeep_reaches_a_note_hidden_beneath_a_digit`.
+3. `the_targets_own_note_is_kept_beneath_its_digit`.
+4. `erasing_gives_nothing_back_to_the_peers`.
+
+`Erase` (B):
+
+1. `an_erasure_empties_the_cell_and_joins_the_record`: kind erase, no digit.
+2. `erasing_is_refused_on_a_cell_with_no_digit_of_the_players`: an empty cell and a
+   given.
+3. `the_note_beneath_a_digit_shows_again_when_it_is_erased`: `ANoteWaitsBeneathADigit`.
+
+`WriteMark` and `StrikeMark` (B):
+
+1. `a_written_mark_joins_the_note_and_the_record`.
+2. `a_struck_mark_leaves_the_note_and_joins_the_record`.
+3. `writing_a_mark_is_refused_on_a_cell_that_does_not_accept_marks`: a given and a cell
+   holding the player's digit.
+4. `writing_a_mark_is_refused_for_a_digit_out_of_range`.
+5. `writing_a_mark_already_written_is_refused`.
+6. `striking_a_mark_is_refused_on_a_cell_that_does_not_accept_marks`.
+7. `striking_a_mark_that_is_not_there_is_refused`: a digit out of range included.
+8. `a_mark_a_placed_peer_rules_out_may_still_be_written`.
+
+`Undo` and `Redo` (B). Exact is of the picture: every digit and every note, shown or
+waiting.
+
+1. `undoing_a_placement_leaves_the_board_as_it_stood`: the struck marks go back to the
+   notes they were struck from and no others; beside it, the move is still on the
+   record, undone, redo is offered and a check asked meanwhile is kept.
+2. `undoing_a_placement_over_a_digit_puts_the_former_digit_back`.
+3. `undoing_an_erasure_puts_the_digit_back`.
+4. `undoing_a_written_mark_strikes_it_and_undoing_a_struck_mark_writes_it`:
+   `AMarkIsAMove`.
+5. `redo_retakes_each_kind_of_move_exactly`.
+6. `undo_takes_back_the_latest_standing_move_and_redo_retakes_the_earliest_undone`: the
+   two derived moves, and `WhatIsReTakenComesNext`.
+7. `undo_is_refused_with_nothing_standing_and_redo_with_nothing_undone`.
+8. `a_new_move_discards_every_undone_move`: `ANewMoveDiscardsWhatWasUndone`.
+9. `can_undo_and_can_redo_follow_the_moves`.
+
+Reading back (B):
+
+1. `every_move_reads_back_the_board_as_it_stood_after_it`: a fixed script, each picture
+   kept as it is made, then compared for every move, standing and undone.
+2. `reading_back_takes_nothing_back`: the full view is the same before and after.
+3. `the_reading_at_the_latest_standing_move_is_the_board`: `TheMovesReplayToTheBoard`.
+4. `a_reading_off_the_grid_is_empty`.
+
+`CheckCell` (B):
+
+1. `a_check_answers_yes_for_the_solutions_digit_and_no_for_another`.
+2. `a_check_is_refused_on_an_empty_cell_and_on_a_given`.
+3. `a_check_records_the_digit_as_it_stood_and_how_many_moves_stood`.
+4. `a_check_is_not_a_move_and_undo_does_not_remove_it`: `EveryCheckIsKept`.
+5. `after_move_is_a_count_and_not_a_reference`: after an undo and a new move the check
+   says what it said.
+6. `a_check_never_tells_the_digit`: a wrong digit's check holds the player's digit and a
+   no, and nothing else.
+7. `a_board_does_not_print_its_solution`: `TheSolutionIsNeverShown`, for `Debug`.
+
+Derived values and the surface (B):
+
+1. `a_cells_facts_follow_its_digit_and_whether_it_is_given`: `holds_players_digit`,
+   `accepts_marks` and `shows_note` for a given, an empty cell and a player's digit.
+2. `a_note_is_shown_only_while_its_cell_is_empty`.
+3. `everything_playing_exposes_can_be_read_through_the_board`.
+4. `an_offered_operation_may_still_be_refused`: the three the `when` clauses offer and
+   the rules refuse.
+5. `two_boards_never_share_a_puzzle`: `OneBoardToAPuzzle`, which holds by ownership; a
+   clone played on leaves the first as it was.
+
+A whole game (B):
+
+1. `a_whole_game_is_played_through_the_board_and_then_everything_is_refused`: the
+   fixture to its end, solved; then every move, undo, redo and check refused, and every
+   move still read back.
+
+The state machine (B):
+
+1. `any_script_keeps_the_board_to_its_rules`: the property of step 5. Each of the
+   seventeen invariants is asserted under its own name as far as the surface shows it,
+   an operation is accepted exactly when the model of its rule's `requires` clauses says
+   so, and wherever its `when` clause is false it is refused.
+
+Inside the module (U):
+
+1. U `error` `refusal_texts_are_stable`.
+2. U `error` `the_rules_refusals_convert_to_the_boards`: the conversion, called directly.
+3. U `note` `a_note_holds_only_digits_from_one_to_nine`: `MarksAreDigits`, whatever is
+   offered.
+4. U `note` `marks_are_written_and_struck`.
+
+From outside the crate:
+
+1. Every new public type in the two bounds tests of `tests/api_bounds.rs`.
+2. A doc example on every public item.
+
+Expected to be struck or marked T28's: `contract-signature.Recording.write`,
+`contract-signature.Recording.reopen` and `surface-actor.Reopening` are T28's;
+`surface-actor.Playing` has no actor to test, since the surface names a context and no
+actor; `config-default.side` is `sudoku`'s figure, tested there.
+
 ### Names later tickets need
 
 ### Snapshots taken
