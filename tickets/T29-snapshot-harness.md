@@ -1,7 +1,7 @@
 ---
 id: T29
 title: "The snapshot harness: insta, its recipes and the rule for what a snapshot is for"
-status: open
+status: done
 depends_on: [T24]
 parallel_with: []
 branch: ticket/t29-snapshot-harness
@@ -305,9 +305,178 @@ the worktree is unchanged.`
 
 ### What was verified, and how
 
+Completed on 2026-10-01 in the supplied Supacode worktree, based on `baf1c35`, the
+merge of T24. The worktree was clean before editing, `.pixi/` and `.tools/bin` were
+already installed, and the baseline `just check` passed before any edit. Commands
+used rustup's Cargo through `PATH="$HOME/.cargo/bin:$PATH"`.
+
+**Versions and claims.** The [crates.io registry](https://crates.io/api/v1/crates/insta)
+reported insta 1.48.0 as the newest stable release. The
+[conda-forge registry](https://api.anaconda.org/package/conda-forge/cargo-insta)
+reported cargo-insta 1.48.0, with both `linux-64` and `osx-arm64` builds.
+`cargo-insta --version` after installation printed `cargo-insta 1.48.0`.
+Its `test --help`, `review --help` and `accept --help` confirmed `--check`,
+`--unreferenced reject`, `--test-runner nextest`, `--accept` and interactive review.
+
+The installed insta 1.48.0 manifest and source confirmed that `assert_snapshot!`
+and `assert_debug_snapshot!` need no feature and `assert_json_snapshot!` needs
+`json`. Its default features are **only `colors`**, correcting the ticket's claim.
+The source resolves the default `snapshots/` directory beside the test's source file:
+`src/foo.rs` uses `src/snapshots/`, and `tests/foo.rs` uses `tests/snapshots/`.
+The integration proof observed the latter. `env.rs` confirms `auto` selects `no` in CI
+and `new` elsewhere, and `always` updates in place. An initial `INSTA_UPDATE=always
+just test` generated the proof only after the existing asserting tests were green;
+a deliberate mismatch under `INSTA_UPDATE=no just test` exited 100 without pending files.
+
+**Locks and licences.** `just lock` and `just sync` both exited 0. Their closing lines:
+
+```text
+just lock: ✔ Updated lock file
+just sync: ✔ The default environment has been installed.
+```
+
+Both complete lockfile diffs were read (`git diff --text` for `pixi.lock`, which Git
+marks binary). Cargo added only insta 1.48.0 and similar 2.7.0; every existing crate
+kept its version. pixi added only the matching cargo-insta builds, with no transitive
+package change. insta's direct dependencies are once_cell, serde, similar and tempfile;
+all except similar were already locked. The full locked dependency closure below,
+including target-specific and already-present packages, was read from `Cargo.lock`;
+licences were read from each fetched crate's manifest. The new dependency edge is
+development-only; the existing shipping dependency graph is unchanged.
+
+| Crate | Locked version | Licence expression |
+| --- | --- | --- |
+| `bitflags` | 2.13.2 | MIT OR Apache-2.0 |
+| `cfg-if` | 1.0.5 | MIT OR Apache-2.0 |
+| `errno` | 0.3.14 | MIT OR Apache-2.0 |
+| `fastrand` | 2.5.0 | Apache-2.0 OR MIT |
+| `getrandom` | 0.4.3 | MIT OR Apache-2.0 |
+| `insta` | 1.48.0 | Apache-2.0 |
+| `libc` | 0.2.189 | MIT OR Apache-2.0 |
+| `linux-raw-sys` | 0.12.1 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT |
+| `once_cell` | 1.21.4 | MIT OR Apache-2.0 |
+| `proc-macro2` | 1.0.107 | MIT OR Apache-2.0 |
+| `quote` | 1.0.47 | MIT OR Apache-2.0 |
+| `r-efi` | 6.0.0 | MIT OR Apache-2.0 OR LGPL-2.1-or-later |
+| `rustix` | 1.1.5 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT |
+| `serde` | 1.0.229 | MIT OR Apache-2.0 |
+| `serde_core` | 1.0.229 | MIT OR Apache-2.0 |
+| `serde_derive` | 1.0.229 | MIT OR Apache-2.0 |
+| `similar` | 2.7.0 | Apache-2.0 |
+| `syn` | 3.0.6 | MIT OR Apache-2.0 |
+| `tempfile` | 3.27.0 | MIT OR Apache-2.0 |
+| `unicode-ident` | 1.0.26 | (MIT OR Apache-2.0) AND Unicode-3.0 |
+| `windows-link` | 0.2.1 | MIT OR Apache-2.0 |
+| `windows-sys` | 0.61.2 | MIT OR Apache-2.0 |
+
+**Mismatch and acceptance proofs.** The new proof snapshot was staged as the comparison
+baseline. One character in its seed heading was changed from `0` to `1`. All four
+entry points failed and named `snapshot_the_randomness_boundary`:
+
+| Recipe | Exit | Closing evidence |
+| --- | --- | --- |
+| `just test` | 100 | `23 tests run: 22 passed, 1 failed, 0 skipped`; `error: test run failed` |
+| `just coverage` | 100 | `23 tests run: 22 passed, 1 failed, 0 skipped`; the instrumented nextest process exited 100 |
+| `just snapshots-check` | 1 | `23 tests run: 22 passed, 1 failed, 0 skipped`; `info: no snapshots to review` |
+| `just check` | 100 | Stopped at `coverage`, naming the snapshot; the instrumented nextest process exited 100 |
+
+After **each** run, `git status --short --ignored --untracked-files=all` over the
+snapshot directory showed only:
+
+```text
+AM crates/pawdoku/tests/snapshots/random__snapshot_the_randomness_boundary.snap
+```
+
+No `.snap.new` or `.pending-snap` path appeared, and a filesystem scan independently
+found none. `AM` means the new file was staged, then deliberately edited. The rest
+of the ticket's work remained present throughout the trial.
+
+`just snapshots-accept` exited 0 and reported:
+
+```text
+23 tests run: 23 passed, 0 skipped
+info: no unreferenced snapshots found
+insta review finished
+accepted:
+  crates/pawdoku/tests/random.rs (snapshot_the_randomness_boundary.snap)
+```
+
+It restored the exact saved bytes, removed the pending file, and
+`git diff -- crates/pawdoku/tests/snapshots` was empty. The accepted picture records
+seed zero's first eight draws and each error's existing `Display` text; this is the
+initial harness picture, with no engine behaviour change or altered assertion.
+
+With `tests/snapshots/orphan.snap` temporarily added, `just snapshots-check` exited 1:
+
+```text
+warning: encountered unreferenced snapshots:
+  .../crates/pawdoku/tests/snapshots/orphan.snap
+error: aborting because of unreferenced snapshots
+```
+
+`just test` still exited 0, with 23 tests and 11 doctests passing. The orphan was removed.
+
+**Hygiene and closing checks.** `just lint` passed with the proof `.snap` file staged.
+EditorConfig, typos and ripsecrets all read it successfully. No exclusion or whitespace
+exception was needed; the picture has no trailing whitespace and ends in a newline.
+No suppressions, source changes in the core, or coverage changes were added.
+
+Each required recipe exited 0. Quoted closing evidence from the verification run:
+
+| Recipe | Closing output |
+| --- | --- |
+| `just fmt-check` | `cargo fmt --all --check` (no diagnostic) |
+| `just toml-check` | `INFO taplo:lint_files:collect_files: found files total=13 excluded=1` (followed by its file inventory, no diagnostic) |
+| `just clippy` | `Finished dev profile [unoptimized + debuginfo] target(s) in 0.07s` |
+| `just test` | `23 tests run: 23 passed, 0 skipped`; `test result: ok. 11 passed; 0 failed` |
+| `just snapshots-check` | `23 tests run: 23 passed, 0 skipped`; `info: no unreferenced snapshots found`; `info: no snapshots to review` |
+| `just coverage` | `TOTAL` line coverage `97.84%` (139 lines, 3 missed); `Finished report saved to target/llvm-cov/lcov.info` |
+| `just deny` | `bans ok, licenses ok, sources ok` |
+| `just deps-unused` | `✓ no issues found` |
+| `just lock-check` | `Locking 0 packages to latest Rust 1.98 compatible versions`; `Dry-run: lock file would not change` |
+| `just check-agents` | `Validated AGENTS.md, 2 adapters, and 14 skills.` |
+| `just check-docs` | `Validated 41 pages and 42 canonical topics.` |
+| `just lint` | `ripsecrets...............................................................Passed` (every preceding hook also passed) |
+| `just check` | `The worktree matches the check baseline.`; `All checks passed and the worktree is unchanged.` |
+
+The measured warm `just snapshots-check` took **0.37 seconds**, including lock validation;
+the full `just check` took 18.63 seconds. The aggregate ran twenty gates, ending with
+`snapshots-check` nineteenth and `check-clean` twentieth. Host feature combinations and
+both wasm targets passed through that aggregate. Coverage remained the baseline's 97.84%.
+The rerun for orphan detection is inexpensive at this suite size.
+
 ### Deviations, and why
 
+- cargo-insta 1.48.0 rejects `--locked` as its own option. Despite its help calling
+  trailing arguments Cargo options, `-- --locked` reaches nextest as a test argument:
+  `error: failed to parse test binary arguments --locked: arguments are unsupported`.
+  Following step 4's fallback, both test-running snapshot recipes depend on the existing
+  offline `lock-check` recipe before running cargo-insta with `CARGO_NET_OFFLINE=true`.
+  Thus a stale lock fails before cargo-insta can resolve it. The existing `test` and
+  `coverage` invocations retain `--locked`.
+- `--disable-nextest-doctest` avoids cargo-insta's warning about its forthcoming change
+  to nextest doctest handling. Doctests remain covered by the existing recipes; the
+  snapshot recipes run the full unit and integration suite for references.
+- The proof was created before the final recipes to execute step 2's no-update trial
+  before building the gate on that claim. It was initially generated through the
+  existing `just test` recipe with `INSTA_UPDATE=always`; subsequent acceptance used
+  only `just snapshots-accept`.
+- The supplied branch is `ticket/T29-snapshot-harness`, with an uppercase ticket ID;
+  it was retained rather than renaming the Supacode-managed branch.
+- The baseline and closing `deny` runs each report the same ten configuration warnings:
+  eight unused licence allowances and two wrappers for the future `pawdoku-cli` crate.
+  They exit 0, and no new warning or suppression was introduced. The ticket's expected
+  warning-free output therefore differs from the repository's existing baseline.
+- `.editorconfig`, `_typos.toml` and the hook configuration needed no changes.
+  `maintain-dependencies.md` neither counts nor lists the Rust crates, so it needed none.
+  No decision record was added, as scoped by the ticket.
+
 ### Handed back
+
+T29 is done in this ticket and the ticket index. The proof file, dependency and tool pins,
+recipes, nineteenth gate, CI step and owning documentation ship together. Existing
+correctness tests, engine APIs and coverage accounting are unchanged. The whole diff was
+read before the local ticket commit. No push or pull request is part of this hand-back.
 
 ## Open points
 

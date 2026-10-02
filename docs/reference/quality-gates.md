@@ -33,7 +33,8 @@ is ignored.
 | 16 | `check-agents` | The agent contract holds. |
 | 17 | `check-specs` | Every specification reports an empty `diagnostics` array. |
 | 18 | `analyse-specs` | Every specification reports an empty `findings` array too. |
-| 19 | `check-clean` | The run changed nothing. |
+| 19 | `snapshots-check` | Every snapshot matches, and no `.snap` file is unreferenced. Runs all tests through cargo-insta and nextest, with every feature, without writing snapshots or pending files. |
+| 20 | `check-clean` | The run changed nothing. |
 
 Gates 4 and 5 also run inside `lint`, as two of its hooks. The duplication is deliberate:
 a regression names itself in the list of gates rather than being one line inside `lint`.
@@ -134,7 +135,7 @@ environments.
 
 | Job | Runs |
 | --- | --- |
-| `rust` | `check-toolchain`, `lock-check`, `fmt-check`, `toml-check`, `clippy`, `metrics`, `features`, `test`, `doc`, `deps-unused` |
+| `rust` | `check-toolchain`, `lock-check`, `fmt-check`, `toml-check`, `clippy`, `metrics`, `features`, `test`, `snapshots-check`, `doc`, `deps-unused` |
 | `coverage` | `coverage`, then uploads `lcov.info` as an artifact kept for seven days |
 | `wasm` | `wasm-check` |
 | `deny` | `deny` |

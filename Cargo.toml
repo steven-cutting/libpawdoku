@@ -12,8 +12,10 @@ authors = ["Steven Cutting"]
 publish = false
 
 [workspace.dependencies]
-# The only three crates the core may use (decision 0007). thiserror without its std
-# feature derives core::error::Error; serde with alloc, never std.
+# The four crates the workspace uses: serde and thiserror may ship; proptest and
+# insta serve tests only. thiserror derives core::error::Error without std; serde
+# uses alloc, never std. insta's json feature is for the record's snapshot in T28.
+insta = { version = "1.48.0", default-features = false, features = ["json"] }
 proptest = "1.11.0"
 serde = { version = "1.0.228", default-features = false, features = ["derive", "alloc"] }
 thiserror = { version = "2.0.17", default-features = false }

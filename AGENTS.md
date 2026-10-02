@@ -52,10 +52,12 @@ These hold everywhere. Breaking one is a defect, not a trade-off.
    `crates/pawdoku/src/**`. Lower the code's complexity, not the
    `coverage_floor` in the `Justfile`.
 8. **`Cargo.lock` is the pin.** Manifests write full `x.y.z` caret ranges;
-   every gate passes `--locked`; `just lock-check` proves the lockfile
-   matches. This is a stated deviation from the games' exact-pin rule ("no
-   `^`, no `~`"), recorded in decision 0007: a library that writes `=1.2.3`
-   poisons every downstream resolution.
+   every gate passes `--locked`, except the snapshot recipes, which
+   cargo-insta cannot pass it through, so they run `lock-check` first and
+   then run offline; `just lock-check` proves the lockfile matches. This
+   is a stated deviation from the games' exact-pin rule ("no `^`, no `~`"),
+   recorded in decision 0007: a library that writes `=1.2.3` poisons every
+   downstream resolution.
 
 ## Stack and conventions
 
@@ -72,6 +74,7 @@ These hold everywhere. Breaking one is a defect, not a trade-off.
   and a doctest on every public item, because doc examples are tests. This
   departs from the games' rule that tests are never colocated with the code
   (decision 0009).
+  Snapshots show a reviewer a value and detect change; they never prove a clause.
 - Fakes come through the randomness boundary, never a global: a test supplies
   its draws to the fake that sits beside the trait.
 - **Just** is the task runner and the only supported interface to the checks.

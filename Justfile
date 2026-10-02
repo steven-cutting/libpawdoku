@@ -100,13 +100,34 @@ build:
     cargo build --workspace --all-features --locked
 
 # nextest runs the unit and integration tests; it cannot run doctests, so those
-# follow through cargo test.
+# follow through cargo test. INSTA_UPDATE=no makes a mismatch fail without a
+# pending file, which would trip the gate's worktree check.
 test:
-    cargo nextest run --workspace --all-features --locked
+    INSTA_UPDATE=no cargo nextest run --workspace --all-features --locked
     cargo test --doc --workspace --all-features --locked
 
 test-doc:
     cargo test --doc --workspace --all-features --locked
+
+# Gate 19: snapshots match, and every .snap file is referenced by a test.
+# Run the whole suite so the orphan check sees every reference. --check and
+# INSTA_UPDATE=no fail mismatches without writing pending files.
+# cargo-insta 1.48.0 forwards trailing options as test arguments, so nextest
+# rejects --locked. Check the locks first, offline, before cargo-insta runs.
+# Doctests already have their own gate; disabling its extra run avoids a warning.
+snapshots-check: lock-check
+    INSTA_UPDATE=no CARGO_NET_OFFLINE=true cargo insta test --check --unreferenced reject --test-runner nextest --disable-nextest-doctest --workspace --all-features
+
+# Interactive review for a person at a terminal.
+snapshots-review:
+    cargo insta review --workspace
+
+# The snapshot recipe that writes: rerun and accept without a terminal.
+# Read the diff before committing, and explain each intended change. A .snap
+# file no test refers to, left by a renamed or removed test, is deleted, so the
+# deletion shows in the diff instead of blocking the accept.
+snapshots-accept: lock-check
+    INSTA_UPDATE=new CARGO_NET_OFFLINE=true cargo insta test --accept --unreferenced delete --test-runner nextest --disable-nextest-doctest --workspace --all-features
 
 # ----------------------------------------------------------------- format ---
 
@@ -114,7 +135,7 @@ format:
     cargo fmt --all
     taplo fmt
 
-# The only recipe that modifies files. The fix config is run twice because a
+# Automatic repairs. The fix config is run twice because a
 # fixer's first pass may itself fail on what another fixer then repairs.
 fix:
     -prek run --all-files --config .pre-commit-fix.yaml
@@ -183,8 +204,10 @@ wasm-check:
 # Runs every nextest test under instrumentation and enforces the floor. Doctests
 # are not measured (nightly-only in llvm-cov); test-doc runs them uncovered.
 # llvm-cov does not create the lcov file's directory, so the recipe does.
+# INSTA_UPDATE=no fails a mismatch without a pending file that would trip the
+# gate's worktree check.
 coverage:
-    cargo llvm-cov nextest --workspace --all-features --locked --no-report
+    INSTA_UPDATE=no cargo llvm-cov nextest --workspace --all-features --locked --no-report
     cargo llvm-cov report --fail-under-lines {{coverage_floor}}
     mkdir -p target/llvm-cov
     cargo llvm-cov report --lcov --output-path target/llvm-cov/lcov.info

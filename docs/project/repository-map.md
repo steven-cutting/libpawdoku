@@ -31,6 +31,7 @@ under `crates/` as siblings, each depending on the engine and none on another.
 │       │   ├── lib.rs      The crate root: no_std with alloc, every public item
 │       │   └── random.rs   The randomness boundary and its fake
 │       └── tests/          Integration tests: the API bounds and the boundary
+│           └── snapshots/  Committed .snap pictures of public values
 ├── tests/fixtures/         The metrics probe's fixture, never compiled
 ├── docs/                   This handbook, plus specs/
 │   └── specs/              The Allium modules: behaviour is decided here
@@ -50,7 +51,7 @@ under `crates/` as siblings, each depending on the engine and none on another.
 | Directory | Responsibility |
 | --- | --- |
 | `crates/pawdoku/src/` | Pure behaviour. Given the same input it returns the same output, always; the one effect, randomness, sits behind the trait `random.rs` defines. Every public item is documented, and its example is a test. |
-| `crates/pawdoku/tests/` | Integration tests: the bounds every public type must meet, and the randomness boundary through its fake. Unit tests sit in the module they test, a stated deviation recorded in decision 0009. |
+| `crates/pawdoku/tests/` | Integration tests: the bounds every public type must meet, and the randomness boundary through its fake. `snapshots/` holds committed pictures for review and change detection. Unit tests sit in the module they test, a stated deviation recorded in decision 0009. |
 | `docs/specs/` | The Allium specifications. Behaviour is decided here, not in code. |
 | `scripts/` | `initialize.sh`, the first-run script. The two validators, the allium installer and runner, the gate runner and the ripsecrets wrapper are console scripts of `biscuit-games-tooling`, pinned in `pyproject.toml`. |
 | `.agents/skills/` | Canonical agent procedures. The two bridge trees, `.claude/skills/` and `.codex/skills/`, point at them and add nothing. |

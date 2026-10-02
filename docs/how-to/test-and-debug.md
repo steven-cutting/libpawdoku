@@ -21,8 +21,8 @@ To iterate on one test, call nextest directly with its filter language, keeping 
 flags `just test` passes so the run sees the same features and cannot touch the lockfile:
 
 ```console
-cargo nextest run -p pawdoku --all-features --locked -E 'test(name)'
-RUST_BACKTRACE=1 cargo nextest run -p pawdoku --all-features --locked -E 'test(name)'
+INSTA_UPDATE=no cargo nextest run -p pawdoku --all-features --locked -E 'test(name)'
+INSTA_UPDATE=no RUST_BACKTRACE=1 cargo nextest run -p pawdoku --all-features --locked -E 'test(name)'
 ```
 
 The tools live in `.pixi/envs/default/bin` and `.tools/bin`, which the `Justfile` puts on
@@ -49,6 +49,24 @@ Framework configuration and conventions are described in
    `proptest-regressions/` directory. Commit it: it is the one input that failed, and
    the suite replays it first from then on.
 
+## Read and accept a changed snapshot
+
+1. Run `just test` or `just snapshots-check`. A mismatch prints the old and new text
+   and names the snapshot. These recipes leave no pending file.
+2. Read the diff and decide whether the interface change was intended. Keep the
+   behaviour's asserting tests green; the snapshot establishes no correctness.
+3. For an intended change, run `just snapshots-accept`. It checks both locks, reruns
+   all unit and integration tests with every feature and accepts pending snapshots
+   without prompting. It also deletes a `.snap` file no test refers to, such as one a
+   renamed or removed test left behind. It works for an agent without a terminal as well.
+4. Read `git diff -- crates/pawdoku` before committing and explain the change in the
+   pull request or hand-back notes. Run `just snapshots-check` again: it also rejects
+   a `.snap` file no test refers to.
+
+If a run outside these recipes has left pending files, `just snapshots-review` opens
+cargo-insta's interactive review at a terminal. Read each change there before accepting
+it. The full rule and file locations belong to [Testing](../reference/testing.md#snapshots).
+
 ## Debug a coverage failure
 
 `just coverage` prints the summary per file and fails below the floor. For the lines
@@ -59,7 +77,8 @@ cargo llvm-cov report --html
 ```
 
 That reuses the profile data a `just coverage` run left behind. From cold,
-`cargo llvm-cov nextest --workspace --all-features --locked --html` does both at once.
+`INSTA_UPDATE=no cargo llvm-cov nextest --workspace --all-features --locked --html`
+does both at once.
 Two cases look alike and are not:
 
 - **Untested behaviour.** Add the test. This is the common case.

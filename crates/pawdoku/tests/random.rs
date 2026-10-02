@@ -6,8 +6,32 @@
     reason = "an integration test file is its own test module"
 )]
 
+use core::fmt::Write;
 use pawdoku::random::{RandomError, RandomStream, ReplayStream, SeededStream};
 use proptest::prelude::*;
+
+// A picture for review and change detection; the assertions below own correctness.
+#[test]
+fn snapshot_the_randomness_boundary() {
+    let mut picture = String::from("SeededStream(seed = 0)\n");
+    let mut stream = SeededStream::new(0);
+    for _ in 0..8 {
+        let index = stream.index();
+        let draw = stream.next_draw().unwrap();
+        writeln!(picture, "draw {index}: {draw:.17}").unwrap();
+    }
+    writeln!(picture, "\nRandomError (Display)").unwrap();
+    for error in [
+        RandomError::Exhausted { index: 8 },
+        RandomError::OutOfRange {
+            index: 2,
+            value: 1.0,
+        },
+    ] {
+        writeln!(picture, "{error}").unwrap();
+    }
+    insta::assert_snapshot!(picture);
+}
 
 #[test]
 fn the_same_seed_draws_the_same_stream() {

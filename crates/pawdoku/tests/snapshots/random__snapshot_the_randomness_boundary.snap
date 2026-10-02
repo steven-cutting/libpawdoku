@@ -1,0 +1,17 @@
+---
+source: crates/pawdoku/tests/random.rs
+expression: picture
+---
+SeededStream(seed = 0)
+draw 0: 0.88331080821364261
+draw 1: 0.43152799704850997
+draw 2: 0.02643377159259774
+draw 3: 0.97088197815382848
+draw 4: 0.10634669156721244
+draw 5: 0.32732576421812576
+draw 6: 0.17386786595968284
+draw 7: 0.77154655633156699
+
+RandomError (Display)
+the replay stream is exhausted at draw 8
+draw 2 of the replay script is 1, outside [0, 1)

@@ -9,11 +9,14 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- File snapshots through insta for review and change detection, with a randomness-boundary
+  picture, a read-only `snapshots-check` gate that rejects orphans, and cargo-insta recipes
+  to review and accept intended changes. Snapshot tests prove no specification clause.
 - `just plan-spec <module>` prints Allium's JSON test obligations as a suggestion list outside the gate.
 - A Cargo workspace with `crates/pawdoku` as its one member, and `rust-toolchain.toml`
   pinning Rust 1.98.1 with its components and both WebAssembly targets.
 - The Apache-2.0 licence, in `LICENSE` at the root, with no per-file headers.
-- A `Justfile` whose `just check` runs eighteen read-only gates and then proves the
+- A `Justfile` whose `just check` runs nineteen read-only gates and then proves the
   worktree unchanged, `just fix` for the safe automatic repairs, and a pre-commit hook
   run by `prek`.
 - The GitHub repository, public, with `main` protected by one required check, and
