@@ -176,8 +176,8 @@ puzzle's crate-only answer and keeps the yes or no (`ACheckNeverTellsTheDigit`,
 It also keeps `Board` small. `Playing` exposes five facts about the board, six about
 each cell, every move with its readings and every check, and offers seven operations;
 one flat type holding all of that would be a god object, and the metrics gate caps a
-type at twenty methods. `Board` has seventeen: one to open, seven to read and seven
-operations, with two left for the record. What a cell, a move or a check can say is a
+type at twenty methods. `Board` has seventeen: one to open, nine to read and seven
+operations. The record's two will make nineteen. What a cell, a move or a check can say is a
 method of that value. Inside, the board is four parts: the puzzle, the notes, the
 journal of moves, and the checks.
 
@@ -221,8 +221,8 @@ notes, and `sudoku` keeps its peer relation private. The board reads it off what
 puzzle's cell exposes, its row, column, band and stack: two cells are peers when they
 share a row, a column, or both a band and a stack, and are not one cell.
 
-**A refusal says which clause failed.** Each operation takes a `Position` and returns a
-`PlayError`, one variant for each `requires` clause of the board's rules and one for a
+**A refusal says which clause failed.** The five operations on a cell take a `Position`,
+undo and redo take nothing, and each returns a `PlayError`, one variant for each `requires` clause of the board's rules and one for a
 position that names no cell. When several fail at once the first is reported, in a fixed
 order: a position off the grid, then a solved puzzle, then the rule's own clauses as
 `board.allium` writes them. A refused operation changes nothing.

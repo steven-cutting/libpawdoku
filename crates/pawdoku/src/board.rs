@@ -24,8 +24,8 @@
 //! - **The check.** [`Board::check`] asks whether one cell's digit is the solution's
 //!   and hears yes or no. Nothing else a board hands out is read from the solution.
 //!
-//! Every operation takes a [`Position`] and refuses with a [`PlayError`]; a refused
-//! operation changes nothing.
+//! The five operations on a cell take a [`Position`]; undo and redo take nothing. Each
+//! refuses with a [`PlayError`], and a refused operation changes nothing.
 //!
 //! # A board and its puzzle
 //!

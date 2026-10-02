@@ -140,6 +140,23 @@ mod tests {
         cells.collect()
     }
 
+    /// Every cell's note as the board itself keeps it, read without the moves: on a
+    /// copy of the board each of the player's digits is erased, which shows the note
+    /// beneath it and changes no note. It is what holds `TheMovesReplayToTheBoard` for
+    /// the notes that wait, so that the picture may read them from the moves. Nothing
+    /// can be erased on a solved puzzle, so there is nothing to compare there.
+    fn revealed(board: &Board) -> Option<Vec<u16>> {
+        let mut copy = board.clone();
+        let held = board.cells().filter(|cell| cell.holds_players_digit());
+        for cell in held {
+            copy.erase(cell.position()).ok()?;
+        }
+        let notes = copy
+            .cells()
+            .map(|cell| cell.note().map_or(0, |note| marks(note.digits())));
+        Some(notes.collect())
+    }
+
     /// The board as it stood once `made` and no later move had been made.
     fn reading(made: &Move) -> Picture {
         let cells = positions().map(|position| {
@@ -392,6 +409,10 @@ mod tests {
     struct Kept {
         opening: Picture,
         after: Vec<Picture>,
+        /// The cells as the board showed them when it was opened and after each move.
+        /// A cell's equality takes in the note it keeps, shown or waiting, so these
+        /// hold undo and redo to the board's own notes and not to the moves' reading.
+        cells: Vec<Vec<BoardCell>>,
         standing: usize,
     }
 
@@ -400,6 +421,11 @@ mod tests {
         fn stood(&self) -> &Picture {
             let latest = self.standing.checked_sub(1);
             latest.map_or(&self.opening, |latest| &self.after[latest])
+        }
+
+        /// The cells kept when as many moves stood as stand now.
+        fn cells_stood(&self) -> &[BoardCell] {
+            &self.cells[self.standing]
         }
     }
 
@@ -421,6 +447,8 @@ mod tests {
         assert_eq!(after.picture, expected(&before.picture, op), "{op:?}");
         kept.after.truncate(standing);
         kept.after.push(after.picture.clone());
+        kept.cells.truncate(standing + 1);
+        kept.cells.push(after.cells.clone());
         kept.standing += 1;
     }
 
@@ -430,6 +458,11 @@ mod tests {
     fn after_an_undo(before: &View, after: &View, kept: &mut Kept) {
         kept.standing -= 1;
         assert_eq!(&after.picture, kept.stood(), "UndoAndRedoAreExact");
+        assert_eq!(
+            after.cells,
+            kept.cells_stood(),
+            "UndoAndRedoAreExact, in the cells"
+        );
         let mut moves = before.moves.clone();
         assert!(!moves[kept.standing].is_undone);
         moves[kept.standing].is_undone = true;
@@ -446,6 +479,11 @@ mod tests {
         moves[kept.standing].is_undone = false;
         kept.standing += 1;
         assert_eq!(&after.picture, kept.stood(), "UndoAndRedoAreExact");
+        assert_eq!(
+            after.cells,
+            kept.cells_stood(),
+            "UndoAndRedoAreExact, in the cells"
+        );
         assert_eq!(after.moves, moves);
         assert_eq!(after.checks, before.checks, "EveryCheckIsKept");
     }
@@ -607,6 +645,13 @@ mod tests {
             (Ok(()), Op::Check(at)) => after_a_check(&before, &after, at, right[place_of(at)].1),
             (Ok(()), _) => after_a_move(&before, &after, kept, op),
         }
+        let pictured: Vec<u16> = after.picture.iter().map(|cell| cell.1).collect();
+        let kept_by_the_board = revealed(board);
+        let agrees = kept_by_the_board.is_none_or(|notes| notes == pictured);
+        assert!(
+            agrees,
+            "TheMovesReplayToTheBoard, in the notes that wait: {op:?}"
+        );
         the_cells_keep_their_invariants(&after);
         the_record_keeps_its_invariants(&after, kept);
         each_move_keeps_its_invariants(&after, kept);
@@ -692,6 +737,7 @@ mod tests {
             let mut kept = Kept {
                 opening: picture(&board),
                 after: Vec::new(),
+                cells: vec![board.cells().collect()],
                 standing: 0,
             };
             let empty = right.iter().filter(|(at, _)| !board.cell(*at).unwrap().is_given());

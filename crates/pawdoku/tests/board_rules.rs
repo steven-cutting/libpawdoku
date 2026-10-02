@@ -583,6 +583,29 @@ mod tests {
     }
 
     #[test]
+    fn undo_and_redo_reach_a_note_hidden_beneath_a_digit() {
+        let mut board = open();
+        board.write_mark(BESIDE, 4).unwrap();
+        board.write_mark(BESIDE, 2).unwrap();
+        board.place(BESIDE, 6).unwrap();
+        // Upkeep strikes the 4 beneath the 6, and undo gives it back there.
+        board.place(FREE, 4).unwrap();
+        board.undo().unwrap();
+
+        // The note is hidden, so each board is looked at by erasing the digit on a copy.
+        let revealed = |board: &Board| {
+            let mut copy = board.clone();
+            copy.erase(BESIDE).unwrap();
+            shown(&copy, BESIDE)
+        };
+        assert_eq!(revealed(&board), Some(vec![2, 4]));
+        board.redo().unwrap();
+        assert_eq!(revealed(&board), Some(vec![2]));
+        board.undo().unwrap();
+        assert_eq!(revealed(&board), Some(vec![2, 4]));
+    }
+
+    #[test]
     fn undoing_a_placement_over_a_digit_puts_the_former_digit_back() {
         let mut board = open();
         board.place(FREE, 2).unwrap();
@@ -827,10 +850,17 @@ mod tests {
         let mut board = open();
         board.place(FREE, 2).unwrap();
         board.check(FREE).unwrap();
-        let shown = format!("{board:?}");
-        for row in solution {
-            let row: String = row.iter().map(|&digit| char::from(b'0' + digit)).collect();
-            assert!(!shown.contains(&row), "{row} is in {shown}");
+        // Plain and pretty, with the white space taken out, so that a row is found
+        // whether it is printed as a string of digits or as a list of numbers.
+        for shown in [format!("{board:?}"), format!("{board:#?}")] {
+            let shown: String = shown.split_whitespace().collect();
+            for row in solution {
+                let digits: Vec<String> = row.iter().map(u8::to_string).collect();
+                assert!(!shown.contains(&digits.concat()), "{row:?} is in {shown}");
+                assert!(!shown.contains(&digits.join(",")), "{row:?} is in {shown}");
+            }
+            // What it does print is found the same way: the givens of the first row.
+            assert!(shown.contains("53..7...."), "{shown}");
         }
     }
 

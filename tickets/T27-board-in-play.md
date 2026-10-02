@@ -561,6 +561,9 @@ Changes to the list, one line each, as the loops ran:
 - Split: the list's B tests are in two files. `tests/board_rules.rs` holds the rules
   clause by clause; `tests/board.rs` holds the whole game, the surface and the property.
   One file passed the gate's thousand lines for a test file. "Deviations" says more.
+- Added after the Codex review: R `undo_and_redo_reach_a_note_hidden_beneath_a_digit`,
+  and two checks in the property, because a note beneath a digit was only ever read
+  from the moves. "What was verified" says more.
 - Struck, as expected: `surface-actor.Playing` and `config-default.side`. Marked T28's:
   the two `contract-signature.Recording` obligations and `surface-actor.Reopening`.
 - What the gates taught, each a change of shape and none a suppression. The metrics
@@ -620,7 +623,7 @@ each invariant under its own name. No row names a snapshot test.
 | `MovesCarryWhatTheirKindNeeds` | P, as far as the surface shows it: an erasure has no digit and displaced one, every other kind has a digit. Held by the type inside: each kind of `Made` carries its own fields | `invariant.MovesCarryWhatTheirKindNeeds`, `enum-comparable.MoveKind` |
 | `UndoneMovesAreTheLatest`, `WhatIsReTakenComesNext` | P; R `undo_takes_back_the_latest_standing_move_and_redo_retakes_the_earliest_undone` | the two `invariant.` obligations |
 | `ASolvedBoardHasNothingUndone` | P, on scripts that solve the puzzle; B the whole game | `invariant.ASolvedBoardHasNothingUndone` |
-| `TheMovesReplayToTheBoard` | R `the_reading_at_the_latest_standing_move_is_the_board`; P | `invariant.TheMovesReplayToTheBoard` |
+| `TheMovesReplayToTheBoard` | R `the_reading_at_the_latest_standing_move_is_the_board`; P, for the digits, the notes shown and, by erasing on a copy, the notes that wait | `invariant.TheMovesReplayToTheBoard` |
 | `ChecksRunFromOne`, `CheckIndicesAreDistinct`, `ACheckIsOnAPlayersCell` | P; R `a_check_records_the_digit_as_it_stood_and_how_many_moves_stood` | the three `invariant.` obligations |
 | `EveryMoveIsTheBoards` | P: an operation is accepted exactly when its rule accepts it, and every accepted move is on the record. By shape: no public item reaches the puzzle. U `error` `the_rules_refusals_convert_to_the_boards` | none |
 | `UndoAndRedoAreExact` | The undo and redo rows above; P | none |
@@ -629,7 +632,7 @@ each invariant under its own name. No row names a snapshot test.
 | `UndoStopsWithThePuzzle` | B the whole game; P | none |
 | `EveryPastBoardIsReadable` | R `every_move_reads_back_the_board_as_it_stood_after_it`, R `reading_back_takes_nothing_back`; B the whole game, for a solved board; P | none |
 | `GivensNeverMove` | P, against the fixture's givens after every step | none |
-| `ANoteWaitsBeneathADigit` | R `the_note_beneath_a_digit_shows_again_when_it_is_erased`, R `upkeep_reaches_a_note_hidden_beneath_a_digit` | none |
+| `ANoteWaitsBeneathADigit` | R `the_note_beneath_a_digit_shows_again_when_it_is_erased`, R `upkeep_reaches_a_note_hidden_beneath_a_digit`, R `undo_and_redo_reach_a_note_hidden_beneath_a_digit`; P, which shows the waiting notes on a copy after every step | none |
 | `EveryCheckIsKept` | R `a_check_is_not_a_move_and_undo_does_not_remove_it`, R `after_move_is_a_count_and_not_a_reference`; P | none |
 | `ACheckNeverTellsTheDigit` | R `a_check_never_tells_the_digit`, and by shape, below | none |
 | `TheSolutionIsNeverShown` | R `a_board_does_not_print_its_solution`, and by shape, below | none |
@@ -687,8 +690,9 @@ module's own.
 
 The choices the open points left to this ticket:
 
-- **How a cell is addressed.** Every operation takes a `Position` and refuses one that
-  names no cell with `PlayError::NoSuchCell`, as `Puzzle` does. There is no cell handle.
+- **How a cell is addressed.** The five operations on a cell take a `Position` and
+  refuse one that names no cell with `PlayError::NoSuchCell`, as `Puzzle` does. Undo and
+  redo take nothing. There is no cell handle.
 - **What a refused operation returns.** One variant for each `requires` clause, and one
   for a position off the grid. `holds_players_digit` and `accepts_marks` are one clause
   and one variant each, so erasing a given is `NoPlayersDigit` and not `GivenCell`.
@@ -764,8 +768,8 @@ Closing lines of each recipe, from the last run:
 | --- | --- |
 | `just fmt-check` | `cargo fmt --all --check` (no diagnostic) |
 | `just clippy` | ``Finished `dev` profile [unoptimized + debuginfo] target(s)``, no warning |
-| `just metrics` | `::notice::Quality score: 100.0% (507 functions analyzed)`, no finding, and the probe satisfied |
-| `just test` | `205 tests run: 205 passed, 0 skipped`; `test result: ok. 107 passed; 0 failed` and `ok. 1 passed` (the `compile_fail` example) for the doctests |
+| `just metrics` | `::notice::Quality score: 100.0% (510 functions analyzed)`, no finding, and the probe satisfied |
+| `just test` | `206 tests run: 206 passed, 0 skipped`; `test result: ok. 107 passed; 0 failed` and `ok. 1 passed` (the `compile_fail` example) for the doctests |
 | `just snapshots-check` | `info: no unreferenced snapshots found`; `info: no snapshots to review` |
 | `just wasm-check` | both feature sets on `wasm32-unknown-unknown` and on `wasm32v1-none`, each `Finished` |
 | `just features` | `--no-default-features` and `--features serde`, each `Finished` |
@@ -774,8 +778,8 @@ Closing lines of each recipe, from the last run:
 | `just check-docs` | `Validated 41 pages and 42 canonical topics.` |
 | `just check` | `The worktree matches the check baseline.`; `All checks passed and the worktree is unchanged.` |
 
-`just test` takes about a second once built. The slowest test is the property, at 0.7
-seconds for 128 scripts; nothing else costs a tenth of that.
+`just test` takes about a second once built. The slowest test is the property, at 0.9
+seconds for 128 scripts, and about three under coverage; nothing else costs a tenth of that.
 
 Coverage of the module alone, from the same report:
 
@@ -793,8 +797,8 @@ Coverage of the module alone, from the same report:
 The four missed lines are three in `random.rs` and the one T25 reported in
 `sudoku/puzzle.rs`; this ticket touched neither.
 
-**The tests were shown to bite.** Twenty-three deliberate breaks, each made, run through
-`just test` and reverted. Those runs stop at the first failures, so a row is what failed
+**The tests were shown to bite.** Twenty-three deliberate breaks before the review, and
+two after it that are described below, each made, run through `just test` and reverted. Those runs stop at the first failures, so a row is what failed
 before the run stopped. P is the property.
 
 | Break | Tests that failed |
@@ -834,6 +838,32 @@ independent of what the latest move was.
 The `proptest-regressions/` files the breaks left were deleted; they recorded failures
 of code that was broken on purpose.
 
+**A Codex adversarial review, round 1**, was run at the maintainer's request on the
+three commits through `9c33e66`. Its report is scratch, under `ai_tmp/`. It found no
+defect in the board and three things to fix, all of which were fixed:
+
+- **A note beneath a digit was only ever read from the moves.** The picture reads a
+  waiting note through `note_after`, so a board whose own notes had drifted from its
+  moves beneath a digit would have passed. The property now erases every digit of the
+  player's on a copy after each step and compares the notes that shows with the
+  picture, and it keeps the cells beside each picture and compares them after an undo
+  and a redo. R `undo_and_redo_reach_a_note_hidden_beneath_a_digit` is the fixed case.
+  The break the review described, undo giving a struck mark back only to an empty
+  peer, was then made: the property and the new test both failed.
+- **`a_board_does_not_print_its_solution` looked only for a row as a string of
+  digits.** A grid printed as a list of numbers would have passed. It now reads the
+  plain and the pretty `Debug` with the white space taken out and looks for a row both
+  ways. With the solution added to `Puzzle`'s `Debug`, the run stopped at the two tests
+  inside `sudoku` that hold the same thing, before this one ran; that this one fails
+  too is reasoned from its text and was not seen.
+- **Two sentences were wrong.** The architecture page counted `Board`'s seventeen
+  methods as one, seven and seven, where the readings are nine; and it, the module's
+  documentation and these notes said every operation takes a `Position`, which undo and
+  redo do not.
+
+The review could not run `just check` in its sandbox; every figure here is from this
+session's own runs.
+
 Acceptance criteria read against the code:
 
 - **What `src/board` names.** `crate::sudoku` and `crate::solver`, and no other engine
@@ -846,8 +876,9 @@ Acceptance criteria read against the code:
 - **Suppressions.** No `#[allow]`, no `qual:allow` and no `#[expect]` added. The
   answer's expectation in `src/sudoku/puzzle.rs` is gone, the whole `cfg_attr`
   attribute, and nothing else under `src/sudoku` or `src/solver` changed.
-- **The method cap.** `Board` has 17 methods, `BoardCell` 14, `Note` 10, `Move` 8,
-  `Check` 6, `Journal` 9, `Made` 6, `Notes` 4 and `Reading` 4, private ones counted.
+- **The method cap.** `Board` has 17 methods, `BoardCell` 14, `Note` 10 and its `Debug`,
+  `Move` 8, `Check` 6, `Journal` 9, `Made` 6, `Notes` 4 and `Reading` 4, private ones
+  counted.
 - **Doc examples.** Each of the 50 public items of `board` has one, and the module a
   fifty-first; `just test` runs them.
 
@@ -861,6 +892,10 @@ Acceptance criteria read against the code:
   as `docs/reference/testing.md` asks of files under `tests/`, so `Op`, the picture and
   the full view are written twice. The alternative inside the list was to move tests
   into `src/board/`, where they could reach private items; from outside they cannot.
+- **The ticket names the wrong file for the attribute.** It says the answer's
+  `dead_code` expectation is in `crates/pawdoku/src/sudoku.rs`. It was in
+  `crates/pawdoku/src/sudoku/puzzle.rs`, on `Puzzle::is_solution_digit`, and that is the
+  one line of `sudoku` this ticket changed.
 - **Two sentences outside the list**, one in `README.md` and one in
   `crates/pawdoku/README.md`. Each says what the crate holds today, and each would have
   left the board out. T26 made the same two edits for the solver.

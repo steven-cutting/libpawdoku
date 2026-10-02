@@ -180,7 +180,12 @@ different things.
 | The full view | Everything `Playing` exposes: the picture, the puzzle's three facts, `can_undo` and `can_redo`, every cell, every move with its readings, and every check. | A refused operation leaves it alone. The record's tests compare it across reopening. |
 
 A note beneath a digit is not shown, so the picture reads it through `note_after` on the
-latest standing move, which `TheMovesReplayToTheBoard` pins to the board. Undo and redo
+latest standing move, which `TheMovesReplayToTheBoard` pins to the board. That reading
+comes from the moves and not from the notes the board keeps, so two things hold the pin
+without it. The property erases every digit of the player's on a copy of the board after
+each step, which shows the notes beneath and changes none, and compares them with the
+picture. And it keeps the cells themselves beside each picture, whose equality takes in
+the note a cell keeps, and compares those after an undo and a redo. Undo and redo
 do not restore the full view and no test asks them to: a move taken back stays on the
 record as undone, redo becomes offered, and a check asked meanwhile is kept.
 
