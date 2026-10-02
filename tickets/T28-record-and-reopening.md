@@ -513,7 +513,8 @@ The choices this ticket made:
   equal and a reopened board writes the record it was reopened from.
 - **`after_move` and the undone count are `usize`**, as `Check::after_move` is. serde
   writes one as a `u64`. Zero stays writable, and its refusal is tested.
-- **The order of refusals**, fixed by `refusals_come_in_a_fixed_order` and stated under
+- **The order of refusals**, fixed by `refusals_come_in_a_fixed_order` and, for its
+  last step, by `a_check_of_the_digit_that_solves_the_puzzle_is_refused`, and stated under
   `# Errors` on `Board::reopen`: `TooManyUndone`, `ChecksWithoutMoves`, `Givens`; then
   the first move that fails, `MoveAfterSolved` before `Move`; `UndoneWhenSolved`; then
   the first check that fails: off the grid, a given, a digit out of range, then
@@ -602,14 +603,15 @@ Coverage of `src/board`, from the same report:
 | `board/record.rs` | 578 | 1 | 99.83% |
 
 Three of the four missed lines are in `random.rs`, which this ticket did not touch.
-The fourth is in `record.rs`, in test code: the generic deserialiser of
-`a_malformed_record_deserialises_and_is_refused_at_reopening` is compiled once for
-each field's type, and the line that hands over the count runs in one of those copies
-and not the others. `lcov.info` shows every line of the file executed. `sudoku/puzzle.rs`, where T27
+The fourth is in `record.rs`, in test code. Most likely it is the generic deserialiser
+of `a_malformed_record_deserialises_and_is_refused_at_reopening`, which is compiled
+once for each field's type, so that the line that hands over the count runs in one of
+those copies and not the others; that was not confirmed. `lcov.info` shows every line of the file executed. `sudoku/puzzle.rs`, where T27
 reported one missed line, shows none in this run; this ticket did not touch it, and
 why the figure moved was not looked into.
 
-**The tests were shown to bite.** Fourteen deliberate breaks, each made, run through
+**The tests were shown to bite.** Thirteen deliberate breaks, and the defect the review
+found, each made, run through
 `just test` and reverted. Those runs stop at the first failures, so a row is what failed
 before the run stopped. P is the property.
 

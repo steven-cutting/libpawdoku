@@ -738,6 +738,16 @@ mod tests {
             );
         }
 
+        // It is the last thing a check is held to: one asked after no move says so.
+        let after_none = Asked {
+            after_move: 0,
+            ..SOUND
+        };
+        assert_eq!(
+            refusal(&one_cell_to_play(&[PLACED], &[after_none])),
+            ReopenError::CheckAfterNoMove { index: 1 }
+        );
+
         // A wrong digit there solves nothing, so its check was asked and reopens; and
         // with two cells to play the right digit may be checked, as everywhere above.
         let wrong = Written::Place {
