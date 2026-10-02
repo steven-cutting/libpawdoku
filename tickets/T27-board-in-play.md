@@ -861,7 +861,13 @@ defect in the board and three things to fix, all of which were fixed:
   documentation and these notes said every operation takes a `Position`, which undo and
   redo do not.
 
-The review could not run `just check` in its sandbox; every figure here is from this
+**The pull request's reviews, round 1.** Copilot and Codex each reviewed `19c8520` on
+pull request 28 and each made the same one finding: the doc comment on
+`BoardCell::position` still said every operation of the board takes a position. It was
+the fourth copy of the sentence the local review had found three of. It now says every
+operation on a cell does, and that undo and redo take none.
+
+The local review could not run `just check` in its sandbox; every figure here is from this
 session's own runs.
 
 Acceptance criteria read against the code:

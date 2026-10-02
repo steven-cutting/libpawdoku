@@ -61,7 +61,8 @@ impl BoardCell {
         (a.row() == b.row() || a.column() == b.column() || shares_a_box) && is_another
     }
 
-    /// Where the cell sits. Every operation of the board takes a position.
+    /// Where the cell sits. Every operation on a cell takes its position; undo and redo
+    /// take none.
     ///
     /// ```
     /// use pawdoku::board::Board;
