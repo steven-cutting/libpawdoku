@@ -1,9 +1,8 @@
 //! The board: one puzzle as it is being played.
 //!
-//! This module is `docs/specs/board.allium` in Rust, less the record, which is a later
-//! change. It stands on [`sudoku`](crate::sudoku), the rules, and on
-//! [`solver`](crate::solver), which finds the one solution a check is answered from.
-//! Nothing imports it.
+//! This module is `docs/specs/board.allium` in Rust. It stands on
+//! [`sudoku`](crate::sudoku), the rules, and on [`solver`](crate::solver), which finds
+//! the one solution a check is answered from. Nothing imports it.
 //!
 //! A [`Board`] is the thing a player plays on. It owns its puzzle and hands out values
 //! of its own, never the puzzle: a [`BoardCell`] for what a cell shows, a [`Move`] for
@@ -23,16 +22,21 @@
 //!   whether it stands or is undone, and reading takes nothing back.
 //! - **The check.** [`Board::check`] asks whether one cell's digit is the solution's
 //!   and hears yes or no. Nothing else a board hands out is read from the solution.
+//! - **The record.** [`Board::write`] writes a board down as a [`Record`], a plain value
+//!   the caller keeps, and [`Board::reopen`] makes the same board from it, moves, undone
+//!   moves and checks included. A record that does not read back is refused with a
+//!   [`ReopenError`].
 //!
 //! The five operations on a cell take a [`Position`]; undo and redo take nothing. Each
 //! refuses with a [`PlayError`], and a refused operation changes nothing.
 //!
 //! # A board and its puzzle
 //!
-//! A board opens from givens, in one call, and from nothing else. [`Board::open`] puts
-//! the givens to the solver and sets the puzzle from its proof, so no board takes a
-//! [`Puzzle`] that may already have been played on: such a
-//! puzzle would hold digits no move recorded.
+//! A board opens from givens, in one call, or reopens from a record, in one call, and
+//! comes from nothing else. [`Board::open`] puts the givens to the solver and sets the
+//! puzzle from its proof, and [`Board::reopen`] does the same with a record's givens
+//! and then makes the record's moves. So no board takes a [`Puzzle`] that may already
+//! have been played on: such a puzzle would hold digits no move recorded.
 //!
 //! `board.allium` gives every puzzle that is set a board. That is this module's view,
 //! of the puzzles set through it. A puzzle made the two-step way, solved and then set,
@@ -74,12 +78,14 @@ mod journal;
 mod moves;
 mod note;
 mod reading;
+mod record;
 
 pub use cell::BoardCell;
 pub use check::Check;
 pub use error::PlayError;
 pub use moves::{Move, MoveKind};
 pub use note::Note;
+pub use record::{Record, ReopenError};
 
 use crate::solver::{SolveError, solve};
 use crate::sudoku::{Given, MoveError, Position, Puzzle, Status, in_range};
@@ -776,6 +782,103 @@ impl Board {
         let check = Check::new(index, self.journal.standing(), position, digit, is_right);
         self.checks.push(check);
         Ok(check)
+    }
+
+    /// `Recording.write`: writes the board down, whole, as a [`Record`] the caller keeps
+    /// wherever it likes.
+    ///
+    /// A board can be written at any point, solved or not, and writing changes
+    /// nothing. The record holds the givens, the moves, how many of them are undone and
+    /// the checks, and nothing read from the solution. [`Board::reopen`] makes the same
+    /// board from it.
+    ///
+    /// ```
+    /// use pawdoku::board::Board;
+    /// use pawdoku::sudoku::{Given, Position};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let mut board = Board::open(givens)?;
+    /// let fresh = board.write();
+    /// board.place(Position::new(1, 3), 4)?;
+    ///
+    /// // Writing changes nothing, so writing twice gives equal records.
+    /// let record = board.write();
+    /// assert_eq!(board.write(), record);
+    /// assert_eq!(board.moves().count(), 1);
+    /// // A record says which board it was: the move is in it.
+    /// assert_ne!(record, fresh);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[must_use]
+    pub fn write(&self) -> Record {
+        Record::of(&self.puzzle, &self.journal, &self.checks)
+    }
+
+    /// `Recording.reopen`: the board `record` was written from, had again: the same
+    /// givens, digits and notes, the same moves with the same ones undone, and the same
+    /// checks with the same answers.
+    ///
+    /// The record is enough on its own. Its givens are put to the solver, as
+    /// [`Board::open`] puts them, its moves are made in order through the board's own
+    /// guards, the undone ones are taken back, and each check is answered again from
+    /// the solution the solver found. The board that results is a new one, which shares
+    /// nothing with the board written or with any other reopened from the same record.
+    ///
+    /// # Errors
+    ///
+    /// A record that no board could have been written to is refused. A record is
+    /// checked here and nowhere else: a deserialised one may hold anything. The first
+    /// of these that applies, in this order:
+    ///
+    /// - [`ReopenError::TooManyUndone`] when more moves are undone than the record
+    ///   holds;
+    /// - [`ReopenError::ChecksWithoutMoves`] when the record holds a check and no move;
+    /// - [`ReopenError::Givens`] when the solver refuses the givens;
+    /// - for the first move that fails, [`ReopenError::MoveAfterSolved`] when the moves
+    ///   before it solve the puzzle, and otherwise [`ReopenError::Move`] when the board
+    ///   refuses it;
+    /// - [`ReopenError::UndoneWhenSolved`] when the moves solve the puzzle and some are
+    ///   undone;
+    /// - for the first check that fails, [`ReopenError::Check`] when its target is off
+    ///   the grid, its target is a given or its digit is not from 1 to 9, in that
+    ///   order, and otherwise [`ReopenError::CheckAfterNoMove`] when it was asked after
+    ///   no move.
+    ///
+    /// ```
+    /// use pawdoku::board::Board;
+    /// use pawdoku::sudoku::{Given, Position};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let mut board = Board::open(givens)?;
+    /// let (here, beside) = (Position::new(1, 3), Position::new(1, 4));
+    /// board.write_mark(beside, 4)?;
+    /// board.place(here, 4)?;
+    /// board.undo()?;
+    ///
+    /// let mut reopened = Board::reopen(&board.write())?;
+    /// assert_eq!(reopened.cells().collect::<Vec<_>>(), board.cells().collect::<Vec<_>>());
+    ///
+    /// // The undone placement is re-taken on the reopened board as on the one written,
+    /// // upkeep included, though the record holds nothing of what upkeep struck.
+    /// reopened.redo()?;
+    /// assert_eq!(reopened.cell(here).and_then(|cell| cell.digit()), Some(4));
+    /// assert!(reopened.cell(beside).and_then(|cell| cell.note()).is_some_and(|note| note.is_empty()));
+    /// // The two are separate boards: the one written still has the move undone.
+    /// assert!(board.can_redo());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn reopen(record: &Record) -> Result<Self, ReopenError> {
+        record::reopened(record)
     }
 }
 

@@ -45,10 +45,10 @@ code makes one, solved and then set, and played to its end; each rule is proved 
 by clause by the unit tests inside `src/sudoku/`. `tests/solver.rs` holds the solver's
 two entries, and is where most of the solver's clauses are proved, because what
 `solver.allium` promises is what a result shows. `tests/board_rules.rs` holds the
-board's rules clause by clause, and `tests/board.rs` a whole game and the property over
-arbitrary scripts; [The board's tests](#the-boards-tests) says how they divide.
-`tests/snapshots.rs` holds the snapshot tests of the solver, the proof and the board,
-and no test that asserts; the record's join them there. The randomness boundary's one snapshot test stays in
+board's rules clause by clause, and `tests/board.rs` a whole game, the property over
+arbitrary scripts, and the record written and reopened; [The board's tests](#the-boards-tests) says how they divide.
+`tests/snapshots.rs` holds the snapshot tests of the solver, the proof, the board and
+the record, and no test that asserts. The randomness boundary's one snapshot test stays in
 `tests/random.rs`, beside the tests of the values it pictures.
 
 A helper shared between two files under `tests/` would be compiled into each, and each
@@ -177,7 +177,7 @@ different things.
 | Helper | Gathers | What compares it |
 | --- | --- | --- |
 | The picture | Every cell's digit and its note, shown or waiting. | `UndoAndRedoAreExact` and `EveryPastBoardIsReadable`: undo and redo restore the picture, and a move's reading is the picture taken after it. |
-| The full view | Everything `Playing` exposes: the picture, the puzzle's three facts, `can_undo` and `can_redo`, every cell, every move with its readings, and every check. | A refused operation leaves it alone. The record's tests compare it across reopening. |
+| The full view | Everything `Playing` exposes: the picture, the puzzle's three facts, `can_undo` and `can_redo`, every cell, every move with its readings, and every check. | A refused operation leaves it alone. A board reopened from a record shows the same one as the board written. |
 
 A note beneath a digit is not shown, so the picture reads it through `note_after` on the
 latest standing move, which `TheMovesReplayToTheBoard` pins to the board. That reading
@@ -228,6 +228,16 @@ it. `OneBoardToAPuzzle` is not among them: it holds by ownership, and
 the refusal order were built with the code the earlier tests asked for, so their tests
 arrived green. Each was then broken on purpose and seen to fail; the ticket that built
 the module lists the breaks.
+
+**The exactness property**, `a_reopened_board_is_the_same_board`, is the test of
+`AReopenedBoardIsTheSameBoard`. It begins on a fresh board, on a board with moves undone
+or on a solved one, plays an arbitrary script of the seven operations, writes the board
+and holds that writing changed nothing. It reopens the record and compares the full view
+of the two boards, not the picture alone. Then it plays a second arbitrary script on
+both and, after every step, compares what each board answered and the two full views.
+The refusals of reopening cannot be reached from outside the crate without a format
+crate, because a record's fields are private; they are unit tests in
+`src/board/record.rs`, on records built field by field.
 
 ## Coverage
 
@@ -304,14 +314,16 @@ explains the commands in order.
 | In-module tests, `solver/candidates.rs` | A set of digits holds only digits from 1 to 9, whatever is offered; sets join, part and overlap; a single is a set of exactly one. |
 | In-module tests, `solver/branch.rs` | The units and each cell's twenty peers; `LayOutRootBranch`, and no root for malformed givens; `EliminateFromPeers`, `PlaceNakedSingle` and `PlaceHiddenSingle`, each alone, the last in a row, a column and a box; each kind of contradiction read from the cells; an overdemanded cell not placed; the split on the first cell with the fewest candidates, one child for each candidate, lowest digit first; and, by property over whole searches, `PlacedCellsKeepOnlyTheirDigit`, `CandidatesAreDigits` and `GuessesAreOnFewestCandidates`. |
 | In-module tests, `board/note.rs` | A note holds only digits from 1 to 9, whatever is offered; marks are written and struck; a note off the grid is empty and takes no mark. |
+| In-module tests, `board/record.rs` | A record that does not read back is refused, each way by name, on records built field by field as a deserialised one might arrive: givens with no solution, with several, and with nothing left to play; a move on a given, off the grid, with a digit out of range, of the standing digit, erasing an empty cell, marking beneath a digit and striking a mark not there; a move after the puzzle is solved; more moves undone than moves; moves undone on a solved puzzle; a check on a given, off the grid, with a digit out of range and after no move; checks with no move. The fixed order of those refusals; a refusal leaving the record as it was; a check that cannot be read back accepted, with its answer worked out again; the stable `Display` text of each refusal and its source; and that a record prints nothing of the solution. |
 | In-module tests, `board/error.rs` | The stable `Display` text of each refusal; the conversion from the rules' refusal, called directly with every variant. |
 | Doctests | Every public item's example, among them `SIDE`'s and `BOX_SIDE`'s values, the value types' equality, `RANDOM_VERSION`'s name, the trait used as a trait object, a puzzle solved, set and played, and the one `compile_fail` example, which shows outside code cannot name the proof's constructor. |
-| `tests/api_bounds.rs` | Every public type is `Send + Sync + 'static`, `Clone` and `Debug`, the proof, the puzzle, the solver's result and the board with the values it hands out among them; the boundary trait is usable as a trait object; under the `serde` feature, both streams and both value types serialise. |
+| `tests/api_bounds.rs` | Every public type is `Send + Sync + 'static`, `Clone` and `Debug`, the proof, the puzzle, the solver's result and the board with the values it hands out among them; the boundary trait is usable as a trait object; under the `serde` feature, both streams, both value types and the record serialise, and a board and a puzzle do not. |
 | `tests/sudoku.rs` | From outside the crate: the side is the square of the box side; the value types compare by their fields; a position off the grid and a given out of range can be made; two givens that agree are one given; a puzzle solved and set from outside is played to its end and is then final; each move is offered and refused; everything `PuzzleSolving` exposes can be read; a puzzle does not print its solution. |
 | `tests/solver.rs` | `RefuseMalformedGivens` for each way givens are malformed; anything may be handed over; singles alone solve the fixture; hidden singles solve a puzzle with no naked single; conflicts and each kind of contradiction end the search with no guess; a published puzzle that needs a guess; the pinned guess counts; `none`, `one` and `many`, the last with both solutions; the empty grid stopping at two; `solve`'s proof and its three refusals; the oracle; and the properties above. |
 | `tests/board_rules.rs` | `OpenBoard` and `LayOutBoard`, with opening's three refusals; `Place`, `Erase`, `WriteMark` and `StrikeMark`, each `requires` clause refused by name and each refusal leaving the full view alone; upkeep reaching every peer that holds the mark, hidden notes included, and no other cell; a note waiting beneath a digit; undo and redo exact for each kind of move, with what an undo leaves on the record; a new move discarding the undone ones; reading back for standing and undone moves; the check's two answers, its refusals, what it records and that it is kept; each cell's derived facts; the fixed order of refusals; that a board does not print its solution; and that two boards never share a puzzle. |
-| `tests/board.rs` | The fixture played to its end through `Board`, solved, and then every move, undo, redo and check refused; everything `Playing` exposes read through the board; and the state-machine property over arbitrary scripts, which holds the seventeen invariants as far as the surface shows them and an operation accepted exactly when its rule accepts it. |
+| `tests/board.rs` | The fixture played to its end through `Board`, solved, and then every move, undo, redo and check refused; everything `Playing` exposes read through the board; and the state-machine property over arbitrary scripts, which holds the seventeen invariants as far as the surface shows them and an operation accepted exactly when its rule accepts it. The record: a board written at every point of a game, fresh, in play, with moves undone and solved, with writing changing nothing; each reopened to the same full view, with undone moves re-taken the same and checks keeping their answers; two reopenings of one record independent; a check after moves since discarded kept as it was; and the exactness property, `a_reopened_board_is_the_same_board`. |
 | `tests/snapshots.rs`: four `snapshot_` tests of the board | Show the board as opened on the fixture, the board after `THE_SCRIPTED_GAME`, the fixture played to the end, and the `Display` text of every refusal the board defines; all read through `Board` alone, so none holds the solution. For review and change detection; they prove no clause. Their files are under `tests/snapshots/`. |
+| `tests/snapshots.rs`: four `snapshot_` tests of the record | Show the record of the board `THE_SCRIPTED_GAME` leaves, as it prints and, under the `serde` feature, as JSON; the board reopened from that record, to lay beside the scripted board's picture; and the `Display` text of every reopening refusal, each made by hand. None holds the solution. For review and change detection; they prove no clause. Their files are under `tests/snapshots/`. |
 | `tests/snapshots.rs`: six `snapshot_` tests | Show the search result for the fixture, for the puzzle that needs a guess, for the givens with two solutions and for malformed givens; the proof `solve` gives for the fixture, givens and solution; and the `Display` text of the three refusals. For review and change detection; they prove no clause. Their files are under `tests/snapshots/`. |
 | `tests/random.rs` | The same seed draws the same stream bit for bit; seed zero draws the golden stream; the fake replays its script and is then exhausted, directly and behind a trait object; every draw is in the unit interval. |
 | `tests/random.rs`: `snapshot_the_randomness_boundary` | Shows seed zero's first eight draws and each error's `Display` text for review and change detection; proves no clause. Its file is under `tests/snapshots/`. |

@@ -149,7 +149,7 @@ guesses depend on that rule, so changing it changes what consumers may have reco
 
 ## The board
 
-`board` is `board.allium` in Rust, less the record: one puzzle as it is being played.
+`board` is `board.allium` in Rust: one puzzle as it is being played.
 A `Board` is the playable abstraction
 ([decision 0014](../decisions/0014-board-imports-solver.md)). It is what a consumer
 plays on, and the one thing in the engine that changes as a game goes on.
@@ -176,14 +176,16 @@ puzzle's crate-only answer and keeps the yes or no (`ACheckNeverTellsTheDigit`,
 It also keeps `Board` small. `Playing` exposes five facts about the board, six about
 each cell, every move with its readings and every check, and offers seven operations;
 one flat type holding all of that would be a god object, and the metrics gate caps a
-type at twenty methods. `Board` has seventeen: one to open, nine to read and seven
-operations. The record's two will make nineteen. What a cell, a move or a check can say is a
-method of that value. Inside, the board is four parts: the puzzle, the notes, the
-journal of moves, and the checks.
+type at twenty methods. `Board` has nineteen: one to open, nine to read, seven
+operations, and the record's two, to write and to reopen. What a cell, a move or a
+check can say is a method of that value. Inside, the board is four parts: the puzzle,
+the notes, the journal of moves, and the checks.
 
-**A board opens from givens, in one call, and from nothing else.** `Board::open` puts
-the givens to `solver::solve` and sets the puzzle from the proof, so what it refuses is
-what the solver refuses. There is no constructor that takes a `Puzzle`. A puzzle that
+**A board opens from givens, in one call, or reopens from a record, and comes from
+nothing else.** `Board::open` puts the givens to `solver::solve` and sets the puzzle
+from the proof, so what it refuses is what the solver refuses. `Board::reopen` does the
+same with a record's givens; [The record](#the-record) says the rest. There is no
+constructor that takes a `Puzzle`. A puzzle that
 had already been played on would arrive holding digits no move recorded, against
 `TheMovesReplayToTheBoard` and `EveryMoveIsTheBoards`.
 
@@ -230,6 +232,49 @@ order: a position off the grid, then a solved puzzle, then the rule's own clause
 Nothing is counted from the checks. They are handed out in order, and whether wrong
 answers or checks made are counted, and shown, is an open question of `board.allium`.
 
+## The record
+
+`Board::write` writes a board down as a `Record`, and `Board::reopen` makes the same
+board from one: `contract Recording` and `surface Reopening` of `board.allium`. The
+record is a plain value the caller is handed and keeps wherever it likes. The engine has
+no storage effect, no format and no format crate; under the `serde` feature a `Record`
+serialises through whatever format a consumer brings.
+
+**A record is minimal.** It holds the givens; the moves in the order made, each with
+its kind, its target and its digit; how many of them are undone; and each check's count
+of moves, target and digit. It holds nothing that can be worked out from those: no
+cell's digit, no note, nothing a move displaced or upkeep struck, no check's answer.
+And it holds nothing read from the solution, so a stored record tells a player nothing
+a board would not. Each kind of move carries what it needs by its type, so a record
+cannot say a placement has no digit.
+
+**Reopening reads the record back.** It puts the givens to the solver, as opening does,
+makes every move in order through the board's own guards, takes back the undone ones,
+and answers each check again from the solution the solver found. Reading every move
+forward and then taking back the last few gives the board that was written, because an
+undone move was made after the standing ones and nothing has moved since. Everything a
+record leaves out is worked out on the way, by the same code that worked it out the
+first time, which is what makes the reopened board exact
+(`AReopenedBoardIsTheSameBoard`).
+
+**Deserialising checks nothing; reopening checks everything.** A record's fields are
+private, but a deserialised record is whatever its source held, so `Board::reopen` is
+where a record is judged. It returns a `Result` and never panics. A record that does
+not read back is refused with a `ReopenError` that says why, in a fixed order: more
+moves undone than moves, or checks and no move; givens the solver refuses; a move the
+board refuses, or one that follows the move that solved the puzzle; moves undone on a
+solved puzzle; and a check no board answers. The two counts are asked before the search, so a
+record that fails them costs no search.
+
+**One thing cannot be read back.** A check holds the digit that stood in its cell when
+it was asked, and after an undo and a new move the moves that stood then may be gone.
+So a check is held to what can be known: its target is a cell that is not a given, its
+digit is from 1 to 9, it was asked after at least one move, and a record with a check
+has a move. Its digit is not compared with any move, and its count of moves may exceed
+the moves the record holds. Its answer is never stored, so a record cannot lie about
+it. `Record`'s documentation says the same, and that no promise is made yet that a
+record written by one version of the engine reopens in another.
+
 ## What crosses each boundary
 
 | Consumer | Crosses | Through |
@@ -244,6 +289,14 @@ why that text is stable API. It is also why every public type is `Send + Sync +
 threads, copy it across the boundary or print it, and a new field or variant must not
 break a consumer that matched on the old ones. `AGENTS.md` states this as invariant 3,
 and `tests/api_bounds.rs` holds it at compile time.
+
+A game in play crosses as a `Record` and as nothing else. A `Board` and a `Puzzle` do
+not serialise, which `tests/api_bounds.rs` holds at compile time under the `serde`
+feature: a board holds
+its puzzle's solution, and a record does not. A consumer that wants a game kept between
+visits writes the board, serialises the record through the `serde` feature in a format
+of its choosing, keeps it where it likes, and reopens it. Whatever comes back is
+checked at reopening, not at deserialising.
 
 ## What is not here
 

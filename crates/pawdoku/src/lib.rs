@@ -16,7 +16,9 @@
 //! `docs/specs/board.allium`: one puzzle as it is being played. A [`board::Board`] opens
 //! from givens in one call and is what a player plays on: it keeps a note in every
 //! cell and every move made, takes the latest move back and re-takes it, reads back
-//! the board as it stood after any move, and answers a check of one cell yes or no.
+//! the board as it stood after any move, and answers a check of one cell yes or no. It
+//! is written down as a [`board::Record`], a plain value the caller keeps, and reopened
+//! from one as the same board.
 //!
 //! ```
 //! use pawdoku::board::Board;
