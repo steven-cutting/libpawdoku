@@ -54,6 +54,7 @@ jobs:
       - run: just metrics
       - run: just features
       - run: just test
+      - run: just snapshots-check
       - run: just doc
       - run: just deps-unused
 

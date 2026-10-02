@@ -26,6 +26,7 @@ cargo-binstall = "==1.23.0"
 cargo-nextest = "==0.9.146"
 cargo-llvm-cov = "==0.9.1"
 cargo-deny = "==0.20.2"
+cargo-insta = "==1.48.0"
 # conda-forge's newest on 2026-09-24; the pin follows conda-forge, not crates.io.
 cargo-shear = "==1.13.4"
 taplo = "==0.10.0"
@@ -55,5 +56,6 @@ recipes = [
   "check-agents",
   "check-specs",
   "analyse-specs",
+  "snapshots-check",
 ]
 predicates = {}

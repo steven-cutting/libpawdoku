@@ -72,6 +72,7 @@ These hold everywhere. Breaking one is a defect, not a trade-off.
   and a doctest on every public item, because doc examples are tests. This
   departs from the games' rule that tests are never colocated with the code
   (decision 0009).
+  Snapshots show a reviewer a value and detect change; they never prove a clause.
 - Fakes come through the randomness boundary, never a global: a test supplies
   its draws to the fake that sits beside the trait.
 - **Just** is the task runner and the only supported interface to the checks.

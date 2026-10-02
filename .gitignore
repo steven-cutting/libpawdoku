@@ -46,3 +46,8 @@ lcov.info
 # What cargo-mutants writes if S03 adopts it; ignored now so a first run can
 # never trip the snapshot.
 mutants.out*/
+
+# A test run outside the recipes may leave pending snapshots. A file Git can
+# see would abort the gate's worktree check; reviewed .snap files are committed.
+*.snap.new
+*.pending-snap

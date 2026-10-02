@@ -43,8 +43,10 @@ writes.
 | Recipe | Purpose |
 | --- | --- |
 | `just build` | Build every crate with every feature. Outside `just check`. |
-| `just test` | Every unit and integration test through cargo-nextest, then every doctest through `cargo test --doc`, because nextest cannot run doctests. Outside `just check`, where `coverage` and `test-doc` run the same tests. |
+| `just test` | Every unit and integration test through cargo-nextest with `INSTA_UPDATE=no`: a snapshot mismatch fails without writing pending files. Then every doctest through `cargo test --doc`, because nextest cannot run doctests. Outside `just check`, where `coverage` and `test-doc` run the same tests. |
 | `just test-doc` | Every doctest. Gate 10. |
+| `just snapshots-review` | Open cargo-insta's interactive review of pending snapshots for a person at a terminal. |
+| `just snapshots-accept` | Check both locks, then rerun every unit and integration test with every feature through cargo-insta and nextest offline, and accept all pending snapshots without prompting. Writes `.snap` files; read the diff before committing and give the reason for the change. |
 
 ## Format
 
@@ -64,11 +66,12 @@ writes.
 | `just metrics` | rustqual against `rustqual.toml`: complexity, cohesion and coupling thresholds and the module boundaries of [Layering](../explanation/layering.md), with warnings as failures; then the probe, which requires the fixture under `tests/fixtures/metrics-violation/` to break every boundary rule. Gate 7. |
 | `just features` | Every feature combination compiles, through cargo-hack's powerset. Gate 8. |
 | `just wasm-check` | The core compiles for `wasm32-unknown-unknown` and for `wasm32v1-none`, which has no standard library, under every feature combination. Gate 9. |
-| `just coverage` | Every nextest test under instrumentation, with the floor of 90 per cent of lines enforced; writes `target/llvm-cov/lcov.info`. Gate 11. |
+| `just coverage` | Every nextest test under instrumentation with `INSTA_UPDATE=no`, with the floor of 90 per cent of lines enforced; a snapshot mismatch fails without writing pending files. Writes `target/llvm-cov/lcov.info`. Gate 11. |
 | `just doc` | rustdoc over the workspace with warnings as errors and `--cfg docsrs`. Gate 12. |
 | `just deny` | cargo-deny's licence, ban and source checks over every dependency that ships, offline once `just sync` has run. Gate 13. |
 | `just audit` | cargo-deny's advisory check against the RustSec database. Over the network, so outside `just check`; CI runs it weekly in its own workflow. |
 | `just deps-unused` | cargo-shear: a dependency a crate declares and never uses. Gate 14. |
+| `just snapshots-check` | Check both locks, then run every unit and integration test with every feature through cargo-insta and nextest offline. Fails mismatches without writing snapshots or pending files, and rejects unreferenced `.snap` files. Gate 19. |
 
 ## Documents
 
@@ -90,8 +93,8 @@ has not run `just initialize` must run `just install-allium` first.
 
 | Recipe | Purpose |
 | --- | --- |
-| `just check` | Every gate in order, proving the worktree is unchanged between each. |
-| `just check-clean` | Assert the worktree is clean, or matches a supplied baseline. |
+| `just check` | All twenty gates in order, proving the worktree is unchanged between each. |
+| `just check-clean` | Assert the worktree is clean, or matches a supplied baseline. Gate 20. |
 
 ## Related pages
 
