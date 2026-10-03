@@ -85,6 +85,13 @@ A push to `main` deploys, and so does a run started by hand from `main`. A run s
 hand from any other branch builds, and deploys nothing: the deploy job's own `if:` skips
 it, and the environment's branch rule would refuse it besides.
 
+One kind of branch slips past the first of those. GitHub compares strings in a workflow
+expression, and the names of concurrency groups, without regard to case, and Git allows
+a branch named `Main` beside `main`. A run started by hand from such a branch passes the
+`if:` and shares `main`'s group, so it can take the place of a waiting deployment of
+`main`, and the environment's rule is the one guard left against its publishing. Making
+such a branch takes write access to the repository. Do not make one.
+
 Deployments are serialised by a concurrency group and never cancelled mid-flight: a
 half-published site is worse than a slightly stale one. The group carries the ref. A
 group keeps one run waiting and a newer run takes its place, so with one group for every

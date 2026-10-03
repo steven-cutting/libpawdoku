@@ -653,6 +653,19 @@ answered 404 and the only environment was `copilot`.
 - Nothing on the site says it documents `main`, and the crate's opening page names
   handbook paths as code spans: both carried to S10's follow-up, T34.
 
+**Local Codex adversarial review, 2026-10-03, one finding (medium), answered in the
+second commit.** A branch named `Main` passes `if: github.ref == 'refs/heads/main'` and
+shares `main`'s concurrency group, because expressions and group names ignore case; a
+hand-started run from it could displace a waiting deployment of `main`. True as far as
+GitHub's documentation goes, and not run here. No expression compares with case, so the
+workflow as the ticket wrote it cannot close this. The overclaim is corrected instead:
+the workflow's two comments, the how-to and decision 0016's consequences now say the
+case-variant branch is not told apart and that the environment's rule is the one guard
+left. Whether that rule's `main` pattern matches with case was not verified. Carried for
+the maintainer: adding `&& github.ref_protected` to the `if:` would skip an unprotected
+`Main`, at the price of leaning on a setting and of a condition that cannot be proved
+before the merge.
+
 **Seen and not fixed:** `CHANGELOG.md` says the handbook has "twenty-five pages"; the
 manifest held 42 before this change and holds 44 after. The ticket names only the count
 of decision records, so the other count is left for its owner.

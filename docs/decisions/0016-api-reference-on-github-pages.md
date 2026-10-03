@@ -76,6 +76,11 @@ The ones that hurt.
   each release on docs.rs.
 - **The handbook's explanations are not on the site.** A reader of the hosted reference
   who wants the reasoning follows a path to GitHub.
+- **A branch that differs from `main` only in case is not told apart.** Expressions and
+  concurrency groups ignore case, so a hand-started run from a branch named `Main`
+  passes the deploy job's `if:` and shares `main`'s group. The environment's rule is
+  then the only guard, and that is the setting the `if:` was written not to lean on.
+  Nothing in an expression compares with case, so the workflow cannot close this itself.
 - **Two settings live outside the repository.** The Pages source and the environment's
   rule are not in any file, so no gate reads them.
 - **The build installs the whole gate's tooling to run one `cargo doc`**, because the
