@@ -41,7 +41,7 @@ authoritative; this table is a snapshot.
 | T27 | The board in play: notes, moves, undo and redo, reading back, and the check | `T27-board-in-play.md` | T26 | none | done |
 | T28 | The record and reopening: a board written down whole and had again | `T28-record-and-reopening.md` | T27 | none | done |
 | T30 | The first-change tutorial: an exercise that can be followed again | `T30-first-change-tutorial.md` | T25 | T26 to T28 | done |
-| T31 | Spec change: the basic generator in generation, a published method of removal checked by the verdict | `T31-basic-generator-spec.md` | T19 | none | open |
+| T31 | Spec change: the basic generator in generation, a published method of removal checked by the verdict | `T31-basic-generator-spec.md` | T19 | none | done |
 | T32 | The basic generator in Rust: the solution grid, removal in order and the five tiers | `T32-basic-generator.md` | T31, T28 | none | open |
 | T33 | The API reference on GitHub Pages: a deploy workflow, a site recipe and the first workflow that publishes | `T33-api-reference-on-github-pages.md` | T11 | S10 | open |
 

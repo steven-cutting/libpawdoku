@@ -1,7 +1,7 @@
 ---
 id: T31
 title: "Spec change: the basic generator in generation, a published method of removal checked by the verdict"
-status: open
+status: done
 depends_on: [T19]
 parallel_with: []
 branch: ticket/t31-basic-generator-spec
@@ -459,29 +459,196 @@ before; `All checks passed and the worktree is unchanged.`; only paths in Files 
 
 ### What was verified, and how
 
+Done on 2026-10-03 in the supplied Supacode worktree, on `b4eecc2`, the merge of the
+pull request that added this ticket. The worktree's branch is
+`ticket/T31-basic-generator-spec`, as Supacode named it. `.pixi/` and `.tools/bin/allium`
+were present, so `just initialize` was not run.
+
+- **Before any edit.** `just check-specs` ended
+  `allium check: 9 specifications, no diagnostics and no findings.` and
+  `just analyse-specs` ended
+  `allium analyse: 9 specifications, no diagnostics and no findings.`
+- **After the last edit.** Both end with the same two lines. No `allium-ignore`
+  directive exists under `docs/specs/`.
+- **`just plan-spec generation`** prints 88 obligations and an empty `diagnostics`
+  array.
+- **Open questions.** `rg -c '^open question' docs/specs/generation.allium` prints 7.
+  Symmetry, pacing, redundant givens and the spent budget each end with the basic way's
+  clause and "The question stands for the designed way"; the text that was there is
+  unchanged before it. The other three are untouched.
+- **Words.** `rg -n -w -i 'level|levels|difficulty|band|bands'` over the module hits the
+  Source note (the paper's "levels", quoted as its word), the Vocabulary's sentence that
+  tier is never level, the Excludes line on swapping bands or stacks (`sudoku.allium`'s
+  band), and the two open questions that already spoke of the report's levels.
+  "Difficulty" appears nowhere.
+- **The worked draw.** Recomputed in Python: `6004799503160661 / 2**53 * 3` is `2.0` in
+  binary64 and the floor of the exact product is 1. The largest draw below one gives
+  `n - 1` for every `n` from 1 to 81, and a draw on which the two readings differ exists
+  for 74 of those `n`.
+- **The every-other-cell order.** Along the S path each step changes the row or the
+  column by one, so the sum of row and column alternates. The paper's first pass, the 41
+  positions with an even sum, is therefore the odd-numbered steps of the S path, and the
+  second pass settled below is its even-numbered steps. The module states it that way.
+- **`puzzle-design.md`.** Thirteen citations of `generation.allium` moved. Each new
+  line was printed and holds what its row describes: 805, 807, 809, 811, 813 and 815 are
+  the open questions that were 122 to 132; 71 is the Replay clause that was 34; 347-354
+  is the three versions, 109-115 before; 282-355 is the config block, 85-116 before.
+- **"Skeleton".** `rg -n -i 'skeleton' docs README.md crates/pawdoku/README.md` hits
+  only sentences that call the designed way one, and decisions 0004 and 0012, records
+  of their day.
+- **`just check-docs`** ended `Validated 42 pages and 43 canonical topics.`, one page
+  more than before.
+- **`just check`** ended `All checks passed and the worktree is unchanged.`
+- **Decision 0015** was free on `origin/main` when the record was committed: the
+  newest there was 0014.
+
 ### Deviations, and why
+
+- **The module adds the word "visit"** to the five the ticket named. The one look a
+  position gets needed a name of its own, because it is an entity (`Visit`) and four
+  invariants speak of it. `docs/project/terminology.md` has it in the order-of-removal
+  row.
+- **Two rules that leave `drawing_grid` became one.** A rule for a failed attempt and a
+  rule for a found grid both wrote `Generation.status`, and `allium analyse` reported a
+  conflict between them, which cannot be waived. `FollowGridAttempt` is one rule with
+  three ends, as `solver.allium`'s `AttendWaitingBranch` is one with two.
+- **The solver is reached through black boxes**, `found_grid` and `verdict_is_one`, each
+  pinned by prose to `solver.allium`'s verdict and solved branches, and not through a
+  `solver/Solve` emission. `board.allium`'s `solution_digit_at` is the precedent.
+- **No further page called the module a skeleton or said the engine has no generator.**
+  `purpose-and-scope.md` keeps its bullet's heading, "No puzzle generation yet", which
+  is still true of the crate; the bullet says the basic generator is specified.
+- **`git fetch origin main`** was run once, to check that 0015 was still free. It reads
+  and writes nothing outside `.git`.
+- **Nothing was pushed.**
 
 ### Names T32 needs
 
-The words the module settled on, each construct's name, the config figures, and the
-obligation count from `just plan-spec generation`.
+**Words.** Tier, bound, floor, order of removal, visit, grid attempt.
+
+**Enumerations.** `Tier { tier_1 | tier_2 | tier_3 | tier_4 | tier_5 }`.
+`RemovalOrder { drawn | every_other | s_path | row_by_row }`: the paper's "Randomizing
+globally", "Jumping one cell", 'Wandering along "S"' and "Left to Right then Top to
+Bottom", for tiers 1 and 2, 3, 4 and 5.
+
+**Entities.** `Generation` (status `drawing_grid | removing | finished | refused`;
+`tier`, `order`, `draws_taken`, `solution`, `bound`, `givens`), `GridAttempt` (status
+`seeding | failed | found`; `number`, `grid`), `Visit` (status
+`pending | refused_by_bound | refused_by_floor | kept | emptied`; `step`, `position`).
+
+**Rules.** `BeginGeneration`, `OpenFirstGridAttempt`, `SettleGridAttempt`,
+`FollowGridAttempt`, `BeginVisit`, `DecideVisit`, `FinishRemoval`.
+
+**Black boxes**, each pinned in a comment where it is first used: `draw_at`,
+`index_among`, `order_of`, `seeded_givens`, `found_grid`, `nth_unvisited`,
+`order_position`, `givens_in_row`, `givens_in_column`, `without_position`,
+`verdict_is_one`.
+
+**Invariants.** `TheSolutionGridIsFull`, `GivensSitInTheSolutionGrid`,
+`GivensLeftAreWellPosed`, `TheBoundIsInTheTiersRange`, `GivensStayAtOrAboveTheBound`,
+`RowsAndColumnsKeepTheFloor`, `NoPositionIsVisitedTwice`, `VisitsAreNumberedOnce`,
+`EmptiedPositionsStayEmpty`, `UnemptiedPositionsKeepTheirGiven`, `RemovalIsBounded`,
+`GridAttemptsStayWithinTheLimit`, `EndsAreEarned`.
+
+**Surfaces.** `Generating`, which provides `Generate(tier)` and carries the guarantees
+`AlwaysEnds`, `OneSolutionAndItIsTheGrid`, `TheRestrictionsHold`, `EveryPositionOnce`,
+`DrawsInOrder`, `SameDrawsSameGivens`, `OnlyTheBoundary` and `ATierClaimsNothing`; and
+`GenerationResult`, which exposes the tier, the status, `draws_taken` and, of a finished
+generation, the count of givens and each given.
+
+**Config.**
+
+| Figure | Value |
+| --- | --- |
+| `tier_1_fewest_givens`, `tier_1_most_givens`, `tier_1_floor` | 51, 60, 5 |
+| `tier_2_fewest_givens`, `tier_2_most_givens`, `tier_2_floor` | 36, 49, 4 |
+| `tier_3_fewest_givens`, `tier_3_most_givens`, `tier_3_floor` | 32, 35, 3 |
+| `tier_4_fewest_givens`, `tier_4_most_givens`, `tier_4_floor` | 28, 31, 2 |
+| `tier_5_fewest_givens`, `tier_5_most_givens`, `tier_5_floor` | 22, 27, 0 |
+| `seeded_givens` | 11 |
+| `grid_attempt_limit` | 100 |
+| `generation_version` | `"generation-1"` |
+
+**What follows for `generate`.**
+
+- The figure for grid attempts is config's, with a default, so `generate(tier, stream)`
+  keeps two arguments.
+- **The draws, in order.** For each grid attempt, for each seeded given, one draw for
+  its position among the empty positions in row order and one for its digit among those
+  its row, column and box allow, lowest first: 22 for a full seeding. A position with no
+  digit left takes its position draw and no digit draw, and ends the attempt: `2k + 1`
+  draws after `k` givens. Then one draw for the bound, `fewest + index`. Then, for tiers
+  1 and 2 alone, one draw a visit among the unvisited positions in row order, the 81st
+  included.
+- **A draw's index** is `(u * n) as usize` on `f64`: the binary64 product, truncated.
+  Not exact arithmetic.
+- **Two solutions.** The grid is the one with the lower digit at the first position, row
+  by row, where the two differ. It is not the first the search found.
+- **A full seeding is put to the solver** whatever it holds; a short one is not.
+- **Removal runs all 81 visits**, and what it reached comes back, in the tier's range or
+  above it. There is no retry.
+- **Spent attempts** are the one refusal of the module's own, with nothing to show. The
+  draws the failed attempts took stay taken.
+- **The first visit always empties its position**, so a finished generation's givens
+  number at most 80 and `SetPuzzle` accepts them.
+- **88 obligations** from `just plan-spec generation`, with an empty `diagnostics`
+  array: 24 config defaults, 13 invariants, 9 transition edges, 7 rule successes and 5
+  rule failures among them.
 
 ### Handed back
 
-To be filled in. At the least:
-
 - **S08.** Its Context calls `generation.allium` a skeleton and its Verification expects
-  "the seven open questions". Say what it finds instead. Its control row, removal "at
+  "the seven open questions". It now finds a module that states the basic way in full
+  and the designed way as a skeleton; the seven open questions are all there, four with
+  a closing clause for the basic way, at lines 805 to 817. Its control row, removal "at
   random, then the verdict and `Rate`", is not the basic way: that row draws its order,
   has no bound and no floor, and is put to `Rate`. Tiers 1 and 2 are its nearest kin.
 - **T20.** Its draft writes "triggers, guarantees and fixtures on the skeleton". It now
-  writes a second way beside the basic one, and inherits the vocabulary and the replay
-  clause this ticket wrote.
-- **`human-solving.allium`.** Its `ExactReplay` words a choice among `n` as `floor(u*n)`,
-  which has the two readings Context describes. That module is not edited here; say
-  which reading this ticket chose, for whoever builds that one.
+  writes a second way beside the basic one. It inherits the vocabulary, the black boxes
+  `draw_at` and `index_among`, and the replay clause `SameDrawsSameGivens`, and must say
+  of each rule it adds which way it is: the Rules section opens "Every rule here is the
+  basic way's", and `Generate(tier)` is the basic way's stimulus. `step_budget` and
+  `candidate_limit` are still declared and still its own.
+- **`human-solving.allium`.** Its `ExactReplay` words a choice among `n` as
+  `floor(u*n)`, which has two readings, and says elsewhere that "no platform rounding
+  changes a choice". This ticket chose the binary64 product truncated toward zero for
+  `generation.allium`, on the maintainer's answer. Whoever builds that module chooses
+  for it; if it chooses exact arithmetic, two modules read one stream by two rules, and
+  decision 0015 names that as a reason to reopen.
+- **T32.** Its Context table and its "One entry" paragraph were written before the Open
+  points were settled. Each agrees with what was settled, bar the word "visit", which is
+  new. Its measurement step may move `grid_attempt_limit`.
+- **T33.** This ticket took decision 0015. If T33's pull request merges second, it
+  merges `main` first and takes 0016, and moves the index's "next decision" sentence on.
 
 ### Open points settled
+
+Each by the maintainer, on 2026-10-03.
+
+- **The word for the paper's five.** Tier, numbered 1 to 5, as proposed.
+- **"More than" in the two restrictions.** Both mean at least.
+- **Tier 1's range.** 51 to 60; 50 is in no range.
+- **The second pass of the every-other-cell order.** The skipped positions along the
+  same path, and the module says the reading is its own.
+- **How the eleven givens are drawn.** A position among the empty cells in row order,
+  then a digit among those its row, column and box allow, lowest first. A position with
+  no digit left ends the attempt, which is counted.
+- **Which solution is the grid when the search finds two.** The one that comes first
+  reading the grid row by row. `solver.allium` is not edited.
+- **How a draw becomes an index.** The binary64 product of the draw and `n`, truncated
+  toward zero, with the worked draw. The maintainer was shown `human-solving.allium`'s
+  sentence on exact arithmetic beside the choice.
+- **A stream already drawn from.** Replay is stated over draws; a seed stands for them
+  when the stream begins at index zero.
+- **Removal that ends above the tier's range.** What was reached comes back; nothing is
+  retried.
+- **Which limits the basic way reads.** The figure for grid attempts alone, in config
+  with a default of 100.
+- **What spent grid attempts report.** A refusal with nothing to show.
+- **The two frozen files.** Leave given for both `docs/manifest.yml` and
+  `docs/README.md`.
+- **The decision record.** Kept.
+- **Paths T33 also edits.** T33's deviation is followed, and this ticket took 0015.
 
 ## Open points
 
