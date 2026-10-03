@@ -41,6 +41,7 @@ authoritative; this table is a snapshot.
 | T27 | The board in play: notes, moves, undo and redo, reading back, and the check | `T27-board-in-play.md` | T26 | none | done |
 | T28 | The record and reopening: a board written down whole and had again | `T28-record-and-reopening.md` | T27 | none | done |
 | T30 | The first-change tutorial: an exercise that can be followed again | `T30-first-change-tutorial.md` | T25 | T26 to T28 | open |
+| T33 | The API reference on GitHub Pages: a deploy workflow, a site recipe and the first workflow that publishes | `T33-api-reference-on-github-pages.md` | T11 | T30, S10 | open |
 
 Spike tickets. Each weighs options and ends in a recommendation; none blocks the build and
 none is picked up before T11.
@@ -55,6 +56,7 @@ none is picked up before T11.
 | S07 | Spike: undoing a deduction, technique by technique | `S07-undoing-a-deduction.md` | S06 | open |
 | S08 | Spike: removal by undoing deductions, against removal and a rating | `S08-removal-by-undoing.md` | S06, S07 | open |
 | S09 | Spike: code-quality metrics as a gate, module boundaries, complexity, coupling and cohesion | `S09-code-quality-metrics.md` | T11 | done |
+| S10 | Spike: prose pages, diagrams and raw HTML inside rustdoc | `S10-pages-and-diagrams-in-rustdoc.md` | T11 | open |
 
 Centralisation recommendations. Each is written to be picked up on its own and touches
 another repository, so every step in it is separately authorised.
@@ -80,6 +82,9 @@ C02 hangs off D01 alone (D01 kept the Python checkers; decision 0004)
 
 T12, T22 ── T23 ── T24 ── T29 ── T25 ──┬── T26 ── T27 ── T28   (the first engine modules)
                                        └── T30   (the tutorial T25 left unfollowable)
+
+T11 ──┬── T33   (the API reference on GitHub Pages)
+      └── S10   (pages and diagrams inside rustdoc; its follow-up needs T33)
 ```
 
 The graph is acyclic: D01, then D02, then T00, then nine parallel lanes, then T11 and T10
@@ -107,6 +112,13 @@ hand-back notes, is T26.
 T30 follows T25, which moved the items the first-change tutorial's exercise is built on.
 It edits one page, `docs/tutorials/first-change.md`, that none of T26 to T28 lists, so it
 may run beside them.
+
+T33 and S10 are the hosted API reference. T33 publishes what `just doc` builds to GitHub
+Pages on every push to `main`, in a workflow of its own, and is the first ticket whose
+workflow publishes. S10 is the spike on how prose pages, diagrams and raw HTML go inside
+rustdoc; it changes nothing outside its own file, so it may run beside T33, and the
+build ticket it drafts depends on T33. The ids between T30 and T33 are the
+basic-generator tickets'.
 
 ## How to pick up a ticket
 
