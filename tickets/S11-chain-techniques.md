@@ -30,13 +30,18 @@ The request, as the maintainer made it on 2026-10-03 and in this project's words
 Facts to start from, each verified at execution against the specifications as they
 stand on `main` and against S06's hand-back notes:
 
-- **The witnesses cannot be listed; the outputs can.** The count of chain paths grows
-  as the branching to the power of the links, up to about 1e26 at 23 links, so the
-  catalogue's deductions, one for each proof, cannot be drawn up for these ranks. For
-  `x_chain`, `xy_chain` and `alternating_inference_chain` the strikes are "any
-  candidate weakly linked to BOTH endpoints", a function of the two endpoints alone,
-  so the entries are at most the pairs of endpoints: 29,160, 6,480 and 266,814 on
-  paper. For `forcing_chain` each proof concludes one literal, so at most 1,458.
+- **Listing every witness was not shown to be practical; listing the outputs is
+  bounded.** The count of chain paths is bounded only by the branching to the power
+  of the links, at most about 1e26 at 23 links. That is an upper bound and not a
+  count any grid was shown to reach, but no smaller one was argued, so S06 did not
+  draw up the catalogue's deductions, one for each proof, for these ranks. The
+  outputs are of three kinds. An endpoint strike, for `x_chain`, `xy_chain` and
+  `alternating_inference_chain`, strikes "any candidate weakly linked to BOTH
+  endpoints", a function of the two endpoints alone, so such entries are at most the
+  pairs of endpoints: 29,160, 6,480 and 265,356 on paper. A closure, which
+  `AlternatingChains` gives to `alternating_inference_chain`, strikes or places one
+  candidate: at most 1,458 more, 266,814 in all for rank 26. A `forcing_chain`
+  concludes one literal: at most 1,458.
 - **Whether a chain may pass through a candidate twice is not said.** Only
   `RemotePairs` says "no repeating cells". If a chain may repeat, whether some chain
   within the limit joins two endpoints is one pass over a graph of at most 1,458
@@ -45,12 +50,14 @@ stand on `main` and against S06's hand-back notes:
   is a path with forbidden pairs and no polynomial bound was argued.
 - **The minimums of two techniques depend on that answer.** `x_chain` needs "at least
   three links" and `xy_chain` "at least three distinct cells". If a chain may repeat,
-  a conjugate pair walked there, back and there again has three links, and every
-  conjugate pair is an `x_chain`.
-- **`remote_pair` is not bounded as written.** Its targets see two chain cells "an odd
-  number of links apart", so its strikes depend on which cells the chain holds. On a
-  true grid its chains number about ten million a look, and its entries are bounded
-  only by the chains' sets of cells.
+  a conjugate pair walked there, back and there again has three links, so every
+  conjugate pair has the shape of an `x_chain`; it is a deduction only where some
+  candidate outside it is weakly linked to both ends.
+- **`remote_pair` has no useful small bound as written.** Its targets see two chain
+  cells "an odd number of links apart", so its strikes depend on which cells the
+  chain holds. S06's bound on its chains, on a true grid with 17 or more cells
+  placed, is about ten million a look, loose and not a measurement, and its entries
+  are bounded only by the chains' sets of cells.
 - **A proof of fewest links is not a proof of least load.** A variable load "is the
   number of distinct candidate propositions in the proof", `Profile.holds` hides a
   deduction whose load is past `capacity`, and the witness an entry keeps decides its
@@ -74,7 +81,9 @@ stand on `main` and against S06's hand-back notes:
 - **What exists to build on.** S06's prototype, grids and oracle stayed in S06's
   worktree. Its notes carry the definitions, the order, the counters, the grids and
   their counts for ranks 1 to 22, 28 and 29, and 53 of its 226 grids stalled under
-  that repertoire: those stalled states are where these five techniques fire.
+  that repertoire: those stalled states are the candidates for testing these five
+  techniques. Which of the five apply there was not established and is this spike's
+  to find.
 - **Words.** Deduction, step, strike, given. A chain is the specification's word. A
   walk is a chain that may pass through a candidate twice, a word this ticket needs
   and the specification does not have. Never move, never eliminate, never clue.
@@ -94,17 +103,18 @@ A decision on each row of the table below, made by the maintainer on evidence th
 spike gathers: the published work, a prototype of the five techniques under each
 reading that can be built, and a SAT solver's word on what the prototype finds. With
 the decisions: the proposed specification text, and the follow-up tickets drafted so
-that each takes the decisions as given. Nothing is installed or changed outside this
-file.
+that each takes the decisions as given. No tracked file changes but this one and its
+row in `tickets/README.md`; programs, downloads and a solver are scratch, under
+`ai_tmp/` or the session's scratch directory, each where a step authorises it.
 
 | Id | Decision | Options to weigh | Starting recommendation |
 | --- | --- | --- | --- |
 | D1 | May a chain pass through a candidate twice? | a walk; no candidate twice in either polarity; no cell twice | a walk, for ranks 24 to 27 |
 | D2 | What do the minimums of `x_chain` and `xy_chain` count? | links walked; distinct candidates or cells | distinct candidates and distinct cells |
 | D3 | What is the output and the witness of `remote_pair`? | one for each chain, as written; the whole two-coloured component; one struck candidate | the component, as `simple_colouring` has it |
-| D4 | What does an entry of a chain technique hold? | every target of its endpoints, as written; one struck candidate or one placement | every target, as the other techniques have it |
-| D5 | Which witness does an entry keep, and what load does `holds` read? | the fewest links; the least load; no load at all for chains; held link by link | undecided: the evidence of step 5 says |
-| D6 | `forcing_chain`: may a root reach itself, how are paths counted, which witness is kept? | as step 6 finds them | undecided |
+| D4 | What does an entry of a chain technique hold? | as written: for an endpoint strike every target of its endpoints, for a closure or a forcing chain its one candidate; or one struck candidate or one placement throughout | as written |
+| D5 | Which witness does an entry keep, and what load does `holds` read? | hide first, then keep the first witness the player can hold, which needs to know whether any is within capacity; keep the fewest links and read its load; no load at all for chains; held link by link | undecided: the evidence of step 5 says |
+| D6 | `forcing_chain`: may a root reach itself, how are paths counted, which witness is kept? | a root reaches itself by an empty path, or does not; one path counted for each root, or for each incompatible literal; each path the shortest, or the paths of least load together, or any the player can hold; with whatever step 2 and step 3 add | undecided |
 | D7 | Do `max_chain_links` and `max_forcing_paths` stay at 24 and 9? | stay; a lower figure the measurements support | stay, with what binds and what never does recorded |
 | D8 | What do "other cells" exclude, for ranks 13 to 22? | every cell of the witness; only the cells the proof says are one of two | undecided: S06 measured the first only |
 | D9 | Are a colouring's wrap and trap one deduction? | separate; one for each component | separate, as S06 measured |
@@ -130,7 +140,7 @@ file.
 ## Steps
 
 1. Create the worktree on `ticket/s11-chain-techniques` from `main` after S06 has
-   merged (README.md "How to pick up a ticket").
+   merged (`tickets/README.md`, "How to pick up a ticket").
 
 2. Verify, read-only, and record with sources and dates: (a) every sentence of
    `technique.allium` that bears on D1 to D9, quoted with its lines, and for each
@@ -138,7 +148,10 @@ file.
    which sentences of `reach.allium`, `effort.allium`, `lapse.allium` and
    `human-solving.allium` read a chain's load, links or paths, and so change with a
    decision; (c) what S06's notes hand to this ticket, checked against the notes as
-   merged.
+   merged. After step 3 and before step 5, write out the options of D6 and of any
+   other decision the reading has added to, so that step 5 builds each from a stated
+   definition. The SAT solver of step 6 checks what the options entail; it does not
+   choose among them.
 
 3. Find the published work, academic papers first. Fetching is separately authorised:
    stop and ask. For each source record the full citation, where it was read (a URL
@@ -221,7 +234,7 @@ file.
 
 8. Put the decisions to the maintainer: stop and ask, one decision at a time, each
    with its evidence and its recommendation. Record each answer with its date under
-   "Open points settled". A decision the maintainer defers is recorded as deferred,
+   "Open points settled", one line for each decision, opening with its id in bold. A decision the maintainer defers is recorded as deferred,
    with what it blocks. No decision is taken by this ticket's agent.
 
 9. Draft the follow-ups in the hand-back notes, each written to take the decisions as
@@ -238,28 +251,35 @@ file.
    - what a rebuild needs: the definitions as decided, the counters, the grids and
      each grid's counts.
 
-10. Set `status: done` and commit on the ticket branch. Stop before pushing.
+10. Set `status: done`, run the Verification, whose last command is run before the
+    commit, and commit on the ticket branch. Stop before pushing.
 
 ## Acceptance criteria
 
 - Answers (a) to (c) of step 2 are recorded with lines and dates.
 - Every source of step 3 carries a citation, where and when it was read, its tag and
   the decision it bears on; nothing unread decides anything.
-- The definitions of step 5 were fixed before any figure was recorded, and the counts
-  are in a table by technique and option.
+- The rebuild of step 4 reproduced S06's fifteen recorded rows, or each difference is
+  explained.
+- The definitions of step 5, D6's options among them, were fixed before any figure was
+  recorded, and the counts are in a table by technique and option. Which of the five
+  techniques apply on the stalled states is recorded.
 - The two programs agreed entry for entry under the small limit and output for output
   under the full one, on every sampled state, or each difference is listed and
   explained.
 - Every entry found passed the soundness check of step 6, or is listed as a defect;
-  the ceiling and each technique's share of it are recorded.
-- The table of decisions is complete: no option without its cost, its list and the
-  sentences it changes.
+  the ceiling and each technique's share of it are recorded, with what a chain of
+  unbounded length reaches beside the limits; the sampled implications each held, or
+  are listed.
+- The table of decisions is complete: no option without its cost, its list, what it
+  hides at a capacity of 4 and of 8, and the sentences it changes.
 - Each of D1 to D9 is answered by the maintainer with a date, or recorded as deferred
   with what it blocks.
 - The follow-ups cite the decisions by id and name every specification change as a
   change to make first.
 - The hand-back notes carry everything step 9 names for a rebuild.
-- `git status --porcelain` on the ticket branch lists only this file and the index.
+- Before the commit, `git status --porcelain` on the ticket branch lists only this file
+  and the index; after it, the worktree is clean.
 
 ## Verification
 
@@ -267,11 +287,15 @@ file.
 rg -n 'guarantee (LinkMeaning|RemotePairs|AlternatingChains|BoundedForcingChains)' docs/specs/technique.allium
 rg -n 'max_chain_links|max_forcing_paths' docs/specs/technique.allium
 rg -c '^\| D[1-9] \|' tickets/S11-chain-techniques.md
+rg -c '^- \*\*D[1-9]\.\*\* .*(20[0-9]{2}-[0-9]{2}-[0-9]{2}|deferred)' tickets/S11-chain-techniques.md
 git status --porcelain
 ```
 
 Expected: the four guarantees; the two limits, in the config and wherever a guarantee
-reads them; at least 9; two lines naming this file and `tickets/README.md`.
+reads them; at least 18, the Goal's nine rows and the completed table's, a check of
+shape only; 9, one line under "Open points settled" for each decision, opening with
+its id in bold and carrying the date of the maintainer's answer or the word deferred;
+and, run before the commit, two lines naming this file and `tickets/README.md`.
 
 ## Hand-back notes
 
