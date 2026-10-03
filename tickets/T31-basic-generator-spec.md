@@ -296,14 +296,19 @@ green.
    - **The order.** The four orders, each stated so that the position visited at every
      step is fixed: the three fixed orders as Context gives them, with the second pass
      of the every-other-cell order as step 2 settled, and the drawn order as a choice
-     among the positions not yet visited.
+     among the positions not yet visited. A drawn order takes one draw for every visit,
+     the last included, where one position is left and the draw decides nothing: 81
+     draws, whatever removal does. `human-solving.allium`'s `ExactReplay` has the same
+     rule for a forced outcome, "Draw even for p=0 or p=1".
    - **One visit.** Refused when removing would leave fewer givens than the bound;
      refused when it would leave the position's row or column below the floor;
      otherwise the givens without it are put to the solver, and the position is emptied
      when the verdict is one and keeps its given when it is many. Either way the
      position is not visited again.
-   - **The end.** When every position has been visited. Say whether removal may stop
-     sooner once the count equals the bound, since nothing more can then be removed.
+   - **The end.** When every position has been visited, and not before. Removal does
+     not stop when the count reaches the bound. Every later visit is then refused by
+     the bound, which changes nothing in the result, and the draws taken do not depend
+     on how removal went.
    - **What comes back.** The givens left, and that their verdict is one.
    - **The draws.** In the order they are taken, and how many each step takes. A choice
      among `n` is an index into a list in a stated order, computed from the draw as
@@ -419,7 +424,9 @@ green.
   draw in Context's example, says which solution is the grid when the search finds two,
   and states replay for a stream that has already been drawn from.
 - No page under `docs/` says the whole module is a skeleton or that the engine has no
-  generator specified; `purpose-and-scope.md` and `architecture.md` say the same thing.
+  generator specified, decision records of their day excepted: 0012 records that the
+  module was a skeleton on its date and is not edited. `purpose-and-scope.md` and
+  `architecture.md` say the same thing.
 - Every `generation.allium` line cited in `puzzle-design.md` holds the text its row
   describes.
 - The decision record exists, is in the manifest and the index, and states the four

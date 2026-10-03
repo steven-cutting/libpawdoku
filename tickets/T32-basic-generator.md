@@ -67,7 +67,8 @@ tickets need".
   `Board::open(proof.givens().iter().copied())`; `board` is not touched.
 - **`Tier` is a public enum** of five, `#[non_exhaustive]`, that can say its own range
   and floor, so a caller can tell whether a result met its range.
-- **`GenerateError` is a `thiserror` enum** with stable `Display` text: the stream ran
+- **`GenerateError` is a `thiserror` enum**, `#[non_exhaustive]` as every public enum
+  is (`AGENTS.md`, invariant 3), with stable `Display` text: the stream ran
   out (it wraps the `RandomError`, transparently, as `SolveError::NotPosed` wraps its
   cause); grid attempts were spent; and, if the shape chosen needs it, one conversion
   from `SolveError` for a refusal no input reaches.
@@ -317,7 +318,8 @@ names in the table. By subject:
   its first turn. Every other cell begins (1,1), (1,3), (1,5), (1,7), (1,9), (2,8),
   (2,6), (2,4), (2,2), (3,1), takes 41 positions on its first pass, and then the rest
   as T31 settled. The drawn order visits each position once whatever the draws, and a
-  scripted set of draws gives the order worked out by hand.
+  scripted set of draws gives the order worked out by hand. It takes one draw for every
+  visit, 81 in all, whether or not removal reached the bound early.
 - **A choice among `n`.** A draw of zero picks the first. The largest draw a stream can
   give picks the last, for every `n` from 1 to 81. The draw `6004799503160661 / 2^53`
   among three picks what T31's reading says, and the test says which reading that is.
@@ -353,6 +355,8 @@ names in the table. By subject:
 - `pawdoku::generation` exports `generate`, `Tier`, `GenerateError` and
   `GENERATION_VERSION` with the meanings above. Nothing in `src/generation` names an
   engine module other than `sudoku`, `solver` and `random`.
+- `Tier` and `GenerateError` are both `#[non_exhaustive]`. The bounds tests cannot see
+  the attribute, so it is read by inspection and stated in the hand-back notes.
 - The only caller of the proof's constructor outside test code is still in
   `src/solver`, read by inspection and stated in the hand-back notes.
 - `generate` cannot panic on any tier and any stream, a stream that runs out included.
