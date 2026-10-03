@@ -416,7 +416,7 @@ inline SVG added.
 | `just features` | 0 | 0 |
 | `just wasm-check` | 0 | 0 |
 | `just lint` | 1, then 0 (below) | 0 |
-| `just fmt-check` | not run | 0 |
+| `just fmt-check` | 0 | 0 |
 
 What was recorded:
 
@@ -509,7 +509,7 @@ a comment indented by five spaces failed that hook, and two spaces passed.
   table.sudoku tr:first-child td { border-top: 2px solid var(--main-color); }
   table.sudoku td:nth-child(3n) { border-right: 2px solid var(--main-color); }
   table.sudoku td:first-child { border-left: 2px solid var(--main-color); }
-  table.sudoku td.mark { background-color: var(--code-block-background-color); font-weight: bold; }
+  table.sudoku td.mark { background-color: var(--main-color); color: var(--main-background-color); font-weight: bold; }
   svg.sudoku { display: block; margin: 1em 0; max-width: 100%; height: auto; color: var(--main-color); }
   .mermaid-diagram { margin: 1em 0; overflow-x: auto; }
   .mermaid-diagram svg { max-width: 100%; height: auto; }
@@ -533,7 +533,7 @@ a comment indented by five spaces failed that hook, and two spaces passed.
 
     async function draw() {
       const dark = document.documentElement.dataset.theme !== "light";
-      window.mermaid.initialize({ startOnLoad: false, theme: dark ? "dark" : "default" });
+      window.mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: dark ? "dark" : "default" });
       for (const { pre, figure, source, id } of fences) {
         try {
           const { svg } = await window.mermaid.render(id, source);
@@ -644,9 +644,12 @@ the same screenshots:
 - *The HTML table* (`<table class="sudoku">`, nine `<tr>` lines of nine `<td>`, one
   `<td class="mark">`), styled by the header's `style` element through rustdoc's own
   colour variables: thin cell lines and thick box lines in all three themes.
-  Rustdoc's own striping of alternate table rows shows through, and the marked cell's
-  shading is too faint to tell from it: the mark wants a stronger colour before a page
-  relies on it.
+  Rustdoc's own striping of alternate table rows shows through. The first mark, a
+  shaded background, was too faint to tell from that striping. The header quoted in
+  step 5 marks the cell by swapping the text and background colours instead, and that
+  mark was then seen in all three themes: a solid black cell on light, a solid pale
+  cell on dark and on ayu. The marked cell of the sample is empty, so a digit inside a
+  marked cell was not seen.
 - *The inline `svg`* with `stroke="currentColor"` and `fill="currentColor"`: dark lines
   and digits on light, light on dark and on ayu, the marked cell shaded in all three.
 
@@ -712,7 +715,7 @@ its topic.
 | `mmdr` | on a trigger: a requirement that pages work with scripts off; first to try | Byte-stable; one diagram of two drawn with visible defects |
 | D2, Graphviz or Typst | on the same trigger, after `mmdr` | Available on both platforms; not run |
 | Raw HTML or inline SVG by hand | **adopt now**, for a grid whose cells need marking: the table first, an SVG when something must be drawn across cells | Both read in the themes seen and pass `-D warnings` |
-| A `text` fence | keep | Reads as the handbook's does |
+| A `text` fence | **adopt now**; already in use | Reads as the handbook's does |
 | Kroki, PlantUML | not at all | A server; a JVM |
 
 **Step 10. The follow-up, drafted.** **T34, "Pages and diagrams in the API reference: a
@@ -723,7 +726,9 @@ dependency.
   `.sudoku` rules stay out until a page marks a cell; the `.mermaid-diagram` rules and
   the script land now. The comment at its head says how to move the pin: the version
   and the hash change together, and
-  `curl -s <address> | openssl dgst -sha384 -binary | base64` gives the hash.
+  the file is fetched with `curl -fsSL -o mermaid.min.js <address>`, which fails on an
+  HTTP error and so cannot hash an error page, and
+  `openssl dgst -sha384 -binary mermaid.min.js | base64` then gives the hash.
 - **`Justfile`** (T00 follow-up; frozen under CONVENTIONS.md §11): the `doc` recipe's
   one line gains `--html-in-header crates/pawdoku/rustdoc/header.html`, as in step 5,
   with a comment that the path is read from the workspace root. T33's `site` recipe
@@ -816,8 +821,13 @@ $ rg -n 'RUSTDOCFLAGS' Justfile
 - **`mmdr` came as a release binary,** not a source build: the release had one.
 - **Step 2 was read by a sub-agent,** read-only, and its notes checked against step 5's
   own results. Its notes are in the ignored `ai_tmp/` and are not part of the change.
-- **`just fmt-check` was not run on the included-file variant.** Its `.rs` file is two
-  lines.
+- **Changes after Copilot's review of the pull request,** each run in the same scratch
+  copy on 2026-10-03: `just fmt-check` on the included-file variant, exit 0; the
+  header's `securityLevel` set to `strict` in so many words, and the default read for
+  11.17.2 as well (`config.schema.yaml` at `mermaid@11.17.2` says strict is the
+  default); the stronger cell mark of step 6; `just doc` and `just lint` exit 0 with
+  the header as now quoted. The diagram was not screenshotted again after the
+  `securityLevel` change.
 
 ## Open points
 
@@ -853,7 +863,8 @@ The spike's answer is given under each point that has one. Each stays the mainta
   By step 8's rule it stays in the handbook, and a rustdoc page links to it.
 - **`#[cfg(doc)]` on a page's module.** The follow-up drafts it, so a page adds no path
   to the crate. The other choice is an always-compiled empty module, which a consumer
-  can name and which clippy also reads. Both passed every recipe.
+  can name and which clippy also reads. Both passed `doc`, `test-doc`, `clippy`,
+  `metrics`, `features` and `wasm-check`.
 - **A build that does not pass the flag shows the source.** Another workspace
   documenting this crate as a dependency, or an editor's hover, gets the fence as text.
   That is the fallback the maintainer accepted for a reader with no network, met by a
