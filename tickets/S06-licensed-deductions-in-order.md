@@ -832,9 +832,12 @@ Those search bounds stand on three readings the specification does not yet state
    which is so on a grid whose digits and candidates are true.
 3. **An order on paths, and which witness `holds` reads.** Step 3's witness order
    covers units, cells and digits. A variable load "is the number of distinct candidate
-   propositions in the proof" (`technique:598-599`) and `holds` hides by load, so the
-   witness kept must be one of least load or an entry is hidden from a player who
-   could hold it. A proof of fewest links is not that witness once a chain may pass
+   propositions in the proof" (`technique:598-599`) and `holds` hides by load. If the
+   witness were kept before the profile hides, it would have to be one of least load,
+   or an entry is hidden from a player who could hold it. If the profile hides first,
+   as (b) requires, any witness the player can hold will do as the one kept; but
+   whether some witness is within a capacity is then the question to answer, and for
+   a chain that asks for the least load all the same. A proof of fewest links is not that witness once a chain may pass
    through a candidate twice: load counts distinct candidates, not links. At look 28 of
    `study_advanced` under the wider profile, the closure that places 4 at r2c8 has a
    shortest proof of 9 links over 9 candidates and a longer one of 11 links over 8
@@ -1044,9 +1047,9 @@ nothing of whether the readings are right.
 
 | Model | Entry | What it reports that the list cannot | Kept, moved or lost |
 | --- | --- | --- | --- |
-| `reach` | `Rate`, `NextStep` | Nothing in `RunResult` for a systematic, unfixed profile: every value is the run or read off it. Its own: the hint surface and its premise, the rating's precondition and guarantees, fixation. | The tie is lost, on purpose. `sees`, `is_in_order` and `is_preferred` are kept as written; only `chosen` becomes the first in `technique.allium`'s order. `Look`'s ends, the two entries and the surfaces are kept. |
-| `effort` | `Price` | Price, total, the dearest step, budget; escalation and `unpriced`, which need the deductions the profile does not see. | The tie among the equally cheap is lost. `is_cheapest` is kept: taking the first in its place would answer the open question at `effort:316`, which is not this ticket's. |
-| `lapse` | `Tackle` | Lapsed marks, checks, guesses, repairs, abandonment; a list drawn from marks that may be stale (`lapse:219`). | The tie among deductions is lost. The two ties of a guess, the six ends and the upkeep are kept. |
+| `reach` | `Rate`, `NextStep` | Nothing in `RunResult` for a systematic, unfixed profile: every value is the run or read off it. Its own: the hint surface and its premise, the rating's precondition and guarantees, fixation. | For ranks 1 to 12 the tie is lost, on purpose; past them it is narrowed to deductions equal in the order. `sees`, `is_in_order` and `is_preferred` are kept as written; only `chosen` becomes the first in `technique.allium`'s order. `Look`'s ends, the two entries and the surfaces are kept. |
+| `effort` | `Price` | Price, total, the dearest step, budget; escalation and `unpriced`, which need the deductions the profile does not see. | The tie among the equally cheap is lost for ranks 1 to 12 and narrowed past them. `is_cheapest` is kept: taking the first in its place would answer the open question at `effort:316`, which is not this ticket's. |
+| `lapse` | `Tackle` | Lapsed marks, checks, guesses, repairs, abandonment; a list drawn from marks that may be stale (`lapse:219`). | The tie among deductions is lost for ranks 1 to 12 and narrowed past them. The two ties of a guess, the six ends and the upkeep are kept. |
 | `human-solving` | `Simulate`, `Assess` | All of it: chance, the sheet against the mind, looking without finding, elementary reasoning, error, attempts and an assessment. | Kept whole. It has no `OpenGrid`, `Look` or `TakeStep` and no `technique/Grid`, so it has no statement of looking to lose. |
 
 Against the four criteria:
@@ -1081,8 +1084,10 @@ Against the four criteria:
 **The verdict: adopt beneath, and more narrowly than the starting recommendation.**
 State one total order over a grid's deductions in `technique.allium`, with the entry
 and the list as what a caller reads; have `reach`, `effort` and `lapse` take the first,
-in that order, of whatever each already prefers. That removes the one freedom the
-three leave to the implementation, makes two implementations agree, gives S07 and S08
+in that order, of whatever each already prefers. For the first twelve techniques that
+removes the one freedom the three leave to the implementation and makes two
+implementations agree; past them the freedom is narrowed to deductions equal in the
+order and is not removed. It gives S07 and S08
 the list they index into, and costs nothing the measurements can see. It does not make
 the specifications shorter and it does not replace a model. The three statements of
 looking stay, because what they share word for word is small and what differs is each
@@ -1179,7 +1184,10 @@ order. The text is proposed; the checker and the skill shape the final form.
 - `reach:238` becomes `let taken = first(filter(run.grid.in_order, x =>
   run.is_preferred(x)))`; the comment at `reach:236-237` says that `first` of nothing
   is nothing, and the one at `reach:244-246` describes `first` and `filter`.
-- `reach:429` loses "and the implementation's choice among tied deductions".
+- `reach:429` narrows "the implementation's choice among tied deductions" to
+  deductions equal in the order. It is not deleted: past rank 12 two witnesses of one
+  output differ in cells and digits, which a fixation reads (`reach:119-127`), so the
+  choice among them can still change a run.
 - A new open question: with the first taken, an unsystematic, unfixed player takes
   what a systematic one takes; is `unsystematic` kept for the players a fixation
   distinguishes, or dropped?
@@ -1247,7 +1255,9 @@ estimated_size: M
 >
 > 1. Read S06's hand-back notes, steps 3 and 7, and the `spec-change` skill.
 > 2. Change `technique.allium` first: the Excludes sentence, the order, `Entry`, the two
->    guarantees and the three open questions. Say whether `catalogue_version` is
+>    guarantees and every open question step 7 lists (the three on chains, the two
+>    readings of the wider repertoire with the role, and the grid that contradicts
+>    itself). Say whether `catalogue_version` is
 >    raised, and why.
 > 3. Change `reach.allium`, then `effort.allium`, then `lapse.allium`, one commit each.
 > 4. Correct `docs/explanation/puzzle-design.md` L914 and refresh its line citations.
@@ -1611,6 +1621,11 @@ Four of the five are as expected. The `ls` is not, for the reason under Deviatio
   and that `effort` needs the deductions a profile does not see, so the proposal
   orders deductions and derives the entries. For the pinned profile the two are the
   same list.
+- **A second Codex review, of the answers to the first, was answered** on 2026-10-03.
+  Three of its findings were of these notes and all three held: statements that the
+  tie is removed outright are qualified; the least load is said to be needed only to
+  decide what a capacity hides, not of the witness kept; the drafted ticket's step
+  names every open question.
 - **A Codex review of both commits was asked for and answered** on 2026-10-03. Its five
   findings were checked and all five held: the order is made normative for ranks 1 to
   12 only; w_wing's entry bound is corrected; the claim that fewest links is least
@@ -1636,7 +1651,7 @@ Four of the five are as expected. The `ls` is not, for the reason under Deviatio
   a skyscraper after the page's stall, so the page's claim that the repertoire stalls
   there depends on which techniques that repertoire holds. The
   intermediate puzzle's pointing is in the middle-left box (box 4), where the page
-  says "lower-left box". L914 quotes a sentence T35 removes.
+  says "lower-left box". L914 quotes a sentence T35 narrows.
 - **To `effort.allium`'s next change:** its header says it reads `fatigue`
   (`effort:40`), and no rule or derived value does.
 - **To S07:** the rebuild material above. The SAT oracle of (e) is the independent
