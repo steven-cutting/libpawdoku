@@ -39,8 +39,11 @@ module states is not the engine's yet, however obvious it looks.
   where it wants it kept.
 - **No puzzle generation yet.** How a setter finds givens is excluded from
   `sudoku.allium`. Generation is a planned module, `generation.allium`, specified before
-  it is built and today a skeleton of scope, config and open questions; whether puzzles
-  are made on the device, ahead of time, or both is open
+  it is built. The specification states the basic generator in full, a published method
+  checked by the solver's verdict
+  ([decision 0015](../decisions/0015-basic-generator.md)), and its Rust module is not yet
+  built; the designed generator is a skeleton of scope, config and open questions.
+  Whether puzzles are made on the device, ahead of time, or both is open
   ([decision 0012](../decisions/0012-generation-and-dev-time-judges.md)). What a
   generated puzzle is held to is in
   [Puzzle design objectives](../explanation/puzzle-design.md).

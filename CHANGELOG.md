@@ -9,6 +9,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `generation.allium` states the basic generator in full: a solution grid drawn from
+  eleven givens through the randomness boundary, givens removed one position at a time
+  in the order one of five tiers names, each removal kept only while the solver's
+  verdict stays one. It is specified and not yet built; the designed generator beside
+  it stays a skeleton (decision 0015).
 - The record, `pawdoku::board::Record`, from `board.allium`'s `Recording` and
   `Reopening`. `Board::write` writes a board down at any point as a plain value the
   caller keeps, and `Board::reopen` makes the same board from it: moves, undone moves
@@ -57,8 +62,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   they cite, and an eighth, `board.allium`, for a puzzle as it is being played.
 - A handbook of twenty-five pages under `docs/`, held to the documentation contract and
   reachable from its map.
-- Fourteen architecture decision records, from the engine as a library of its own to the
-  board's import of the solver.
+- Fifteen architecture decision records, from the engine as a library of its own to the
+  basic generator.
 - A `metrics` gate, seventh in `just check`: rustqual, built from source from its pin in
   `tools-source.txt`, holds thresholds for complexity, cohesion and coupling and the
   module boundaries of the layering table, with a probe that proves the boundary rules

@@ -72,11 +72,15 @@ The ninth, `generation.allium`, is the first module written here rather than car
 from the game, and the only one that stands on a model: it says how a setter that is a
 program finds givens, drawing a solution grid through the randomness boundary and
 removing givens by symmetry orbit until what is left is well-posed and solvable within a
-technique contract, under a step budget. It is a skeleton, scope, config and open
-questions with no trigger, because every figure it would state is a product decision
-nobody has taken; [Puzzle design objectives](puzzle-design.md) says what it is for and
-[decision 0012](../decisions/0012-generation-and-dev-time-judges.md) why it is the
-engine's.
+technique contract, under a step budget. That is the designed way, and it is a skeleton,
+scope, config and open questions with no trigger, because every figure it would state is
+a product decision nobody has taken; [Puzzle design objectives](puzzle-design.md) says
+what it is for and [decision 0012](../decisions/0012-generation-and-dev-time-judges.md)
+why it is the engine's. Beside it the module states the basic way in full, with its
+rules, invariants and surfaces: a published method that draws a solution grid from eleven
+givens and removes givens one position at a time in the order its tier names, keeping
+each removal only while the solver's verdict stays one
+([decision 0015](../decisions/0015-basic-generator.md)).
 
 The game's root module, `pawdoku.allium`, stays in the game. Allium has no
 cross-repository import, so the game restates the clauses it needs and holds them equal

@@ -21,8 +21,9 @@ it: [`reach.allium`](specs/reach.allium), [`effort.allium`](specs/effort.allium)
 [`lapse.allium`](specs/lapse.allium) and
 [`human-solving.allium`](specs/human-solving.allium), the one with chance in it: bounded
 cognition, fallible attempts and repeated assessment. How a setter that is a program
-finds givens is [`generation.allium`](specs/generation.allium)'s, today a skeleton of
-scope, config and open questions. Those files are not part of this
+finds givens is [`generation.allium`](specs/generation.allium)'s, which states the basic
+generator in full and the designed one as a skeleton of scope, config and open
+questions. Those files are not part of this
 handbook; they are its subject. Start at Specifications, under Understand, to see how the
 two relate. The game's root module, `pawdoku.allium`, stays in the game and restates what
 it needs.
