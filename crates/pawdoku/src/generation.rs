@@ -310,7 +310,9 @@ fn draw_bound(tier: Tier, stream: &mut dyn RandomStream) -> Result<usize, Random
 /// after `k` givens. Then one for the bound. Then, for [`Tier::One`] and [`Tier::Two`]
 /// alone, one for each of the 81 visits. A first attempt that finds its grid takes 23
 /// draws in tiers 3 to 5 and 104 in tiers 1 and 2, whatever removal does. How many a
-/// call took is the stream's index after it less its index before.
+/// call took is the stream's index after it less its index before, as
+/// `after.wrapping_sub(before)`: a [`SeededStream`](crate::random::SeededStream)'s
+/// index wraps past `u64::MAX`, so a plain subtraction can overflow.
 ///
 /// # Errors
 ///

@@ -605,7 +605,7 @@ Unit tests are under `crates/pawdoku/src/`, and the others in
 | `OnlyTheBoundary` | Reason: the module is `no_std` and names no source of chance but `RandomStream`; the same-draws property would fail on any other |
 | `ATierClaimsNothing` | Reason: nothing to run. The module has no rating, and `Tier`'s documentation says so |
 | `Generating` provides `Generate(tier)` | Every test of `generate` |
-| `GenerationResult` exposes | The tier is the caller's own; the status is `Ok` or `Err`; `draws_taken` is the stream's index after the call less its index before, in `the_draws_taken_follow_...`, which also begins one call at index 7; the givens are the proof's, in every test of `generate` |
+| `GenerationResult` exposes | The tier is the caller's own; the status is `Ok` or `Err`; `draws_taken` is the stream's index after the call less its index before, `after.wrapping_sub(before)` since a `SeededStream`'s index wraps, in `the_draws_taken_follow_...`, which also begins one call at index 7; the givens are the proof's, in every test of `generate` |
 | The refusals' text | `refusal_texts_are_stable`, `each_refusal_reads_as_its_text` |
 | What cannot happen | `the_refusal_converts_from_the_solvers`, the conversion called directly |
 | The public types' bounds | `public_types_are_send_sync_and_static`, `public_types_are_clone_and_debug`, `streams_and_value_types_serialise_under_the_serde_feature` |
@@ -830,6 +830,12 @@ On 2026-10-03, in the supplied Supacode worktree, from `19473d7`.
 
   With it, the second assertion of `Tier::most_givens`'s doctest, which could not fail,
   was replaced by one that can.
+
+- **Copilot's review of pull request 37**, on 2026-10-03, recommended approval with
+  one finding, which was taken: a `SeededStream`'s index wraps past `u64::MAX`, so the
+  draws a call took are `after.wrapping_sub(before)` and not a plain subtraction.
+  `generate`'s documentation and the `GenerationResult` row above now say so. Nothing
+  in the code changed: `generate` reads no index.
 
 ### Handed back
 
