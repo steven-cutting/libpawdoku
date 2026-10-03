@@ -7,8 +7,9 @@ rating and hints, built on a model of a human solver. Every rule comes from the
 specifications in `docs/specs/`, and the code is built from them one module at a time;
 today the crate holds the randomness boundary, the rules of sudoku with a puzzle that
 can be set and played, the solver that shows a puzzle has one solution, and the board a
-player plays on, with notes, undo and a check; the other modules follow them. The core is
-`no_std`, so the same code will run in a browser, in Python and on the command line.
+player plays on, with notes, undo, a check and a record it reopens from; the other
+modules follow them. The core is `no_std`, so the same code will run in a browser, in
+Python and on the command line.
 
 ## Prerequisites
 

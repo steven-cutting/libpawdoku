@@ -1,0 +1,337 @@
+---
+source: crates/pawdoku/tests/snapshots.rs
+expression: played(&THE_SCRIPTED_GAME).write()
+---
+{
+  "givens": [
+    {
+      "position": {
+        "row": 1,
+        "column": 1
+      },
+      "digit": 5
+    },
+    {
+      "position": {
+        "row": 1,
+        "column": 2
+      },
+      "digit": 3
+    },
+    {
+      "position": {
+        "row": 1,
+        "column": 5
+      },
+      "digit": 7
+    },
+    {
+      "position": {
+        "row": 2,
+        "column": 1
+      },
+      "digit": 6
+    },
+    {
+      "position": {
+        "row": 2,
+        "column": 4
+      },
+      "digit": 1
+    },
+    {
+      "position": {
+        "row": 2,
+        "column": 5
+      },
+      "digit": 9
+    },
+    {
+      "position": {
+        "row": 2,
+        "column": 6
+      },
+      "digit": 5
+    },
+    {
+      "position": {
+        "row": 3,
+        "column": 2
+      },
+      "digit": 9
+    },
+    {
+      "position": {
+        "row": 3,
+        "column": 3
+      },
+      "digit": 8
+    },
+    {
+      "position": {
+        "row": 3,
+        "column": 8
+      },
+      "digit": 6
+    },
+    {
+      "position": {
+        "row": 4,
+        "column": 1
+      },
+      "digit": 8
+    },
+    {
+      "position": {
+        "row": 4,
+        "column": 5
+      },
+      "digit": 6
+    },
+    {
+      "position": {
+        "row": 4,
+        "column": 9
+      },
+      "digit": 3
+    },
+    {
+      "position": {
+        "row": 5,
+        "column": 1
+      },
+      "digit": 4
+    },
+    {
+      "position": {
+        "row": 5,
+        "column": 4
+      },
+      "digit": 8
+    },
+    {
+      "position": {
+        "row": 5,
+        "column": 6
+      },
+      "digit": 3
+    },
+    {
+      "position": {
+        "row": 5,
+        "column": 9
+      },
+      "digit": 1
+    },
+    {
+      "position": {
+        "row": 6,
+        "column": 1
+      },
+      "digit": 7
+    },
+    {
+      "position": {
+        "row": 6,
+        "column": 5
+      },
+      "digit": 2
+    },
+    {
+      "position": {
+        "row": 6,
+        "column": 9
+      },
+      "digit": 6
+    },
+    {
+      "position": {
+        "row": 7,
+        "column": 2
+      },
+      "digit": 6
+    },
+    {
+      "position": {
+        "row": 7,
+        "column": 7
+      },
+      "digit": 2
+    },
+    {
+      "position": {
+        "row": 7,
+        "column": 8
+      },
+      "digit": 8
+    },
+    {
+      "position": {
+        "row": 8,
+        "column": 4
+      },
+      "digit": 4
+    },
+    {
+      "position": {
+        "row": 8,
+        "column": 5
+      },
+      "digit": 1
+    },
+    {
+      "position": {
+        "row": 8,
+        "column": 6
+      },
+      "digit": 9
+    },
+    {
+      "position": {
+        "row": 8,
+        "column": 9
+      },
+      "digit": 5
+    },
+    {
+      "position": {
+        "row": 9,
+        "column": 5
+      },
+      "digit": 8
+    },
+    {
+      "position": {
+        "row": 9,
+        "column": 8
+      },
+      "digit": 7
+    },
+    {
+      "position": {
+        "row": 9,
+        "column": 9
+      },
+      "digit": 9
+    }
+  ],
+  "moves": [
+    {
+      "WriteMark": {
+        "target": {
+          "row": 1,
+          "column": 4
+        },
+        "digit": 4
+      }
+    },
+    {
+      "WriteMark": {
+        "target": {
+          "row": 1,
+          "column": 4
+        },
+        "digit": 6
+      }
+    },
+    {
+      "WriteMark": {
+        "target": {
+          "row": 1,
+          "column": 4
+        },
+        "digit": 9
+      }
+    },
+    {
+      "StrikeMark": {
+        "target": {
+          "row": 1,
+          "column": 4
+        },
+        "digit": 9
+      }
+    },
+    {
+      "WriteMark": {
+        "target": {
+          "row": 1,
+          "column": 3
+        },
+        "digit": 2
+      }
+    },
+    {
+      "Place": {
+        "target": {
+          "row": 1,
+          "column": 3
+        },
+        "digit": 4
+      }
+    },
+    {
+      "Place": {
+        "target": {
+          "row": 2,
+          "column": 2
+        },
+        "digit": 3
+      }
+    },
+    {
+      "Erase": {
+        "target": {
+          "row": 2,
+          "column": 2
+        }
+      }
+    },
+    {
+      "Place": {
+        "target": {
+          "row": 3,
+          "column": 1
+        },
+        "digit": 5
+      }
+    },
+    {
+      "WriteMark": {
+        "target": {
+          "row": 2,
+          "column": 2
+        },
+        "digit": 1
+      }
+    },
+    {
+      "Place": {
+        "target": {
+          "row": 2,
+          "column": 2
+        },
+        "digit": 7
+      }
+    }
+  ],
+  "undone": 1,
+  "checks": [
+    {
+      "after_move": 6,
+      "target": {
+        "row": 1,
+        "column": 3
+      },
+      "digit": 4
+    },
+    {
+      "after_move": 7,
+      "target": {
+        "row": 2,
+        "column": 2
+      },
+      "digit": 3
+    }
+  ]
+}

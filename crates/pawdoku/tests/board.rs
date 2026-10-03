@@ -1,12 +1,14 @@
 //! A puzzle played through `Board` alone, from outside the crate: a whole game, what
 //! the `Playing` surface exposes, and a property that drives arbitrary scripts of the
 //! seven operations and holds the board to `docs/specs/board.allium` after every step.
-//! Each rule is proved clause by clause in `tests/board_rules.rs`.
+//! Each rule is proved clause by clause in `tests/board_rules.rs`. The record is here
+//! too: a board written down and reopened, at every point of a game, and a property
+//! that holds the reopened board to the written one through a second script.
 //!
 //! Two helpers gather what the guarantees compare. The picture is every cell's digit
 //! and its note, shown or waiting: it is what undo and redo restore, and what a move's
 //! reading is. The full view is everything `Playing` exposes: it is what a refused
-//! operation leaves alone.
+//! operation leaves alone, and what a reopened board shows the same.
 
 #[cfg(test)]
 mod tests {
@@ -327,6 +329,204 @@ mod tests {
             (1, 4, FREE)
         );
         assert_eq!((kept.digit(), kept.is_right()), (4, true));
+    }
+
+    // The record -----------------------------------------------------------------
+
+    /// A board opened on the fixture with the first `count` of the cells it leaves
+    /// empty filled, in grid order, with the solution's digits. Fifty-one solves it.
+    fn filled_with(count: usize) -> Board {
+        let mut board = open();
+        let empty = solution()
+            .into_iter()
+            .filter(|&(at, _)| !board.cell(at).unwrap().is_given());
+        let empty: Vec<(Position, u8)> = empty.take(count).collect();
+        for (at, digit) in empty {
+            board.place(at, digit).unwrap();
+        }
+        board
+    }
+
+    /// A board with a move of every kind made on it, a note waiting beneath a digit
+    /// and a note that upkeep has struck from.
+    fn every_kind_of_move() -> Board {
+        let mut board = open();
+        let script = [
+            Op::WriteMark(BESIDE, 4),
+            Op::WriteMark(BESIDE, 7),
+            Op::WriteMark(FREE, 2),
+            Op::Place(FREE, 4),
+            Op::StrikeMark(BESIDE, 7),
+            Op::Place(FREE, 2),
+            Op::Erase(FREE),
+            Op::Place(FREE, 4),
+        ];
+        for op in script {
+            op.ask(&mut board).unwrap();
+        }
+        board
+    }
+
+    /// The four points a board is written at: fresh, in play, with a move undone, and
+    /// solved.
+    fn boards_at_every_point() -> [Board; 4] {
+        [open(), every_kind_of_move(), in_play().0, filled_with(51)]
+    }
+
+    #[test]
+    fn a_fresh_board_is_written_and_reopened() {
+        let board = open();
+        let reopened = Board::reopen(&board.write()).unwrap();
+        assert_eq!(view(&reopened), view(&board));
+        assert_eq!(view(&reopened), view(&open()));
+    }
+
+    #[test]
+    fn a_record_is_written_from_a_board_at_any_point() {
+        let solved = [false, false, false, true];
+        for (board, solved) in boards_at_every_point().into_iter().zip(solved) {
+            assert_eq!(board.status() == Status::Solved, solved);
+            let reopened = Board::reopen(&board.write()).unwrap();
+            assert_eq!(view(&reopened), view(&board), "ReopeningIsExact");
+        }
+    }
+
+    #[test]
+    fn writing_changes_nothing() {
+        for board in boards_at_every_point() {
+            let before = view(&board);
+            let first = board.write();
+            assert_eq!(view(&board), before, "WritingChangesNothing");
+            assert_eq!(board.write(), first);
+            assert_eq!(view(&board), before, "WritingChangesNothing");
+        }
+    }
+
+    #[test]
+    fn a_board_in_play_reopens_to_the_same_board() {
+        let board = every_kind_of_move();
+        let reopened = Board::reopen(&board.write()).unwrap();
+        assert_eq!(view(&reopened), view(&board));
+
+        // The moves are the record's own, with the indices and the kinds they had.
+        let kinds: Vec<MoveKind> = reopened.moves().map(|made| made.kind()).collect();
+        let (mark, place) = (MoveKind::WriteMark, MoveKind::Place);
+        let expected = [
+            mark,
+            mark,
+            mark,
+            place,
+            MoveKind::StrikeMark,
+            place,
+            MoveKind::Erase,
+            place,
+        ];
+        assert_eq!(kinds, expected);
+        // What a record leaves out is worked out again: upkeep struck the 4 beside the
+        // placement, and the 2 waits beneath the digit until it is erased.
+        let mut reopened = reopened;
+        reopened.erase(FREE).unwrap();
+        let shown = |at| reopened.cell(at).unwrap().note().unwrap();
+        assert_eq!(shown(FREE).digits().collect::<Vec<_>>(), [2]);
+        assert!(shown(BESIDE).is_empty());
+    }
+
+    #[test]
+    fn undone_moves_reopen_undone_and_are_re_taken_the_same() {
+        let (mut board, _) = in_play();
+        board.undo().unwrap();
+        let mut reopened = Board::reopen(&board.write()).unwrap();
+        let undone: Vec<bool> = reopened.moves().map(|made| made.is_undone()).collect();
+        assert_eq!(undone, [false, false, true, true]);
+
+        let script = [Op::Redo, Op::Redo, Op::Redo, Op::Undo, Op::Undo, Op::Undo];
+        for op in script {
+            assert_eq!(op.ask(&mut reopened), op.ask(&mut board), "{op:?}");
+            assert_eq!(view(&reopened), view(&board), "{op:?}");
+        }
+        // A new move discards the undone ones on both.
+        let op = Op::WriteMark(FREE, 9);
+        assert_eq!(op.ask(&mut reopened), op.ask(&mut board));
+        assert_eq!(view(&reopened), view(&board));
+        assert_eq!(reopened.moves().count(), 2);
+    }
+
+    #[test]
+    fn checks_reopen_with_their_indices_and_their_answers() {
+        let mut board = open();
+        board.place(FREE, 2).unwrap();
+        let wrong = board.check(FREE).unwrap();
+        board.place(FREE, 4).unwrap();
+        let right = board.check(FREE).unwrap();
+        assert_eq!((wrong.is_right(), right.is_right()), (false, true));
+
+        let reopened = Board::reopen(&board.write()).unwrap();
+        assert_eq!(reopened.checks().collect::<Vec<_>>(), [wrong, right]);
+        assert_eq!(view(&reopened), view(&board));
+    }
+
+    #[test]
+    fn a_solved_board_reopens_solved() {
+        let board = filled_with(51);
+        let mut reopened = Board::reopen(&board.write()).unwrap();
+        assert_eq!(reopened.status(), Status::Solved);
+        assert_eq!(view(&reopened), view(&board));
+        assert_eq!(reopened.moves().count(), 51);
+        everything_is_refused_on(&mut reopened, GIVEN);
+    }
+
+    #[test]
+    fn two_reopenings_of_one_record_are_independent_boards() {
+        let (board, _) = in_play();
+        let written = view(&board);
+        let record = board.write();
+        drop(board);
+
+        // The record is enough on its own: the board it was written from is gone.
+        let mut first = Board::reopen(&record).unwrap();
+        let second = Board::reopen(&record).unwrap();
+        assert_eq!(view(&first), written);
+        first.place(BESIDE, 6).unwrap();
+        first.check(BESIDE).unwrap();
+        assert_ne!(view(&first), written);
+        assert_eq!(view(&second), written, "ARecordIsEnoughOnItsOwn");
+        assert_eq!(second.write(), record);
+    }
+
+    #[test]
+    fn a_check_after_moves_since_discarded_reopens_and_keeps_its_after_move() {
+        // Place, check, undo: one move, undone, and a check after one move.
+        let mut board = open();
+        board.place(FREE, 4).unwrap();
+        board.check(FREE).unwrap();
+        board.undo().unwrap();
+        let reopened = Board::reopen(&board.write()).unwrap();
+        assert_eq!(view(&reopened), view(&board));
+        assert_eq!(reopened.checks().next().unwrap().after_move(), 1);
+
+        // Three placements, a check, three undos and one written mark: one move that
+        // is no placement, and a check after three.
+        let mut board = filled_with(3);
+        let third = board.moves().last().unwrap().target();
+        let asked = board.check(third).unwrap();
+        for _ in 0..3 {
+            board.undo().unwrap();
+        }
+        board.write_mark(FREE, 1).unwrap();
+        let reopened = Board::reopen(&board.write()).unwrap();
+        assert_eq!(view(&reopened), view(&board));
+        assert_eq!(reopened.moves().count(), 1);
+        assert_eq!(reopened.checks().collect::<Vec<_>>(), [asked]);
+        assert_eq!(asked.after_move(), 3);
+    }
+
+    #[test]
+    fn a_reopened_board_writes_the_same_record() {
+        for board in boards_at_every_point() {
+            let record = board.write();
+            assert_eq!(Board::reopen(&record).unwrap().write(), record);
+            assert_eq!(record.clone(), record);
+        }
     }
 
     // The property ---------------------------------------------------------------
@@ -722,8 +922,70 @@ mod tests {
         prop_oneof![2 => Just(0_usize), 1 => 45..=51_usize]
     }
 
+    /// Where the exactness property begins: on the fixture with some of its empty
+    /// cells filled, none for a fresh board and fifty-one for a solved one, or on a
+    /// board with moves undone and a check asked.
+    #[derive(Debug, Clone, Copy)]
+    enum Start {
+        Filled(usize),
+        Undone,
+    }
+
+    impl Start {
+        fn board(self) -> Board {
+            match self {
+                Self::Filled(count) => filled_with(count),
+                Self::Undone => {
+                    let (mut board, _) = in_play();
+                    board.undo().unwrap();
+                    board
+                }
+            }
+        }
+    }
+
+    /// A fresh board, a board with moves undone and a solved board, each as often as
+    /// the others, and now and then a board a few placements from solved.
+    fn start() -> impl Strategy<Value = Start> {
+        prop_oneof![
+            2 => Just(Start::Filled(0)),
+            2 => Just(Start::Undone),
+            2 => Just(Start::Filled(51)),
+            1 => (45..=50_usize).prop_map(Start::Filled),
+        ]
+    }
+
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(128))]
+
+        /// `AReopenedBoardIsTheSameBoard`: after any script, the board reopened from
+        /// the record shows everything `Playing` exposes as the board written does,
+        /// and then answers every operation of a second script the same, step by step.
+        #[test]
+        fn a_reopened_board_is_the_same_board(
+            start in start(),
+            first in prop::collection::vec(ask(), 0..40),
+            second in prop::collection::vec(ask(), 0..40),
+        ) {
+            let right = solution();
+            let mut written = start.board();
+            for ask in first {
+                // Refused operations are part of the script: they change nothing.
+                let _ = ask.op(&right).ask(&mut written);
+            }
+            let before = view(&written);
+            let record = written.write();
+            prop_assert_eq!(&view(&written), &before, "WritingChangesNothing");
+
+            let mut reopened = Board::reopen(&record).unwrap();
+            prop_assert_eq!(&view(&reopened), &before, "ReopeningIsExact");
+            prop_assert_eq!(reopened.write(), record);
+            for ask in second {
+                let op = ask.op(&right);
+                prop_assert_eq!(op.ask(&mut reopened), op.ask(&mut written), "{:?}", op);
+                prop_assert_eq!(view(&reopened), view(&written), "{:?}", op);
+            }
+        }
 
         /// The state machine: arbitrary sequences of the seven operations, refused
         /// ones included, with every step held to the rules and the invariants.

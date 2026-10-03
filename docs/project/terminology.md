@@ -40,7 +40,7 @@ When a row and a module disagree, the module is right and the row is corrected.
 | Undo, redo | Taking back the latest standing move, and re-taking the latest move undone. Both stop once the puzzle is solved. |
 | Reading back | The board as it stood once any move and no later one had been made, read from the moves and never by taking any back. |
 | Check | On the board: the player's question whether one cell's digit is the solution's, answered yes or no and never with a digit. Every check is kept and none is a move. In `lapse.allium` a different thing under the same word, below. |
-| Record, reopen | A record is a board written down whole; to reopen one is to have that board again from it: the same puzzle, digits, notes, moves, undone moves and checks. What a record is made of is the caller's, as is where it is kept. |
+| Record, reopen | A record is a board written down whole; to reopen one is to have that board again from it: the same puzzle, digits, notes, moves, undone moves and checks. The specification leaves what a record is made of open; the engine's `Record` holds the givens, the moves, how many are undone and the checks, and nothing worked out from them or read from the solution. Where a record is kept, and in what format, is the caller's. |
 | Upkeep | Striking a placed digit from its peers' marks. On the board it is always whole, hidden notes included; in `technique.allium` a profile's upkeep is the unit kinds it reaches. |
 | Candidate | A digit a cell may still hold while givens are being solved. `solver.allium`'s, as are the seven terms below. |
 | Search | The solving of one set of givens, from the moment they are handed over to its verdict. |

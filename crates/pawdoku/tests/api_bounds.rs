@@ -7,7 +7,9 @@
     reason = "an integration test file is its own test module"
 )]
 
-use pawdoku::board::{Board, BoardCell, Check, Move, MoveKind, Note, PlayError};
+use pawdoku::board::{
+    Board, BoardCell, Check, Move, MoveKind, Note, PlayError, Record, ReopenError,
+};
 use pawdoku::random::{RandomError, RandomStream, ReplayStream, SeededStream};
 use pawdoku::solver::{SearchResult, SolveError, Verdict};
 use pawdoku::sudoku::{
@@ -42,6 +44,8 @@ fn public_types_are_send_sync_and_static() {
     assert_send_sync::<MoveKind>();
     assert_send_sync::<Check>();
     assert_send_sync::<PlayError>();
+    assert_send_sync::<Record>();
+    assert_send_sync::<ReopenError>();
 }
 
 #[test]
@@ -68,6 +72,8 @@ fn public_types_are_clone_and_debug() {
     assert_clone_debug::<MoveKind>();
     assert_clone_debug::<Check>();
     assert_clone_debug::<PlayError>();
+    assert_clone_debug::<Record>();
+    assert_clone_debug::<ReopenError>();
 }
 
 #[test]
@@ -84,4 +90,22 @@ fn streams_and_value_types_serialise_under_the_serde_feature() {
     assert_serde::<ReplayStream>();
     assert_serde::<Position>();
     assert_serde::<Given>();
+    assert_serde::<Record>();
+}
+
+/// A board and a puzzle are never serialised: a record is the one value that crosses.
+/// The call below names an implementation by inference, which is ambiguous, and so
+/// fails to compile, the day either type implements one of serde's two traits.
+#[cfg(feature = "serde")]
+#[test]
+fn a_board_and_a_puzzle_do_not_serialise() {
+    trait Unless<Marker> {
+        fn holds() {}
+    }
+    impl<T> Unless<()> for T {}
+    impl<T: serde::Serialize> Unless<u8> for T {}
+    impl<T: serde::de::DeserializeOwned> Unless<u16> for T {}
+
+    <Board as Unless<_>>::holds();
+    <Puzzle as Unless<_>>::holds();
 }

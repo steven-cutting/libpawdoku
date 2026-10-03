@@ -39,7 +39,7 @@ authoritative; this table is a snapshot.
 | T25 | The rules in Rust: the sudoku module, the proof value and Puzzle | `T25-sudoku-rules.md` | T23, T24, T29 | none | done |
 | T26 | The solver in Rust: the search, its result and the proof | `T26-solver.md` | T25 | none | done |
 | T27 | The board in play: notes, moves, undo and redo, reading back, and the check | `T27-board-in-play.md` | T26 | none | done |
-| T28 | The record and reopening: a board written down whole and had again | `T28-record-and-reopening.md` | T27 | none | open |
+| T28 | The record and reopening: a board written down whole and had again | `T28-record-and-reopening.md` | T27 | none | done |
 | T30 | The first-change tutorial: an exercise that can be followed again | `T30-first-change-tutorial.md` | T25 | T26 to T28 | done |
 
 Spike tickets. Each weighs options and ends in a recommendation; none blocks the build and
