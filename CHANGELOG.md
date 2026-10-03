@@ -72,7 +72,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A handbook of twenty-five pages under `docs/`, held to the documentation contract and
   reachable from its map.
 - Sixteen architecture decision records, from the engine as a library of its own to the
-  basic generator.
+  API reference on GitHub Pages.
 - A `metrics` gate, seventh in `just check`: rustqual, built from source from its pin in
   `tools-source.txt`, holds thresholds for complexity, cohesion and coupling and the
   module boundaries of the layering table, with a probe that proves the boundary rules

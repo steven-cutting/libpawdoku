@@ -36,11 +36,12 @@ is what gate 12 proved.
 holds `contents: read`. Its deploy job holds `pages: write` and `id-token: write`,
 checks nothing out and runs no code from the repository.
 
-**Merging is the authorisation.** `AGENTS.md` lists deploying among the actions that
-need explicit authorisation each time. A deployment here follows from a push to `main`,
-and pushing and merging are each on that list already, so no action an agent takes
-deploys on its own. Starting the workflow by hand from `main` is a deployment and is
-authorised as one.
+**The push is the authorisation.** `AGENTS.md` lists deploying among the actions that
+need explicit authorisation each time, and pushing beside it. A deployment here follows
+from a push to `main`, whether typed or made by GitHub when a pull request merges.
+Pushing is on that list already, and merging a pull request is the maintainer's own
+act, so no action an agent takes deploys on its own. Starting the workflow by hand from
+`main` is a deployment and is authorised as one.
 
 The workflow leaves the game's in three places, for one reason: this one can be started
 by hand from a branch that must not publish.

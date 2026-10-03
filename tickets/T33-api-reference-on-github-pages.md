@@ -549,7 +549,7 @@ steps 11 and 12 follow the merge.
 - The read-only release lookups of step 4 and the two settings of step 5.
 - Merging is the authorisation for a deployment. PR #32's review asked how a push that
   deploys squares with "deploying" being separately authorised. The reworded `AGENTS.md`
-  paragraph and decision 0016 now say it: the deployment follows from a merge to `main`,
+  paragraph and decision 0016 now say it: a deployment follows from a push to `main`,
   which is itself separately authorised. The list of authorised actions is unchanged.
 
 **Deviations from the ticket's text:**
@@ -625,7 +625,7 @@ answered 404 and the only environment was `copilot`.
 
 | Path | Was | Reads |
 | --- | --- | --- |
-| `AGENTS.md` | "No workflow publishes anything: `audit.yml` only reads the advisory database." | "The workflows that publish are listed here, and there is one: `pages.yml` deploys the API reference to GitHub Pages on a push to `main`, and only its deploy job holds a write scope (decision 0016). The deployment follows from a merge to `main`, which is itself separately authorised, so no agent action deploys on its own. `ci.yml` and `audit.yml` stay read-only." |
+| `AGENTS.md` | "No workflow publishes anything: `audit.yml` only reads the advisory database." | "The workflows that publish are listed here, and there is one: `pages.yml` deploys the API reference to GitHub Pages on a push to `main`, and only its deploy job holds a write scope (decision 0016). A deployment follows from a push to `main`, and pushing is itself separately authorised, so no agent action deploys on its own. `ci.yml` and `audit.yml` stay read-only." |
 | `docs/explanation/security-model.md`, permissions | "Every workflow runs with `contents: read` and nothing else. The release workflow S02 designs will be the only one to hold more" | "`ci.yml` and `audit.yml` hold `contents: read` and nothing else. `pages.yml` holds more, `pages: write` and `id-token: write`, on its deploy job alone, which checks nothing out and runs no code from the repository (decision 0016). The release workflow S02 designs will be the second to hold more" |
 | `docs/explanation/security-model.md`, credentials | "and the workflows need nothing more." | "and the workflows need nothing more: the Pages deployment proves itself with the run's own identity token, so it stores no credential either." |
 | `SECURITY.md` | "Continuous integration runs with `contents: read` and holds no stored secret, only the token GitHub mints for each run." | "The gate's workflows, `ci.yml` and `audit.yml`, run with `contents: read`. The Pages deployment holds two publishing scopes, `pages: write` and `id-token: write`, on the one job that deploys. No workflow holds a stored secret, only the token GitHub mints for each run." |
@@ -665,6 +665,13 @@ left. Whether that rule's `main` pattern matches with case was not verified. Car
 the maintainer: adding `&& github.ref_protected` to the `if:` would skip an unprotected
 `Main`, at the price of leaning on a setting and of a condition that cannot be proved
 before the merge.
+
+**PR #38, review round 1, 2026-10-03, answered in the third commit.** Codex: no
+findings. Copilot, two, both right. The changelog's range of decision records still
+ended at the basic generator; it now ends at this record. And decision 0016 said
+merging was on `AGENTS.md`'s list of authorised actions, which names pushing and not
+merging; the record and the `AGENTS.md` sentence now rest on the push, and say a merge
+is the maintainer's own act.
 
 **Seen and not fixed:** `CHANGELOG.md` says the handbook has "twenty-five pages"; the
 manifest held 42 before this change and holds 44 after. The ticket names only the count
