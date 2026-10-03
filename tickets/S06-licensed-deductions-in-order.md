@@ -835,6 +835,186 @@ to 27 until the three are settled. For ranks 1 to 12 it rests on measurement and
 together. One smaller gap met on the way: whether simple_colouring's wrap and trap
 are one deduction or several.
 
+**Step 5, extended. Ranks 13 to 22, 28 and 29, measured.** After the first commit of
+these notes the maintainer asked, on 2026-10-03, for the ranks that were bounded on
+paper alone to be run as ranks 1 to 12 were. Ranks 23 to 27 are still not built: they
+wait on the three readings above.
+
+The definitions were again fixed before any program existed, and again two agents
+worked apart: one extended the prototype, one wrote an exhaustive search from the
+definitions and `technique:896-971` and `technique:1018-1108`, forbidden to read the
+prototype. Terms: a place of d is an open cell that allows d; d is unplaced in a unit
+that holds no d; two cells see each other when they share a row, a column or a box; a
+cell has exactly S when it is open and its candidates are S; a conjugate pair for d is
+a unit where d is unplaced and has exactly two places. Cells are indexed row by row
+from 0 to 80. Every strike technique strikes from every target that allows the digit,
+and with no target there is no deduction.
+
+| Rank | Technique | One catalogue deduction for each | Output | Witness cells; digits; role |
+| --- | --- | --- | --- | --- |
+| 13, 14, 15 | x_wing, swordfish, jellyfish (k = 2, 3, 4) | digit d, orientation (rows as bases with columns as covers, or columns as bases with rows as covers), set of k base lines: in each base d is unplaced and has between 2 and k places; the cover lines those places lie on, taken over all k bases, are exactly k | strike d from every cell of the k covers that is not in a base | every place of d in the bases; [d]; [orientation (0 rows as bases, 1 columns as bases), then the k base line numbers ascending] |
+| 16 | xy_wing | pivot P and unordered pair of wings {W1, W2}: distinct digits a, b, c; P has exactly {a,b}; W1 and W2 each see P; one wing has exactly {a,c} and the other exactly {b,c} | strike c from every cell that sees both wings | {P, W1, W2}; [a,b,c] sorted; [index of P] |
+| 17 | xyz_wing | as xy_wing but P has exactly {a,b,c} | strike c from every cell that sees P and both wings | {P, W1, W2}; [a,b,c] sorted; [index of P] |
+| 18 | w_wing | unordered pair {P, Q} of cells that do not see each other, both with exactly {a,b}; linking digit a (one of the two); unit u in which a has a conjugate pair {U, V}; P, Q, U, V all distinct; and P sees U and Q sees V, or P sees V and Q sees U | strike b (the other digit) from every cell that sees both P and Q | {P, Q, U, V}; [a,b] sorted; [a, unit kind (0 row, 1 column, 2 box), unit number] |
+| 19 | skyscraper | digit d, orientation (0: two rows as the parallel lines, 1: two columns), two parallel lines L1 < L2, each a conjugate pair for d; exactly one endpoint of L1 shares its perpendicular line with an endpoint of L2 (the aligned pair), and the two remaining endpoints (the unaligned ones) lie on different perpendicular lines | strike d from every cell that sees both unaligned endpoints | the four endpoints; [d]; [orientation, L1, L2] |
+| 20 | two_string_kite | digit d, row r that is a conjugate pair for d {A, B}, column c that is a conjugate pair for d {C, D}, the four cells distinct, and a joined pair (X from the row pair, Y from the column pair) in one box | strike d from every cell that sees both remaining endpoints | the four cells; [d]; [r, c, index of X, index of Y] |
+| 21 | empty_rectangle | variant 0: box B, digit d unplaced in B, a row R and a column C through B: every place of d in B lies in row R or column C; some place lies in R and not C; some place lies in C and not R; the cell (R, C) does not allow d; B has at least three places for d; a column K outside B's three columns that is a conjugate pair for d {P, Q} with P = (R, K) and Q = (S, K), S outside B's three rows. Variant 1 is the transpose: a row K outside B's three rows that is a conjugate pair {P, Q} with P = (K, C) and Q = (K, S), S outside B's three columns | variant 0: strike d at (S, C). Variant 1: strike d at (R, S) | B's places for d, P and Q; [d]; [variant, box number, R, C, K] |
+| 22 | simple_colouring | digit d and a connected component, of two or more cells, of the graph whose nodes are the cells that allow d and whose edges join the two cells of each conjugate pair for d (in any row, column or box). Two-colour it; a component that cannot be two-coloured licenses nothing. **Reading**: wrap and trap are separate deductions. *Trap*, one per component: targets are cells outside the component that see a node of each label. *Wrap*, one per label that has two of its nodes seeing each other | trap: strike d from the targets. Wrap: strike d from every node of that label (here the targets are the label's own nodes, an exception to "outside the witness") | every node of the component; [d]; trap: [0]. Wrap: [1, least index among that label's nodes] |
+| 28 | unique_rectangle_type_1 | only when `uniqueness_promised`: four open cells at the crossings of two rows and two columns, lying in exactly two boxes; three have exactly {a,b}; the fourth allows both a and b and at least one more digit | strike a and b from the fourth (one strike, digits [a,b]) | the four cells; [a,b] sorted; [index of the fourth] |
+| 29 | bug_plus_one | only when `uniqueness_promised`: every open cell has exactly two candidates except one cell T with exactly three; and a digit d of T such that, with d removed from T, every unit has exactly two places for every digit unplaced in it | place d in T | [T]; [d]; [] |
+
+Four readings were taken where the specification is open. Each is provisional and is
+flagged for the follow-up, not settled:
+
+- **A target is outside the pattern's own cells.** "Other cells" is read as excluding
+  every cell of the witness. simple_colouring's wrap strikes its own nodes, and
+  unique_rectangle_type_1 strikes its fourth corner, as the specification states them.
+- **simple_colouring's wrap and trap are separate deductions,** one trap for each
+  component and one wrap for each label that has two nodes seeing each other; a
+  component that cannot be two-coloured licenses nothing.
+- **The two ways round a w_wing are one deduction** (`technique:914-915`); swapping the
+  two digits is another (`technique:934-935`).
+- **An xy_wing's wings may see each other.** `technique:928` says "two peer wings" and
+  asks nothing more of them.
+
+The witness gains a third part past rank 12, the role in the table's last column, a
+list of integers compared after the cells and the digits, so that no two deductions of
+one technique are equal in the order. Line, box and unit numbers in it run from 1 to
+9. The list order is unchanged.
+
+The profile, pinned in full: repertoire exactly ranks 1 to 22, 28 and 29; capacity
+729, so that no variable load is hidden; `full_marks`; every extent; `systematic`;
+`unfixed`; `uniqueness_promised` true. It is a profile the specification allows, since
+a repertoire is a set, so its run is that player's own systematic run.
+
+The counters for patterns examined, a convention fixed so that two programs count
+alike: the fish, 9 digits by 2 orientations by every set of k of the 9 lines (648,
+1,512 and 2,268 at every look); xy_wing and xyz_wing, each open cell as pivot with
+each pair of its open peers; w_wing, each pair of open cells that do not see each
+other, by 2, by 27; skyscraper 648 and two_string_kite 729 at every look;
+empty_rectangle 8,748 at every look; simple_colouring, 3 for each component of two or
+more cells; unique_rectangle_type_1, each rectangle in exactly two boxes with four
+open corners; bug_plus_one, 1. These count choices before any pruning, so a search
+that first asks whether two cells hold the same pair examines far fewer.
+
+The completeness check: 5,219 states, being every look of the systematic run from the
+look where the run under ranks 1 to 12 ended, every tenth look before it and the last,
+and every ninth look and the last of one unsystematic run. On all 5,219 the two
+programs gave the same entries, in the same order, with the same witnesses, and the
+same count of catalogue deductions for each of the 24 techniques.
+
+Soundness: the 189,609 sampled entries of ranks 1 to 22 are sound by the SAT oracle,
+18,350 of them of ranks 13 to 22. The two uniqueness techniques are not implied by the
+candidates alone, as (e) says, so they were checked against each grid's one solution:
+all 474,257 catalogue deductions at every look of the systematic run agree with it,
+the 1,602 of ranks 28 and 29 among them. The same steps came out twice on all 226
+grids, and for every grid the run begins with the steps of the run under ranks 1 to
+12.
+
+The runs: 12,585 looks and 12,532 steps; 173 grids solved and 53 stalled. Twenty-four
+grids that stalled under ranks 1 to 12 are solved, and none is lost.
+
+| Group | Grids | Solved | Stalled | Looks | Steps |
+| --- | --- | --- | --- | --- | --- |
+| study | 4 | 4 | 0 | 231 | 231 |
+| derived | 8 | 5 | 3 | 378 | 375 |
+| seventeen | 100 | 99 | 1 | 6,612 | 6,611 |
+| unbiased | 50 | 35 | 15 | 2,383 | 2,368 |
+| top1465 | 50 | 25 | 25 | 2,578 | 2,553 |
+| norvig_hardest | 11 | 5 | 6 | 398 | 392 |
+| named | 3 | 0 | 3 | 5 | 2 |
+
+Hardest rank reached, by grids: rank 2, 43; 3, 34; 5, 33; 6, 5; 7, 12; 8, 32; 9, 3;
+10, 3; 14, 2; 16, 4; 17, 4; 18, 10; 19, 15; 20, 14; 21, 1; 22, 2; 28, 6; 29, 1; no
+step, 2.
+
+Counts by rank, summed over all 12,585 looks, with the most at any one look:
+
+| Rank | Technique | Steps taken | Patterns examined (sum; most) | Witnesses found (sum; most) | Entries (sum; most) | Patterns when listing stops at the first rank (sum; most) |
+| --- | --- | --- | --- | --- | --- | --- |
+| 13 | x_wing | 8 | 8,155,080; 648 | 5,692; 5 | 5,171; 5 | 105,624; 648 |
+| 14 | swordfish | 3 | 19,028,520; 1,512 | 4,218; 6 | 4,077; 6 | 234,360; 1,512 |
+| 15 | jellyfish | 0 | 28,542,780; 2,268 | 3,543; 6 | 3,543; 6 | 344,736; 2,268 |
+| 16 | xy_wing | 14 | 27,908,234; 7,437 | 2,522; 7 | 2,430; 6 | 452,772; 6,565 |
+| 17 | xyz_wing | 15 | 27,908,234; 7,437 | 3,508; 5 | 3,445; 5 | 429,921; 6,565 |
+| 18 | w_wing | 25 | 378,044,604; 82,134 | 4,074; 16 | 2,638; 8 | 5,376,726; 77,112 |
+| 19 | skyscraper | 17 | 8,155,080; 648 | 1,705; 4 | 1,687; 4 | 63,504; 648 |
+| 20 | two_string_kite | 18 | 9,174,465; 729 | 4,077; 8 | 4,075; 8 | 59,049; 729 |
+| 21 | empty_rectangle | 1 | 110,093,580; 8,748 | 415; 2 | 414; 2 | 551,124; 8,748 |
+| 22 | simple_colouring | 2 | 455,916; 87 | 36,977; 14 | 30,290; 12 | 3,228; 72 |
+| 28 | unique_rectangle_type_1 | 6 | 676,191; 192 | 1,600; 2 | 1,600; 2 | 5,304; 160 |
+| 29 | bug_plus_one | 1 | 12,585; 1 | 2; 1 | 2; 1 | 54; 1 |
+
+Per look, over all looks, for the whole profile:
+
+| Figure | Most | Mean | Median | 99th percentile | Sum |
+| --- | --- | --- | --- | --- | --- |
+| Catalogue deductions | 186 | 37.7 | 35 | 105 | 474,257 |
+| List entries | 145 | 28.7 | 27 | 76 | 361,674 |
+| Entries when listing stops at the first rank | 16 | 2.5 | 2 | 8 | 31,705 |
+| Patterns examined, catalogue or list | 118,136 | 51,277.9 | 44,121 | 114,403 | 645,332,612 |
+| Patterns examined, first rank | 110,661 | 813.9 | 132 | 12,583 | 10,242,793 |
+
+The first-rank rows include the 53 stalled looks, where every rank is examined; over
+the 12,532 looks that yielded a step the mean is 479.3 and the most 103,937.
+
+What the figures say:
+
+- **The list barely grows.** The twelve techniques add at most 24 entries at any look
+  and 59,372 over all looks, about five a look; the whole list is 28.7 entries at a
+  typical look and at most 145. The paper bound of 35,236 entries is looser than the
+  measurement by three orders of magnitude.
+- **The whole list becomes dear, by this count.** 51,278 patterns a look against 2,263
+  for ranks 1 to 12, and 96% of them belong to the twelve techniques: w_wing alone is
+  59% and empty_rectangle 17%. Both are artefacts of counting every choice before
+  any pruning, which is why the convention was fixed first; they are still within the
+  paper bound (w_wing at most 82,134 against 131,220; the twelve together at most
+  about 111,500 against 177,402).
+- **Taking the first stays cheap.** A run that stops at the first yielding rank
+  examines 132 patterns at the median look and 814 at the mean, since ninety-nine
+  steps in a hundred are still taken below rank 13: the twelve techniques took 110 of
+  the 12,532 steps.
+- **Coverage is uneven.** simple_colouring is on the list often (30,290 entries) and
+  taken twice; jellyfish was never taken; empty_rectangle was taken once and
+  bug_plus_one was licensed at two looks. The agreement of the two programs covers
+  every state sampled, but for those the states that exercise them are few.
+- **Every order still ended at one grid.** One unsystematic run under this profile
+  ended at the same digits on all 226 grids and at the same candidates on the 53 that
+  stalled. That is one seed, and it is not the test of (d); it is recorded because
+  `reach:423` expects otherwise past subsets and this did not show it.
+
+The study puzzles again. Under this profile all four are solved:
+
+| Puzzle | Steps | Hardest rank | Against the page |
+| --- | --- | --- | --- |
+| advanced | 58 | 16 | agrees on the X-Wing exactly: 4 in rows 1 and 5, columns 3 and 9, striking r4c9 and r7c3. The run then took a naked pair and an xy_wing that strikes 4 at r2c1, not the page's xy_wing |
+| expert | 70 | 19 | disagrees: the page says the ordinary advanced repertoire stalls and a contradiction chain is needed. This run went on from the page's stall with an xyz_wing (2 at r6c9), a w_wing (6 at r2c7) and a skyscraper, and solved it with no chain |
+
+Rows for a rebuild, the fifteen grids that need no network, in the columns of the
+block below under "What S07 needs":
+
+```text
+study_beginner solved 49 2 6371 4676 375 1627264 3795
+derived_beginner_min solved 57 2 3284 2576 221 2308392 5490
+derived_beginner_minrev solved 59 3 2774 2165 212 2514502 5775
+study_intermediate solved 54 6 2862 2148 187 1869281 6047
+derived_intermediate_min stalled 14 17 295 258 39 1156135 90573
+derived_intermediate_minrev solved 63 6 2200 1645 147 2712172 8196
+study_advanced solved 58 16 2372 1678 151 2095066 15819
+derived_advanced_min stalled 20 20 438 379 51 1510181 121609
+derived_advanced_minrev stalled 20 20 454 400 50 1557266 132437
+study_expert solved 70 19 2805 2144 164 2869283 82040
+derived_expert_min solved 71 19 2659 2011 173 3064130 54570
+derived_expert_minrev solved 71 19 2659 2011 173 3064130 54570
+inkala_2012 stalled 0 0 0 0 0 103787 103787
+sudokuwiki_unsolvable_28 stalled 2 5 12 10 3 302013 101786
+sudokuwiki_unsolvable_49 stalled 0 0 0 0 0 100279 100279
+```
+
+So for ranks 13 to 22, 28 and 29 the recommendation now rests on measurement as well
+as on the paper bound, under the four readings above. Ranks 23 to 27 are as they
+were.
+
 **Step 6. The table of models, and the verdict.**
 
 | Model | Entry | What it reports that the list cannot | Kept, moved or lost |
@@ -846,15 +1026,18 @@ are one deduction or several.
 
 Against the four criteria:
 
-1. **The list is the same every time.** Met for ranks 1 to 12; past them the order by
+1. **The list is the same every time.** Met for ranks 1 to 12, and for ranks 13 to 22,
+   28 and 29 with the role added to the witness; for ranks 23 to 27 the order by
    rank and output is total over entries, and which witness an entry keeps waits on an
    order on proofs. The order is total by construction, the
    prototype gave the same steps twice on all 226 grids, and two programs written apart
    gave the same list on 4,205 states.
 2. **It is short enough to draw up at every look.** Met for ranks 1 to 12: at most 188
-   entries and 6,683 patterns measured, against a bound of 9,691. Argued on paper for
-   ranks 13 to 22, 28 and 29. Not argued for ranks 23 to 27 until the three readings of
-   step 5 are settled.
+   entries and 6,683 patterns measured, against a bound of 9,691. Met for ranks 13 to
+   22, 28 and 29 under four provisional readings: they add at most 24 entries a look,
+   and at most about 111,500 patterns by a count that prunes nothing, against a bound
+   of 177,402. Not argued for ranks 23 to 27 until the three readings of step 5 are
+   settled.
 3. **Nothing a consumer is owed is lost.** Met beneath the models; not met in their
    place. A price, an escalation, a guess and its repair, and a distribution of
    attempts are each owed to someone and none is on the list.
@@ -940,11 +1123,14 @@ order. The text is proposed; the checker and the skill shape the final form.
   of the first twelve techniques are equal in it.") and `OneEntryForEachTechniqueAndOutput` ("The same grid and the
   same profile give the same list; no two entries share a technique and an output; two
   techniques with one output keep an entry each.").
-- Four open questions. Three from step 5: whether a chain may pass through a candidate
+- Open questions. Three from step 5: whether a chain may pass through a candidate
   twice, and what x_chain's and xy_chain's minimums count; what remote_pair's output
   is; the order on paths and which witness `holds` reads. Until they are answered the
   witness order is stated for ranks 1 to 12 and the order by rank and output for every
-  rank. The fourth: what full_unit and the hidden subsets license on a grid that
+  rank. Four more are the readings of "Step 5, extended" (what "other cells" excludes;
+  whether a colouring's wrap and trap are one deduction; the two ways round a w_wing;
+  whether an xy_wing's wings may see each other), with the role that orders witnesses
+  past rank 12. The last: what full_unit and the hidden subsets license on a grid that
   contradicts itself, which `lapse.allium` can reach. On a unit with one open cell and
   a repeated digit the prototype and the independent search read full_unit
   differently, and where a hidden subset's digits have fewer places than digits the
@@ -1000,7 +1186,8 @@ estimated_size: M
 > solvers leave it to the order of their loops, and that a total order over a grid's
 > deductions costs nothing measurable for ranks 1 to 12: at most 133 entries and 6,683
 > patterns examined a look over 226 grids. Its bounds are argued for every rank but 23
-> to 27, which wait on open questions this ticket adds. No technique, catalogue or model exists in
+> to 27, which wait on open questions this ticket adds; ranks 13 to 22, 28 and 29 were
+> also measured, under four readings this ticket adds as open questions. No technique, catalogue or model exists in
 > `crates/pawdoku/src` yet, so the change is to the specifications and to one
 > explanation page.
 >
@@ -1384,6 +1571,10 @@ Four of the five are as expected. The `ls` is not, for the reason under Deviatio
   and that `effort` needs the deductions a profile does not see, so the proposal
   orders deductions and derives the entries. For the pinned profile the two are the
   same list.
+- **Ranks 13 to 22, 28 and 29 were built and measured,** where step 4 asks for ranks 1
+  to 12 and step 5 for paper. The maintainer asked for it on 2026-10-03, after the
+  first commit, and chose that the open readings be picked, stated and flagged. The
+  figures are in "Step 5, extended".
 - **Sources read at one remove.** HoDoKu's source is a GitHub fork, not the
   SourceForge tree. Sudoku Explainer's own documentation did not resolve.
   SudokuWiki's strategies above singles run on its server. PySAT's solver page was
@@ -1395,6 +1586,10 @@ Four of the five are as expected. The `ls` is not, for the reason under Deviatio
   first. It waits on the maintainer's word on the open points below.
 - **To the owner of `docs/explanation/puzzle-design.md`:** the four study puzzles each
   have exactly one solution, so "unverified" can be narrowed to their paths. The
+  advanced puzzle's X-Wing is confirmed as the page has it. The expert puzzle did not
+  need its contradiction chain: ranks 1 to 22 solved it, by an xyz_wing, a w_wing and
+  a skyscraper after the page's stall, so the page's claim that the repertoire stalls
+  there depends on which techniques that repertoire holds. The
   intermediate puzzle's pointing is in the middle-left box (box 4), where the page
   says "lower-left box". L914 quotes a sentence T35 removes.
 - **To `effort.allium`'s next change:** its header says it reads `fatigue`
