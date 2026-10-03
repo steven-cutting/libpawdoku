@@ -59,8 +59,13 @@ What this repository puts in the way, each read in the file named:
   rustdoc lints in `Cargo.toml` lines 37 to 41 deny broken and private intra-doc links.
   `crates/pawdoku/Cargo.toml` lines 30 to 33 give docs.rs `--cfg docsrs` and two
   targets.
-- **A dependency of the crate is a dependency of every consumer.** Decision 0007 asks
-  for a note with each one, and cargo-deny reads the graph that ships.
+- **A dependency costs every consumer unless it is optional.** `serde` is the crate's
+  one optional dependency, behind a feature of its name (`crates/pawdoku/Cargo.toml`
+  lines 19 to 23). A macro crate for diagrams could sit behind a feature the same way,
+  so what it costs is not every consumer's build. It is a public feature that exists
+  for documentation alone, a procedural macro in the graph cargo-deny reads and every
+  `--all-features` gate compiles, an attribute on each documented item, and the note
+  decision 0007 asks for with any dependency.
 
 Facts from the tools' documentation and registries, read on 2026-10-02 and not run.
 Step 2 verifies each and records its source:
@@ -104,10 +109,11 @@ The mechanisms, and the verdict each starts from:
 | A plain `.html` file beside the reference | A file `just site` copies into `target/doc` | On Pages only, never on docs.rs; no navigation to it | on a trigger: a page rustdoc cannot express |
 | A handbook page included in rustdoc | `include_str!` of a file under `docs/` | Outside the package; its frontmatter prints as text | not at all |
 | Mermaid in the browser | A header file given to `--html-in-header` that loads a pinned Mermaid from jsDelivr and renders every `mermaid` fence | A third-party script on every page; one more flag in `doc` and in the docs.rs table | candidate, first choice for diagrams |
-| `aquamarine` or `simple-mermaid` | A macro on each documented item | A dependency for every consumer, for documentation alone; the first writes files while it expands | not at all |
+| `aquamarine` or `simple-mermaid` | A macro on each documented item, as an optional dependency behind a feature for documentation | A public feature that is not the engine's; a macro crate in the graph and in every `--all-features` gate; the first has had no commit since 2024-10 and writes files while it expands; both draw with the same Mermaid script in the browser, which the header file loads with no dependency | not at all, unless step 5 finds something the header file cannot do and a macro can |
 | A vendored `mermaid.min.js` | The script committed and copied into the site | 5.5 MB against the 768 kB ceiling; docs.rs could not serve it | not at all |
 | Mermaid's command line | SVG made before publishing | A headless Chrome in the toolchain | not at all |
-| D2, Graphviz or Typst with CeTZ | SVG made before publishing by a pinned tool, inlined in the page | A tool to pin, generated files to keep byte-stable, and sources GitHub does not render | on a trigger: a requirement that pages work with scripts off |
+| `mmdr` | SVG made before publishing from the same `mermaid` source, by a renderer written in Rust, with no browser | Young: it calls itself "under active early development" and says its output may differ from Mermaid's; an install route to settle; generated files to keep byte-stable | on a trigger: a requirement that pages work with scripts off, and then the first to try, because the source stays Mermaid |
+| D2, Graphviz or Typst with CeTZ | SVG made before publishing by a pinned tool, inlined in the page | A tool to pin, generated files to keep byte-stable, and sources GitHub does not render | on the same trigger, after `mmdr` |
 | Raw HTML or inline SVG by hand | A table or an `svg` element in the documentation text | Written and themed by hand | candidate, for a sudoku grid |
 | A `text` fence | The grid as characters, as the handbook has it | None | already in use; keep |
 | Kroki, PlantUML | A rendering server; a JVM | A service or a runtime | not at all |
@@ -125,8 +131,9 @@ A verdict for every row of the table: adopt now, adopt on a named trigger, or no
 all. One sample page with one diagram and one grid, built in a scratch copy with the
 gate's own flags, and the header file that draws them, both quoted in the hand-back
 notes. The rule for what belongs in a rustdoc page and what stays in the handbook. A
-drafted build ticket for whatever is adopted. Nothing is installed or changed outside
-this file and the ticket index.
+drafted build ticket for whatever is adopted. Nothing in the repository changes outside
+this file and its row in the ticket index, and nothing is installed outside the scratch
+copy of step 3, as in S09.
 
 The starting recommendation, which the spike proves or overturns:
 
@@ -140,8 +147,10 @@ The starting recommendation, which the spike proves or overturns:
   show the same thing.
 - **A sudoku grid** is a `text` fence where that is enough, and a hand-written HTML
   table or inline SVG where cells need marking. Mermaid draws a grid badly.
-- **Build-time SVG** waits for a trigger. **The macro crates, the vendored script and
-  Mermaid's command line** are not adopted.
+- **Build-time SVG** waits for a trigger, with `mmdr` first in line because it reads the
+  same source. **The macro crates, the vendored script and Mermaid's command line** are
+  not adopted. The macro crates are turned down on what they add to the crate's
+  features and its graph, not on a claim that every consumer would pay for them.
 
 ## Non-goals
 
@@ -172,8 +181,24 @@ The starting recommendation, which the spike proves or overturns:
    `pixi search`. Record version, date and source for each. Where a fact has moved,
    correct the table before going on.
 
-3. Make a scratch copy with `git archive HEAD` under `ai_tmp/s10/`. Every experiment
-   below runs there. Nothing is installed into `.tools/` or `.pixi/`.
+3. Make the scratch copy outside this worktree, in the session's scratch directory, as
+   S09 did. `ai_tmp/` will not do. It is inside the repository, so `git` there finds
+   this repository: `just lint` and the `bg-*` tools would take this tree for the root
+   and read its files, not the copy's, and every hook's configuration leaves `ai_tmp/`
+   out. The copy has to be a repository of its own, with the gate's tools:
+
+   - `git archive HEAD | tar -x -C <scratch>`, then `git init` and `git add -A` there.
+     No commit is needed. The hooks read what Git lists, so stage each experimental
+     file before a hook is expected to see it.
+   - `just sync` there installs the copy's own `.pixi/` from `pixi.lock`. If pixi's
+     cache cannot serve it, that is the network: ask first. Copy `.tools/bin/` from
+     this worktree.
+   - Prove the copy's gate is live before trusting a result from it. Put a raw HTML
+     element in a Markdown file there, stage it, and see `just lint` fail on that file;
+     then take it out.
+
+   Every experiment below runs in the copy. Nothing is installed into this worktree's
+   `.pixi/` or `.tools/`, and nothing anywhere outside the scratch directory.
 
 4. The page, both ways. In the scratch copy add a public module, `guide`, once with its
    text in a `.md` file beside the source and once as doc comments. For each, run the
@@ -227,9 +252,22 @@ The starting recommendation, which the spike proves or overturns:
    Then copy one plain `.html` file into the scratch `target/doc` as `just site` would,
    and say what it would take to reach it from the reference.
 
-7. Build-time rendering, read-only: what `pixi search` offers for D2, Graphviz and
-   Typst on both platforms the manifest names. Install none of them unless a verdict
-   turns on it; if one is tried, it goes in the scratch directory.
+7. The routes not taken, each turned down or kept on evidence:
+
+   - The macro crates, read-only. From each crate's source and crates.io: what it emits
+     and what it loads; whether it can sit behind an optional feature; and what
+     `just features`, `just clippy`, `just wasm-check` and `cargo deny` would then see.
+     Say whether anything in step 5 was out of the header file's reach and in a
+     macro's.
+   - `mmdr`. Its version, licence and install route: a release binary would be a
+     `tools.txt` line, a source build a `tools-source.txt` line, which decision 0013
+     accepted for one tool. Then install it into the scratch directory, which reaches
+     the network, so ask first, and render the handbook's two diagrams with it twice.
+     Record whether the output is legible, whether the two runs are byte-identical, and
+     where it differs from what GitHub draws.
+   - D2, Graphviz and Typst, read-only: what `pixi search` offers on both platforms the
+     manifest names. Install none of them unless a verdict turns on it; if one is
+     tried, it goes in the scratch directory.
 
 8. Write the rule for what belongs where. Start from this and correct it against
    `docs/reference/documentation-contract.md` and `docs/reference/api.md`: the handbook
@@ -257,6 +295,8 @@ The starting recommendation, which the spike proves or overturns:
 
 - Every fact in the Context that names a tool, a flag or a version has a source and a
   date, or is corrected.
+- The scratch copy was a repository of its own with the gate's tools, and a planted
+  Markdown violation failed `just lint` there before any result from it was recorded.
 - The sample page, with its diagram and its grid, builds in the scratch copy with the
   gate's `doc` flags and the header file, exit 0. The header file and the flags are
   quoted in full. The rendering in three themes is described by whoever saw it, and the

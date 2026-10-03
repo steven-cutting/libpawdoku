@@ -116,8 +116,9 @@ may run beside them.
 T33 and S10 are the hosted API reference. T33 publishes what `just doc` builds to GitHub
 Pages on every push to `main`, in a workflow of its own, and is the first ticket whose
 workflow publishes. S10 is the spike on how prose pages, diagrams and raw HTML go inside
-rustdoc; it changes nothing outside its own file, so it may run beside T33, and the
-build ticket it drafts depends on T33. The ids between T30 and T33 are the
+rustdoc. It shares one path with T33, this index, where each sets its own row and
+nothing else; its experiments run in a scratch copy outside the repository. So it may
+run beside T33, and the build ticket it drafts depends on T33. The ids between T30 and T33 are the
 basic-generator tickets'.
 
 ## How to pick up a ticket

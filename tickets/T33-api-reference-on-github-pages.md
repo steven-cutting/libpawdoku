@@ -71,9 +71,23 @@ repository; step 2 runs what can be run.
   `gh api -X POST repos/steven-cutting/libpawdoku/pages -f build_type=workflow`; on
   HTTP 409 a site exists and the same body goes by `PUT`; on HTTP 422 the body is resent
   with a `source` of `main` and `/`.
-- **The `github-pages` environment needs no setup.** GitHub creates it on the first run
-  that reaches the deploy job (G's how-to, lines 37 and 38). S02 recorded one
-  environment in this repository on 2026-09-27, `copilot`.
+- **The `github-pages` environment exists once a run reaches the deploy job** (G's
+  how-to, lines 37 and 38), **and nothing here may lean on what protects it.** GitHub's
+  page on managing environments says of one a workflow creates: "the newly created
+  environment will not have any protection rules or secrets configured"
+  (<https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments>).
+  Whether the one Pages makes carries a branch rule of its own was not verified. So the
+  deploy job carries its own `if:`, and step 5 gives the environment a branch rule
+  before anything is deployed. S02 recorded one environment in this repository on
+  2026-09-27, `copilot`.
+- **A concurrency group keeps one run waiting, not a queue.** "By default, any existing
+  `pending` job or workflow in the same concurrency group will be canceled and the new
+  queued job or workflow will take its place"
+  (<https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency>);
+  `cancel-in-progress: false` spares only the run already going. The game's group is the
+  one word `pages`. Here that would let a run started by hand from another branch, which
+  builds and does not deploy, take the place of a waiting deployment of `main` and
+  publish nothing in its stead. So the group here carries the ref.
 - **The deployment cannot be proved before the merge.** The trigger is a push to
   `main`, and `workflow_dispatch` is offered only for a workflow file that exists on the
   default branch. See "Open points".
@@ -130,8 +144,8 @@ that nothing publishes.
 | `docs/how-to/deploy-to-github-pages.md` | how-to | New, carried from G (step 6) |
 | `docs/decisions/0015-api-reference-on-github-pages.md` | decision | New record (step 6); the number is the next free one on the day |
 | `docs/decisions/README.md` | decision index | The record's row; the "next decision" sentence |
-| `docs/manifest.yml` | manifest | Entries for the two new pages. Frozen under CONVENTIONS.md §11; see Open points |
-| `docs/README.md` | documentation map | The how-to's link under "How to". Frozen under CONVENTIONS.md §11; see Open points |
+| `docs/manifest.yml` | T00 follow-up | Entries for the two new pages. Frozen under CONVENTIONS.md §11; step 1 |
+| `docs/README.md` | T00 follow-up | The how-to's link under "How to". Frozen under CONVENTIONS.md §11; step 1 |
 | `AGENTS.md` | agent contract | The paragraph at 129 to 132 (step 7) |
 | `SECURITY.md` | maintainer docs | The bullet at 51 and 52 |
 | `docs/explanation/security-model.md` | explanation | The bullets at 23 to 26 and 62 to 64 |
@@ -140,12 +154,13 @@ that nothing publishes.
 | `docs/reference/api.md` | reference | A "Hosted" section; the sentence at 47 to 49 |
 | `docs/reference/commands.md` | reference | A row for `just site`; the sentence at 22 to 24 |
 | `docs/reference/configuration.md` | reference | The row at 25: which workflows export the variables |
+| `docs/reference/documentation-contract.md` | reference | "Links that leave the repository", at 75 to 80: the pages that point outward |
 | `docs/project/repository-map.md` | project | The `.github/` line at 48 |
 | `docs/how-to/maintain-dependencies.md` | how-to | The sentence at 185: the files that pin an action |
 | `README.md` | maintainer docs | The hosted address beside the API reference line at 79 |
 | `CHANGELOG.md` | maintainer docs | Under Unreleased, Added; the count of decision records at 60 |
-| `tickets/README.md` | ticket index | T33's row set `done` |
-| `tickets/T33-api-reference-on-github-pages.md` | ticket | `status:`, hand-back notes |
+| `tickets/README.md` | ticket index | T33's row set `done`, in the closing pull request (step 12) |
+| `tickets/T33-api-reference-on-github-pages.md` | ticket | Hand-back notes in both pull requests; `status:` in the closing one |
 
 ## Steps
 
@@ -153,6 +168,13 @@ that nothing publishes.
    (`tickets/README.md`, "How to pick up a ticket"). If `.pixi/` is absent the gate
    cannot run; `just initialize` installs it over the network, which is a separately
    authorised action: ask first.
+
+   Before editing anything, confirm with the maintainer that the three frozen files in
+   "Files touched" may be edited here: the `Justfile`, `docs/manifest.yml` and
+   `docs/README.md`. Nothing in this ticket can land without them. The workflow runs
+   the recipe, and a page, its manifest entry and its link from the map are one commit
+   or the documentation contract fails. So there is no handing one of them back and
+   landing the rest: without leave for all three, stop here and say so.
 
 2. See what there is to serve. Run `just doc`, then record in the hand-back notes:
 
@@ -212,9 +234,12 @@ that nothing publishes.
      contents: read
 
    # One deployment at a time, and never cancel one that is already running: a
-   # half-published site is worse than a slightly stale one.
+   # half-published site is worse than a slightly stale one. The ref is in the
+   # group because a group keeps one run waiting and a newer one takes its
+   # place: a run started by hand from another branch deploys nothing, and must
+   # not displace a waiting deployment of main.
    concurrency:
-     group: pages
+     group: pages-${{ github.ref }}
      cancel-in-progress: false
 
    env:
@@ -246,7 +271,9 @@ that nothing publishes.
      deploy:
        name: deploy
        needs: build
-       # A run started by hand from another branch builds and stops here.
+       # A run started by hand from another branch builds and stops here. Not
+       # optional: the environment's own branch rule is a setting, and a
+       # setting can be changed where no reviewer sees it.
        if: github.ref == 'refs/heads/main'
        runs-on: ubuntu-latest
        timeout-minutes: 10
@@ -275,20 +302,42 @@ that nothing publishes.
    Neither job joins `check`'s `needs` in `ci.yml`. A deployment is not a gate, as
    `audit` is not.
 
-5. The Pages source. **Stop and ask the maintainer before this step**: it changes a
-   repository setting. Do it before the pull request merges, so that the push to `main`
-   deploys:
+   Two lines differ from the game's workflow on purpose, and the decision record says
+   so: the `if:` on the deploy job, and the ref in the concurrency group. The game's
+   workflow has neither because it has no reason to be run from another branch.
+
+5. The Pages source and the environment. **Stop and ask the maintainer before this
+   step**: it changes two repository settings. Do it before the pull request merges, so
+   that the push to `main` deploys and so that the environment is restricted before the
+   first deployment, not after:
 
    ```sh
    gh api repos/steven-cutting/libpawdoku/pages --jq .build_type
    gh api -X POST repos/steven-cutting/libpawdoku/pages -f build_type=workflow
    gh api repos/steven-cutting/libpawdoku/pages --jq '.build_type, .html_url'
+   gh api repos/steven-cutting/libpawdoku/environments/github-pages --jq .deployment_branch_policy
    ```
 
    The first line is expected to fail with HTTP 404, no site. The third prints
    `workflow` and the address. On HTTP 409 or 422 from the second, follow the fallbacks
    in T's `scripts/bootstrap_repo.sh` lines 160 to 178, and record which ran. Enabling
    the source with no workflow on `main` publishes nothing.
+
+   The fourth line reads the environment's branch rule. If the environment does not
+   exist yet (HTTP 404), or the rule is `null`, which allows every branch, set it:
+
+   ```sh
+   printf '%s\n' '{"deployment_branch_policy": {"protected_branches": true, "custom_branch_policies": false}}' | gh api -X PUT repos/steven-cutting/libpawdoku/environments/github-pages --input -
+   gh api repos/steven-cutting/libpawdoku/environments/github-pages --jq .deployment_branch_policy
+   ```
+
+   That is "Create or update an environment" in GitHub's REST reference
+   (<https://docs.github.com/en/rest/deployments/environments>), read on 2026-10-02 and
+   not run here: it creates the environment when there is none, and
+   `protected_branches: true` lets only a protected branch deploy. `main` is the one
+   protected branch (T01). If GitHub already gave the environment a rule that admits
+   `main` alone, leave it and record it. Either way the last line must show a rule that
+   is not `null` before the pull request merges.
 
 6. The two new pages. Each lands in the same commit as its `docs/manifest.yml` entry and
    its link, or the documentation hook refuses the commit.
@@ -299,15 +348,17 @@ that nothing publishes.
      Keep G's sections and rewrite each for a library:
      - the opening: what is published (the API reference, from `main`), by which
        workflow, at which address, and that nothing is committed to a branch;
-     - "One-time setup": one step, the Pages source, with the `gh api` line. G's second
-       step, a package grant, has no counterpart here. Keep the sentence on the
-       `github-pages` environment and the one on how the deploy job fails without the
-       source;
+     - "One-time setup": two settings, each with its `gh api` line from step 5: the
+       Pages source, and the `github-pages` environment's branch rule. G's second step,
+       a package grant, has no counterpart here, and G's sentence that the environment
+       "needs no setup" is not carried: here it is given a rule. Keep the sentence on
+       how the deploy job fails without the source;
      - "Where the site is served from": a project site beneath `/libpawdoku/`; rustdoc's
        links are relative, so the build is told nothing about the path. A custom domain
        would be a change to the repository's settings alone, for the same reason;
      - "What the workflow does": the two jobs and which holds what, `just site`, the
-       artefact, the concurrency group;
+       artefact, the concurrency group and why it carries the ref, and what a run
+       started by hand from another branch does (it builds, and deploys nothing);
      - "Reproduce a deployment locally": `just site`, then open
        `target/doc/index.html`;
      - "Rolling back": re-run the last good deployment, or revert and let the push
@@ -328,6 +379,9 @@ that nothing publishes.
      - the decision: rustdoc alone, from `main`, on every push, as a project site;
        built by `just site` with the `doc` gate's flags; a workflow of its own, with the
        publishing scopes on a deploy job that checks nothing out;
+     - where the workflow leaves the game's and why: the deploy job's `if:`, the ref in
+       the concurrency group, and the environment's branch rule set by hand, because
+       this workflow can be started from a branch that must not publish;
      - what was turned down and why: a site generator for the handbook (a second tool, a
        second build, and a handbook whose frontmatter and manifest are made for GitHub's
        rendering); publishing on release only (nothing to read until the first release);
@@ -359,6 +413,7 @@ that nothing publishes.
    | `docs/reference/api.md` | 47 to 49 | "nothing is on docs.rs yet, and `just doc` is the reference in the meantime" | A "Hosted" section before "docs.rs": the address, that it is `main`, that `just site` builds it. The docs.rs section keeps "prospective" and loses "in the meantime" |
    | `docs/reference/commands.md` | 22 to 24, and the Check table | The recipes outside `just check` | `site` joins the list; a row after `just doc`: what it builds, that it empties `target/doc` first, that it is outside `just check` |
    | `docs/reference/configuration.md` | 25 | "Exported by `ci.yml`; `audit.yml` exports the first three." | `pages.yml` exports all four |
+   | `docs/reference/documentation-contract.md` | 75 to 80 | "Three pages point outward", and names them | The count and the list as they stand after this change: the API reference page and the how-to each give the site's address, and the record does if it links one. The rule stands: a whole page, never a heading |
    | `docs/project/repository-map.md` | 48 | "CI, the audit workflow and the composite setup action" | The Pages workflow joins the list |
    | `docs/how-to/maintain-dependencies.md` | 185 | "`ci.yml`, `audit.yml` and the composite `setup` action pin every remote action" | `pages.yml` joins the list |
 
@@ -375,17 +430,30 @@ that nothing publishes.
    on the day.
 
 9. Run `just check-agents`, `just check-docs`, `just lint`, `just site` and
-   `just check`. Read the whole diff.
+   `just check`. Read the whole diff. For each row of step 7's table, quote the sentence
+   as it was and as it now reads in the hand-back notes: the search under Verification
+   catches three phrases and proves nothing about the other rows.
 
-10. Fill in the hand-back notes, set `status: done` here and in `tickets/README.md`,
-    and commit on the ticket branch. **Stop before pushing**: pushing and opening the
-    pull request are separately authorised.
+10. The first pull request. Fill in the hand-back notes with what was proved: the
+    build, the gate, the settings of step 5. **Leave `status: open`**, here and in
+    `tickets/README.md`: the ticket's outcome is a published site, and none exists yet.
+    Commit on the ticket branch. **Stop before pushing**: pushing and opening the pull
+    request are separately authorised.
 
-11. After the merge, with the maintainer's leave for each: watch the run of
-    `pages.yml` on `main`, then run the "After the merge" commands under Verification
-    and give the maintainer their output to record on the pull request.
+11. After the merge, with the maintainer's leave for each remote call: watch the run of
+    `pages.yml` on `main`, then run the "After the merge" commands under Verification.
+    The last of them starts the workflow by hand from a branch other than `main` and
+    shows that its deploy job is skipped.
+
+12. The closing pull request, on a branch from `main`. Add the output of step 11 to the
+    hand-back notes, set `status: done` here and in `tickets/README.md`, run
+    `just check`, commit, and stop before pushing. If the first deployment failed, this
+    pull request carries the fix as well, and the ticket stays open until a deployment
+    of `main` is green and the site answers.
 
 ## Acceptance criteria
+
+In the first pull request:
 
 - `just site` exits 0 and leaves `target/doc/index.html`, which sends a browser to
   `pawdoku/index.html`, beside `target/doc/pawdoku/index.html`. The tree holds no
@@ -395,20 +463,33 @@ that nothing publishes.
 - In `.github/workflows/pages.yml`: every remote `uses:` is pinned to a full commit SHA
   with a version comment; every `run:` is one line; `pages: write` and
   `id-token: write` appear on the `deploy` job and nowhere else; the `build` job holds
-  no scope beyond `contents: read`. `just lint` passes, which runs `actionlint` over it.
-- `rg -n "No workflow publishes|There is no deployment|nothing to deploy" AGENTS.md README.md SECURITY.md docs`
+  no scope beyond `contents: read`. The deploy job carries the `if:` on `main`, and the
+  concurrency group carries the ref. `just lint` passes, which runs `actionlint` over
+  it.
+- Every row of step 7's table is quoted in the hand-back notes as it was and as it now
+  reads, and each new reading is true of the repository with the workflow on `main`.
+  `rg -n "No workflow publishes|There is no deployment|nothing to deploy" AGENTS.md README.md SECURITY.md docs`
   prints nothing.
 - `just check-agents` passes. `just check-docs` passes and reports two more pages and
   two more canonical topics than `main` does.
 - The how-to is linked from `docs/README.md`, and the record has its row in
   `docs/decisions/README.md`.
-- After the merge: the Pages source is `workflow`; the run on `main` is green in both
-  jobs; the site's root answers 200 and holds the redirect; `pawdoku/index.html`
-  answers 200.
+- Before the merge, the Pages source is `workflow` and the `github-pages` environment
+  has a branch rule that is not `null`; the hand-back notes quote both.
+- `status:` is `open`.
+
+In the closing pull request:
+
+- The run of `pages.yml` on `main` is green in both jobs; the site's root answers 200
+  and holds the redirect; `pawdoku/index.html` answers 200.
+- A run started by hand from another branch completed with its deploy job skipped, and
+  the site was not redeployed by it.
+- The hand-back notes quote the output of every "After the merge" command, and
+  `status:` is `done` here and in `tickets/README.md`.
 
 ## Verification
 
-Before the pull request:
+Before the first pull request:
 
 ```sh
 just site
@@ -430,20 +511,27 @@ counts two above `main`'s; every hook passing; `All checks passed and the worktr
 unchanged.`; nothing from `git diff --stat`; nothing from the first `rg`; two lines from
 the second, both in `pages.yml` and both under `deploy`.
 
-After the merge, each a remote call the maintainer authorises:
+After the merge, each a remote call the maintainer authorises. `<branch>` is a branch
+other than `main` that holds the workflow file and is on the remote: the closing pull
+request's branch serves, cut from `main` and pushed before it has a commit of its own,
+and pushing it is one more thing to ask for. `<id>` is what the line before prints:
 
 ```sh
 gh api repos/steven-cutting/libpawdoku/pages --jq '.build_type, .html_url'
+gh api repos/steven-cutting/libpawdoku/environments/github-pages --jq .deployment_branch_policy
 gh run list --workflow pages.yml --branch main --limit 1
 curl -sI https://steven-cutting.github.io/libpawdoku/
 curl -s https://steven-cutting.github.io/libpawdoku/
 curl -sI https://steven-cutting.github.io/libpawdoku/pawdoku/index.html
-gh api repos/steven-cutting/libpawdoku/environments/github-pages --jq .deployment_branch_policy
+gh workflow run pages.yml --ref <branch>
+gh run list --workflow pages.yml --branch <branch> --limit 1 --json databaseId --jq '.[0].databaseId'
+gh run view <id> --json jobs --jq '.jobs[] | [.name, .conclusion] | @tsv'
 ```
 
-Expected: `workflow` and the address; a completed, successful run; HTTP 200; the seven
-lines of the redirect; HTTP 200; and whatever branch rule GitHub gave the environment,
-recorded as found.
+Expected: `workflow` and the address; a branch rule that is not `null`; a completed,
+successful run on `main`; HTTP 200; the seven lines of the redirect; HTTP 200; and, for
+the run started by hand once it has finished, `build` with `success` and `deploy` with
+`skipped`.
 
 ## Hand-back notes
 
@@ -451,20 +539,26 @@ None yet.
 
 ## Open points
 
-- **The deployment is proved after the merge, not before.** The pull request can prove
-  the build (`just site`, `actionlint`, `just check`) and nothing about the deploy job:
-  a push to `main` is the trigger, and a workflow can be started by hand only once its
-  file is on the default branch. The definition of done asks for every verification
-  command's output in the hand-back notes, and the "After the merge" block cannot be
-  there. Proposed: the pull request sets `status: done` on what it proved; step 11's
-  output goes on the pull request as a comment; a failure is fixed forward in a
-  follow-up pull request. The maintainer may prefer `status: done` to wait for a second
-  pull request that carries the output.
+- **Two pull requests, and why.** The first can prove the build (`just site`,
+  `actionlint`, `just check`) and nothing about the deploy job: a push to `main` is the
+  trigger, and a workflow can be started by hand only once its file is on the default
+  branch. The definition of done wants the acceptance criteria met and every
+  verification command's output in the hand-back notes of the pull request that sets
+  `status: done` (`tickets/README.md`, "Definition of done"). So the first pull request
+  leaves the ticket open and the closing one, step 12, carries the proof. The
+  maintainer may prefer one pull request, with the after-merge output as a comment on
+  it; that is a deviation from the definition of done and is theirs to grant, not the
+  agent's to take.
 - **The three frozen files.** The `Justfile`, `docs/manifest.yml` and `docs/README.md`
-  are frozen under CONVENTIONS.md §11. T22, T24 and T29 reopened the first; T19 edited
-  the other two, and T22 and T23 each added a decision record's manifest entry. This
-  ticket lists all three; if leave is not given for one, hand that edit back as a `main`
-  follow-up and say so under Deviations.
+  are frozen under CONVENTIONS.md §11, which sends a change there to a T00 follow-up on
+  `main`. T22, T24 and T29 reopened the first as follow-ups carried in their own
+  tickets; T19 edited the other two, and T22 and T23 each added a decision record's
+  manifest entry. This ticket is the same kind of carrier, and step 1 asks before any
+  edit. There is no part-way: see step 1.
+- **The environment's rule rests on `main` staying protected.** `protected_branches:
+  true` admits a branch only while it has a protection rule. If `main`'s protection
+  were ever removed, deployments would stop, which is the safe way to fail. A rule that
+  names `main` by pattern is the alternative, and takes a second call.
 - **Paths other open tickets also edit.** The basic-generator tickets drafted as T31
   and T32 edit `CHANGELOG.md`, `docs/manifest.yml`, `docs/decisions/README.md`,
   `docs/README.md` and `docs/project/repository-map.md`, and T31's draft takes decision
@@ -479,10 +573,6 @@ None yet.
   the pinned toolchain, and because the job that uses it holds no publishing scope.
   S02's T13 draft raises the same question for its publishing job. A leaner setup is a
   later change if the run time is felt.
-- **The `if:` on the deploy job.** GitHub gives the `github-pages` environment a branch
-  rule of its own when it creates it, which was not verified here; step 11 records it.
-  The `if:` states the same rule in the file, where a reviewer can see it. Drop it if
-  the maintainer wants the workflow to match the game's line for line.
 - **`deploy-pages` v5.0.1.** Newer than the house pin by one patch. Step 4 says to pin
   the latest of the major on the day, which moves this repository ahead of the game and
   the tooling repository. Say so in the hand-back notes.
