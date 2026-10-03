@@ -126,10 +126,14 @@ carry a stated reason.
   blocks precisely so unresolved product decisions are visible; do not silently
   resolve one.
 
-This repository is licensed Apache-2.0 (decision 0006). No workflow publishes
-anything: `audit.yml` only reads the advisory database. Publishing to
-crates.io is a later decision (ticket S02); when it comes it uses trusted
-publishing, never a token in this repository.
+This repository is licensed Apache-2.0 (decision 0006). The workflows that
+publish are listed here, and there is one: `pages.yml` deploys the API
+reference to GitHub Pages on a push to `main`, and only its deploy job holds
+a write scope (decision 0016). A deployment follows from a push to `main`,
+and pushing is itself separately authorised, so no agent action deploys on
+its own. `ci.yml` and `audit.yml` stay read-only. Publishing to crates.io is
+a later decision (ticket S02); when it comes it uses trusted publishing,
+never a token in this repository.
 
 ## Documentation and durable context
 
