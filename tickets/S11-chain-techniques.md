@@ -115,7 +115,7 @@ row in `tickets/README.md`; programs, downloads and a solver are scratch, under
 | D4 | What does an entry of a chain technique hold? | as written: for an endpoint strike every target of its endpoints, for a closure or a forcing chain its one candidate; or one struck candidate or one placement throughout | as written |
 | D5 | Which witness does an entry keep, and what load does `holds` read? | hide first, then keep the first witness the player can hold, which needs to know whether any is within capacity; keep the fewest links and read its load; no load at all for chains; held link by link | undecided: the evidence of step 5 says |
 | D6 | `forcing_chain`: may a root reach itself, how are paths counted, which witness is kept? | a root reaches itself by an empty path, or does not; one path counted for each root, or for each incompatible literal; each path the shortest, or the paths of least load together, or any the player can hold; with whatever step 2 and step 3 add | undecided |
-| D7 | Do `max_chain_links` and `max_forcing_paths` stay at 24 and 9? | stay; a lower figure the measurements support | stay, with what binds and what never does recorded |
+| D7 | Do `max_chain_links` and `max_forcing_paths` stay at 24 and 9? | stay; `max_chain_links` at 16, 12 or 8, each with `max_forcing_paths` at 9 and at a lower figure if step 5 finds one that binds | stay, with what binds and what never does recorded |
 | D8 | What do "other cells" exclude, for ranks 13 to 22? | every cell of the witness; only the cells the proof says are one of two | undecided: S06 measured the first only |
 | D9 | Are a colouring's wrap and trap one deduction? | separate; one for each component | separate, as S06 measured |
 
@@ -205,7 +205,10 @@ row in `tickets/README.md`; programs, downloads and a solver are scratch, under
    Run both over S06's grids under a profile pinned in full, its repertoire all
    twenty-nine ranks. Count, for each technique and each option, at each look: the
    entries, the patterns examined, the links of the witness kept and its load, and
-   where each limit binds. Counts and never seconds. Record the grids that solve and
+   where each limit binds. Then run again, with the same counters, under every pair
+   of limits D7 names: where a limit binds says nothing of how a run goes on without
+   the chains it cut, since each strike not made changes the grids after it. Counts
+   and never seconds. Record the grids that solve and
    the hardest rank of each.
 
 6. Check with a SAT solver, which S06's question (e) weighed, and say what each check
@@ -271,6 +274,7 @@ row in `tickets/README.md`; programs, downloads and a solver are scratch, under
   the ceiling and each technique's share of it are recorded, with what a chain of
   unbounded length reaches beside the limits; the sampled implications each held, or
   are listed.
+- Every pair of limits D7 names was run, with the grids solved and stalled under each.
 - The table of decisions is complete: no option without its cost, its list, what it
   hides at a capacity of 4 and of 8, and the sentences it changes.
 - Each of D1 to D9 is answered by the maintainer with a date, or recorded as deferred
