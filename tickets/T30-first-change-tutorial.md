@@ -137,7 +137,13 @@ and `u8::MAX`. The public method has `#[must_use]` and a running doc example.
 T26 and T27 are already merged here. Their file lists and T25's "Names later tickets
 need" preserve `sudoku::Position`, its constructor, getters and `SIDE`. T28 changes
 the board's recording surface and does not add this method or move those items.
-No engine ticket needs a tutorial row added to its "Files touched" for this exercise.
+None of T26 to T28 needs a tutorial row added to its "Files touched" for this exercise.
+
+The exercise lasts only while the method stays unbuilt. The crate already checks these
+bounds privately in three places: `at` and `at_mut` in `sudoku.rs`, and the `on_grid`
+closure in `solver/branch.rs`. A later ticket that lands a public
+`Position::is_on_grid` makes step 4 start green; that ticket must choose a new exercise
+and list the tutorial in its "Files touched".
 
 ### The exercise run
 
@@ -178,7 +184,7 @@ All checks passed and the worktree is unchanged.
 
 Only the exercised crate file was restored with `git checkout --
 crates/pawdoku/src/sudoku.rs`. The method and test are absent from the final crate;
-`git diff --stat main -- crates/` has no output. The source used in the rehearsal and
+`git diff --stat main...HEAD -- crates/` has no output. The source used in the rehearsal and
 its logs remain only in gitignored `ai_tmp/`.
 
 ### The page and final verification
@@ -186,8 +192,12 @@ its logs remain only in gitignored `ai_tmp/`.
 Steps 2 to 5 use the rehearsed snippets and existing paths and imports. Step 2 sends
 the reader into `sudoku::Position` without counting the public items. Frontmatter,
 all seven step headings, steps 1, 6 and 7, and the sections after step 7 are unchanged.
-The page body contains 846 whitespace-delimited words, above the 500-word floor.
-Both Rust snippets were compared with the exercised source, including indentation.
+The page body contains 869 whitespace-delimited words, above the 500-word floor.
+Both Rust snippets match the exercised source apart from indentation: the page prints
+them flush-left and tells the reader to indent each to match its neighbours. Review
+reworded one line of step 5's doc comment; both snippets were then pasted and run again,
+with the same 207 passing tests and the doctest still at line 144, and the crate file
+was restored again.
 
 `just check-docs` passes: Markdown, spelling, links and the documentation contract
 (41 pages and 42 canonical topics). The final `just check` passes and reports that
@@ -200,4 +210,6 @@ done here and in `tickets/README.md`; the local commit is on the ticket branch.
 
 ## Open points
 
-None. The exercise and its compatibility with T26 to T28 are settled above.
+One condition, stated under "The exercise chosen": a ticket that lands a public
+`Position::is_on_grid` must re-do the exercise. Its compatibility with T26 to T28 is
+settled above.

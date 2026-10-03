@@ -57,9 +57,10 @@ so there is no new rule or setting to decide.
 ## 4. Change something
 
 The test comes first. In the existing `tests` module at the foot of
-`crates/pawdoku/src/sudoku.rs`, add this test. Its `use super::` line already imports
-`Position` and `SIDE`. The cases include the four corners, an interior position, and
-each coordinate independently below and above the bounds:
+`crates/pawdoku/src/sudoku.rs`, add this test, indented to match the tests beside it.
+The module's `use super::` line already imports `Position` and `SIDE`. The cases include
+the four corners, an interior position, and each coordinate independently below and
+above the bounds:
 
 ```rust
 #[test]
@@ -84,14 +85,16 @@ fn positions_on_the_grid_have_rows_and_columns_from_one_to_side() {
 ```
 
 Run the suite and watch it fail to compile, because the method does not exist yet.
-That is the point. The diagnostic names what is missing:
-
-```text
-error[E0599]: no method named `is_on_grid` found for struct `Position` in the current scope
-```
+That is the point.
 
 ```console
 just test
+```
+
+The diagnostic names what is missing:
+
+```text
+error[E0599]: no method named `is_on_grid` found for struct `Position` in the current scope
 ```
 
 A test that is green before you have changed anything is either already covered or vacuous.
@@ -99,13 +102,14 @@ A test that is green before you have changed anything is either already covered 
 ## 5. Add the behaviour and its test together
 
 In the first `impl Position` block, after `column` and before the block's closing brace,
-add this method. Indent it to match the other methods. Its doc example is a test too,
-and `#[must_use]` follows the convention for public methods returning a value:
+add this method. Indent it to match the other methods. Its doc example is a test too.
+`#[must_use]` is not optional: clippy's `must_use_candidate` asks for it on a public
+method that returns a value, and `just clippy` turns that warning into an error:
 
 ```rust
 /// Whether this position lies on the grid: both coordinates are from 1 to [`SIDE`].
 ///
-/// This tests the bounds in `CellsSitOnTheGrid` in `sudoku.allium`.
+/// These are the bounds `CellsSitOnTheGrid` states in `sudoku.allium`.
 /// A position outside those bounds can still be constructed.
 ///
 /// ```
