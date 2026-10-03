@@ -125,9 +125,19 @@ mod tests {
             script in prop::collection::vec(0.0..1.0_f64, MOST_DRAWS),
         ) {
             let mut stream = replaying(script.clone());
-            let proof = generate(tier, &mut stream).unwrap();
-            assert_the_guarantees(tier, &proof);
-            prop_assert!(proof.givens().len() >= the_bound_drawn(tier, &script, stream.index()));
+            // A script can fail a hundred grid attempts, and then the refusal is the
+            // right end; a hundred short seedings in a row is such a script. No other
+            // refusal is: the script is long enough never to run out.
+            match generate(tier, &mut stream) {
+                Ok(proof) => {
+                    assert_the_guarantees(tier, &proof);
+                    let bound = the_bound_drawn(tier, &script, stream.index());
+                    prop_assert!(proof.givens().len() >= bound);
+                }
+                Err(refusal) => {
+                    prop_assert_eq!(refusal, GenerateError::GridAttemptsSpent { attempts: 100 });
+                }
+            }
         }
 
         #[test]
@@ -158,6 +168,33 @@ mod tests {
         let mut stream = replaying(script);
         assert!(generate(Tier::Five, &mut stream).is_ok());
         assert_eq!(stream.index(), 19 + GRID_AND_BOUND);
+
+        // The draws a generation takes are counted from where the stream stood, which
+        // need not be zero: the index moves on by them.
+        let mut stream = replaying(vec![0.0; 7 + 23]);
+        for _ in 0..7 {
+            stream.next_draw().unwrap();
+        }
+        assert!(generate(Tier::Five, &mut stream).is_ok());
+        assert_eq!(stream.index(), 7 + GRID_AND_BOUND);
+    }
+
+    /// A stream that counts how often it is asked for a draw, given or not.
+    #[derive(Debug)]
+    struct Counting {
+        stream: ReplayStream,
+        asked: u64,
+    }
+
+    impl RandomStream for Counting {
+        fn next_draw(&mut self) -> Result<f64, RandomError> {
+            self.asked += 1;
+            self.stream.next_draw()
+        }
+
+        fn index(&self) -> u64 {
+            self.stream.index()
+        }
     }
 
     /// `SameDrawsSameGivens`, for a stream that has already been drawn from: replay is
@@ -188,10 +225,17 @@ mod tests {
     #[test]
     fn a_stream_that_runs_out_says_so_at_whichever_draw() {
         let ran_out = |tier: Tier, draws: usize| {
-            let mut stream = replaying(vec![0.0; draws]);
+            let mut stream = Counting {
+                stream: replaying(vec![0.0; draws]),
+                asked: 0,
+            };
             let refusal = generate(tier, &mut stream).unwrap_err();
             // The draws given before it stay taken, and the one not given is not.
-            assert_eq!(stream.index(), u64::try_from(draws).unwrap());
+            let given = u64::try_from(draws).unwrap();
+            assert_eq!(stream.index(), given);
+            // The asking ends there: the stream is asked once more than it gave, and
+            // not again. The fake's index would not show a second asking.
+            assert_eq!(stream.asked, given + 1);
             refusal
         };
         let exhausted = |index: u64| GenerateError::Stream(RandomError::Exhausted { index });

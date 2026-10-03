@@ -258,7 +258,7 @@ alone and each with its draws scripted or with none.
 | `choice.rs` | A choice among `n`: zero picks the first, the largest draw a stream can give picks the last for every `n` from 1 to 81, and the specification's worked draw among three picks index 2, the binary64 reading. A draw the boundary forbids still picks one of the `n`. |
 | `order.rs` | Each fixed order is the 81 positions once, with the steps `BeginVisit` names; the drawn order worked out by hand from a script, one draw for every visit and the last included, and each position once whatever the draws, by property. |
 | `removal.rs` | Removal apart from the grid. It draws nothing: it is a function of a solution grid, an order, a bound and a floor, and its tests run it on the solution of [the rules' fixture](#the-rules-fixture) with orders written out in the test. Each end of `DecideVisit` by name, the bound read before the floor, every position visited after the bound is reached, and an order's error carried out. |
-| `grid.rs` | A grid attempt: what scripted draws seed, worked out by hand; a short seeding, its `2k + 1` draws and no search; eleven givens with no solution; the next attempt after a failed one; a hundred failed attempts; and, of two solutions, the lower row by row, on givens for which the search finds the higher first. |
+| `grid.rs` | A grid attempt: what scripted draws seed, worked out by hand; a short seeding, its `2k + 1` draws and no grid, though its givens have solutions; eleven givens with no solution; the next attempt after a failed one; a hundred failed attempts; and, of two solutions, the lower row by row, on givens for which the search finds the higher first. |
 | `generation.rs` | The tiers' fifteen figures and their orders, the bound's draw at both ends of each range, the version, each refusal's text and its two conversions. |
 
 A script is written with a helper that makes the draw for an index among `n`, the
@@ -269,11 +269,18 @@ middle of that index's share of `[0, 1)`, so a hand-worked case reads as indices
 enough for a hundred grid attempts: every tier's result keeps `OneSolutionAndItIsTheGrid`
 and `TheRestrictionsHold`, with the bound worked out again from the script; and the same
 draws give the same givens. The other tests are fixed scripts: the count of draws taken,
-a stream that runs out at each kind of draw, spent attempts, two calls on one stream and
+a stream that runs out at each kind of draw and is asked no more, spent attempts, two calls on one stream and
 the index that replays the second, and a generated puzzle opened as a board and played to
 its end. One test implements the trait itself, because it needs a stream the fake
 refuses to be: one that breaks the boundary's word with draws outside `[0, 1)`, which
 must not make `generate` panic.
+
+**What no test here can see is how often the solver is asked.** `solver::search` is a
+function and not a boundary, so a test sees what a search decided and never that one was
+made. That a short seeding is not searched, that a refused visit asks nothing and that a
+visit asks at most once are read from the code: `found_grid` returns before `search` for
+a short seeding, and `decide` returns before it for a refusal and calls it once. What the
+tests do hold is every outcome those clauses lead to, and the count of draws.
 
 **The one path no input reaches** is the solver refusing the givens removal left. It is
 a single `?` and a conversion, and `the_refusal_converts_from_the_solvers` calls the

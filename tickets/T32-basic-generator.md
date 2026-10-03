@@ -580,7 +580,7 @@ Unit tests are under `crates/pawdoku/src/`, and the others in
 | `BeginGeneration`, `order_of`, `RemovalOrder` | `each_tier_has_the_order_the_paper_assigns_it` |
 | `OpenFirstGridAttempt` | `scripted_draws_seed_eleven_givens_no_two_in_conflict`: the first attempt takes the stream's first draws |
 | `SettleGridAttempt`, `drawn_seeding` | `scripted_draws_seed_eleven_givens_no_two_in_conflict`, `any_draws_seed_givens_that_agree` |
-| `SettleGridAttempt`, a short seeding | `a_position_with_no_digit_left_ends_the_seeding_short` |
+| `SettleGridAttempt`, a short seeding | `a_position_with_no_digit_left_ends_the_seeding_short`, for its draws and for no grid coming of it. That no search is made is read from `found_grid`, which returns before `search`: a test cannot see a search that was made and discarded |
 | `SettleGridAttempt`, a verdict of none | `eleven_givens_with_no_solution_fail_the_attempt` |
 | `found_grid`, a verdict of many | `of_two_solutions_the_grid_is_the_lower_row_by_row` |
 | `found_grid`, `TheSolutionGridIsFull` | `a_found_grid_is_full_and_holds_every_seeded_given` |
@@ -598,14 +598,14 @@ Unit tests are under `crates/pawdoku/src/`, and the others in
 | `FinishRemoval`; `EndsAreEarned`, finished; `EveryPositionOnce` | `every_position_is_visited_and_none_is_asked_about_twice` |
 | `GivensSitInTheSolutionGrid`, `GivensLeftAreWellPosed`, `OneSolutionAndItIsTheGrid`, `TheRestrictionsHold` | `every_tier_gives_a_puzzle_that_keeps_the_guarantees`, by property; `a_hundred_seeds_keep_the_guarantees_in_tier_1` to `_5` |
 | `OneSolutionAndItIsTheGrid`, handed to `SetPuzzle` | `a_generated_puzzle_opens_as_a_board_and_is_played_to_its_end` |
-| `AlwaysEnds` | The two properties and the five hundred-seed tests return; `spent_attempts_are_refused_with_the_count` is the other end |
+| `AlwaysEnds` | The two properties and the five hundred-seed tests return; `spent_attempts_are_refused_with_the_count` is the other end. Its counts of solver calls, at most one an attempt and one a visit, are read from `found_grid` and `decide`, by inspection: the solver is a function, and no test counts its calls |
 | `DrawsInOrder` | `the_draws_taken_follow_from_the_grid_attempts_and_the_tier`, `any_draws_seed_givens_that_agree`, `spent_attempts_are_refused_with_the_count` |
 | `AStreamThatRunsOut` | `a_stream_that_runs_out_says_so_at_whichever_draw`, `a_stream_that_runs_out_in_the_grid_says_so`, `a_stream_that_runs_out_in_a_drawn_order_says_so`, `removal_stops_at_the_first_draw_the_order_cannot_give` |
 | `SameDrawsSameGivens` | `the_same_draws_give_the_same_givens`, `two_calls_on_one_stream_give_two_puzzles_and_the_index_replays_the_second`, `seed_zero_gives_the_pinned_puzzles`, `a_hundred_seeds_fold_to_the_pinned_number` |
 | `OnlyTheBoundary` | Reason: the module is `no_std` and names no source of chance but `RandomStream`; the same-draws property would fail on any other |
 | `ATierClaimsNothing` | Reason: nothing to run. The module has no rating, and `Tier`'s documentation says so |
 | `Generating` provides `Generate(tier)` | Every test of `generate` |
-| `GenerationResult` exposes | The tier is the caller's own; the status is `Ok` or `Err`; `draws_taken` is the stream's index, in `the_draws_taken_follow_...`; the givens are the proof's, in every test of `generate` |
+| `GenerationResult` exposes | The tier is the caller's own; the status is `Ok` or `Err`; `draws_taken` is the stream's index after the call less its index before, in `the_draws_taken_follow_...`, which also begins one call at index 7; the givens are the proof's, in every test of `generate` |
 | The refusals' text | `refusal_texts_are_stable`, `each_refusal_reads_as_its_text` |
 | What cannot happen | `the_refusal_converts_from_the_solvers`, the conversion called directly |
 | The public types' bounds | `public_types_are_send_sync_and_static`, `public_types_are_clone_and_debug`, `streams_and_value_types_serialise_under_the_serde_feature` |
@@ -799,6 +799,37 @@ On 2026-10-03, in the supplied Supacode worktree, from `19473d7`.
   first. Its givens are now a literal in `grid.rs`, and the temporary test is gone.
 - **`crates/pawdoku/README.md`** gained a clause: the page lists what the crate holds.
 - **Nothing was pushed.**
+
+- **Paths T33 also edits.** This ticket edited `CHANGELOG.md` and
+  `docs/project/repository-map.md`, which T33 edits too. As this ticket's Open points
+  say, each edit is a row or a sentence, and whichever pull request merges second
+  merges `main` first.
+- **A Codex adversarial review was run on 2026-10-03**, at the maintainer's request,
+  over the two commits, and answered in a third. It found no defect in the code and
+  seven in the tests and the words; all seven were taken.
+  1. The guarantees property unwrapped a puzzle, and a script of a hundred short
+     seedings is refused. It now takes that refusal as a right end and no other.
+  2. No test can see how often the solver is asked, so "a short seeding is not searched"
+     and the call counts of `AlwaysEnds` were claimed and not proved. The table above
+     and `docs/reference/testing.md` now say they are read from the code. Making them
+     testable would put the solver behind a parameter, which decision 0014 decided
+     against.
+  3. The stream-runs-out tests read the fake's index, which does not move on a second
+     asking. `a_stream_that_runs_out_says_so_at_whichever_draw` now counts the askings,
+     and `removal_stops_at_the_first_draw_the_order_cannot_give` counts the visits asked
+     for.
+  4. The fixed orders were held at their ends and turns only. Each is now compared, all
+     81 steps, with the order written out in the test a row at a time.
+  5. `Tier`'s documentation said the count of givens is bounded within the range. It
+     is the bound that is drawn within it.
+  6. `generate`'s documentation said a stream already drawn from gives another puzzle.
+     It gives other draws, and a stream that repeats itself gives the same puzzle.
+  7. `draws_taken` is counted from where the stream stood, not from zero. The table
+     says so, `generate`'s documentation says how to read it, and the test begins one
+     call at index 7.
+
+  With it, the second assertion of `Tier::most_givens`'s doctest, which could not fail,
+  was replaced by one that can.
 
 ### Handed back
 

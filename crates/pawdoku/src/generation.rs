@@ -96,8 +96,9 @@ pub const GENERATION_VERSION: &str = "generation-1";
 
 /// One of the five construction settings of the basic generator, numbered 1 to 5.
 ///
-/// A tier is a range the count of givens is bounded within, a floor for every row and
-/// column, and an order of removal. The figures are the source paper's, which calls
+/// A tier is a range the bound is drawn within, a floor for every row and column, and
+/// an order of removal. The bound is the count of givens removal will not go below; a
+/// puzzle may be left with more givens than the range holds. The figures are the source paper's, which calls
 /// its settings levels and names them; here a tier claims nothing about how hard its
 /// puzzles are.
 ///
@@ -172,8 +173,11 @@ impl Tier {
     ///
     /// let tier = Tier::Four;
     /// let proof = generate(tier, &mut SeededStream::new(1))?;
-    /// let met_its_range = proof.givens().len() <= tier.most_givens();
-    /// assert!(met_its_range || proof.givens().len() > 31);
+    /// let count = proof.givens().len();
+    /// // Never below the range, and within it exactly when at or below its high end.
+    /// assert!(count >= tier.fewest_givens());
+    /// let met_its_range = count <= tier.most_givens();
+    /// assert_eq!(met_its_range, (28..=31).contains(&count));
     /// # Ok::<(), pawdoku::generation::GenerateError>(())
     /// ```
     #[must_use]
@@ -294,7 +298,8 @@ fn draw_bound(tier: Tier, stream: &mut dyn RandomStream) -> Result<usize, Random
 /// # The draws, and having a puzzle again
 ///
 /// `generate` draws from wherever the stream stands. A stream a caller has already
-/// drawn from gives another puzzle than a fresh one from the same seed. So what a
+/// drawn from gives other draws than a fresh one from the same seed, and so, but for
+/// a stream that repeats itself, another puzzle. So what a
 /// caller records to have a puzzle again is the tier, [`GENERATION_VERSION`],
 /// [`RANDOM_VERSION`](crate::random::RANDOM_VERSION), the seed, and the index the
 /// stream stood at before the call ([`RandomStream::index`]); or the caller simply
@@ -304,7 +309,8 @@ fn draw_bound(tier: Tier, stream: &mut dyn RandomStream) -> Result<usize, Random
 /// two for each seeded given, 22 in all, or `2k + 1` for an attempt that stops short
 /// after `k` givens. Then one for the bound. Then, for [`Tier::One`] and [`Tier::Two`]
 /// alone, one for each of the 81 visits. A first attempt that finds its grid takes 23
-/// draws in tiers 3 to 5 and 104 in tiers 1 and 2, whatever removal does.
+/// draws in tiers 3 to 5 and 104 in tiers 1 and 2, whatever removal does. How many a
+/// call took is the stream's index after it less its index before.
 ///
 /// # Errors
 ///
@@ -325,7 +331,7 @@ fn draw_bound(tier: Tier, stream: &mut dyn RandomStream) -> Result<usize, Random
 /// assert!(first.givens().len() >= Tier::Four.fewest_givens());
 /// assert_eq!(Puzzle::set(first.clone()).status(), Status::Unsolved);
 ///
-/// // The stream has moved on, so a second call gives another puzzle.
+/// // The stream has moved on, so a second call takes other draws: here, another puzzle.
 /// let began_at = stream.index();
 /// assert_eq!(began_at, 23);
 /// let second = generate(Tier::Four, &mut stream)?;

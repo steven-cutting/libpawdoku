@@ -241,10 +241,11 @@ mod tests {
     #[test]
     fn removal_stops_at_the_first_draw_the_order_cannot_give() {
         let ran_out = RandomError::Exhausted { index: 5 };
+        let mut asked = 0;
         let visits = [Ok(at(1, 1)), Err(ran_out.clone()), Ok(at(1, 2))];
-        assert_eq!(
-            remove(&solution(), visits.into_iter(), NO_LIMITS),
-            Err(ran_out)
-        );
+        let visits = visits.into_iter().inspect(|_| asked += 1);
+        assert_eq!(remove(&solution(), visits, NO_LIMITS), Err(ran_out));
+        // The order is not asked for a visit after the one it could not give.
+        assert_eq!(asked, 2);
     }
 }

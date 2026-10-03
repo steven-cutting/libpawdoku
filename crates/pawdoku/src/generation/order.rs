@@ -106,9 +106,30 @@ mod tests {
         order.len() == 81 && distinct.len() == 81 && order.iter().all(on_the_grid)
     }
 
+    /// The S path written out a row at a time, apart from the code it is laid beside:
+    /// the odd rows from the left and the even rows from the right.
+    fn the_s_path_by_hand() -> Vec<(u8, u8)> {
+        let mut path = Vec::new();
+        for row in 1..=9 {
+            let mut columns: Vec<u8> = (1..=9).collect();
+            if row % 2 == 0 {
+                columns.reverse();
+            }
+            path.extend(columns.into_iter().map(|column| (row, column)));
+        }
+        path
+    }
+
     #[test]
     fn row_by_row_is_every_position_once_a_row_at_a_time() {
         let order = pairs(row_by_row());
+        let mut by_hand = Vec::new();
+        for row in 1..=9 {
+            for column in 1..=9 {
+                by_hand.push((row, column));
+            }
+        }
+        assert_eq!(order, by_hand);
         assert!(is_every_position_once(&order));
         assert_eq!(order[..3], [(1, 1), (1, 2), (1, 3)]);
         assert_eq!(order[9], (2, 1));
@@ -118,6 +139,7 @@ mod tests {
     #[test]
     fn s_path_turns_at_the_end_of_each_row() {
         let order = pairs(s_path());
+        assert_eq!(order, the_s_path_by_hand());
         assert!(is_every_position_once(&order));
         assert_eq!(order[7..11], [(1, 8), (1, 9), (2, 9), (2, 8)]);
         assert_eq!(order[17..19], [(2, 1), (3, 1)]);
@@ -127,6 +149,16 @@ mod tests {
     #[test]
     fn every_other_takes_the_odd_steps_of_the_s_path_then_the_even() {
         let order = pairs(every_other());
+        // All 81 steps: the S path's first, third, fifth and on, then its second,
+        // fourth and on, each pass in the path's own order.
+        let path = the_s_path_by_hand();
+        let steps = |parity: usize| {
+            let numbered = path.iter().copied().enumerate();
+            numbered
+                .filter(move |(at, _)| at % 2 == parity)
+                .map(|(_, position)| position)
+        };
+        assert_eq!(order, steps(0).chain(steps(1)).collect::<Vec<(u8, u8)>>());
         assert!(is_every_position_once(&order));
         let first_pass = [
             (1, 1),
