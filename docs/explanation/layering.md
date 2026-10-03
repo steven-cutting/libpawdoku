@@ -35,8 +35,11 @@ under "Why the direction matters" is about the four models, none of which gains 
 import ([decision 0014](../decisions/0014-board-imports-solver.md)). `generation`, the
 setter that is a program, is the one module that stands on a model: it imports the
 rules, the solver, the catalogue and `reach`, because a candidate puzzle is accepted on a
-`reach` run, and nothing imports it. It is a skeleton today, and its Rust module arrives
-with its triggers. `random` is not a specification
+`reach` run, and nothing imports it. It states two ways of finding givens. The basic way,
+a published method that draws a grid and removes givens one position at a time, stands on
+the rules and the solver alone and is stated in full; its Rust module is not yet built.
+The designed way is the one that stands on `reach`, and it is a skeleton whose Rust
+arrives with its triggers. `random` is not a specification
 module: it is the randomness boundary in `crates/pawdoku/src/random.rs`, beside the
 others rather than beneath them, and it is used by whichever module draws.
 

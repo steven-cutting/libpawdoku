@@ -306,8 +306,10 @@ No I/O, no clock, no threads, no `rand`, no network, no persistence and no user
 interface. Those are excluded by design, as
 [Purpose and scope](../project/purpose-and-scope.md) records. Puzzle generation is not
 among them: generation is a planned module, `generation.allium`, specified before it is
-built and today a skeleton of scope, config and open questions; whether puzzles are made
-on the device, ahead of time, or both is open
+built. The specification states the basic generator in full, a published method checked
+by the solver's verdict ([decision 0015](../decisions/0015-basic-generator.md)), and its
+Rust module is not yet built; the designed generator is a skeleton of scope, config and
+open questions. Whether puzzles are made on the device, ahead of time, or both is open
 ([decision 0012](../decisions/0012-generation-and-dev-time-judges.md)).
 
 ## Related pages
