@@ -12,10 +12,10 @@
 --   and it is stated here in full: what is asked, how the grid is drawn, how
 --   removal proceeds and when it refuses, what comes back and what is
 --   guaranteed of it.
---   The designed way: a solution grid drawn
---   through the randomness boundary, givens removed under a symmetry until
---   the puzzle is well-posed and solvable within a stated technique
---   contract, under a step budget. sudoku.allium says what a setter may
+--   The designed way: a solution grid drawn through the randomness
+--   boundary, givens removed under a symmetry until the puzzle is
+--   well-posed and solvable within a stated technique contract, under a
+--   step budget. sudoku.allium says what a setter may
 --   pose and nothing of how it finds it; solver.allium says whether what it
 --   found is well-posed; reach.allium says whether a profile gets through
 --   it. This module is where those three are put to work to make a puzzle
@@ -416,7 +416,7 @@ rule SettleGridAttempt {
 
     let generation = attempt.generation
 
-    -- seeded_givens is a black box: the givens the attempt draws, one after
+    -- drawn_seeding is a black box: the givens the attempt draws, one after
     -- another from an empty grid until there are config.seeded_givens of
     -- them or one cannot be drawn. Each takes two draws. The first chooses
     -- its position, by index_among, among the positions that hold no given
@@ -427,7 +427,7 @@ rule SettleGridAttempt {
     -- seeding stops there, short. So the givens never conflict, and a
     -- seeding that stops short is one that could not go on. The draws are
     -- the generation's next, beginning after the draws_taken it is handed.
-    let seeded = seeded_givens(generation, generation.draws_taken, config.seeded_givens)
+    let seeded = drawn_seeding(generation, generation.draws_taken, config.seeded_givens)
     let is_short = seeded.count < config.seeded_givens
 
     -- Two draws for each given drawn, and one more for the position that
@@ -462,19 +462,18 @@ rule FollowGridAttempt {
 
     requires: generation.status = drawing_grid
 
-    -- One draw, after the grid, chooses the bound among the counts of the
-    -- tier's range, fewest first.
     let width = generation.most_givens - generation.fewest_givens + 1
-    let chosen_index = index_among(draw_at(generation, generation.draws_taken + 1), width)
 
-    -- One rule and three ends. A grid was found: the bound is drawn and
-    -- removal begins from the whole grid. Or the attempt failed and the
+    -- One rule and three ends. A grid was found: one draw, after the grid,
+    -- chooses the bound among the counts of the tier's range, fewest first,
+    -- and removal begins from the whole grid. Or the attempt failed and the
     -- figure is reached: the generation is refused with nothing to show,
     -- since no grid exists and so no partial result does. Or it failed and
     -- another attempt begins. The draws failed attempts took stay taken,
     -- and the draw for the bound is taken only when a grid was found.
     ensures:
         if attempt.status = found:
+            let chosen_index = index_among(draw_at(generation, generation.draws_taken + 1), width)
             generation.status = removing
             generation.solution = attempt.grid
             generation.givens = attempt.grid

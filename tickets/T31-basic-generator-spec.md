@@ -490,7 +490,7 @@ were present, so `just initialize` was not run.
   positions with an even sum, is therefore the odd-numbered steps of the S path, and the
   second pass settled below is its even-numbered steps. The module states it that way.
 - **`puzzle-design.md`.** Thirteen citations of `generation.allium` moved. Each new
-  line was printed and holds what its row describes: 805, 807, 809, 811, 813 and 815 are
+  line was printed and holds what its row describes: 804, 806, 808, 810, 812 and 814 are
   the open questions that were 122 to 132; 71 is the Replay clause that was 34; 347-354
   is the three versions, 109-115 before; 282-355 is the config block, 85-116 before.
 - **"Skeleton".** `rg -n -i 'skeleton' docs README.md crates/pawdoku/README.md` hits
@@ -540,7 +540,7 @@ Bottom", for tiers 1 and 2, 3, 4 and 5.
 `FollowGridAttempt`, `BeginVisit`, `DecideVisit`, `FinishRemoval`.
 
 **Black boxes**, each pinned in a comment where it is first used: `draw_at`,
-`index_among`, `order_of`, `seeded_givens`, `found_grid`, `nth_unvisited`,
+`index_among`, `order_of`, `drawn_seeding`, `found_grid`, `nth_unvisited`,
 `order_position`, `givens_in_row`, `givens_in_column`, `without_position`,
 `verdict_is_one`.
 
@@ -600,7 +600,7 @@ generation, the count of givens and each given.
 - **S08.** Its Context calls `generation.allium` a skeleton and its Verification expects
   "the seven open questions". It now finds a module that states the basic way in full
   and the designed way as a skeleton; the seven open questions are all there, four with
-  a closing clause for the basic way, at lines 805 to 817. Its control row, removal "at
+  a closing clause for the basic way, at lines 804 to 816. Its control row, removal "at
   random, then the verdict and `Rate`", is not the basic way: that row draws its order,
   has no bound and no floor, and is put to `Rate`. Tiers 1 and 2 are its nearest kin.
 - **T20.** Its draft writes "triggers, guarantees and fixtures on the skeleton". It now
