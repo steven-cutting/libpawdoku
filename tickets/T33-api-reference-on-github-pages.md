@@ -535,7 +535,127 @@ the run started by hand once it has finished, `build` with `success` and `deploy
 
 ## Hand-back notes
 
-None yet.
+### First pull request, 2026-10-03
+
+`status:` stays `open`: nothing is deployed until this merges. Steps 1 to 10 are done;
+steps 11 and 12 follow the merge.
+
+**Leave given by the maintainer on 2026-10-03, each asked before the act:**
+
+- The three frozen files (`Justfile`, `docs/manifest.yml`, `docs/README.md`) may be
+  edited here.
+- The branch keeps Supacode's name, `ticket/T33-api-reference-on-github-page`, not the
+  `branch:` field's. A recorded deviation.
+- The read-only release lookups of step 4 and the two settings of step 5.
+- Merging is the authorisation for a deployment. PR #32's review asked how a push that
+  deploys squares with "deploying" being separately authorised. The reworded `AGENTS.md`
+  paragraph and decision 0016 now say it: the deployment follows from a merge to `main`,
+  which is itself separately authorised. The list of authorised actions is unchanged.
+
+**Deviations from the ticket's text:**
+
+- **The record is 0016.** T31 took 0015. The file, the title, the row and the manifest
+  entry carry 0016, and "the next decision" is now 0017. The changelog count is sixteen.
+- **`deploy-pages` is pinned at v5.0.1**, `368f82528645a54fb793d4d04e342629a3f51346`,
+  the latest v5 on the day, one patch ahead of the game and the tooling repository
+  (v5.0.0). `upload-pages-artifact` v5.0.0 is still its latest and keeps the house SHA.
+  Both tags are lightweight: `git/ref/tags/<tag>` gave a `commit` object for each.
+- **The address redirects.** The owner's Pages host carries a custom domain, so the API
+  reports the site at `http://stevencutting.com/libpawdoku/`, and the game's
+  `https://steven-cutting.github.io/pawdoku/` answers `301` with
+  `location: https://stevencutting.com/pawdoku/`. The handbook gives the `github.io`
+  address, as the ticket does, and the how-to says once that it redirects. **The
+  after-merge `curl -sI` on the `github.io` address will print 301, not 200**: run those
+  three with `-L`, or against `https://stevencutting.com/libpawdoku/`.
+- **The environment's rule was left as GitHub made it.** Creating the site created
+  `github-pages` with a rule that admits `main` alone, so the `PUT` of step 5 was not
+  run, as the step allows. The rule names `main` by pattern, not `protected_branches`,
+  so the open point about `main` losing its protection does not apply.
+- `https_enforced` is `false` on the new site (it is on the game's too, and `https`
+  answers there). Not changed: it is a third setting nobody authorised.
+
+**Step 2, what there is to serve** (`just doc`, before the recipe existed):
+
+- `target/doc/pawdoku/index.html` exists; `target/doc/index.html` does not.
+- `pawdoku/index.html` carries `data-root-path="../"` and reaches its stylesheets at
+  `../static.files/rustdoc-1ed95124.css`: relative.
+- `find target/doc -type l` prints nothing.
+- `du -sh target/doc`: 4.5M.
+- A dependency's name is a link to docs.rs: `Serialize` on `board::Record` goes to
+  `https://docs.rs/serde_core/1.0.229/serde_core/ser/trait.Serialize.html`. Across the
+  tree the outward hosts are `doc.rust-lang.org` (3104 links), `docs.rs` (84) and
+  `github.com` (69, rustdoc's own notes on unstable items). No relative link leads into
+  a dependency's tree, so none leads nowhere. Nothing handed back.
+
+**Step 3.** `just site` ran twice and exited 0 both times. `target/doc/index.html` holds
+the seven lines. Headless Chrome, opening that file, ended on a page titled
+`pawdoku - Rust`, the crate's. `git status --porcelain` showed only this change's own
+files after it; the recipe writes under `target/` alone.
+
+**Step 5, the settings, as run:**
+
+```console
+$ gh api repos/steven-cutting/libpawdoku/pages --jq .build_type
+gh: Not Found (HTTP 404)
+$ gh api -X POST repos/steven-cutting/libpawdoku/pages -f build_type=workflow
+$ gh api repos/steven-cutting/libpawdoku/pages --jq '.build_type, .html_url'
+workflow
+http://stevencutting.com/libpawdoku/
+$ gh api repos/steven-cutting/libpawdoku/environments/github-pages --jq .deployment_branch_policy
+{"custom_branch_policies":true,"protected_branches":false}
+$ gh api repos/steven-cutting/libpawdoku/environments/github-pages/deployment-branch-policies --jq '.branch_policies[] | [.name, .type] | @tsv'
+main    branch
+```
+
+The `POST` succeeded first time; neither fallback ran. Before it, the environment
+answered 404 and the only environment was `copilot`.
+
+**Verification, before the first pull request:**
+
+- `just site`: exit 0; both `index.html` files listed; nothing from `find -type l`.
+- `just check-agents`: `Validated AGENTS.md, 2 adapters, and 14 skills.`
+- `just check-docs`: `Validated 44 pages and 45 canonical topics.` `main` has 42 pages.
+- `just lint`: every hook passed, `Lint GitHub Actions workflow files` among them.
+- `just check`: `All checks passed and the worktree is unchanged.`
+- `git diff --stat main -- pyproject.toml .github/workflows/ci.yml`: nothing.
+- The first `rg`: nothing. The second: `pages.yml:65` and `pages.yml:66`, both under
+  `deploy`.
+
+**Step 7, each sentence as it was and as it reads:**
+
+| Path | Was | Reads |
+| --- | --- | --- |
+| `AGENTS.md` | "No workflow publishes anything: `audit.yml` only reads the advisory database." | "The workflows that publish are listed here, and there is one: `pages.yml` deploys the API reference to GitHub Pages on a push to `main`, and only its deploy job holds a write scope (decision 0016). The deployment follows from a merge to `main`, which is itself separately authorised, so no agent action deploys on its own. `ci.yml` and `audit.yml` stay read-only." |
+| `docs/explanation/security-model.md`, permissions | "Every workflow runs with `contents: read` and nothing else. The release workflow S02 designs will be the only one to hold more" | "`ci.yml` and `audit.yml` hold `contents: read` and nothing else. `pages.yml` holds more, `pages: write` and `id-token: write`, on its deploy job alone, which checks nothing out and runs no code from the repository (decision 0016). The release workflow S02 designs will be the second to hold more" |
+| `docs/explanation/security-model.md`, credentials | "and the workflows need nothing more." | "and the workflows need nothing more: the Pages deployment proves itself with the run's own identity token, so it stores no credential either." |
+| `SECURITY.md` | "Continuous integration runs with `contents: read` and holds no stored secret, only the token GitHub mints for each run." | "The gate's workflows, `ci.yml` and `audit.yml`, run with `contents: read`. The Pages deployment holds two publishing scopes, `pages: write` and `id-token: write`, on the one job that deploys. No workflow holds a stored secret, only the token GitHub mints for each run." |
+| `docs/reference/quality-gates.md`, "On `main`" | "There is no deployment: nothing publishes on a push to `main`." | "A push to `main` publishes the API reference through `pages.yml`. That deployment is not a gate and not a required check." |
+| `docs/reference/quality-gates.md`, "In continuous integration" | The section named `ci.yml` and `audit.yml` | A new paragraph: "`.github/workflows/pages.yml` runs on every push to `main`, and by hand. Its `build` job runs `check-toolchain` and `site` after the same setup action and uploads `target/doc`; its `deploy` job publishes that to GitHub Pages, and only from `main`. It is not a gate: neither job is among `check`'s `needs`, so it is never a required check, and a deployment that fails blocks no merge." |
+| `docs/operations/maintenance.md` | "There is no service to operate and nothing to deploy." | "There is no service to operate. [...] The one thing deployed is the API reference, which a workflow publishes on every push to `main`; see Deploy to GitHub Pages." |
+| `docs/reference/api.md` | "so nothing is on docs.rs yet, and `just doc` is the reference in the meantime." | A "Hosted" section before "docs.rs", and: "so nothing is on docs.rs yet. When a release is, docs.rs is the reference for it and the hosted site stays the reference for `main`." The docs.rs section's "the hosted reference shows" became "docs.rs shows", since "hosted" now means the site. |
+| `docs/reference/commands.md` | "`build`, `test`, `audit` and `check-links-online` are outside `just check`" | "`build`, `test`, `site`, `audit` and `check-links-online` are outside `just check`", and a `just site` row after `just doc` |
+| `docs/reference/configuration.md` | "Exported by `ci.yml`; `audit.yml` exports the first three." | "Exported by `ci.yml` and `pages.yml`; `audit.yml` exports the first three." |
+| `docs/reference/documentation-contract.md` | "Three pages point outward" | "Five pages point outward", the list gaining "API reference and Deploy to GitHub Pages each give the address of the hosted reference". The record writes the address as code and links nothing outward. |
+| `docs/project/repository-map.md` | "CI, the audit workflow and the composite setup action" | "CI, the audit and Pages workflows and the composite setup action" |
+| `docs/how-to/maintain-dependencies.md` | "`ci.yml`, `audit.yml` and the composite `setup` action pin every remote action" | "`ci.yml`, `audit.yml`, `pages.yml` and the composite `setup` action pin every remote action" |
+
+**Open points, answered or carried:**
+
+- Two pull requests: kept as written. This is the first.
+- The three frozen files: leave given, above.
+- The environment's rule and `main`'s protection: does not apply; the rule names `main`.
+- Paths other tickets edit: T31 and T32 merged first, and this change is cut from a
+  `main` that holds them. S02's T13 draft still rewords the same `AGENTS.md` paragraph;
+  the paragraph now opens "The workflows that publish are listed here", so T13 adds a
+  clause.
+- The setup action in the build job: carried; recorded in decision 0016's consequences.
+- `deploy-pages` v5.0.1: said above.
+- Nothing on the site says it documents `main`, and the crate's opening page names
+  handbook paths as code spans: both carried to S10's follow-up, T34.
+
+**Seen and not fixed:** `CHANGELOG.md` says the handbook has "twenty-five pages"; the
+manifest held 42 before this change and holds 44 after. The ticket names only the count
+of decision records, so the other count is left for its owner.
 
 ## Open points
 

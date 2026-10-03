@@ -8,9 +8,11 @@ requires: []
 
 # Maintenance
 
-There is no service to operate and nothing to deploy. The library runs inside whoever
-calls it, nothing accumulates between releases, and there is no on-call. What follows is
-upkeep of the pins that build and check it.
+There is no service to operate. The library runs inside whoever calls it, nothing
+accumulates between releases, and there is no on-call. The one thing deployed is the API
+reference, which a workflow publishes on every push to `main`; see
+[Deploy to GitHub Pages](../how-to/deploy-to-github-pages.md). What follows is upkeep of
+the pins that build and check it.
 
 ## Routine
 
