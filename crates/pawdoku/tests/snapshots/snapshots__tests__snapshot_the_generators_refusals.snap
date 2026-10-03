@@ -1,0 +1,8 @@
+---
+source: crates/pawdoku/tests/snapshots.rs
+expression: picture
+---
+GenerateError (Display)
+the stream ran out: the replay stream is exhausted at draw 22
+grid attempts spent: no solution grid was found in 100 grid attempts
+not proved, which no input reaches: the givens have more than one solution

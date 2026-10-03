@@ -7,6 +7,11 @@
 //! the `serde` feature, as JSON: a picture of what a consumer would store, and no
 //! promise of a format, since the library has none.
 //!
+//! A generated puzzle is shown with its solution, on purpose: the proof exposes it. What
+//! seed zero gives follows from the generator's draws and from the solver's tie-break
+//! and propagation, as `seed_zero_gives_the_pinned_puzzles` in `tests/generation.rs`
+//! says; that test asserts it, and these pictures only show it.
+//!
 //! The guess counts these pictures show follow from the solver's tie-break, as
 //! `the_guess_counts_follow_from_the_tie_break` in `tests/solver.rs` says, and so does
 //! which two solutions are shown, and in which order, where there are many.
@@ -15,6 +20,8 @@
 mod tests {
     use core::fmt::Write;
     use pawdoku::board::{Board, BoardCell, MoveKind, PlayError, ReopenError};
+    use pawdoku::generation::{GenerateError, Tier, generate};
+    use pawdoku::random::{RandomError, SeededStream};
     use pawdoku::solver::{SearchResult, SolveError, search, solve};
     use pawdoku::sudoku::{Given, Grid, Position};
 
@@ -437,6 +444,75 @@ mod tests {
             ),
         ];
         let mut picture = String::from("ReopenError (Display)\n");
+        for (case, refusal) in refusals {
+            writeln!(picture, "{case}: {refusal}").unwrap();
+        }
+        insta::assert_snapshot!(picture);
+    }
+
+    // The basic generator --------------------------------------------------------
+
+    /// The puzzle seed zero gives in a tier: its givens, its solution and the count
+    /// of givens beside the tier's range. This holds a solution on purpose: the proof
+    /// exposes it.
+    fn render_generated(tier: Tier) -> String {
+        let proof = generate(tier, &mut SeededStream::new(0)).unwrap();
+        let held: Vec<Given> = proof.givens().iter().copied().collect();
+        let solution = proof.solution().map(|row| row.map(Some));
+        format!(
+            "tier {}, seed 0\n\ngivens\n{}\n\nsolution\n{}\n\n{} givens; the tier's range is {} to {}\n",
+            tier.number(),
+            draw(&laid_out(&held)),
+            draw(&solution),
+            held.len(),
+            tier.fewest_givens(),
+            tier.most_givens()
+        )
+    }
+
+    #[test]
+    fn snapshot_the_puzzle_seed_zero_gives_in_tier_1() {
+        insta::assert_snapshot!(render_generated(Tier::One));
+    }
+
+    #[test]
+    fn snapshot_the_puzzle_seed_zero_gives_in_tier_2() {
+        insta::assert_snapshot!(render_generated(Tier::Two));
+    }
+
+    #[test]
+    fn snapshot_the_puzzle_seed_zero_gives_in_tier_3() {
+        insta::assert_snapshot!(render_generated(Tier::Three));
+    }
+
+    #[test]
+    fn snapshot_the_puzzle_seed_zero_gives_in_tier_4() {
+        insta::assert_snapshot!(render_generated(Tier::Four));
+    }
+
+    #[test]
+    fn snapshot_the_puzzle_seed_zero_gives_in_tier_5() {
+        insta::assert_snapshot!(render_generated(Tier::Five));
+    }
+
+    // Each refusal is made by hand. No tier and no stream reaches the third.
+    #[test]
+    fn snapshot_the_generators_refusals() {
+        let refusals = [
+            (
+                "the stream ran out",
+                GenerateError::from(RandomError::Exhausted { index: 22 }),
+            ),
+            (
+                "grid attempts spent",
+                GenerateError::GridAttemptsSpent { attempts: 100 },
+            ),
+            (
+                "not proved, which no input reaches",
+                GenerateError::from(SolveError::ManySolutions),
+            ),
+        ];
+        let mut picture = String::from("GenerateError (Display)\n");
         for (case, refusal) in refusals {
             writeln!(picture, "{case}: {refusal}").unwrap();
         }

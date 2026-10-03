@@ -1,0 +1,29 @@
+---
+source: crates/pawdoku/tests/snapshots.rs
+expression: "render_generated(Tier::One)"
+---
+tier 1, seed 0
+
+givens
+2...38.51
+317546.29
+..8.1276.
+.41325..6
+6.218934.
+5.34671.2
+136854297
+98.2716.4
+72...3518
+
+solution
+269738451
+317546829
+458912763
+841325976
+672189345
+593467182
+136854297
+985271634
+724693518
+
+60 givens; the tier's range is 51 to 60

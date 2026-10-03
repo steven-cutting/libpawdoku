@@ -1,7 +1,7 @@
 ---
 id: T32
 title: "The basic generator in Rust: the solution grid, removal in order and the five tiers"
-status: open
+status: done
 depends_on: [T31, T28]
 parallel_with: []
 branch: ticket/t32-basic-generator
@@ -405,19 +405,460 @@ worktree is unchanged.`
 
 ### Where T31's answers differ from this ticket
 
+Read on 2026-10-03, before any edit, from T31's "Names T32 needs" and "Open points
+settled".
+
+- **The word "visit"** is new: the one look a position gets. This ticket says "each of
+  the 81 positions is visited once" and means the same.
+- **The figure for grid attempts is config's**, 100, and not a caller's, so `generate`
+  keeps two arguments.
+- **The orders have names**: `drawn`, `every_other`, `s_path` and `row_by_row`, where
+  this ticket says drawn, every other cell, alternating rows and row order.
+- **A draw's index** is the first reading: the binary64 product truncated. The worked
+  draw among three picks index 2.
+- **Which of two solutions is the grid**: the one with the lower digit at the first
+  position, row by row, where the two differ, and not the first the search found.
+- **A short seeding** takes `2k + 1` draws and is not put to the solver.
+- **No retry** to reach a tier's range.
+- Everything else agrees.
+
+Settled with the maintainer on 2026-10-03, before the first test:
+
+- **The specification binds and the paper cross-checks it.** The paper was fetched once
+  and read beside `generation.allium`: Table 1 and Table 2, the eleven givens of its
+  Section 5.2.1, the four sequences and their assignment in Table 7, and the two
+  restrictions. Each is as T31 wrote it down. Nothing was found that the module lacks.
+- **The tiers are `Tier::One` to `Tier::Five`.**
+
 ### The test list
+
+Written before any code, on 2026-10-03. One line a test: its name, and what it expects.
+Changes made while working it are under "Changes to the list" below.
+
+The orders (`src/generation/order.rs`):
+
+1. `row_by_row_is_every_position_once_a_row_at_a_time`: 81 positions, each once; it
+   begins (1,1), (1,2), (1,3) and step 10 is (2,1).
+2. `s_path_turns_at_the_end_of_each_row`: 81 positions, each once; steps 8 to 11 are
+   (1,8), (1,9), (2,9), (2,8).
+3. `every_other_takes_the_odd_steps_of_the_s_path_then_the_even`: 81 positions, each
+   once; it begins (1,1), (1,3), (1,5), (1,7), (1,9), (2,8), (2,6), (2,4), (2,2), (3,1);
+   the first 41 are the positions whose row and column sum to an even number; step 42
+   on is (1,2), (1,4), (1,6), (1,8), (2,9), (2,7).
+4. `each_tier_has_the_order_the_paper_assigns_it`: drawn for tiers 1 and 2, every other
+   for 3, the S path for 4, row order for 5.
+
+A choice among `n` (`src/generation/choice.rs`):
+
+1. `a_draw_of_zero_picks_the_first`: index 0 for every `n` from 1 to 81.
+2. `the_largest_draw_picks_the_last_and_never_n`: `1 - 2^-53` gives `n - 1` for every
+   `n` from 1 to 81.
+3. `the_index_is_the_binary64_product_truncated`: `6004799503160661 / 2^53` among 3 is
+   2, the binary64 reading, where exact arithmetic would say 1.
+
+Removal, on the fixture's solution, with no draw (`src/generation/removal.rs`):
+
+1. `removal_begins_from_the_whole_grid_and_the_first_visit_empties_its_position`.
+2. `a_removal_that_would_go_below_the_bound_is_refused`: row order, a bound of 78, no
+   floor: three positions go and every later visit is refused by the bound.
+3. `a_removal_that_would_leave_a_row_below_the_floor_is_refused`.
+4. `a_removal_that_would_leave_a_column_below_the_floor_is_refused`.
+5. `the_bound_is_read_before_the_floor`: a visit that breaks both is refused by the
+   bound.
+6. `a_given_whose_removal_gives_many_solutions_stays`.
+7. `a_given_whose_removal_keeps_one_solution_goes`.
+8. `every_position_is_visited_and_none_is_asked_about_twice`: all 81 visits run after
+   the bound is reached, and what was reached comes back.
+9. `removal_stops_at_the_first_draw_the_order_cannot_give`: the order's error is
+   carried out.
+
+The drawn order (`src/generation/order.rs`):
+
+1. `the_drawn_order_visits_each_position_once_whatever_the_draws`, by property.
+2. `scripted_draws_give_the_order_worked_out_by_hand`: the last of 81, the first of
+   80, the forty-first of 79, then zeros: (9,9), (1,1), (5,6), then row order.
+3. `the_drawn_order_takes_a_draw_for_every_visit_the_last_included`: 81 draws.
+4. `a_stream_that_runs_out_in_a_drawn_order_says_so`.
+
+The bound (`src/generation.rs`):
+
+1. `the_bound_is_drawn_within_the_tiers_range_fewest_first`: a draw of zero gives the
+   fewest and the largest draw the most, for every tier.
+2. `each_tier_says_its_figures`: the fifteen figures of config, and the number.
+3. `the_version_is_the_specifications`: `"generation-1"`.
+
+A grid attempt (`src/generation/grid.rs`):
+
+1. `scripted_draws_seed_eleven_givens_no_two_in_conflict`: a position among the empty
+   ones in row order, then a digit among those allowed, lowest first.
+2. `a_position_with_no_digit_left_ends_the_seeding_short`: `2k + 1` draws, no search.
+3. `eleven_givens_with_no_solution_fail_the_attempt`: 1 to 8 along row 1 and a 9 at
+   (2,9): 22 draws.
+4. `the_next_attempt_begins_after_a_failed_one`: the draws a failed attempt took stay
+   taken, and the grid is the second attempt's.
+5. `of_two_solutions_the_grid_is_the_lower_row_by_row`: eleven scripted givens for
+   which the search finds the higher grid first.
+6. `a_found_grid_is_full_and_holds_every_seeded_given`.
+7. `a_hundred_failed_attempts_are_a_refusal`: `GridAttemptsSpent { attempts: 100 }`,
+   and the draws taken are those of the hundred attempts and no more.
+8. `a_stream_that_runs_out_in_the_grid_says_so`: not a failed attempt.
+
+`generate`, inside the crate (`src/generation.rs`):
+
+1. `refusal_texts_are_stable`.
+2. `the_refusal_converts_from_the_solvers`: the one path for what cannot happen,
+   called directly with each `SolveError`.
+3. `the_refusal_converts_from_the_streams`.
+
+`generate` from outside (`tests/generation.rs`):
+
+1. `every_tier_gives_a_puzzle_that_keeps_the_guarantees`, by property over draws from
+   the fake: every given sits in the solution; `search` gives one and the same
+   solution; the count is at least the tier's fewest; every row and column holds the
+   floor; at most 80 givens.
+2. `the_same_draws_give_the_same_givens`, by property.
+3. `the_draws_taken_follow_from_the_grid_attempts_and_the_tier`: 23 draws for tiers 3
+   to 5 and 104 for tiers 1 and 2 when the first attempt finds a grid.
+4. `two_calls_on_one_stream_give_two_puzzles_and_the_index_replays_the_second`.
+5. `a_stream_that_runs_out_at_the_bound_says_so`, and in the grid and in a drawn
+   order, each at its draw.
+6. `spent_attempts_are_refused_with_the_count`.
+7. `a_puzzle_from_a_seed_opens_as_a_board_and_is_played_to_its_end`.
+8. `each_refusal_reads_as_its_text`.
+9. `a_stream_that_breaks_its_word_cannot_make_generate_panic`: draws of one and above,
+   below zero and NaN.
+10. `seed_zero_gives_the_pinned_puzzles`, the one test that drives `SeededStream`
+    for a pin: five literals beside `GENERATION_VERSION`.
+11. `a_hundred_seeds_fold_to_the_pinned_number`.
+12. `a_hundred_seeds_keep_the_guarantees_in_tier_n`, one for each tier: the figures
+    of step 8, printed and not asserted.
+13. `api_bounds.rs`: `Tier` and `GenerateError` in both bounds tests, `Tier` in the
+    serde test.
+
+#### Changes to the list
+
+Each made while working the list, with its reason.
+
+- **Added** `a_draw_the_boundary_forbids_still_picks_one_of_the_n` (`choice.rs`). The
+  acceptance criteria say `generate` cannot panic on any stream, and a stream of a
+  caller's own may give a draw outside `[0, 1)`; the index is held to the last of `n`.
+- **Added** `a_fixed_order_takes_no_draw_and_the_drawn_order_takes_them_all`
+  (`order.rs`), when the four orders were put behind one function: it holds that each
+  `Order` gives its own order and that only the drawn one reads the stream.
+- **Added** `any_draws_seed_givens_that_agree` (`grid.rs`), a property: the hand-worked
+  cases show three seedings, and "the givens never conflict" is said of all.
+- **Corrected** the second hand-worked seeding in
+  `scripted_draws_seed_eleven_givens_no_two_in_conflict`. The list expected 5 at (1,5)
+  after a 5 had been seeded at (5,5), in the same column. The code was right and the
+  expectation was wrong; the test now says why (1,5) takes 6 and (1,8) takes 9.
+- **Merged** the three stream-runs-out lines of `tests/generation.rs` into
+  `a_stream_that_runs_out_says_so_at_whichever_draw`: one table of five scripts read
+  better than three tests of one line each. The unit tests keep one for each part.
+- **Renamed** `a_puzzle_from_a_seed_opens_as_a_board_and_is_played_to_its_end` to
+  `a_generated_puzzle_...`: its draws come through the fake, as the convention asks, so
+  no seed is in it. The crate overview's doctest is the one that starts from a seed.
+- **Renamed** the third conversion test, first named for the boundary with an `s`
+  after it, to `the_refusal_converts_from_the_streams`: the `typos` hook rewrites the
+  first name.
+- **Struck** nothing.
+
+#### From clause to test
+
+Unit tests are under `crates/pawdoku/src/`, and the others in
+`crates/pawdoku/tests/generation.rs`. No snapshot test is in this table.
+
+| Clause | Test, or reason |
+| --- | --- |
+| `Tier`, config `tier_n_fewest_givens`, `tier_n_most_givens`, `tier_n_floor` (15) | `each_tier_says_its_figures` |
+| config `generation_version` | `the_version_is_the_specifications`; both pins name it |
+| config `random_version` | `seed_zero_draws_the_golden_stream` in `tests/random.rs`, before this ticket; both pins name it |
+| config `seeded_givens` | `scripted_draws_seed_eleven_givens_no_two_in_conflict` |
+| config `grid_attempt_limit` | `a_hundred_failed_attempts_are_a_refusal` |
+| config `box_side`, `side` | `box_side_is_three_and_side_is_its_square` in `sudoku.rs`, before this ticket |
+| config `step_budget`, `candidate_limit`, `catalogue_version` | Struck: the designed way's. The basic way reads none of them |
+| `index_among` | `a_draw_of_zero_picks_the_first`, `the_largest_draw_picks_the_last_and_never_n`, `the_index_is_the_binary64_product_truncated` |
+| `BeginGeneration`, `order_of`, `RemovalOrder` | `each_tier_has_the_order_the_paper_assigns_it` |
+| `OpenFirstGridAttempt` | `scripted_draws_seed_eleven_givens_no_two_in_conflict`: the first attempt takes the stream's first draws |
+| `SettleGridAttempt`, `drawn_seeding` | `scripted_draws_seed_eleven_givens_no_two_in_conflict`, `any_draws_seed_givens_that_agree` |
+| `SettleGridAttempt`, a short seeding | `a_position_with_no_digit_left_ends_the_seeding_short`, for its draws and for no grid coming of it. That no search is made is read from `found_grid`, which returns before `search`: a test cannot see a search that was made and discarded |
+| `SettleGridAttempt`, a verdict of none | `eleven_givens_with_no_solution_fail_the_attempt` |
+| `found_grid`, a verdict of many | `of_two_solutions_the_grid_is_the_lower_row_by_row` |
+| `found_grid`, `TheSolutionGridIsFull` | `a_found_grid_is_full_and_holds_every_seeded_given` |
+| `FollowGridAttempt`, another attempt | `the_next_attempt_begins_after_a_failed_one` |
+| `FollowGridAttempt`, refused; `GridAttemptsStayWithinTheLimit`; `EndsAreEarned`, refused | `a_hundred_failed_attempts_are_a_refusal`, `spent_attempts_are_refused_with_the_count` |
+| `FollowGridAttempt`, the bound; `TheBoundIsInTheTiersRange` | `the_bound_is_drawn_within_the_tiers_range_fewest_first` |
+| `BeginVisit`, `order_position` | `row_by_row_is_every_position_once_a_row_at_a_time`, `s_path_turns_at_the_end_of_each_row`, `every_other_takes_the_odd_steps_of_the_s_path_then_the_even`, `a_fixed_order_takes_no_draw_and_the_drawn_order_takes_them_all` |
+| `BeginVisit`, `nth_unvisited` | `scripted_draws_give_the_order_worked_out_by_hand`, `the_drawn_order_takes_a_draw_for_every_visit_the_last_included` |
+| `NoPositionIsVisitedTwice`, `VisitsAreNumberedOnce`, `RemovalIsBounded` | The three fixed-order tests, each once; `the_drawn_order_visits_each_position_once_whatever_the_draws`. A visit has no number in the code: its step is its place in the order |
+| `DecideVisit`, refused by the bound; `GivensStayAtOrAboveTheBound` | `a_removal_that_would_go_below_the_bound_is_refused`; by property, `every_tier_gives_a_puzzle_that_keeps_the_guarantees`, which works the bound out again |
+| `DecideVisit`, refused by the floor; `RowsAndColumnsKeepTheFloor` | `a_removal_that_would_leave_a_row_below_the_floor_is_refused`, `a_removal_that_would_leave_a_column_below_the_floor_is_refused`; by property, as above |
+| `DecideVisit`, the order of its ends | `the_bound_is_read_before_the_floor` |
+| `DecideVisit`, kept | `a_given_whose_removal_gives_many_solutions_stays` |
+| `DecideVisit`, emptied; `EmptiedPositionsStayEmpty`, `UnemptiedPositionsKeepTheirGiven` | `a_given_whose_removal_keeps_one_solution_goes`, `removal_begins_from_the_whole_grid_and_the_first_visit_empties_its_position`: each compares the whole set of givens left |
+| `FinishRemoval`; `EndsAreEarned`, finished; `EveryPositionOnce` | `every_position_is_visited_and_none_is_asked_about_twice` |
+| `GivensSitInTheSolutionGrid`, `GivensLeftAreWellPosed`, `OneSolutionAndItIsTheGrid`, `TheRestrictionsHold` | `every_tier_gives_a_puzzle_that_keeps_the_guarantees`, by property; `a_hundred_seeds_keep_the_guarantees_in_tier_1` to `_5` |
+| `OneSolutionAndItIsTheGrid`, handed to `SetPuzzle` | `a_generated_puzzle_opens_as_a_board_and_is_played_to_its_end` |
+| `AlwaysEnds` | The two properties and the five hundred-seed tests return; `spent_attempts_are_refused_with_the_count` is the other end. Its counts of solver calls, at most one an attempt and one a visit, are read from `found_grid` and `decide`, by inspection: the solver is a function, and no test counts its calls |
+| `DrawsInOrder` | `the_draws_taken_follow_from_the_grid_attempts_and_the_tier`, `any_draws_seed_givens_that_agree`, `spent_attempts_are_refused_with_the_count` |
+| `AStreamThatRunsOut` | `a_stream_that_runs_out_says_so_at_whichever_draw`, `a_stream_that_runs_out_in_the_grid_says_so`, `a_stream_that_runs_out_in_a_drawn_order_says_so`, `removal_stops_at_the_first_draw_the_order_cannot_give` |
+| `SameDrawsSameGivens` | `the_same_draws_give_the_same_givens`, `two_calls_on_one_stream_give_two_puzzles_and_the_index_replays_the_second`, `seed_zero_gives_the_pinned_puzzles`, `a_hundred_seeds_fold_to_the_pinned_number` |
+| `OnlyTheBoundary` | Reason: the module is `no_std` and names no source of chance but `RandomStream`; the same-draws property would fail on any other |
+| `ATierClaimsNothing` | Reason: nothing to run. The module has no rating, and `Tier`'s documentation says so |
+| `Generating` provides `Generate(tier)` | Every test of `generate` |
+| `GenerationResult` exposes | The tier is the caller's own; the status is `Ok` or `Err`; `draws_taken` is the stream's index after the call less its index before, `after.wrapping_sub(before)` since a `SeededStream`'s index wraps, in `the_draws_taken_follow_...`, which also begins one call at index 7; the givens are the proof's, in every test of `generate` |
+| The refusals' text | `refusal_texts_are_stable`, `each_refusal_reads_as_its_text` |
+| What cannot happen | `the_refusal_converts_from_the_solvers`, the conversion called directly |
+| The public types' bounds | `public_types_are_send_sync_and_static`, `public_types_are_clone_and_debug`, `streams_and_value_types_serialise_under_the_serde_feature` |
+| No panic on any stream | `a_stream_that_breaks_its_word_cannot_make_generate_panic`, `a_draw_the_boundary_forbids_still_picks_one_of_the_n` |
+
+**The 87 obligations of `just plan-spec generation`**, by kind, with an empty
+`diagnostics` array:
+
+| Kind | Count | Where |
+| --- | --- | --- |
+| `config_default` | 24 | The config rows above; three struck as the designed way's |
+| `rule_success`, `rule_failure`, `rule_entity_creation` | 14 | The rule rows above |
+| `invariant` | 13 | The invariant rows above |
+| `surface_*` | 4 | The two surface rows above |
+| `enum_comparable` | 2 | `Tier` and the private `Order` derive `PartialEq`; `each_tier_has_the_order_the_paper_assigns_it` compares both |
+| `transition_edge` | 9 | `Generation`: found, refused, finished, in the rule rows. `GridAttempt`: failed and found. `Visit`: its four ends, `DecideVisit`'s rows |
+| `transition_rejected`, `transition_terminal` | 6 | Struck: the module excludes how a generation is stored. No status is kept, so none can be moved wrongly: `generate` returns at an end, a grid attempt is a function's result, and `Decision` is made once for a visit. The tests of the ends stand in |
+| `entity_fields`, `entity_relationship`, `when_presence`, `projection`, `derived` | 15 | Struck, for the same reason: `Generation`, `GridAttempt` and `Visit` are not stored. The observable results stand in: the givens and the solution of the proof, the count of draws, and `every_position_is_visited_and_none_is_asked_about_twice` for `is_due_a_visit` and `is_fully_visited` |
+
+#### The breaks
+
+Every test was first seen to fail against a stub, but for those that arrived green with
+code an earlier line asked for. So the code was then broken on purpose, one way at a
+time, and `just test` run. Each break failed at least the tests named; the run stops at
+the first failures, so later tests that would also fail are not listed.
+
+| Break | A test that failed |
+| --- | --- |
+| The grid is the first solution found, not the lower | `of_two_solutions_the_grid_is_the_lower_row_by_row` |
+| The index is not held to the last of `n` | `a_draw_the_boundary_forbids_still_picks_one_of_the_n` |
+| The S path visits row by row | `a_fixed_order_takes_no_draw_and_the_drawn_order_takes_them_all` |
+| A hundred and one grid attempts | `a_hundred_failed_attempts_are_a_refusal` |
+| Removal stops when it reaches the bound | `every_position_is_visited_and_none_is_asked_about_twice` |
+| The floor is off by one | The row and the column floor tests |
+| The refusal's text changed | `refusal_texts_are_stable` |
+| The digit's draw taken when no digit is left | `a_position_with_no_digit_left_ends_the_seeding_short` and two more |
+| The bound not read before the floor | `the_bound_is_read_before_the_floor` and two more |
+| The bound drawn before the grid | `the_draws_taken_follow_...`, both pins, `spent_attempts_are_refused_with_the_count` and two more |
+| Emptied on many and kept on one | Seven tests of `removal.rs` |
+| The drawn order skips its last draw | Five tests of `order.rs` |
+| The solver's refusal not carried as its own text | `the_refusal_converts_from_the_solvers` |
+| The bound counted from the most | `the_bound_is_drawn_within_the_tiers_range_fewest_first` |
 
 ### Names later tickets need
 
+All in `pawdoku::generation`.
+
+```rust
+pub const GENERATION_VERSION: &str = "generation-1";
+
+#[non_exhaustive]
+pub enum Tier { One, Two, Three, Four, Five }
+// Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash; serde under the feature.
+
+impl Tier {
+    pub const fn number(self) -> u8;            // 1 to 5
+    pub const fn fewest_givens(self) -> usize;  // 51, 36, 32, 28, 22
+    pub const fn most_givens(self) -> usize;    // 60, 49, 35, 31, 27
+    pub const fn floor(self) -> usize;          // 5, 4, 3, 2, 0
+}
+
+#[non_exhaustive]
+pub enum GenerateError {
+    Stream(RandomError),                   // #[from], transparent
+    GridAttemptsSpent { attempts: u32 },
+    NotProved(SolveError),                 // #[from], transparent
+}
+// Debug, Clone, PartialEq, thiserror::Error. Not Eq: RandomError holds an f64.
+
+pub fn generate(tier: Tier, stream: &mut dyn RandomStream) -> Result<WellPosed, GenerateError>;
+```
+
+- **The refusals' text.** `Stream` reads as the `RandomError` it carries, for the fake
+  `the replay stream is exhausted at draw {index}`. `GridAttemptsSpent` reads
+  `no solution grid was found in 100 grid attempts`. `NotProved` reads as the
+  `SolveError` it carries, and no input reaches it.
+- **The proof's shape.** Removal asks `solver::search` for each verdict, and the givens
+  left go to `solver::solve` once, at the end. This is the first of the two shapes the
+  ticket offers. It leaves no line that no input reaches: what cannot happen is one `?`
+  into `NotProved`, and the conversion is tested directly. The other shape needs a place
+  for "no proof yet" that is never empty at the end, and runs the proof constructor's
+  whole check up to 81 times.
+- **Both enums are `#[non_exhaustive]`**, read by inspection: `generation.rs` lines 122
+  and 255.
+- **The proof's constructor has one caller outside test code**, read by inspection:
+  `src/solver.rs` line 198. Every other `vouch(` under `src/` is in `sudoku`'s tests and
+  its test fixture.
+- **`src/generation` names `crate::sudoku`, `crate::solver` and `crate::random`** and no
+  other engine module, read by search; `just metrics` holds the rule.
+- **A tier's order of removal is not public.** It is `Tier`'s private `order()`.
+- **A count is a `usize`**, so it compares with `proof.givens().len()` as it is.
+- **`Tier` has an order**, by number, so that it can key a map. It claims nothing.
+- **Inside the module**, for T20: `choice::index_among(u, n)`; `order::visits(order,
+  stream)`, which gives positions one at a time and is the only thing that draws
+  during removal; `grid::draw_grid(stream)`; and `removal::remove(solution, visits,
+  limits)`, which draws nothing and takes any order.
+
+**Every public item beside its doctest.**
+
+| Item | Its example asserts |
+| --- | --- |
+| The module | A puzzle from seed 7 in tier 5 has at least the tier's fewest givens, and each is the solution's digit |
+| `GENERATION_VERSION` | It is `"generation-1"` |
+| `Tier` | Tier 2's number, range and floor |
+| `Tier::number` | 1 and 5 |
+| `Tier::fewest_givens` | 22 for tier 5 |
+| `Tier::most_givens` | 27 for tier 5, and how a result is held against its range |
+| `Tier::floor` | 5 and 0 |
+| `GenerateError` | A script of five draws is refused with the boundary's error and reads as its text |
+| `generate` | A puzzle is made and set; a second call on the stream begins at index 23 and gives another; the seed from index zero gives the first again |
+| The crate overview | A puzzle from a seed is opened as a board, played one cell and checked |
+
 ### Snapshots taken
+
+Six files under `crates/pawdoku/tests/snapshots/`, each read before it was staged. No
+earlier snapshot changed.
+
+- `snapshots__tests__snapshot_the_puzzle_seed_zero_gives_in_tier_1.snap` to `..._5.snap`:
+  the givens as a grid, the solution as a grid, and the count of givens beside the
+  tier's range. They hold solutions on purpose.
+- `snapshots__tests__snapshot_the_generators_refusals.snap`: the `Display` text of the
+  three refusals, each made by hand.
 
 ### What the yardstick gives
 
+Seeds 0 to 99, each a fresh `SeededStream`, in each tier, from
+`a_hundred_seeds_keep_the_guarantees_in_tier_1` to `_5`, which assert the guarantees and
+print these figures. Read on 2026-10-03 with `NEXTEST_SUCCESS_OUTPUT=immediate just test`.
+
+| Tier | Fewest givens | Most givens | Within the tier's range | Most grid attempts |
+| --- | --- | --- | --- | --- |
+| 1 | 51 | 60 | 100 of 100 | 1 |
+| 2 | 36 | 49 | 100 of 100 | 1 |
+| 3 | 32 | 35 | 100 of 100 | 1 |
+| 4 | 28 | 31 | 100 of 100 | 1 |
+| 5 | 22 | 28 | 98 of 100 | 1 |
+
+- **No grid attempt failed.** Every seed took 104 draws in tiers 1 and 2 and 23 in tiers
+  3 to 5, which is one attempt. Three hundred further seeds, tried while looking for the
+  two-solution case, gave no short seeding and no seeding without a solution either.
+  Nothing here is a reason to move `grid_attempt_limit`.
+- **The source paper** reports every attempt succeeding for its level 5 under row order;
+  here 98 of 100 met the range, and the two that did not ended at 28 givens.
+- **Of the 300 further seeds, 13** had the solver find the higher of two grids first, so
+  the rule for which solution is the grid decides about one grid in twenty-three.
+
 ### What was verified, and how
+
+On 2026-10-03, in the supplied Supacode worktree, from `19473d7`.
+
+- **Before any edit.** `just check` ended
+  `All checks passed and the worktree is unchanged.` `just test`, warm: 250 tests in
+  0.86 s by nextest's summary, 2.1 s in all.
+- **`just plan-spec generation`**: 87 obligations and an empty `diagnostics` array.
+- **`just fmt-check`**, **`just clippy`**: exit 0, no warning.
+- **`just metrics`**: `Quality score: 100.0% (702 functions analyzed)`, no finding.
+- **`just test`**: `309 tests run: 309 passed, 0 skipped`, then 121 doctests and the one
+  `compile_fail`. Warm: 1.0 s by nextest's summary, 2.4 s in all, 0.3 s more than
+  before. The slowest new test takes 0.4 s.
+- **`just snapshots-check`**: `no unreferenced snapshots found`, `no snapshots to review`.
+- **`just wasm-check`**, **`just features`**: exit 0, both targets and both feature sets.
+- **`just coverage`**: total lines 99.83 per cent. `generation.rs` 100, `choice.rs` 100,
+  `order.rs` 100, `removal.rs` 100, `grid.rs` 99.56: its one missed line is a test's own
+  `panic!` for givens that turn out not to have two solutions.
+- **`just doc`**, **`just check-docs`**: exit 0; `Validated 42 pages and 43 canonical topics.`
+- **`just check`**: `All checks passed and the worktree is unchanged.`
+- **The paper**, fetched once with the maintainer's leave and read beside the module.
 
 ### Deviations, and why
 
+- **The branch is `ticket/T32-basic-generator`**, as Supacode named it, and not
+  `ticket/t32-basic-generator`.
+- **The loops were by part, not by line.** Each part's tests were written first and seen
+  to fail against a stub that compiled, then its code written: the three fixed orders
+  one at a time, then the choice, removal (the bound and the verdict, then the floor),
+  the drawn order, the tiers and the bound, the grid, and `generate`. Within a part
+  several lines went red and green together. The breaks above cover what arrived green.
+- **Seven tests drive `SeededStream`, not one.** The two pins, and the five that step 8
+  asks for over seeds 0 to 99. `docs/reference/testing.md` names all seven.
+- **`index_among` holds its result to the last of `n`.** The specification says a draw
+  is in `[0, 1)` and does not say what a draw outside it chooses; the trait cannot stop
+  a caller's own stream giving one, and this ticket says `generate` cannot panic. For
+  every draw the specification speaks of, nothing changes.
+- **The one `#[expect]` names three lints**, on the one expression that turns a draw
+  into an index: `n` goes to `f64` and the product comes back.
+- **`tests/generation.rs` is a `#[cfg(test)] mod tests`**, as `tests/snapshots.rs` is,
+  so that clippy's leave to `unwrap` in tests reaches its helpers.
+- **The figures of step 8 were read with `NEXTEST_SUCCESS_OUTPUT=immediate just test`**,
+  which makes nextest show what a passing test prints. No recipe was added.
+- **A temporary test** tried 300 seeds for a seeding whose higher solution is found
+  first. Its givens are now a literal in `grid.rs`, and the temporary test is gone.
+- **`crates/pawdoku/README.md`** gained a clause: the page lists what the crate holds.
+- **Nothing was pushed.**
+
+- **Paths T33 also edits.** This ticket edited `CHANGELOG.md` and
+  `docs/project/repository-map.md`, which T33 edits too. As this ticket's Open points
+  say, each edit is a row or a sentence, and whichever pull request merges second
+  merges `main` first.
+- **A Codex adversarial review was run on 2026-10-03**, at the maintainer's request,
+  over the two commits, and answered in a third. It found no defect in the code and
+  seven in the tests and the words; all seven were taken.
+  1. The guarantees property unwrapped a puzzle, and a script of a hundred short
+     seedings is refused. It now takes that refusal as a right end and no other.
+  2. No test can see how often the solver is asked, so "a short seeding is not searched"
+     and the call counts of `AlwaysEnds` were claimed and not proved. The table above
+     and `docs/reference/testing.md` now say they are read from the code. Making them
+     testable would put the solver behind a parameter, which decision 0014 decided
+     against.
+  3. The stream-runs-out tests read the fake's index, which does not move on a second
+     asking. `a_stream_that_runs_out_says_so_at_whichever_draw` now counts the askings,
+     and `removal_stops_at_the_first_draw_the_order_cannot_give` counts the visits asked
+     for.
+  4. The fixed orders were held at their ends and turns only. Each is now compared, all
+     81 steps, with the order written out in the test a row at a time.
+  5. `Tier`'s documentation said the count of givens is bounded within the range. It
+     is the bound that is drawn within it.
+  6. `generate`'s documentation said a stream already drawn from gives another puzzle.
+     It gives other draws, and a stream that repeats itself gives the same puzzle.
+  7. `draws_taken` is counted from where the stream stood, not from zero. The table
+     says so, `generate`'s documentation says how to read it, and the test begins one
+     call at index 7.
+
+  With it, the second assertion of `Tier::most_givens`'s doctest, which could not fail,
+  was replaced by one that can.
+
+- **Copilot's review of pull request 37**, on 2026-10-03, recommended approval with
+  one finding, which was taken: a `SeededStream`'s index wraps past `u64::MAX`, so the
+  draws a call took are `after.wrapping_sub(before)` and not a plain subtraction.
+  `generate`'s documentation and the `GenerationResult` row above now say so. Nothing
+  in the code changed: `generate` reads no index.
+
 ### Handed back
+
+Triggers this ticket meets, none built here.
+
+- **S08's control arm.** Removal in a drawn order now exists in Rust, as tiers 1 and 2,
+  with a bound and a floor and without `Rate`. `removal::remove` takes any order and any
+  limits, so a control with no bound and no floor is `Limits { bound: 0, floor: 0 }`.
+- **T15 to T17**, the bindings and the command line. `generate` is the first entry that
+  needs the randomness boundary carried across: it takes a `&mut dyn RandomStream`, and
+  a caller that wants replay records the stream's index beside the seed.
+- **T14**, the mutation job. The fourteen breaks above are a hand-made sample of it.
+- **S03's benchmark recipe.** One `generate` for each tier is a natural benchmark; a
+  hundred of them take 0.1 s to 0.4 s under the test profile.
+- **T20.** The designed way can reuse `grid::draw_grid` for its solution grid and
+  `choice::index_among` for its draws as they are. `removal::remove` is one position at
+  a time and accepts on the verdict alone, so the designed way reuses its shape, an
+  order handed in and a decision for each visit, and not the function.
+- **`grid_attempt_limit`.** T31 said this ticket's measurement may move it. No attempt
+  failed in 800 seeds, so 100 is far above what is used and nothing argues for another.
+- **`human-solving.allium`'s `floor(u*n)`**, as T31 handed back: `index_among` here is
+  the binary64 reading, private to `generation`. If that module chooses the other, the
+  two differ.
 
 ## Open points
 
