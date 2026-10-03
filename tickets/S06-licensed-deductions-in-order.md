@@ -319,6 +319,10 @@ Sentences the proposal changes:
 | `lapse:57-60` | "Which of several equal deductions is taken, which of several equally preferred cells is guessed in, and which of that cell's marks is tried." | Reworded, not removed: the list settles the first of the three ties only. |
 | `lapse:288`, `lapse:305-306` | as `reach:238`; "chosen and filter are the black boxes reach.allium reads" | As reach's line. The comment names `solver.allium`'s black box directly, since reach no longer reads it. |
 
+The table gives the change as it holds for the first twelve techniques. Past them the
+three Excludes sentences are narrowed and not removed, as step 7 says: deductions
+equal in the order stay the implementation's until their witnesses are ordered.
+
 Not changed: `solver.allium` (its `chosen`, `solver:174-176`, loses three uses, one in
 each model's `Look`; reach and effort no longer read it, and lapse still does for the
 two ties of a guess, `lapse:289` and `lapse:339`); `SameGridSameDeductions`, `SameInputSameRun`, `SameInputSamePrice` and
@@ -761,7 +765,7 @@ output is a set of strikes.
 | Ranks | Techniques | Witnesses at most | Entries at most | Reads the limits |
 | --- | --- | --- | --- | --- |
 | 13-15 | fish | 648; 1,512; 2,268 | the same | no |
-| 16-18 | xy_wing, xyz_wing, w_wing | 15,390; 15,390; 262,440 | 3,240; 15,390; 4,860 | no |
+| 16-18 | xy_wing, xyz_wing, w_wing | 15,390; 15,390; 262,440 | 3,240; 15,390; 131,220 (4,860 if a target need only be outside the two matching cells) | no |
 | 19-21 | skyscraper, two_string_kite, empty_rectangle | 648; 2,916; 8,748 | 648; 2,916; 729 | no |
 | 22 | simple_colouring | 360 components | 1,080 | no |
 | 23 | remote_pair | every chain of `{a,b}` cells: about 10 million on a true grid with 17 or more placed, 4e32 on any state | at most one for each set of chain cells, under 800,000 on a true grid: not bounded by anything small, as written | `max_chain_links` |
@@ -785,7 +789,13 @@ xy_wing and xyz_wing; a pair of cells that are not peers, a digit and a unit for
 w_wing; and so on), and for the chains the unit is one implication inspected. For
 ranks 13 to 22, 28 and 29 the size of the grid fixes the patterns and neither limit
 enters: at most 177,402 patterns a look, of which w_wing is 131,220, and at most
-35,236 entries. Both are loose, and the first counts a colouring component and a
+161,596 entries. The entry figure was first given as 35,236, on the argument that a
+w_wing's strikes are fixed by its two matching cells and the digit struck. Under the
+reading taken in "Step 5, extended", where a target is outside all four cells of the
+witness, that is false: at look 47 of `norvig_hardest_04` the cells r5c5 and r9c6,
+both holding 6 and 9, strike 9 at r7c5 and r9c5 through the conjugate pair in row 2,
+and at r9c5 alone through the pair in row 7. So w_wing's entries are bounded by its
+deductions, 131,220, until what a target excludes is settled. Both are loose, and the first counts a colouring component and a
 bug_plus_one candidate as one pattern each: their inner tests, at most 59,049 pairs
 of cells for colouring, are not in it.
 
@@ -824,15 +834,24 @@ Those search bounds stand on three readings the specification does not yet state
    covers units, cells and digits. A variable load "is the number of distinct candidate
    propositions in the proof" (`technique:598-599`) and `holds` hides by load, so the
    witness kept must be one of least load or an entry is hidden from a player who
-   could hold it. "Fewest links, then the least list of literals" is that witness for
-   one chain and is found from the same pass. For forcing_chain's several paths the
-   least load is not argued.
+   could hold it. A proof of fewest links is not that witness once a chain may pass
+   through a candidate twice: load counts distinct candidates, not links. At look 28 of
+   `study_advanced` under the wider profile, the closure that places 4 at r2c8 has a
+   shortest proof of 9 links over 9 candidates and a longer one of 11 links over 8
+   (found by the Codex review of these notes; the longer path is sound link by link
+   but was not re-derived here). So the least-load witness is not argued for any
+   chain. Where a chain may not repeat a candidate, links and candidates rise
+   together and the fewest links would do, but there the search bound of reading 1
+   is the one not argued. Until this is settled, the profile must hide before a
+   witness is chosen, as (b) already requires.
 
 So, of the two outcomes the acceptance criterion allows: both bounds are argued for
 ranks 13 to 22, 28 and 29, on paper alone; for ranks 23 to 27 they are not argued as
-the specification stands, and the recommendation is limited to the ranks outside 23
-to 27 until the three are settled. For ranks 1 to 12 it rests on measurement and bound
-together. One smaller gap met on the way: whether simple_colouring's wrap and trap
+the specification stands. By the letter of the criterion the recommendation is
+therefore limited to ranks 1 to 12, where it rests on measurement and bound together.
+What is known past them is recorded as evidence for widening it and not as part of
+it: ranks 13 to 22, 28 and 29 are bounded here and measured below, and ranks 23 to 27
+wait on the three readings. One smaller gap met on the way: whether simple_colouring's wrap and trap
 are one deduction or several.
 
 **Step 5, extended. Ranks 13 to 22, 28 and 29, measured.** After the first commit of
@@ -863,7 +882,7 @@ and with no target there is no deduction.
 | 28 | unique_rectangle_type_1 | only when `uniqueness_promised`: four open cells at the crossings of two rows and two columns, lying in exactly two boxes; three have exactly {a,b}; the fourth allows both a and b and at least one more digit | strike a and b from the fourth (one strike, digits [a,b]) | the four cells; [a,b] sorted; [index of the fourth] |
 | 29 | bug_plus_one | only when `uniqueness_promised`: every open cell has exactly two candidates except one cell T with exactly three; and a digit d of T such that, with d removed from T, every unit has exactly two places for every digit unplaced in it | place d in T | [T]; [d]; [] |
 
-Four readings were taken where the specification is open. Each is provisional and is
+Two readings were taken where the specification is open. Each is provisional and is
 flagged for the follow-up, not settled:
 
 - **A target is outside the pattern's own cells.** "Other cells" is read as excluding
@@ -872,10 +891,14 @@ flagged for the follow-up, not settled:
 - **simple_colouring's wrap and trap are separate deductions,** one trap for each
   component and one wrap for each label that has two nodes seeing each other; a
   component that cannot be two-coloured licenses nothing.
+
+Two more points are not open: they are what the specification says, and are recorded
+as cases a build must get right.
+
 - **The two ways round a w_wing are one deduction** (`technique:914-915`); swapping the
   two digits is another (`technique:934-935`).
-- **An xy_wing's wings may see each other.** `technique:928` says "two peer wings" and
-  asks nothing more of them.
+- **An xy_wing's wings may see each other.** `technique:928-931` asks only that each
+  wing be a peer of the pivot.
 
 The witness gains a third part past rank 12, the role in the table's last column, a
 list of integers compared after the cells and the digits, so that no two deductions of
@@ -962,8 +985,8 @@ What the figures say:
 
 - **The list barely grows.** The twelve techniques add at most 24 entries at any look
   and 59,372 over all looks, about five a look; the whole list is 28.7 entries at a
-  typical look and at most 145. The paper bound of 35,236 entries is looser than the
-  measurement by three orders of magnitude.
+  typical look and at most 145. The paper bound of 161,596 entries is looser than the
+  measurement by almost four orders of magnitude.
 - **The whole list becomes dear, by this count.** 51,278 patterns a look against 2,263
   for ranks 1 to 12, and 96% of them belong to the twelve techniques: w_wing alone is
   59% and empty_rectangle 17%. Both are artefacts of counting every choice before
@@ -1011,9 +1034,11 @@ sudokuwiki_unsolvable_28 stalled 2 5 12 10 3 302013 101786
 sudokuwiki_unsolvable_49 stalled 0 0 0 0 0 100279 100279
 ```
 
-So for ranks 13 to 22, 28 and 29 the recommendation now rests on measurement as well
-as on the paper bound, under the four readings above. Ranks 23 to 27 are as they
-were.
+So for ranks 13 to 22, 28 and 29 there is now measurement as well as a paper bound,
+under the two readings above, and the maintainer may widen the recommendation to them
+once those two are settled. Ranks 23 to 27 are as they were. The two programs share
+these definitions, so their agreement shows that each implements them and says
+nothing of whether the readings are right.
 
 **Step 6. The table of models, and the verdict.**
 
@@ -1026,15 +1051,16 @@ were.
 
 Against the four criteria:
 
-1. **The list is the same every time.** Met for ranks 1 to 12, and for ranks 13 to 22,
-   28 and 29 with the role added to the witness; for ranks 23 to 27 the order by
-   rank and output is total over entries, and which witness an entry keeps waits on an
-   order on proofs. The order is total by construction, the
+1. **The list is the same every time.** Met for ranks 1 to 12. It was also so for ranks
+   13 to 22, 28 and 29 once the role was added to the witness, which the specification
+   does not yet have. For ranks 23 to 27 the order is not total over deductions: two
+   proofs of one output are equal in it until proofs are ordered. For ranks 1 to 12
+   the order is total by construction, the
    prototype gave the same steps twice on all 226 grids, and two programs written apart
    gave the same list on 4,205 states.
 2. **It is short enough to draw up at every look.** Met for ranks 1 to 12: at most 188
    entries and 6,683 patterns measured, against a bound of 9,691. Met for ranks 13 to
-   22, 28 and 29 under four provisional readings: they add at most 24 entries a look,
+   22, 28 and 29 under two provisional readings: they add at most 24 entries a look,
    and at most about 111,500 patterns by a count that prunes nothing, against a bound
    of 177,402. Not argued for ranks 23 to 27 until the three readings of step 5 are
    settled.
@@ -1075,8 +1101,9 @@ order. The text is proposed; the checker and the skill shape the final form.
 
 *`technique.allium`.*
 
-- Excludes, `technique:55-56`, becomes: "How a grid is stored and how deductions are
-  found quickly."
+- Excludes, `technique:55-56`, becomes: "How a grid is stored, how deductions are found
+  quickly, and, past the first twelve techniques, the order of deductions that share a
+  technique and an output."
 - Beside `Grid.deductions`, a statement of the order:
 
   ```text
@@ -1086,10 +1113,20 @@ order. The text is proposed; the checker and the skill shape the final form.
   -- their positions and digits, position by position; then by witness: the
   -- kind of unit (none, row, column, box), its index, the cells and the
   -- digits. No two deductions of the first twelve techniques are equal in
-  -- it. Past them two proofs of one output are told apart only once an
-  -- order on proofs is stated (open question below).
+  -- it. Past them, deductions of one technique and output are equal in it
+  -- until the witness of each technique is ordered (open questions below).
   in_order: ordered(deductions)
+
+  -- first is a black box: the least of the collection in this order; where
+  -- several are equal in it, one of them, the same whenever the collection
+  -- is the same, and which is the implementation's. For the first twelve
+  -- techniques no two are equal, so there it leaves nothing open.
   ```
+
+  The guarantee is therefore normative for ranks 1 to 12 alone. Past them the models
+  keep, among deductions equal in the order, the freedom they have today, and each
+  family loses it when its witness is ordered: by the role of "Step 5, extended" for
+  ranks 13 to 22, 28 and 29, and by an order on proofs for ranks 23 to 27.
 
 - A value for what a caller reads, and the list:
 
@@ -1127,10 +1164,9 @@ order. The text is proposed; the checker and the skill shape the final form.
   twice, and what x_chain's and xy_chain's minimums count; what remote_pair's output
   is; the order on paths and which witness `holds` reads. Until they are answered the
   witness order is stated for ranks 1 to 12 and the order by rank and output for every
-  rank. Four more are the readings of "Step 5, extended" (what "other cells" excludes;
-  whether a colouring's wrap and trap are one deduction; the two ways round a w_wing;
-  whether an xy_wing's wings may see each other), with the role that orders witnesses
-  past rank 12. The last: what full_unit and the hidden subsets license on a grid that
+  rank. Two more are the readings of "Step 5, extended" (what "other cells" excludes,
+  on which w_wing's entries depend; whether a colouring's wrap and trap are one
+  deduction), with the role that orders witnesses past rank 12. The last: what full_unit and the hidden subsets license on a grid that
   contradicts itself, which `lapse.allium` can reach. On a unit with one open cell and
   a repeated digit the prototype and the independent search read full_unit
   differently, and where a hidden subset's digits have fewer places than digits the
@@ -1138,7 +1174,8 @@ order. The text is proposed; the checker and the skill shape the final form.
 
 *`reach.allium`.*
 
-- Excludes, `reach:41-43`, goes.
+- Excludes, `reach:41-43`, is narrowed to deductions equal in `technique.allium`'s
+  order, which the first twelve techniques never are.
 - `reach:238` becomes `let taken = first(filter(run.grid.in_order, x =>
   run.is_preferred(x)))`; the comment at `reach:236-237` says that `first` of nothing
   is nothing, and the one at `reach:244-246` describes `first` and `filter`.
@@ -1147,13 +1184,13 @@ order. The text is proposed; the checker and the skill shape the final form.
   what a systematic one takes; is `unsystematic` kept for the players a fixation
   distinguishes, or dropped?
 
-*`effort.allium`.* Excludes, `effort:44`, becomes "Chance."; `effort:185` takes the
+*`effort.allium`.* Excludes, `effort:44`, is narrowed as reach's is; `effort:185` takes the
 first in order of the cheapest eligible, and the comments at `effort:180` and
 `effort:191-193` follow it. `effort:316` stays open and gains a sentence:
 the order now says which of the equally cheap is taken.
 
-*`lapse.allium`.* Excludes, `lapse:57-60`, keeps the two ties of the guess and loses
-the first clause; `lapse:288` as reach's line; the comment at `lapse:305-306` names
+*`lapse.allium`.* Excludes, `lapse:57-60`, keeps the two ties of the guess and narrows
+the first clause as reach's is; `lapse:288` as reach's line; the comment at `lapse:305-306` names
 `solver.allium`'s `chosen` directly.
 
 *Not changed:* `solver.allium`, `human-solving.allium`, `generation.allium`.
@@ -1187,14 +1224,15 @@ estimated_size: M
 > deductions costs nothing measurable for ranks 1 to 12: at most 133 entries and 6,683
 > patterns examined a look over 226 grids. Its bounds are argued for every rank but 23
 > to 27, which wait on open questions this ticket adds; ranks 13 to 22, 28 and 29 were
-> also measured, under four readings this ticket adds as open questions. No technique, catalogue or model exists in
+> also measured, under two readings this ticket adds as open questions. The order is
+> made normative for ranks 1 to 12 only. No technique, catalogue or model exists in
 > `crates/pawdoku/src` yet, so the change is to the specifications and to one
 > explanation page.
 >
 > **Goal.** `technique.allium` states the order over a grid's deductions, the entry and
 > the list a profile sees, as S06's step 7 proposes; `reach`, `effort` and `lapse` take
 > the first in that order of what each prefers; the sentences that left the choice
-> among deductions to the implementation are gone. `just check-specs` and `just check` are green.
+> among deductions to the implementation are narrowed to ranks past 12. `just check-specs` and `just check` are green.
 >
 > **Non-goals.** Rust. Dropping `Order`, `Fixation` or any model. Changing which
 > deduction `effort` prefers. Answering the three open questions on chains: they are
@@ -1217,14 +1255,16 @@ estimated_size: M
 >    beginner study puzzle the first entry is cross_hatch placing 6 at r1c9, and
 >    cross_hatch and hidden_single each keep an entry for that placement.
 >
-> **Acceptance criteria.** No specification says a tie among deductions is the
-> implementation's. The order is stated so that no two deductions of ranks 1 to 12 are
-> equal, and says what waits on an order on proofs. The list is drawn from what the
-> profile sees, with repeats removed after.
+> **Acceptance criteria.** For the first twelve techniques no specification leaves a
+> tie among deductions to the implementation, and the order is stated so that no two
+> of their deductions are equal. Past them each specification says that only
+> deductions equal in the order are still the implementation's, and what would order
+> them. The list is drawn from what the profile sees, with repeats removed after.
 >
 > **Verification.** `just check-specs` and `just check`, both green; and
 > `rg -n "equal deductions|equally preferred deductions|equally cheap deductions|tied deductions" docs/specs/ docs/explanation/puzzle-design.md`,
-> which finds six lines today and nothing after.
+> which finds six lines today; after the change each line it finds speaks only of
+> deductions equal in the order.
 >
 > **Open points.** Whether `unsystematic` is kept. Whether fixation reads an entry's
 > witness or its output. Whether the effect of applying a deduction is stated once in
@@ -1571,6 +1611,11 @@ Four of the five are as expected. The `ls` is not, for the reason under Deviatio
   and that `effort` needs the deductions a profile does not see, so the proposal
   orders deductions and derives the entries. For the pinned profile the two are the
   same list.
+- **A Codex review of both commits was asked for and answered** on 2026-10-03. Its five
+  findings were checked and all five held: the order is made normative for ranks 1 to
+  12 only; w_wing's entry bound is corrected; the claim that fewest links is least
+  load is withdrawn; the advice on stopping at the first rank is scoped; two of four
+  "readings" are restated as what the specification says.
 - **Ranks 13 to 22, 28 and 29 were built and measured,** where step 4 asks for ranks 1
   to 12 and step 5 for paper. The maintainer asked for it on 2026-10-03, after the
   first commit, and chose that the open readings be picked, stated and flagged. The
@@ -1599,9 +1644,13 @@ Four of the five are as expected. The `ls` is not, for the reason under Deviatio
   separately authorised install.
 - **To S08:** the order its draw indexes into is the list's, and under the pinned
   profile only the first is ever taken by a run forward.
-- **To whoever builds the catalogue in Rust:** take the first by stopping at the first
-  rank that yields; drawing up the whole list costs eleven times as much and is for
-  callers that show it.
+- **To whoever builds the catalogue in Rust:** for a systematic, unfixed run, and only
+  after the profile has hidden what it hides, the first is found by stopping at the
+  first rank that yields. Drawing up the whole list cost eleven times as many patterns
+  under ranks 1 to 12 and sixty-three times as many under the wider profile, and is
+  for callers that show it. The rule does not serve the other consumers: `effort`
+  takes the cheapest across ranks, and a fixation in an unsystematic player can
+  prefer a later rank.
 
 ### Open points settled
 
