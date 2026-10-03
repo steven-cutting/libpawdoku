@@ -54,11 +54,12 @@ none is picked up before T11.
 | S02 | Spike: release and publishing, cargo-release or release-plz, crates.io, lifting publish = false | `S02-release-and-publishing.md` | T11 | done |
 | S03 | Spike: benchmarks, fuzzing and mutation testing | `S03-bench-fuzz-mutants.md` | T11 | done |
 | S04 | Spike: bindings and CLI groundwork, pawdoku-cli, pawdoku-py, pawdoku-wasm | `S04-bindings-and-cli.md` | T11, T06 | done |
-| S06 | Spike: one ordered list of licensed deductions, and a run that takes the first | `S06-licensed-deductions-in-order.md` | T19 | open |
+| S06 | Spike: one ordered list of licensed deductions, and a run that takes the first | `S06-licensed-deductions-in-order.md` | T19 | done |
 | S07 | Spike: undoing a deduction, technique by technique | `S07-undoing-a-deduction.md` | S06 | open |
 | S08 | Spike: removal by undoing deductions, against removal and a rating | `S08-removal-by-undoing.md` | S06, S07 | open |
 | S09 | Spike: code-quality metrics as a gate, module boundaries, complexity, coupling and cohesion | `S09-code-quality-metrics.md` | T11 | done |
 | S10 | Spike: prose pages, diagrams and raw HTML inside rustdoc | `S10-pages-and-diagrams-in-rustdoc.md` | T11 | done |
+| S11 | Spike: the chain techniques, ranks 23 to 27: what a chain is, what is listed and what capacity hides | `S11-chain-techniques.md` | S06 | open |
 
 Centralisation recommendations. Each is written to be picked up on its own and touches
 another repository, so every step in it is separately authorised.
@@ -88,12 +89,15 @@ T12, T22 ── T23 ── T24 ── T29 ── T25 ──┬── T26 ── 
 T19 ── T31 ── T32 (also after T28)   (the basic generator: its specification, then its Rust)
 T11 ──┬── T33   (the API reference on GitHub Pages)
       └── S10   (pages and diagrams inside rustdoc; its follow-up needs T33)
+S06 ── S11   (the chain techniques S06 could not argue; beside S07 and S08)
 ```
 
 The graph is acyclic: D01, then D02, then T00, then nine parallel lanes, then T11 and T10
 in sequence. T12 follows T11 because it edits pages T07 and T08 own; T19 follows T12
 because it counts the modules T12 made eight. S06, S07 and S08 follow T19 in sequence,
-each reading the hand-back notes of the one before. T22 follows S09, the spike that
+each reading the hand-back notes of the one before. S11 follows S06 as well and may run
+beside S07 and S08: it settles, with the maintainer, the readings of ranks 23 to 27
+that S06 left open, and shares no path with them but this index. T22 follows S09, the spike that
 chose its tool and thresholds. T04 needs the remote T01 creates before its proof run, but its files can be
 written in parallel with T01.
 
