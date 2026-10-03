@@ -529,3 +529,10 @@ Each is the maintainer's. The proposal beside it is the ticket writer's, made on
 - **The decision record.** It is in scope because the tiers sit beside "never a rating"
   and that wants a reason on record. The maintainer may strike it as more than a minimal
   ask; the Source note in the module then carries the reason alone.
+- **Paths T33 also edits.** T33, the API reference on GitHub Pages, is open beside this
+  ticket. It edits `CHANGELOG.md`, `docs/manifest.yml`, `docs/decisions/README.md` and
+  `docs/README.md`, and its draft takes decision 0015 as this one does. CONVENTIONS.md
+  §11 forbids two open lanes sharing a path. T33's Open points record the deviation and
+  this ticket follows it: each shared edit is a row, an entry or a sentence, and
+  whichever pull request merges second merges `main` first and takes the next decision
+  number, in the file's name, its title, its index row and its manifest entry.

@@ -431,3 +431,7 @@ worktree is unchanged.`
   for them; that is its ticket's.
 - **Speed.** No figure is promised. If `just test` slows by more than a few seconds,
   say so in the hand-back notes with the test that costs it.
+- **Paths T33 also edits.** T33, the API reference on GitHub Pages, may be open beside
+  this ticket and edits `CHANGELOG.md` and `docs/project/repository-map.md`. T33's Open
+  points record the deviation from CONVENTIONS.md §11: each shared edit is a row or a
+  sentence, and whichever pull request merges second merges `main` first.
