@@ -470,7 +470,7 @@ were present, so `just initialize` was not run.
   `allium analyse: 9 specifications, no diagnostics and no findings.`
 - **After the last edit.** Both end with the same two lines. No `allium-ignore`
   directive exists under `docs/specs/`.
-- **`just plan-spec generation`** prints 88 obligations and an empty `diagnostics`
+- **`just plan-spec generation`** prints 87 obligations and an empty `diagnostics`
   array.
 - **Open questions.** `rg -c '^open question' docs/specs/generation.allium` prints 7.
   Symmetry, pacing, redundant givens and the spent budget each end with the basic way's
@@ -489,10 +489,12 @@ were present, so `just initialize` was not run.
   column by one, so the sum of row and column alternates. The paper's first pass, the 41
   positions with an even sum, is therefore the odd-numbered steps of the S path, and the
   second pass settled below is its even-numbered steps. The module states it that way.
-- **`puzzle-design.md`.** Thirteen citations of `generation.allium` moved. Each new
-  line was printed and holds what its row describes: 804, 806, 808, 810, 812 and 814 are
-  the open questions that were 122 to 132; 71 is the Replay clause that was 34; 347-354
-  is the three versions, 109-115 before; 282-355 is the config block, 85-116 before.
+- **`puzzle-design.md`.** Fourteen citations of `generation.allium` moved, one of them
+  written `:134` with no file name, which the first pass missed and Codex's review
+  found. Each new line was printed and holds what its row describes: 825, 827, 829, 831,
+  833, 835 and 837 are the open questions that were 122 to 134; 71 is the Replay clause
+  that was 34; 346-353 is the three versions, 109-115 before; 278-354 is the config
+  block, 85-116 before.
 - **"Skeleton".** `rg -n -i 'skeleton' docs README.md crates/pawdoku/README.md` hits
   only sentences that call the designed way one, and decisions 0004 and 0012, records
   of their day.
@@ -520,6 +522,18 @@ were present, so `just initialize` was not run.
   is still true of the crate; the bullet says the basic generator is specified.
 - **`git fetch origin main`** was run once, to check that 0015 was still free. It reads
   and writes nothing outside `.git`.
+- **A Codex adversarial review was run on 2026-10-03**, at the maintainer's request,
+  over the first four commits, and answered in a fifth. Fixed: the refusal's guard and
+  the drawn visit's position were read from the state the rule itself produces, and are
+  now bound before `ensures`; the next draw's number likewise; `GenerationResult`
+  showed a refused generation's givens; `found_grid` had no stated answer for a short
+  seeding; `AlwaysEnds` and `DrawsInOrder` overstated the solver calls and the draws of
+  a refused generation; a stream that runs out had no stated outcome, and
+  `AStreamThatRunsOut` now gives T32's; the config says its guarantees are stated of
+  its figures as they stand. The review also found three wrong line citations in
+  `puzzle-design.md` that predate this ticket, of `sudoku.allium:169`,
+  `board.allium:785` and `architecture.md:84-88`. Step 9 allows no other change to
+  that page, so they are handed back below.
 - **Nothing was pushed.**
 
 ### Names T32 needs
@@ -552,7 +566,8 @@ Bottom", for tiers 1 and 2, 3, 4 and 5.
 
 **Surfaces.** `Generating`, which provides `Generate(tier)` and carries the guarantees
 `AlwaysEnds`, `OneSolutionAndItIsTheGrid`, `TheRestrictionsHold`, `EveryPositionOnce`,
-`DrawsInOrder`, `SameDrawsSameGivens`, `OnlyTheBoundary` and `ATierClaimsNothing`; and
+`DrawsInOrder`, `AStreamThatRunsOut`, `SameDrawsSameGivens`, `OnlyTheBoundary` and
+`ATierClaimsNothing`; and
 `GenerationResult`, which exposes the tier, the status, `draws_taken` and, of a finished
 generation, the count of givens and each given.
 
@@ -577,30 +592,38 @@ generation, the count of givens and each given.
   its position among the empty positions in row order and one for its digit among those
   its row, column and box allow, lowest first: 22 for a full seeding. A position with no
   digit left takes its position draw and no digit draw, and ends the attempt: `2k + 1`
-  draws after `k` givens. Then one draw for the bound, `fewest + index`. Then, for tiers
-  1 and 2 alone, one draw a visit among the unvisited positions in row order, the 81st
-  included.
+  draws after `k` givens. A refused generation takes those and no more. One that
+  finds a grid then takes one draw for the bound, `fewest + index`, and, for tiers 1 and
+  2 alone, one draw a visit among the unvisited positions in row order, the 81st
+  included. A first attempt that succeeds takes 23 draws in tiers 3 to 5 and 104 in
+  tiers 1 and 2.
+- **A stream that runs out** ends `generate` with the boundary's own error at that
+  draw. It is not the module's refusal and not a failed attempt.
 - **A draw's index** is `(u * n) as usize` on `f64`: the binary64 product, truncated.
   Not exact arithmetic.
 - **Two solutions.** The grid is the one with the lower digit at the first position, row
   by row, where the two differ. It is not the first the search found.
-- **A full seeding is put to the solver** whatever it holds; a short one is not.
+- **A full seeding is put to the solver** whatever it holds; a short one is not, so an
+  attempt asks the solver at most once.
 - **Removal runs all 81 visits**, and what it reached comes back, in the tier's range or
   above it. There is no retry.
 - **Spent attempts** are the one refusal of the module's own, with nothing to show. The
   draws the failed attempts took stay taken.
 - **The first visit always empties its position**, so a finished generation's givens
   number at most 80 and `SetPuzzle` accepts them.
-- **88 obligations** from `just plan-spec generation`, with an empty `diagnostics`
-  array: 24 config defaults, 13 invariants, 9 transition edges, 7 rule successes and 5
-  rule failures among them.
+- **87 obligations** from `just plan-spec generation`, with an empty `diagnostics`
+  array. Two of them are not the basic way's: `config-default.step_budget` and
+  `config-default.candidate_limit`, the designed way's two figures, which were declared
+  before this ticket and have no default to verify. T32's step 2 says to stop if an
+  obligation of the designed way appears; these two are what it will see, and they ask
+  nothing of T32.
 
 ### Handed back
 
 - **S08.** Its Context calls `generation.allium` a skeleton and its Verification expects
   "the seven open questions". It now finds a module that states the basic way in full
   and the designed way as a skeleton; the seven open questions are all there, four with
-  a closing clause for the basic way, at lines 804 to 816. Its control row, removal "at
+  a closing clause for the basic way, at lines 825 to 837. Its control row, removal "at
   random, then the verdict and `Rate`", is not the basic way: that row draws its order,
   has no bound and no floor, and is put to `Rate`. Tiers 1 and 2 are its nearest kin.
 - **T20.** Its draft writes "triggers, guarantees and fixtures on the skeleton". It now
@@ -618,6 +641,10 @@ generation, the count of givens and each given.
 - **T32.** Its Context table and its "One entry" paragraph were written before the Open
   points were settled. Each agrees with what was settled, bar the word "visit", which is
   new. Its measurement step may move `grid_attempt_limit`.
+- **`puzzle-design.md`'s other citations.** Three in its closing table were wrong
+  before this ticket and are not this ticket's to change: `sudoku.allium:169` should be
+  172, `board.allium:785` should be 797, and `architecture.md:84-88` should be the
+  generation paragraph, 307-313 today. A `main` follow-up.
 - **T33.** This ticket took decision 0015. If T33's pull request merges second, it
   merges `main` first and takes 0016, and moves the index's "next decision" sentence on.
 

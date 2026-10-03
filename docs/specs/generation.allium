@@ -212,10 +212,6 @@ entity Generation {
     -- what comes back when it is finished.
     givens: Set<sudoku/Given> when status = removing | finished
 
-    is_out_of_attempts:
-        status = drawing_grid
-            and failed_attempts.count >= config.grid_attempt_limit
-
     -- Every visit so far is decided and a position is still unvisited.
     is_due_a_visit:
         status = removing
@@ -310,7 +306,10 @@ config {
     -- floor, where its own example counts 22 givens as within 22 to 27 and
     -- a row of no givens as reaching a floor of 0; both are read as at
     -- least. No tier's range holds 50, as in the paper. A count of givens
-    -- is a construction setting here and never a rating.
+    -- is a construction setting here and never a rating. Everything this
+    -- module guarantees of the basic way is guaranteed of these figures,
+    -- seeded_givens and grid_attempt_limit as they stand below; what holds
+    -- under other figures is not stated.
     tier_1_fewest_givens: Integer = 51
     tier_1_most_givens: Integer = 60
     tier_1_floor: Integer = 5
@@ -441,8 +440,10 @@ rule SettleGridAttempt {
     -- one solved branch. A verdict of many gives one of the two solved
     -- branches, which solver.allium exposes in no order: the one that holds
     -- the lower digit at the first position, in row order, where the two
-    -- differ. A short seeding is not put to the solver.
-    let grid = found_grid(seeded)
+    -- differ. A short seeding is not put to the solver: found_grid of
+    -- fewer than config.seeded_givens givens is no givens at all, with no
+    -- search made.
+    let grid = found_grid(seeded, config.seeded_givens)
 
     -- A short seeding and a verdict of none both fail the attempt. Nothing
     -- of a failed attempt is kept but its count and the draws it took.
@@ -462,7 +463,12 @@ rule FollowGridAttempt {
 
     requires: generation.status = drawing_grid
 
+    -- All three are read as they stand before this rule changes anything:
+    -- the attempt that set it off has already failed or found its grid, so
+    -- a failed attempt is counted here.
     let width = generation.most_givens - generation.fewest_givens + 1
+    let next_draw = generation.draws_taken + 1
+    let is_spent = generation.failed_attempts.count >= config.grid_attempt_limit
 
     -- One rule and three ends. A grid was found: one draw, after the grid,
     -- chooses the bound among the counts of the tier's range, fewest first,
@@ -473,13 +479,13 @@ rule FollowGridAttempt {
     -- and the draw for the bound is taken only when a grid was found.
     ensures:
         if attempt.status = found:
-            let chosen_index = index_among(draw_at(generation, generation.draws_taken + 1), width)
+            let chosen_index = index_among(draw_at(generation, next_draw), width)
             generation.status = removing
             generation.solution = attempt.grid
             generation.givens = attempt.grid
             generation.bound = generation.fewest_givens + chosen_index
             generation.draws_taken = generation.draws_taken + 1
-        else if generation.is_out_of_attempts:
+        else if is_spent:
             generation.status = refused
         else:
             GridAttempt.created(
@@ -497,15 +503,19 @@ rule BeginVisit {
     -- Read when the rule runs, as solver.allium's AttendWaitingBranch does.
     requires: generation.is_due_a_visit
 
-    let step = generation.visits.count + 1
-    let unvisited_count = config.side * config.side - generation.visits.count
+    -- All four are read as they stand before this rule changes anything,
+    -- so visited_before does not hold the visit this rule creates.
+    let visited_before = generation.visits
+    let step = visited_before.count + 1
+    let unvisited_count = config.side * config.side - visited_before.count
+    let next_draw = generation.draws_taken + 1
 
     -- Under the drawn order every visit takes one draw, which chooses by
     -- index_among among the positions not yet visited, in row order. The
     -- last visit draws too, with one position left and nothing to decide:
     -- config.side * config.side draws in all, whatever removal does.
     -- nth_unvisited is a black box: the position at that index among the
-    -- positions of the grid no visit of the generation has, in row order.
+    -- positions of the grid none of those visits has, in row order.
     --
     -- Under the other three orders no draw is taken. order_position is a
     -- black box, the position at a step of a fixed order:
@@ -522,12 +532,12 @@ rule BeginVisit {
     --     no second pass, and this one is this module's own reading.
     ensures:
         if generation.order = drawn:
-            let chosen_index = index_among(draw_at(generation, generation.draws_taken + 1), unvisited_count)
+            let chosen_index = index_among(draw_at(generation, next_draw), unvisited_count)
             generation.draws_taken = generation.draws_taken + 1
             Visit.created(
                 generation: generation,
                 step: step,
-                position: nth_unvisited(generation.visits, chosen_index, config.side),
+                position: nth_unvisited(visited_before, chosen_index, config.side),
                 status: pending
             )
         else:
@@ -720,10 +730,11 @@ surface Generating {
         Generate(tier)
 
     @guarantee AlwaysEnds
-        -- Every generation ends finished or refused. Grid attempts are
-        -- counted against config.grid_attempt_limit; each asks the solver
-        -- once, and every search concludes (solver.allium's
-        -- AlwaysConcludes). Removal visits each position once and asks for
+        -- Every generation whose stream gives it the draws it asks for ends
+        -- finished or refused. Grid attempts are counted against
+        -- config.grid_attempt_limit; each asks the solver at most once, a
+        -- full seeding once and a short one never, and every search
+        -- concludes (solver.allium's AlwaysConcludes). Removal visits each position once and asks for
         -- at most one verdict a visit, so at most config.side * config.side
         -- verdicts, 81.
 
@@ -750,10 +761,20 @@ surface Generating {
         -- The draws are taken in this order and no others are taken. For
         -- each grid attempt, for each seeded given, one for its position
         -- and one for its digit: 22 for an attempt that seeds all 11, and
-        -- for one that stops short after k givens, 2k + 1. Then one for
-        -- the bound. Then, under the drawn order alone, one for each visit,
-        -- 81. So how many draws a generation takes depends on its grid
-        -- attempts and its tier, and never on how removal went.
+        -- for one that stops short after k givens, 2k + 1. A refused
+        -- generation takes those and no more. A generation that finds a
+        -- grid then takes one for the bound and, under the drawn order
+        -- alone, one for each visit, 81. So how many draws a generation
+        -- takes depends on its grid attempts and its tier, and never on how
+        -- removal went.
+
+    @guarantee AStreamThatRunsOut
+        -- A stream may have no draw to give: the boundary's fake does when
+        -- its script ends. The asking then ends there with the boundary's
+        -- own refusal, at whichever draw it happens, and no puzzle comes
+        -- back. That is neither of this module's two ends and is not
+        -- counted as a failed grid attempt. The draws given before it stay
+        -- taken, and the draw that was not given is not.
 
     @guarantee SameDrawsSameGivens
         -- The same tier, the same config, the same generation_version and
@@ -792,9 +813,9 @@ surface GenerationResult {
         generation.draws_taken
         generation.givens.count when generation.status = finished
         for kept in generation.givens:
-            kept.position.row
-            kept.position.column
-            kept.digit
+            kept.position.row when generation.status = finished
+            kept.position.column when generation.status = finished
+            kept.digit when generation.status = finished
 }
 
 ------------------------------------------------------------
