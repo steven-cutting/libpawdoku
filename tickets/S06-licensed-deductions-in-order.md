@@ -1004,9 +1004,10 @@ What the figures say:
   taken twice; jellyfish was never taken; empty_rectangle was taken once and
   bug_plus_one was licensed at two looks. The agreement of the two programs covers
   every state sampled, but for those the states that exercise them are few.
-- **Every order still ended at one grid.** One unsystematic run under this profile
-  ended at the same digits on all 226 grids and at the same candidates on the 53 that
-  stalled. That is one seed, and it is not the test of (d); it is recorded because
+- **The one other order tried ended at the same grid.** One unsystematic run under this
+  profile ended at the same digits on all 226 grids and at the same candidates on the 53 that
+  stalled. That is one seed and says nothing of other orders; it is not the test of
+  (d), and is recorded because
   `reach:423` expects otherwise past subsets and this did not show it.
 
 The study puzzles again. Under this profile all four are solved:
@@ -1229,8 +1230,9 @@ estimated_size: M
 > **Context.** S06 (hand-back notes) found that `reach`, `effort` and `lapse` each leave
 > to the implementation which of several equal deductions is taken, that published
 > solvers leave it to the order of their loops, and that a total order over a grid's
-> deductions costs nothing measurable for ranks 1 to 12: at most 133 entries and 6,683
-> patterns examined a look over 226 grids. Its bounds are argued for every rank but 23
+> deductions cost little for ranks 1 to 12 on the 226 grids measured: at most 188
+> entries and 6,683 patterns examined a look in the runs recorded, which sample the
+> orders a run can take and do not exhaust them. Its bounds are argued for every rank but 23
 > to 27, which wait on open questions this ticket adds; ranks 13 to 22, 28 and 29 were
 > also measured, under two readings this ticket adds as open questions. The order is
 > made normative for ranks 1 to 12 only. No technique, catalogue or model exists in
