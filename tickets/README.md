@@ -41,6 +41,8 @@ authoritative; this table is a snapshot.
 | T27 | The board in play: notes, moves, undo and redo, reading back, and the check | `T27-board-in-play.md` | T26 | none | done |
 | T28 | The record and reopening: a board written down whole and had again | `T28-record-and-reopening.md` | T27 | none | done |
 | T30 | The first-change tutorial: an exercise that can be followed again | `T30-first-change-tutorial.md` | T25 | T26 to T28 | done |
+| T31 | Spec change: the basic generator in generation, a published method of removal checked by the verdict | `T31-basic-generator-spec.md` | T19 | none | open |
+| T32 | The basic generator in Rust: the solution grid, removal in order and the five tiers | `T32-basic-generator.md` | T31, T28 | none | open |
 | T33 | The API reference on GitHub Pages: a deploy workflow, a site recipe and the first workflow that publishes | `T33-api-reference-on-github-pages.md` | T11 | S10 | open |
 
 Spike tickets. Each weighs options and ends in a recommendation; none blocks the build and
@@ -83,6 +85,7 @@ C02 hangs off D01 alone (D01 kept the Python checkers; decision 0004)
 T12, T22 ── T23 ── T24 ── T29 ── T25 ──┬── T26 ── T27 ── T28   (the first engine modules)
                                        └── T30   (the tutorial T25 left unfollowable)
 
+T19 ── T31 ── T32 (also after T28)   (the basic generator: its specification, then its Rust)
 T11 ──┬── T33   (the API reference on GitHub Pages)
       └── S10   (pages and diagrams inside rustdoc; its follow-up needs T33)
 ```
@@ -112,6 +115,13 @@ hand-back notes, is T26.
 T30 follows T25, which moved the items the first-change tutorial's exercise is built on.
 It edits one page, `docs/tutorials/first-change.md`, that none of T26 to T28 lists, so it
 may run beside them.
+
+T31 and T32 are the basic generator: a published method that draws a full grid and
+removes givens in a stated order, each removal checked by the solver's verdict. T31
+writes it into `generation.allium`, the skeleton T19 landed, beside the designed
+generator that T20 is drafted to specify; T32 builds it, after T31 and after T28, the
+last ticket to edit the files the engine modules share. Neither waits on T20 or on the
+spikes S06 to S08.
 
 T33 and S10 are the hosted API reference. T33 publishes what `just doc` builds to GitHub
 Pages on every push to `main`, in a workflow of its own, and is the first ticket whose
