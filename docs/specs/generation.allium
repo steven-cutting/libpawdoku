@@ -3,43 +3,87 @@
 -- Generation — how a setter that is a program finds givens
 --
 -- Scope
---   How a setter that is a program finds givens: a solution grid drawn
---   through the randomness boundary, givens removed under a symmetry until
---   the puzzle is well-posed and solvable within a stated technique
---   contract, under a step budget. sudoku.allium says what a setter may
+--   How a setter that is a program finds givens. The module states two ways
+--   of doing it, side by side, and neither is built on the other.
+--   The basic way: a solution grid drawn through the randomness boundary,
+--   givens removed one position at a time in a stated order, and each
+--   removal kept only while solver.allium's verdict stays one. It is a
+--   published method, taken as it stands so that it can serve as a yardstick,
+--   and it is stated here in full: what is asked, how the grid is drawn, how
+--   removal proceeds and when it refuses, what comes back and what is
+--   guaranteed of it.
+--   The designed way: a solution grid drawn through the randomness
+--   boundary, givens removed under a symmetry until the puzzle is
+--   well-posed and solvable within a stated technique contract, under a
+--   step budget. sudoku.allium says what a setter may
 --   pose and nothing of how it finds it; solver.allium says whether what it
 --   found is well-posed; reach.allium says whether a profile gets through
 --   it. This module is where those three are put to work to make a puzzle
 --   rather than to judge one, and it answers to all three.
---   This module is a skeleton. Its scope, its config and its open questions
---   are stated; its triggers, guarantees and fixtures are not, and nothing
---   should be built on it until they are. The questions below are product
---   decisions, and each is recorded so that whoever writes the triggers does
---   not answer it by accident.
---   Source: docs/explanation/puzzle-design.md, for what a designed puzzle
---   is asked to be and which of those asks the engine can measure.
+--   The basic way is stated: its entities, rules, invariants and surfaces
+--   are below. The designed way is a skeleton. Its scope, its config and its
+--   open questions are stated; its triggers, guarantees and fixtures are
+--   not, and nothing should be built on it until they are. The questions
+--   below are product decisions, and each is recorded so that whoever writes
+--   the triggers does not answer it by accident. Where the basic way has an
+--   answer of its own, the question says so and keeps asking for the
+--   designed way.
+--   Sources: docs/explanation/puzzle-design.md, for what a designed puzzle
+--   is asked to be and which of those asks the engine can measure. For the
+--   basic way, "Sudoku Puzzles Generating: from Easy to Evil", a paper headed
+--   "Team # 3485" that names no author, at
+--   https://zhangroup.aporc.org/images/files/Paper_3485.pdf, read on
+--   2026-10-02. The paper calls its method digging holes, calls its five
+--   settings levels and names them Extremely easy, Easy, Medium, Difficult
+--   and Evil; those are its words and are used here nowhere else. Of its
+--   operators:
+--     the full grid by a Las Vegas algorithm: carried, without the clock.
+--       Eleven givens are drawn and put to the solver, and attempts are
+--       counted against a figure where the paper timed them.
+--     Operator 1, the order of removal: carried, four orders.
+--     Operator 2, the two restrictions: carried, as the bound and the floor.
+--     Operator 3, uniqueness by trying the other eight digits: replaced by
+--       the solver's verdict on the givens without the position, which
+--       gives the same answer.
+--     Operator 4, pruning: carried. A position is visited once.
+--     Operator 5, equivalent propagation: not carried. The draws already
+--       vary the solution grid.
+--     its grading (its Section 4): not carried. Rating is reach.allium's.
 --
 -- Includes
 --   - The solution grid: a full grid with no conflict, drawn through the
 --     randomness boundary from a seed, the same grid for the same seed.
+--     The basic way draws eleven givens and takes the grid the solver finds
+--     for them, one grid attempt after another until one succeeds.
 --   - Removal: givens taken away from the full grid one orbit of a symmetry
---     scheme at a time, so that the givens left keep the scheme.
+--     scheme at a time, so that the givens left keep the scheme. The basic
+--     way takes them away one position at a time, in the order of removal
+--     its tier names, and visits every position once.
 --   - Acceptance: the givens left are put to solver.allium for their
 --     verdict and to reach.allium's Rate for the target profile, and a
 --     candidate is kept only when the verdict is one and the run ends
---     solved within the technique contract.
+--     solved within the technique contract. The basic way keeps a removal
+--     on the verdict alone: no technique contract and no Rate run.
 --   - Limits: a step budget on the search and a limit on the candidates
 --     tried, both figures and never a clock, and what a search that spends
---     either reports.
+--     either reports. The basic way has one limit, a count of grid
+--     attempts, because removal is bounded by the grid itself.
 --   - Replay: the same seed, the same profile, the same config and the same
 --     three versions (this module's, the catalogue's and the random
 --     stream's, named in config as human-solving.allium's ExactReplay names
 --     them) give the same givens. A change to any of the three is a new
---     name, so a seed carried across it promises nothing.
+--     name, so a seed carried across it promises nothing. The basic way
+--     uses no technique, so its givens depend on generation_version and
+--     random_version and not on catalogue_version; and its replay is stated
+--     over the draws taken, which a seed stands for only when the stream
+--     begins at index zero.
 --
 -- Excludes
 --   - Rating and hints. What a profile makes of a puzzle is reach.allium's,
 --     and this module only asks it.
+--   - Grading, and any claim that one tier's puzzles are harder than
+--     another's. A tier is a construction setting; whether its puzzles
+--     differ is what a later comparison through reach.allium measures.
 --   - Deciding well-posedness. solver.allium gives the verdict; this module
 --     only asks for it.
 --   - Where puzzles are made: ahead of time into a set a consumer carries,
@@ -51,13 +95,18 @@
 --     one (docs/decisions/0012-generation-and-dev-time-judges.md).
 --   - Chance beyond the boundary. Every draw comes through the randomness
 --     boundary the library owns, and nothing here sources entropy.
---   - How a full grid is drawn quickly, how candidates are stored, and
---     which of several equally acceptable candidates is kept.
+--   - How quickly a full grid is drawn, how candidates are stored, and
+--     which of several equally acceptable candidates is kept. How the basic
+--     way draws its grid is stated, because the method is the point of it;
+--     how fast and in what storage is not.
+--   - Swapping digits, rows, columns, bands or stacks after removal, the
+--     paper's Operator 5.
 --
 -- Dependencies
 --   sudoku.allium, for Given and what a setter may pose; solver.allium, for
 --   the verdict; technique.allium, for the profile a contract is stated
---   against; reach.allium, for the run a candidate is accepted on.
+--   against; reach.allium, for the run a candidate is accepted on. The
+--   basic way reads sudoku.allium and solver.allium alone.
 --
 -- Vocabulary
 --   sudoku.allium's, technique.allium's and reach.allium's words stand:
@@ -72,11 +121,155 @@
 --   steps a hook lets loose. Hook and cascade are named here as terms and
 --   not measured here: what makes a step a hook, and how a cascade is
 --   counted, are reach.allium's open questions.
+--   The basic way's words: tier, one of five construction settings,
+--   numbered 1 to 5, each a range for the count of givens, a floor and an
+--   order of removal; bound, the count of givens a generation will not go
+--   below, drawn once from its tier's range; floor, the fewest givens any
+--   row or column may be left with; order of removal, the order in which
+--   the positions of the grid are visited; visit, the one look a position
+--   gets, which empties it or leaves its given; grid attempt, one try at
+--   drawing a solution grid, which finds one or fails. Tier is never level:
+--   level stays the research report's word, in the pacing question below.
 
 use "./sudoku.allium" as sudoku
 use "./solver.allium" as solver
 use "./technique.allium" as technique
 use "./reach.allium" as reach
+
+------------------------------------------------------------
+-- Enumerations
+------------------------------------------------------------
+
+-- The five construction settings of the basic way. A tier says how a puzzle
+-- is made and nothing of how it solves.
+enum Tier { tier_1 | tier_2 | tier_3 | tier_4 | tier_5 }
+
+-- The four orders of removal. Each fixes the position visited at every
+-- step, from 1 to config.side * config.side; BeginVisit says how.
+enum RemovalOrder { drawn | every_other | s_path | row_by_row }
+
+------------------------------------------------------------
+-- Entities and Variants
+------------------------------------------------------------
+
+-- One asking of the basic way: a tier, and the draws a stream gives.
+entity Generation {
+    tier: Tier
+    status: drawing_grid | removing | finished | refused
+
+    -- A generation draws its grid, then removes, then is finished; or it
+    -- spends its grid attempts and is refused before any grid exists. Both
+    -- ends are final.
+    transitions status {
+        drawing_grid -> removing
+        drawing_grid -> refused
+        removing -> finished
+        terminal: finished, refused
+    }
+
+    -- The tier's three settings, read from config.
+    fewest_givens:
+        if tier = tier_1: config.tier_1_fewest_givens
+        else if tier = tier_2: config.tier_2_fewest_givens
+        else if tier = tier_3: config.tier_3_fewest_givens
+        else if tier = tier_4: config.tier_4_fewest_givens
+        else: config.tier_5_fewest_givens
+    most_givens:
+        if tier = tier_1: config.tier_1_most_givens
+        else if tier = tier_2: config.tier_2_most_givens
+        else if tier = tier_3: config.tier_3_most_givens
+        else if tier = tier_4: config.tier_4_most_givens
+        else: config.tier_5_most_givens
+    floor:
+        if tier = tier_1: config.tier_1_floor
+        else if tier = tier_2: config.tier_2_floor
+        else if tier = tier_3: config.tier_3_floor
+        else if tier = tier_4: config.tier_4_floor
+        else: config.tier_5_floor
+    order: RemovalOrder
+
+    -- How many draws this generation has taken from the stream it was
+    -- handed. The draw it takes next is draws_taken + 1 of its own, counted
+    -- from wherever the stream stood when it was handed over.
+    draws_taken: Integer
+
+    attempts: GridAttempt with generation = this
+    failed_attempts: attempts where status = failed
+    visits: Visit with generation = this
+    decided_visits: visits where status != pending
+
+    -- The visits that asked the solver for a verdict.
+    asked_visits: visits where status = emptied or status = kept
+
+    -- The solution grid, as a given for every position. Present once a grid
+    -- attempt has found one, and never changed after.
+    solution: Set<sudoku/Given> when status = removing | finished
+
+    -- The count of givens removal will not go below.
+    bound: Integer when status = removing | finished
+
+    -- The givens left. The whole solution grid when removal begins, and
+    -- what comes back when it is finished.
+    givens: Set<sudoku/Given> when status = removing | finished
+
+    -- Every visit so far is decided and a position is still unvisited.
+    is_due_a_visit:
+        status = removing
+            and visits.count = decided_visits.count
+            and visits.count < config.side * config.side
+
+    -- Every position has been visited and every visit decided. Removal ends
+    -- here and not before: reaching the bound does not end it.
+    is_fully_visited:
+        status = removing
+            and decided_visits.count = config.side * config.side
+}
+
+-- One try at drawing a solution grid.
+entity GridAttempt {
+    generation: Generation
+
+    -- Counted from 1 within its generation.
+    number: Integer
+
+    status: seeding | failed | found
+
+    transitions status {
+        seeding -> failed
+        seeding -> found
+        terminal: failed, found
+    }
+
+    -- The grid the attempt found, as a given for every position.
+    grid: Set<sudoku/Given> when status = found
+
+    -- The attempt has found a grid or failed.
+    is_settled: status != seeding
+}
+
+-- The one look a position gets.
+entity Visit {
+    generation: Generation
+
+    -- Counted from 1 within its generation, in the order of removal.
+    step: Integer
+
+    position: sudoku/Position
+
+    -- Refused by the bound or by the floor, the solver is not asked. Asked,
+    -- the position is emptied when the verdict is one and keeps its given
+    -- when it is many. Every end is final: the position is not visited
+    -- again and an emptied position is never refilled.
+    status: pending | refused_by_bound | refused_by_floor | kept | emptied
+
+    transitions status {
+        pending -> refused_by_bound
+        pending -> refused_by_floor
+        pending -> kept
+        pending -> emptied
+        terminal: refused_by_bound, refused_by_floor, kept, emptied
+    }
+}
 
 ------------------------------------------------------------
 -- Config
@@ -96,23 +289,537 @@ config {
     -- module's operations and candidate_limit bounds how many times that
     -- inner work is done; neither bounds the inner work itself. Whether it
     -- should be charged, and by whom, is an open question below, as is
-    -- what a spent budget reports. The figure is the caller's.
+    -- what a spent budget reports. The figure is the caller's. The designed
+    -- way's: the basic way does not read it.
     step_budget: Integer
 
     -- The most candidate sets of givens a search may put to acceptance
-    -- before it stops and says so. The caller's, as above.
+    -- before it stops and says so. The caller's, as above, and the designed
+    -- way's, as above.
     candidate_limit: Integer
 
-    -- The three names replay depends on, as human-solving.allium records
-    -- them. This module's own: raised when its triggers land and whenever
-    -- removal or acceptance changes so that a seed gives other givens.
-    generation_version: String = "generation-0"
+    -- The basic way's five tiers: for each, the range its bound is drawn
+    -- within, both ends included, and its floor. The figures are the source
+    -- paper's, with two readings of this module's own. The paper gives tier
+    -- 1 as "more than 50" and no upper end; 60 is this module's. And the
+    -- paper says the givens left must be "more than" the bound and the
+    -- floor, where its own example counts 22 givens as within 22 to 27 and
+    -- a row of no givens as reaching a floor of 0; both are read as at
+    -- least. No tier's range holds 50, as in the paper. A count of givens
+    -- is a construction setting here and never a rating. These figures and
+    -- seeded_givens below are the paper's method and not a caller's to
+    -- change: they are named so that no rule carries a bare number, not so
+    -- that they can be tuned, and everything this module guarantees of the
+    -- basic way is guaranteed of them as they stand.
+    tier_1_fewest_givens: Integer = 51
+    tier_1_most_givens: Integer = 60
+    tier_1_floor: Integer = 5
+    tier_2_fewest_givens: Integer = 36
+    tier_2_most_givens: Integer = 49
+    tier_2_floor: Integer = 4
+    tier_3_fewest_givens: Integer = 32
+    tier_3_most_givens: Integer = 35
+    tier_3_floor: Integer = 3
+    tier_4_fewest_givens: Integer = 28
+    tier_4_most_givens: Integer = 31
+    tier_4_floor: Integer = 2
+    tier_5_fewest_givens: Integer = 22
+    tier_5_most_givens: Integer = 27
+    tier_5_floor: Integer = 0
 
-    -- technique.allium's, restated as its figures are elsewhere.
+    -- How many givens a grid attempt draws before it asks the solver for a
+    -- grid. The paper's figure.
+    seeded_givens: Integer = 11
+
+    -- The most grid attempts a generation may fail before it is refused.
+    -- Drawing the grid is the one step of the basic way that can repeat, so
+    -- this is the one limit it reads. The figure is this module's own and
+    -- not the paper's, which timed its attempts where this module counts
+    -- them, and no measurement stands behind 100. It is not a caller's to
+    -- change either: a generation is asked for with a tier and a stream.
+    grid_attempt_limit: Integer = 100
+
+    -- The three names replay depends on, as human-solving.allium records
+    -- them. This module's own: raised whenever anything changes, in this
+    -- module or in the solver, so that the same draws give other givens or
+    -- a generation takes a different number of draws. solver.allium allows
+    -- itself two such changes without saying so: the order in which it
+    -- takes tied cells and tied branches, and what its propagation strikes
+    -- before it guesses. Either can change which solutions a search of
+    -- eleven givens reaches, so either is a new name here.
+    generation_version: String = "generation-1"
+
+    -- technique.allium's, restated as its figures are elsewhere. The basic
+    -- way uses no technique and its givens do not depend on it.
     catalogue_version: String = technique/config.catalogue_version
 
     -- Names the seeded stream the randomness boundary supplies.
     random_version: String = "seeded-stream-1"
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+-- Every rule here is the basic way's. The designed way has none yet.
+--
+-- Three black boxes carry the draws, and every rule that draws reads them:
+--
+-- draw_at(generation, k) is the draw the generation takes k-th, counted
+-- from 1: a number in [0, 1), the next the stream it was handed gives,
+-- from wherever that stream stood. A generation takes its draws in order
+-- and skips none, so draws_taken + 1 is always the next.
+--
+-- index_among(u, n) is how a draw chooses among n things in a stated
+-- order: the product of u and n, computed in binary64 as IEEE 754 defines
+-- it and rounded to nearest with ties to even, then truncated toward zero.
+-- The first thing has index 0. The result is never n: for every n from 1
+-- to config.side * config.side the largest draw below one gives n - 1.
+-- This is not the whole part of the exact product, and the two differ for
+-- a few draws beside a boundary. Worked case: for the draw
+-- 6004799503160661 / 2^53 and n of 3 the exact product is 2 - 2^-53, the
+-- binary64 product rounds to 2.0, and the index is 2. An implementation in
+-- exact arithmetic would answer 1 and would not be this module.
+--
+-- grid_positions is sudoku.allium's black box, read as it is there: every
+-- position row by row from the top, each row from the left. Row order
+-- below means that order.
+
+-- Asking ----------------------------------------------------
+
+rule BeginGeneration {
+    when: Generate(tier)
+
+    -- The stream of draws is handed over with the tier, through the
+    -- randomness boundary. It may already have been drawn from. order_of
+    -- is a black box: drawn for tier_1 and tier_2, every_other for tier_3,
+    -- s_path for tier_4 and row_by_row for tier_5, as the source paper
+    -- assigns them.
+    ensures:
+        Generation.created(
+            tier: tier,
+            status: drawing_grid,
+            order: order_of(tier),
+            draws_taken: 0
+        )
+}
+
+-- The solution grid and the bound ---------------------------
+
+rule OpenFirstGridAttempt {
+    when: generation: Generation.created
+
+    ensures: GridAttempt.created(generation: generation, number: 1, status: seeding)
+}
+
+rule SettleGridAttempt {
+    when: attempt: GridAttempt.created
+
+    requires: attempt.status = seeding
+
+    let generation = attempt.generation
+
+    -- drawn_seeding is a black box: the givens the attempt draws, one after
+    -- another from an empty grid until there are config.seeded_givens of
+    -- them or one cannot be drawn. Each takes two draws. The first chooses
+    -- its position, by index_among, among the positions that hold no given
+    -- yet, in row order. The second chooses its digit, by index_among,
+    -- among the digits no earlier given holds in that position's row,
+    -- column or box, lowest first. When no digit is left for the position
+    -- the second draw is not taken, the position gets no given and the
+    -- seeding stops there, short. So the givens never conflict, and a
+    -- seeding that stops short is one that could not go on. The draws are
+    -- the generation's next, beginning after the draws_taken it is handed.
+    let seeded = drawn_seeding(generation, generation.draws_taken, config.seeded_givens)
+    let is_short = seeded.count < config.seeded_givens
+
+    -- Two draws for each given drawn, and one more for the position that
+    -- stopped a short seeding.
+    let draws_for_givens = seeded.count + seeded.count
+    let draws_used = if is_short: draws_for_givens + 1 else: draws_for_givens
+
+    -- found_grid is a black box: the solution grid solver.allium's search
+    -- of the seeded givens gives, as a given for every position, or no
+    -- givens at all when its verdict is none. A verdict of one gives the
+    -- one solved branch. A verdict of many gives one of the two solved
+    -- branches, which solver.allium exposes in no order: the one that holds
+    -- the lower digit at the first position, in row order, where the two
+    -- differ. A short seeding is not put to the solver: found_grid of
+    -- fewer than config.seeded_givens givens is no givens at all, with no
+    -- search made.
+    let grid = found_grid(seeded, config.seeded_givens)
+
+    -- A short seeding and a verdict of none both fail the attempt. Nothing
+    -- of a failed attempt is kept but its count and the draws it took.
+    ensures:
+        generation.draws_taken = generation.draws_taken + draws_used
+        if is_short or grid.count = 0:
+            attempt.status = failed
+        else:
+            attempt.status = found
+            attempt.grid = grid
+}
+
+rule FollowGridAttempt {
+    when: attempt: GridAttempt.is_settled
+
+    let generation = attempt.generation
+
+    requires: generation.status = drawing_grid
+
+    -- All three are read as they stand before this rule changes anything:
+    -- the attempt that set it off has already failed or found its grid, so
+    -- a failed attempt is counted here.
+    let width = generation.most_givens - generation.fewest_givens + 1
+    let next_draw = generation.draws_taken + 1
+    let is_spent = generation.failed_attempts.count >= config.grid_attempt_limit
+
+    -- One rule and three ends. A grid was found: one draw, after the grid,
+    -- chooses the bound among the counts of the tier's range, fewest first,
+    -- and removal begins from the whole grid. Or the attempt failed and the
+    -- figure is reached: the generation is refused with nothing to show,
+    -- since no grid exists and so no partial result does. Or it failed and
+    -- another attempt begins. The draws failed attempts took stay taken,
+    -- and the draw for the bound is taken only when a grid was found.
+    ensures:
+        if attempt.status = found:
+            let chosen_index = index_among(draw_at(generation, next_draw), width)
+            generation.status = removing
+            generation.solution = attempt.grid
+            generation.givens = attempt.grid
+            generation.bound = generation.fewest_givens + chosen_index
+            generation.draws_taken = generation.draws_taken + 1
+        else if is_spent:
+            generation.status = refused
+        else:
+            GridAttempt.created(
+                generation: generation,
+                number: attempt.number + 1,
+                status: seeding
+            )
+}
+
+-- Removal ---------------------------------------------------
+
+rule BeginVisit {
+    when: generation: Generation.is_due_a_visit
+
+    -- Read when the rule runs, as solver.allium's AttendWaitingBranch does.
+    requires: generation.is_due_a_visit
+
+    -- All four are read as they stand before this rule changes anything,
+    -- so visited_before does not hold the visit this rule creates.
+    let visited_before = generation.visits
+    let step = visited_before.count + 1
+    let unvisited_count = config.side * config.side - visited_before.count
+    let next_draw = generation.draws_taken + 1
+
+    -- Under the drawn order every visit takes one draw, which chooses by
+    -- index_among among the positions not yet visited, in row order. The
+    -- last visit draws too, with one position left and nothing to decide:
+    -- config.side * config.side draws in all, whatever removal does.
+    -- nth_unvisited is a black box: the position at that index among the
+    -- positions of the grid none of those visits has, in row order.
+    --
+    -- Under the other three orders no draw is taken. order_position is a
+    -- black box, the position at a step of a fixed order:
+    --   row_by_row: row order. Step 1 is (1,1), step 2 (1,2), step 10 (2,1).
+    --   s_path: row 1 from column 1 to config.side, row 2 from column
+    --     config.side to 1, row 3 as row 1, alternating to the last row.
+    --     Steps 8 to 11 are (1,8), (1,9), (2,9), (2,8).
+    --   every_other: the odd-numbered steps of s_path in order, then its
+    --     even-numbered steps in order. The first pass is (1,1), (1,3),
+    --     (1,5), (1,7), (1,9), (2,8), (2,6), (2,4), (2,2), (3,1) and on,
+    --     the 41 positions whose row and column sum to an even number, and
+    --     is the source paper's figure. The second pass is (1,2), (1,4),
+    --     (1,6), (1,8), (2,9), (2,7) and on, the 40 left; the paper shows
+    --     no second pass, and this one is this module's own reading.
+    ensures:
+        if generation.order = drawn:
+            let chosen_index = index_among(draw_at(generation, next_draw), unvisited_count)
+            generation.draws_taken = generation.draws_taken + 1
+            Visit.created(
+                generation: generation,
+                step: step,
+                position: nth_unvisited(visited_before, chosen_index, config.side),
+                status: pending
+            )
+        else:
+            Visit.created(
+                generation: generation,
+                step: step,
+                position: order_position(generation.order, step, config.side),
+                status: pending
+            )
+}
+
+rule DecideVisit {
+    when: visit: Visit.created
+
+    requires: visit.status = pending
+
+    let generation = visit.generation
+
+    -- givens_in_row and givens_in_column are black boxes: the givens whose
+    -- position is in that row, or in that column. without_position is a
+    -- black box: the givens but for the one at that position. All three are
+    -- read of the givens as they stand before this visit.
+    let left = generation.givens.count - 1
+    let left_in_row = givens_in_row(generation.givens, visit.position.row).count - 1
+    let left_in_column = givens_in_column(generation.givens, visit.position.column).count - 1
+    let without = without_position(generation.givens, visit.position)
+    let breaks_bound = left < generation.bound
+    let breaks_floor = left_in_row < generation.floor or left_in_column < generation.floor
+
+    -- One rule and four ends, in this order. A removal that would leave
+    -- fewer givens than the bound is refused; one that would leave the
+    -- position's row or its column with fewer than the floor is refused;
+    -- and neither asks the solver anything. Otherwise the givens without
+    -- the position are put to the solver. verdict_is_one is a black box:
+    -- true exactly when solver.allium's search of those givens concludes
+    -- with a verdict of one. The solution grid is always a solution of
+    -- them, so the verdict is one or many and never none. One empties the
+    -- position; many leaves its given. Nothing is retried and nothing is
+    -- put back.
+    ensures:
+        if breaks_bound:
+            visit.status = refused_by_bound
+        else if breaks_floor:
+            visit.status = refused_by_floor
+        else if verdict_is_one(without):
+            visit.status = emptied
+            generation.givens = without
+        else:
+            visit.status = kept
+}
+
+-- The end ---------------------------------------------------
+
+rule FinishRemoval {
+    when: generation: Generation.is_fully_visited
+
+    requires: generation.status = removing
+
+    -- What was reached is what comes back. The floor or the verdict can
+    -- stop removal with more givens than the tier's range holds, and often
+    -- does: that is the ordinary case and not a failure, nothing is drawn
+    -- again to mend it, and the count of givens says whether the range was
+    -- met.
+    ensures: generation.status = finished
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+-- These hold in every state a generation of the basic way can reach, a
+-- state being what stands once a stimulus and the rules it sets off have
+-- run, as in sudoku.allium. One property compares one state with the next
+-- and so is prose: the givens left only ever shrink, by the one position a
+-- visit empties, because DecideVisit is the only rule that writes them once
+-- removal has begun and it writes nothing but the givens without that
+-- position. EmptiedPositionsStayEmpty and UnemptiedPositionsKeepTheirGiven
+-- say the same of what stands.
+
+invariant TheSolutionGridIsFull {
+    for generation in Generations:
+        generation.status in {removing, finished} implies
+            generation.solution.count = config.side * config.side
+}
+
+-- Every given left sits in the solution grid at its position.
+invariant GivensSitInTheSolutionGrid {
+    for generation in Generations:
+        generation.status in {removing, finished} implies
+            generation.givens.all(g => g in generation.solution)
+}
+
+-- The givens left are well-posed at every step of removal and at its end,
+-- and by GivensSitInTheSolutionGrid their one solution is the solution
+-- grid.
+invariant GivensLeftAreWellPosed {
+    for generation in Generations:
+        generation.status in {removing, finished} implies
+            verdict_is_one(generation.givens)
+}
+
+invariant TheBoundIsInTheTiersRange {
+    for generation in Generations:
+        generation.status in {removing, finished} implies
+            generation.bound >= generation.fewest_givens
+                and generation.bound <= generation.most_givens
+}
+
+invariant GivensStayAtOrAboveTheBound {
+    for generation in Generations:
+        generation.status in {removing, finished} implies
+            generation.givens.count >= generation.bound
+}
+
+-- digits_up_to is solver.allium's black box, read as it is there: the
+-- numbers from 1 to its argument, which number the rows and the columns as
+-- they do the digits.
+invariant RowsAndColumnsKeepTheFloor {
+    for generation in Generations:
+        generation.status in {removing, finished} implies
+            digits_up_to(config.side).all(line =>
+                givens_in_row(generation.givens, line).count >= generation.floor
+                    and givens_in_column(generation.givens, line).count >= generation.floor)
+}
+
+invariant NoPositionIsVisitedTwice {
+    for a in Visits:
+        for b in Visits:
+            a != b and a.generation = b.generation
+                implies a.position.row != b.position.row
+                    or a.position.column != b.position.column
+}
+
+invariant VisitsAreNumberedOnce {
+    for a in Visits:
+        for b in Visits:
+            a != b and a.generation = b.generation implies a.step != b.step
+}
+
+-- An emptied position is never refilled.
+invariant EmptiedPositionsStayEmpty {
+    for visit in Visits:
+        visit.status = emptied implies
+            not visit.generation.givens.any(g =>
+                g.position.row = visit.position.row
+                    and g.position.column = visit.position.column)
+}
+
+-- A position that was refused or kept, or is not yet decided, holds its
+-- given still.
+invariant UnemptiedPositionsKeepTheirGiven {
+    for visit in Visits:
+        visit.status != emptied implies
+            visit.generation.givens.any(g =>
+                g.position.row = visit.position.row
+                    and g.position.column = visit.position.column)
+}
+
+-- At most one visit for each position, and at most one verdict for each
+-- visit: config.side * config.side of either.
+invariant RemovalIsBounded {
+    for generation in Generations:
+        generation.visits.count <= config.side * config.side
+            and generation.asked_visits.count <= generation.visits.count
+}
+
+invariant GridAttemptsStayWithinTheLimit {
+    for generation in Generations:
+        generation.failed_attempts.count <= config.grid_attempt_limit
+}
+
+-- A generation is refused only by spent grid attempts, and finished only
+-- with every position visited.
+invariant EndsAreEarned {
+    for generation in Generations:
+        (generation.status = refused implies
+            generation.failed_attempts.count = config.grid_attempt_limit)
+            and (generation.status = finished implies
+                generation.decided_visits.count = config.side * config.side)
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+-- Where the basic way is asked for a puzzle: a tier, and with it a stream
+-- of draws through the randomness boundary.
+surface Generating {
+    provides:
+        Generate(tier)
+
+    @guarantee AlwaysEnds
+        -- Every generation whose stream gives it the draws it asks for ends
+        -- finished or refused. Grid attempts are counted against
+        -- config.grid_attempt_limit; each asks the solver at most once, a
+        -- full seeding once and a short one never, and every search
+        -- concludes (solver.allium's AlwaysConcludes). Removal visits each position once and asks for
+        -- at most one verdict a visit, so at most config.side * config.side
+        -- verdicts, 81.
+
+    @guarantee OneSolutionAndItIsTheGrid
+        -- The givens of a finished generation are well-posed, each sits in
+        -- the solution grid at its position, and the one solution they have
+        -- is the solution grid. They may be handed to sudoku.allium's
+        -- SetPuzzle as they are: the first visit always empties its
+        -- position, so something is left for a player to do.
+
+    @guarantee TheRestrictionsHold
+        -- The count of givens left is at least the bound, which lies in the
+        -- tier's range, and every row and every column holds at least the
+        -- tier's floor. The count may be above the range: the floor or the
+        -- verdict can stop removal early, and what was reached comes back.
+
+    @guarantee EveryPositionOnce
+        -- No position is visited twice, none is refilled, and removal ends
+        -- only when every position has been visited. It does not stop when
+        -- the count reaches the bound: every later visit is then refused by
+        -- the bound, which changes nothing in the result.
+
+    @guarantee DrawsInOrder
+        -- The draws are taken in this order and no others are taken. For
+        -- each grid attempt, for each seeded given, one for its position
+        -- and one for its digit: 22 for an attempt that seeds all 11, and
+        -- for one that stops short after k givens, 2k + 1. A refused
+        -- generation takes those and no more. A generation that finds a
+        -- grid then takes one for the bound and, under the drawn order
+        -- alone, one for each visit, 81. So how many draws a generation
+        -- takes depends on its grid attempts and its tier, and never on how
+        -- removal went.
+
+    @guarantee AStreamThatRunsOut
+        -- A stream may have no draw to give: the boundary's fake does when
+        -- its script ends. The asking then ends there with the boundary's
+        -- own refusal, at whichever draw it happens, and no puzzle comes
+        -- back. That is neither of this module's two ends and is not
+        -- counted as a failed grid attempt. The draws given before it stay
+        -- taken, and the draw that was not given is not.
+
+    @guarantee SameDrawsSameGivens
+        -- The same tier, the same config, the same generation_version and
+        -- random_version and the same draws give the same status, the same
+        -- givens and the same count of draws taken, for one implementation
+        -- of the solver. Replay is stated over the draws, so it holds
+        -- wherever the stream stood when it was handed over. A seed stands
+        -- for the draws exactly when the stream begins at index zero; a
+        -- caller that makes several puzzles from one stream records the
+        -- index each began at beside the seed. catalogue_version is not
+        -- among the inputs. Another solver that keeps every clause of
+        -- solver.allium may still take tied cells in another order or
+        -- strike more before it guesses, reach other solutions of the
+        -- seeded givens and so give another grid; that is a new
+        -- generation_version.
+
+    @guarantee OnlyTheBoundary
+        -- No draw is taken from anywhere but the stream handed over through
+        -- the randomness boundary. No clock, platform iteration order or
+        -- hidden source of chance affects a generation.
+
+    @guarantee ATierClaimsNothing
+        -- A tier is a construction setting. Nothing here says a tier's
+        -- puzzles are harder or easier than another's.
+}
+
+-- What a generation has to show for itself. A caller that is handed a
+-- generation only once it has ended reads the status from that alone. A
+-- refused generation shows nothing but that it was refused.
+surface GenerationResult {
+    context generation: Generation
+
+    exposes:
+        generation.tier
+        generation.status
+        generation.draws_taken
+        generation.givens.count when generation.status = finished
+        for kept in generation.givens:
+            kept.position.row when generation.status = finished
+            kept.position.column when generation.status = finished
+            kept.digit when generation.status = finished
 }
 
 ------------------------------------------------------------
@@ -121,14 +828,14 @@ config {
 
 open question "Where puzzles are made. A set generated ahead of time and carried by the consumer, generation on the device that poses the puzzle, or both. The step budget a search can afford, and whether shortcut suppression (dear, below) is run at all, depend on the answer; a set made ahead of time can also be judged by a development-time tool, and a puzzle made on the device cannot. The maintainer's decision, recorded in decision 0012 as open."
 
-open question "The symmetry schemes and the default. Rotation by a half turn is the convention; under it every orbit is a pair except the centre cell, which is an orbit of its own, so removing it changes the count of givens by one where every other orbit changes it by two, and a quarter turn groups four positions to an orbit with the same lone centre. Which schemes are offered (half-turn rotation, quarter-turn rotation, the two diagonals, horizontal and vertical reflection, none), is a scheme something a search is asked for or something it reports of what it made, or both, and are asymmetric givens ever kept? Symmetry ranks below well-posedness and the technique contract: a candidate is never kept for its shape when its run fails."
+open question "The symmetry schemes and the default. Rotation by a half turn is the convention; under it every orbit is a pair except the centre cell, which is an orbit of its own, so removing it changes the count of givens by one where every other orbit changes it by two, and a quarter turn groups four positions to an orbit with the same lone centre. Which schemes are offered (half-turn rotation, quarter-turn rotation, the two diagonals, horizontal and vertical reflection, none), is a scheme something a search is asked for or something it reports of what it made, or both, and are asymmetric givens ever kept? Symmetry ranks below well-posedness and the technique contract: a candidate is never kept for its shape when its run fails. The basic way has its answer and this question does not ask for it: it removes one position at a time, the scheme none, and reports no scheme. The question stands for the designed way."
 
 open question "The technique contract's shape. A profile plus a ceiling: the target profile's run must end solved and its hardest step must sit at or below a named rank. Or a required set and a forbidden set: some techniques must appear in the run and some must not. One Rate run for the profile checks the first: the check is a run that ends solved with its hardest step at or below the ceiling, and a technique outside the repertoire never appears in a run (LimitsOnlyHide). A stalled run fails the check and says nothing about why: StalledIsNotUnsolvable speaks for the profile alone, and the step it lacked may be outside the repertoire or outside the catalogue, a family technique.allium defers; the check assigns no cause. A solved run does not show that a required technique was needed, only that it was used, and it cannot show that no other route avoids it; that is the next question. The second shape's forbidden set is not the repertoire's complement: a forbidden technique the profile holds can still be taken, and LimitsOnlyHide proves absence only of what the profile does not hold. Enforcing the set means either hiding it from the repertoire before the run, so that solved means solvable without it, or checking each step's technique in RunResult against the set, which speaks for that route alone; which of the two is part of this question."
 
 open question "Shortcut suppression: a candidate whose intended hook can be bypassed by a simpler route. Rating again with the intended technique taken out of the repertoire, which LimitsOnlyHide makes clean, ends stalled or solved. Solved says a route without it exists, and the candidate is rejected or its givens moved. Stalled says this profile's route in this order needs it, not that every route does: StalledIsNotUnsolvable speaks for the profile alone, and reach.allium's monotonicity question says a strike one order takes can close off what another needed. Is one run enough, are several profiles and orders rated, and is a search that spends its budget reported as inconclusive rather than as either?"
 
-open question "The pacing a candidate must show before it is kept. The length of the routine runs between hooks, the size of the cascade after a hook, the length of the dependency chain before the centrepiece and the shape of the closing steps are all read from reach.allium's RunResult once its pacing question is answered. Are the thresholds a candidate must meet obligations of this module per profile, or figures in this config that a consumer sets? And the report's per-level ranges for the count of givens (roughly 36 to 45, 30 to 37, 26 to 33 and 22 to 30 for its four levels) are construction starting points and never a rating: is a range a config figure, a hint to removal, or nothing this module states?"
+open question "The pacing a candidate must show before it is kept. The length of the routine runs between hooks, the size of the cascade after a hook, the length of the dependency chain before the centrepiece and the shape of the closing steps are all read from reach.allium's RunResult once its pacing question is answered. Are the thresholds a candidate must meet obligations of this module per profile, or figures in this config that a consumer sets? And the report's per-level ranges for the count of givens (roughly 36 to 45, 30 to 37, 26 to 33 and 22 to 30 for its four levels) are construction starting points and never a rating: is a range a config figure, a hint to removal, or nothing this module states? The five tiers' ranges in config are the basic way's construction settings and no answer to this: they are the source paper's figures for the paper's method, and the question stands for the designed way and the report's four levels."
 
-open question "Redundant givens. A given that no deduction needs, because the rest already fix its cell, can still make an opening less forbidding; the report calls that experiential value. sudoku.allium caps the count of givens and nothing asks a generator to keep one it does not need, so removal run to its end takes every such given away. Does removal stop at a floor of givens per level, is a redundant given something a search keeps by asking or something it reports of what it made, or is every removable given removed?"
+open question "Redundant givens. A given that no deduction needs, because the rest already fix its cell, can still make an opening less forbidding; the report calls that experiential value. sudoku.allium caps the count of givens and nothing asks a generator to keep one it does not need, so removal run to its end takes every such given away. Does removal stop at a floor of givens per level, is a redundant given something a search keeps by asking or something it reports of what it made, or is every removable given removed? The basic way has its answer: it keeps whatever its bound and its floor stop it removing, and removes every other given the verdict lets it, asking of none whether a deduction needs it. The question stands for the designed way."
 
-open question "What a spent budget reports. A search that reaches step_budget or candidate_limit with no candidate accepted has found nothing wrong with the puzzle it did not finish; it says the budget ran out. Is that an outcome of its own, reported with the best candidate so far and how far its acceptance got, or a refusal with nothing to show? And the work inside an acceptance call, which step_budget does not count: is it charged to this budget as the callee's steps, bounded by a budget of the module that does it, or left to candidate_limit alone, as the config now says?"
+open question "What a spent budget reports. A search that reaches step_budget or candidate_limit with no candidate accepted has found nothing wrong with the puzzle it did not finish; it says the budget ran out. Is that an outcome of its own, reported with the best candidate so far and how far its acceptance got, or a refusal with nothing to show? And the work inside an acceptance call, which step_budget does not count: is it charged to this budget as the callee's steps, bounded by a budget of the module that does it, or left to candidate_limit alone, as the config now says? The basic way reads neither figure and has its answer for the one limit it has: grid attempts spent with no grid found are a refusal with nothing to show, since no grid exists to show. The question stands for the designed way."

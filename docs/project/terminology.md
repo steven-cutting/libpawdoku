@@ -73,6 +73,10 @@ When a row and a module disagree, the module is right and the row is corrected.
 | See, stall | In `reach.allium`: a deduction the profile does not hide is seen, and a run that sees nothing in an unfilled grid stalls. |
 | Hook, cascade | In a run: a step that stands above the routine steps around it, and the steps it lets loose. `generation.allium`'s words; what makes a step a hook, and how a cascade is counted, are `reach.allium`'s open questions, and no cutoff is settled. |
 | Technique contract | What a generated candidate is held to before it is kept, stated against a profile: a profile plus a ceiling, or a required set and a forbidden set. Which of the two is `generation.allium`'s open question. |
+| Tier | In `generation.allium`: one of the basic generator's five construction settings, numbered 1 to 5, each a range for the count of givens, a floor and an order of removal. Never level, which is the research report's word, and never a rating: nothing says a tier's puzzles are harder than another's. |
+| Bound, floor | In `generation.allium`: the count of givens a generation will not go below, drawn once from its tier's range; and the fewest givens any row or column may be left with. |
+| Order of removal, visit | In `generation.allium`: the order in which the positions of the grid are visited, drawn or one of three fixed orders; and the one look a position gets, which empties it or leaves its given. |
+| Grid attempt | In `generation.allium`: one try at drawing a solution grid from eleven drawn givens, which finds one or fails. Attempts are counted against a figure, never timed. |
 | Price, escalation | In `effort.allium`: what a step costs this player, and a step taken from beyond their profile. |
 | Check, repair | In `lapse.allium`: bringing every mark up to date, taken only while some mark is stale, and returning the grid to how it stood before a wrong guess. |
 | Attempt | In `human-solving.allium`: one fresh puzzle, resolved profile, environment, budgets, versions and seed, carried through to a stopping reason and independent judgement. |
