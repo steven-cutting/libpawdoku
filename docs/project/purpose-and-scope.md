@@ -37,12 +37,14 @@ module states is not the engine's yet, however obvious it looks.
 - **No persistence.** Nothing is remembered between calls. `board.allium` says what a
   record of a puzzle in play holds, as a plain value; a consumer keeps what it wants kept,
   where it wants it kept.
-- **No puzzle generation yet.** How a setter finds givens is excluded from
-  `sudoku.allium`. Generation is a planned module, `generation.allium`, specified before
-  it is built. The specification states the basic generator in full, a published method
+- **No designed puzzle generation yet.** How a setter finds givens is excluded from
+  `sudoku.allium` and is `generation.allium`'s. The basic generator, a published method
   checked by the solver's verdict
-  ([decision 0015](../decisions/0015-basic-generator.md)), and its Rust module is not yet
-  built; the designed generator is a skeleton of scope, config and open questions.
+  ([decision 0015](../decisions/0015-basic-generator.md)), is specified in full and
+  built: `generation::generate` makes a well-posed puzzle from one of five tiers and a
+  stream of draws. It is a yardstick and rates nothing. The designed generator, which
+  holds a puzzle to a technique contract, is a skeleton of scope, config and open
+  questions, and is not built.
   Whether puzzles are made on the device, ahead of time, or both is open
   ([decision 0012](../decisions/0012-generation-and-dev-time-judges.md)). What a
   generated puzzle is held to is in

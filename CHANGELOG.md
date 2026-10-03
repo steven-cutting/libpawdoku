@@ -9,11 +9,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- The basic generator, `pawdoku::generation`, from the basic way of `generation.allium`.
+  `generate(tier, stream)` makes a puzzle from a `Tier`, one of five construction
+  settings, and a stream of draws, and gives the solver's proof of it or a
+  `GenerateError`. The same tier and the same draws give the same puzzle, named by
+  `GENERATION_VERSION`; it draws from wherever the stream stands. A puzzle can now be
+  made, opened as a board and played with this crate and a seed. A tier rates nothing.
 - `generation.allium` states the basic generator in full: a solution grid drawn from
   eleven givens through the randomness boundary, givens removed one position at a time
   in the order one of five tiers names, each removal kept only while the solver's
-  verdict stays one. It is specified and not yet built; the designed generator beside
-  it stays a skeleton (decision 0015).
+  verdict stays one. The designed generator beside it stays a skeleton (decision 0015).
 - The record, `pawdoku::board::Record`, from `board.allium`'s `Recording` and
   `Reopening`. `Board::write` writes a board down at any point as a plain value the
   caller keeps, and `Board::reopen` makes the same board from it: moves, undone moves

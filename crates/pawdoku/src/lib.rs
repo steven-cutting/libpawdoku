@@ -18,7 +18,12 @@
 //! cell and every move made, takes the latest move back and re-takes it, reads back
 //! the board as it stood after any move, and answers a check of one cell yes or no. It
 //! is written down as a [`board::Record`], a plain value the caller keeps, and reopened
-//! from one as the same board.
+//! from one as the same board. [`generation`] is the fourth, from the basic way of
+//! `docs/specs/generation.allium`: [`generation::generate`] makes a puzzle from a
+//! [`generation::Tier`] and a stream of draws, by a published method that draws a full
+//! grid and takes givens away while the solver's verdict stays one.
+//!
+//! A puzzle given, opened as a board and played:
 //!
 //! ```
 //! use pawdoku::board::Board;
@@ -40,6 +45,29 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
+//! A puzzle made from a seed, with nothing but this crate, and opened as a board:
+//!
+//! ```
+//! use pawdoku::board::Board;
+//! use pawdoku::generation::{Tier, generate};
+//! use pawdoku::random::SeededStream;
+//! use pawdoku::sudoku::Status;
+//!
+//! let mut stream = SeededStream::new(7);
+//! let proof = generate(Tier::Three, &mut stream)?;
+//!
+//! let mut board = Board::open(proof.givens().iter().copied())?;
+//! assert_eq!(board.status(), Status::Unsolved);
+//!
+//! // The proof holds the solution, so this example can play the first empty cell.
+//! let empty = board.cells().find(|cell| cell.digit().is_none()).ok_or("a puzzle has an empty cell")?;
+//! let at = empty.position();
+//! let digit = proof.solution()[usize::from(at.row() - 1)][usize::from(at.column() - 1)];
+//! board.place(at, digit)?;
+//! assert!(board.check(at)?.is_right());
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
 //! **Not final.** This is a draft: the public items, their names and their signatures
 //! may change as implementation continues.
 
@@ -51,6 +79,7 @@ extern crate alloc;
 extern crate std;
 
 pub mod board;
+pub mod generation;
 pub mod random;
 pub mod solver;
 pub mod sudoku;

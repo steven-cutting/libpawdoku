@@ -10,6 +10,7 @@
 use pawdoku::board::{
     Board, BoardCell, Check, Move, MoveKind, Note, PlayError, Record, ReopenError,
 };
+use pawdoku::generation::{GenerateError, Tier};
 use pawdoku::random::{RandomError, RandomStream, ReplayStream, SeededStream};
 use pawdoku::solver::{SearchResult, SolveError, Verdict};
 use pawdoku::sudoku::{
@@ -46,6 +47,8 @@ fn public_types_are_send_sync_and_static() {
     assert_send_sync::<PlayError>();
     assert_send_sync::<Record>();
     assert_send_sync::<ReopenError>();
+    assert_send_sync::<Tier>();
+    assert_send_sync::<GenerateError>();
 }
 
 #[test]
@@ -74,6 +77,8 @@ fn public_types_are_clone_and_debug() {
     assert_clone_debug::<PlayError>();
     assert_clone_debug::<Record>();
     assert_clone_debug::<ReopenError>();
+    assert_clone_debug::<Tier>();
+    assert_clone_debug::<GenerateError>();
 }
 
 #[test]
@@ -91,6 +96,7 @@ fn streams_and_value_types_serialise_under_the_serde_feature() {
     assert_serde::<Position>();
     assert_serde::<Given>();
     assert_serde::<Record>();
+    assert_serde::<Tier>();
 }
 
 /// A board and a puzzle are never serialised: a record is the one value that crosses.

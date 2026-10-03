@@ -37,8 +37,9 @@ setter that is a program, is the one module that stands on a model: it imports t
 rules, the solver, the catalogue and `reach`, because a candidate puzzle is accepted on a
 `reach` run, and nothing imports it. It states two ways of finding givens. The basic way,
 a published method that draws a grid and removes givens one position at a time, stands on
-the rules and the solver alone and is stated in full; its Rust module is not yet built.
-The designed way is the one that stands on `reach`, and it is a skeleton whose Rust
+the rules and the solver alone and is stated in full; it is built, as
+`crates/pawdoku/src/generation.rs`, and names `sudoku`, `solver` and `random` and nothing
+else. The designed way is the one that stands on `reach`, and it is a skeleton whose Rust
 arrives with its triggers. `random` is not a specification
 module: it is the randomness boundary in `crates/pawdoku/src/random.rs`, beside the
 others rather than beneath them, and it is used by whichever module draws.

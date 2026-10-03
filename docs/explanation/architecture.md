@@ -277,6 +277,49 @@ the moves the record holds. Its answer is never stored, so a record cannot lie a
 it. `Record`'s documentation says the same, and that no promise is made yet that a
 record written by one version of the engine reopens in another.
 
+## The generator
+
+`generation` is the basic way of `generation.allium` in Rust: a published method, taken
+as it stands so that it can serve as a yardstick
+([decision 0015](../decisions/0015-basic-generator.md)). It has one entry.
+
+| Entry | Takes | Gives |
+| --- | --- | --- |
+| `generation::generate(tier, stream)` | A `Tier`, one of five construction settings, and a `&mut dyn RandomStream` | The proof, `WellPosed`, of the givens it made, or a `GenerateError`. |
+
+**It draws through the boundary and from nowhere else**, in a fixed order. Each grid
+attempt draws eleven givens that do not conflict, a position and then a digit for each,
+and puts them to the solver; a solution is the solution grid, and of two the one that
+holds the lower digit at the first position, row by row, where they differ. A seeding
+that cannot go on or has no solution is a failed attempt, and a hundred of them are a
+refusal. One draw then chooses the bound within the tier's range. Removal visits each of
+the 81 positions once in the tier's order, and only tiers 1 and 2, whose order is drawn,
+take a draw for each visit. So a generation that finds its grid at once takes 23 draws
+in tiers 3 to 5 and 104 in tiers 1 and 2, whatever removal does.
+
+**It takes a stream and not a seed**, because the boundary is a trait and a test supplies
+its draws through the fake. It draws from wherever the stream stands, so what replays a
+puzzle is the tier, `GENERATION_VERSION`, `RANDOM_VERSION`, the seed and the index the
+stream stood at; or a fresh stream for each puzzle.
+
+**The proof is the solver's.** Removal asks `solver::search` for each verdict and hands
+the givens it is left with to `solver::solve` once, at the end, so the proof's
+constructor keeps its one caller. That last call cannot refuse: the givens have one
+solution by construction, and the first visit always empties its position, so something
+is left to play. Its refusal is still carried, as `GenerateError::NotProved`, so that a
+defect would be a refusal and never a panic.
+
+**What a seed gives depends on the solver.** Eleven givens nearly always have many
+solutions, the search stops at two, and which two it reaches follows from the solver's
+tie-break and from what its propagation strikes before a guess. A change to either
+changes the grids with nothing in `generation` touched, and is a new
+`GENERATION_VERSION`. Two tests in `tests/generation.rs` pin what seeds give and say so.
+
+A tier is a construction setting: a range for the bound, a floor for every row and
+column and an order of removal. Nothing in the module rates a puzzle or says one tier is
+harder than another. What removal reached is what comes back, in the tier's range or
+above it; `Tier::most_givens` says which.
+
 ## What crosses each boundary
 
 | Consumer | Crosses | Through |
@@ -305,11 +348,11 @@ checked at reopening, not at deserialising.
 No I/O, no clock, no threads, no `rand`, no network, no persistence and no user
 interface. Those are excluded by design, as
 [Purpose and scope](../project/purpose-and-scope.md) records. Puzzle generation is not
-among them: generation is a planned module, `generation.allium`, specified before it is
-built. The specification states the basic generator in full, a published method checked
-by the solver's verdict ([decision 0015](../decisions/0015-basic-generator.md)), and its
-Rust module is not yet built; the designed generator is a skeleton of scope, config and
-open questions. Whether puzzles are made on the device, ahead of time, or both is open
+among them. The basic generator, a published method checked by the solver's verdict
+([decision 0015](../decisions/0015-basic-generator.md)), is specified in
+`generation.allium` and built as `generation`, above. The designed generator beside it
+is a skeleton of scope, config and open questions, and nothing of it is built. Whether
+puzzles are made on the device, ahead of time, or both is open
 ([decision 0012](../decisions/0012-generation-and-dev-time-judges.md)).
 
 ## Related pages
