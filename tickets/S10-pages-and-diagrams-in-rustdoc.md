@@ -3,7 +3,7 @@ id: S10
 title: "Spike: prose pages, diagrams and raw HTML inside rustdoc"
 status: open
 depends_on: [T11]
-parallel_with: [T30, T33]
+parallel_with: [T33]
 branch: ticket/s10-pages-and-diagrams-in-rustdoc
 estimated_size: S
 ---

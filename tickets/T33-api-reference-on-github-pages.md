@@ -3,7 +3,7 @@ id: T33
 title: "The API reference on GitHub Pages: a deploy workflow, a site recipe and the first workflow that publishes"
 status: open
 depends_on: [T11]
-parallel_with: [T30, S10]
+parallel_with: [S10]
 branch: ticket/t33-api-reference-on-github-pages
 estimated_size: M
 ---

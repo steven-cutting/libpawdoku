@@ -35,54 +35,94 @@ stages, commits, tags or pushes. If it complains about a missing tool, read
 just doc
 ```
 
-Open `target/doc/pawdoku/index.html`. Beside the `random` module there is one documented
-item, the constant `SIDE` in `crates/pawdoku/src/lib.rs`, which restates `sudoku.allium`'s
-`config.side`: nine cells to a row, a column and a box. Its example is a test, which
-`just test-doc` runs.
+Open `target/doc/pawdoku/index.html` and follow the `sudoku` module, then `Position`.
+Its source is `crates/pawdoku/src/sudoku.rs`. Read `Position::new`, `row` and `column`:
+rows count from the top, columns from the left, and a position outside the grid can
+still be constructed. Each public item's example is a test, which `just test-doc`
+runs. Your exercise adds a method to this type.
 
 ## 3. Read what decides the behaviour
 
-Open `docs/specs/sudoku.allium` and find the `config` block near the foot of the module.
+Open `docs/specs/sudoku.allium` and find the `config` block.
 `box_side` is 3, and the comment says why it has a name at all: so that no rule carries a
 bare number, not so that it can be tuned. `side` follows from it, as `box_side * box_side`.
-Then find `is_full` on `Puzzle`, which counts filled cells against `config.side *
-config.side` rather than against 81. The crate already restates `side`; your change
-restates the box.
+The crate already restates both figures as `BOX_SIDE` and `SIDE`.
+
+Now find `CellsSitOnTheGrid`: a cell's row and column are each at least 1 and at most
+`config.side`. Your change makes those bounds readable on a `Position` through
+`is_on_grid()`. It reports whether both coordinates fit; it does not prevent making
+an off-grid position or change how a move is refused. The bounds come from the clause,
+so there is no new rule or setting to decide.
 
 ## 4. Change something
 
-The test comes first. In the `tests` module at the foot of `lib.rs`, add a test that
-asserts what the `config` comment says, that a grid is `box_side` boxes of `box_side`
-cells:
+The test comes first. In the existing `tests` module at the foot of
+`crates/pawdoku/src/sudoku.rs`, add this test, indented to match the tests beside it.
+The module's `use super::` line already imports `Position` and `SIDE`. The cases include
+the four corners, an interior position, and each coordinate independently below and
+above the bounds:
 
 ```rust
 #[test]
-fn a_side_is_a_box_side_of_boxes() {
-    assert_eq!(BOX_SIDE * BOX_SIDE, SIDE);
+fn positions_on_the_grid_have_rows_and_columns_from_one_to_side() {
+    let cases = [
+        (1, 1, true),
+        (1, SIDE, true),
+        (SIDE, 1, true),
+        (SIDE, SIDE, true),
+        (4, 7, true),
+        (0, 1, false),
+        (1, 0, false),
+        (SIDE + 1, 1, false),
+        (1, SIDE + 1, false),
+        (u8::MAX, 1, false),
+        (1, u8::MAX, false),
+    ];
+    for (row, column, expected) in cases {
+        assert_eq!(Position::new(row, column).is_on_grid(), expected);
+    }
 }
 ```
 
-Add `BOX_SIDE` to the module's `use super::` line, then run the suite and watch it fail to
-compile, because `BOX_SIDE` does not exist yet. That is the point.
+Run the suite and watch it fail to compile, because the method does not exist yet.
+That is the point.
 
 ```console
 just test
+```
+
+The diagnostic names what is missing:
+
+```text
+error[E0599]: no method named `is_on_grid` found for struct `Position` in the current scope
 ```
 
 A test that is green before you have changed anything is either already covered or vacuous.
 
 ## 5. Add the behaviour and its test together
 
-Above `SIDE`, add the item with a doc comment and an example, because a doc example is a
-test too:
+In the first `impl Position` block, after `column` and before the block's closing brace,
+add this method. Indent it to match the other methods. Its doc example is a test too.
+`#[must_use]` is not optional: clippy's `must_use_candidate` asks for it on a public
+method that returns a value, and `just clippy` turns that warning into an error:
 
 ```rust
-/// The side of a box: three cells across and three down, and three boxes to a band.
+/// Whether this position lies on the grid: both coordinates are from 1 to [`SIDE`].
+///
+/// These are the bounds `CellsSitOnTheGrid` states in `sudoku.allium`.
+/// A position outside those bounds can still be constructed.
 ///
 /// ```
-/// assert_eq!(pawdoku::BOX_SIDE, 3);
+/// use pawdoku::sudoku::{Position, SIDE};
+///
+/// assert!(Position::new(1, SIDE).is_on_grid());
+/// assert!(!Position::new(0, 1).is_on_grid());
+/// assert!(!Position::new(1, SIDE + 1).is_on_grid());
 /// ```
-pub const BOX_SIDE: u8 = 3;
+#[must_use]
+pub const fn is_on_grid(self) -> bool {
+    1 <= self.row && self.row <= SIDE && 1 <= self.column && self.column <= SIDE
+}
 ```
 
 Run `just test` again; it runs the new test and the new example. Land the item, its

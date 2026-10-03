@@ -1,7 +1,7 @@
 ---
 id: T30
 title: "The first-change tutorial: an exercise that can be followed again"
-status: open
+status: done
 depends_on: [T25]
 parallel_with: [T26, T27, T28]
 branch: ticket/t30-first-change-tutorial
@@ -122,23 +122,94 @@ step 5 from the run of step 3 above.
 
 ## Hand-back notes
 
-None yet.
+Done on 2026-10-02 on `ticket/t30-first-change-tutorial`, starting from `cd27d19`
+(the merge of T27), with a clean worktree. The maintainer chose the position helper
+in this session before the exercise was run.
+
+### The exercise chosen
+
+`Position::is_on_grid()` reads the bounds already stated by `CellsSitOnTheGrid`:
+both coordinates from 1 to `config.side`. It adds no rule or configuration figure,
+and leaves positions outside the grid constructible. The unit test checks the four
+corners, an interior position, and each coordinate independently at 0, `SIDE + 1`
+and `u8::MAX`. The public method has `#[must_use]` and a running doc example.
+
+T26 and T27 are already merged here. Their file lists and T25's "Names later tickets
+need" preserve `sudoku::Position`, its constructor, getters and `SIDE`. T28 changes
+the board's recording surface and does not add this method or move those items.
+None of T26 to T28 needs a tutorial row added to its "Files touched" for this exercise.
+
+The exercise lasts only while the method stays unbuilt. The crate already checks these
+bounds privately in three places: `at` and `at_mut` in `sudoku.rs`, and the `on_grid`
+closure in `solver/branch.rs`. A later ticket that lands a public
+`Position::is_on_grid` makes step 4 start green; that ticket must choose a new exercise
+and list the tutorial in its "Files touched".
+
+### The exercise run
+
+Before editing the page, the exact test now printed in step 4 was added to the existing
+unit-test module in `crates/pawdoku/src/sudoku.rs`. `just test` exited 101, with this
+compiler output:
+
+```text
+error[E0599]: no method named `is_on_grid` found for struct `Position` in the current scope
+   --> crates/pawdoku/src/sudoku.rs:319:51
+    |
+ 97 | pub struct Position {
+    | ------------------- method `is_on_grid` not found for this struct
+...
+319 |             assert_eq!(Position::new(row, column).is_on_grid(), expected);
+    |                                                   ^^^^^^^^^^ method not found in `Position`
+
+```
+
+The method and doc example now printed in step 5 were then added to the first
+`impl Position` block. Selected output from the successful `just test` run:
+
+```text
+        PASS [   0.008s] ( 81/207) pawdoku sudoku::tests::positions_on_the_grid_have_rows_and_columns_from_one_to_side
+     Summary [   0.859s] 207 tests run: 207 passed, 0 skipped
+test crates/pawdoku/src/sudoku.rs - sudoku::Position::is_on_grid (line 144) ... ok
+test result: ok. 108 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+```
+
+`just check` also passed with the exercise applied, including clippy, metrics,
+feature combinations, both wasm targets, coverage and the documentation build.
+It ended with:
+
+```text
+All checks passed and the worktree is unchanged.
+```
+
+Only the exercised crate file was restored with `git checkout --
+crates/pawdoku/src/sudoku.rs`. The method and test are absent from the final crate;
+`git diff --stat main...HEAD -- crates/` has no output. The source used in the rehearsal and
+its logs remain only in gitignored `ai_tmp/`.
+
+### The page and final verification
+
+Steps 2 to 5 use the rehearsed snippets and existing paths and imports. Step 2 sends
+the reader into `sudoku::Position` without counting the public items. Frontmatter,
+all seven step headings, steps 1, 6 and 7, and the sections after step 7 are unchanged.
+The page body contains 869 whitespace-delimited words, above the 500-word floor.
+Both Rust snippets match the exercised source apart from indentation: the page prints
+them flush-left and tells the reader to indent each to match its neighbours. Review
+reworded one line of step 5's doc comment; both snippets were then pasted and run again,
+with the same 207 passing tests and the doctest still at line 144, and the crate file
+was restored again.
+
+`just check-docs` passes: Markdown, spelling, links and the documentation contract
+(41 pages and 42 canonical topics). The final `just check` passes and reports that
+its run changed nothing. All validation used rustup's cargo first on `PATH` and
+`CARGO_NET_OFFLINE=true`; the installed prek cache required access outside the
+worktree sandbox.
+
+The final change contains only the tutorial, this ticket and its index row. T30 is
+done here and in `tickets/README.md`; the local commit is on the ticket branch.
 
 ## Open points
 
-- **Which exercise.** The maintainer's choice. Candidates T25's review raised, none
-  chosen:
-  - *A named figure for the number of cells.* `sudoku.allium` writes
-    `config.side * config.side` in `is_full`, in `SetPuzzle` and in
-    `TheGridIsWhole`, and step 3 already sends the reader to `is_full`. A public
-    constant for that product is red first and passes the gate. Against it: the
-    specification states the product and never names it, so the exercise has the reader
-    invent a figure, which the handbook otherwise forbids.
-  - *A test of a clause that is already built.* Nothing is invented. Against it: the
-    test is green on arrival, and the page's own step 4 says what such a test is worth.
-  - *Something outside `sudoku`,* such as an item in `random`. It survives T26 to T28
-    untouched. Against it: `random` is the boundary and not a module of rules, so the
-    reader's first clause would not be one of the game's.
-- **Whether the page should be re-checked by each engine ticket.** T26, T27 and T28 do
-  not list the page. If the exercise chosen names an item one of them moves, that
-  ticket's "Files touched" gains a row; say which in the hand-back notes.
+One condition, stated under "The exercise chosen": a ticket that lands a public
+`Position::is_on_grid` must re-do the exercise. Its compatibility with T26 to T28 is
+settled above.
