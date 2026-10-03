@@ -125,14 +125,35 @@ count of givens that it is "never a rating".
   grid, so that is the one limit the basic way needs. `step_budget` and
   `candidate_limit` are declared for the designed way; whether the basic way reads
   them is an Open point.
-- **Replay stands on the solver's order.** Eleven givens nearly always have many
-  solutions. The search stops at two, and which solutions it reaches depends on the
-  order "in which tied cells and tied branches are taken", which `solver.allium` leaves
-  to the implementation and requires to be "the same each time". So the same seed gives
-  the same solution grid for one implementation of the solver, and a change to that
-  order gives other givens. The module's `generation_version` comment already says it
+- **Replay stands on what the solver does.** Eleven givens nearly always have many
+  solutions. The search stops at two, and which it reaches depends on two things
+  `solver.allium` leaves open. One is the order "in which tied cells and tied branches
+  are taken", required only to be "the same each time". The other is what propagation
+  strikes before a guess: of deductions past singles the module says "A solver may make
+  them", and a guess is on a cell with the fewest candidates, so a solver that strikes
+  more can guess on another cell and reach other solutions with its tie-break
+  unchanged. So the same draws give the same solution grid for one implementation of
+  the solver, and no further. The module's `generation_version` comment already says it
   is raised "whenever removal or acceptance changes so that a seed gives other givens";
-  it must now name this cause too.
+  it must now cover any change, here or in the solver, that makes the same draws give
+  other givens or take a different number of draws.
+- **Two solutions, one grid.** `solver.allium`'s `SearchResult` exposes the solved
+  branches and gives them no order. The basic way needs one of them, so the module
+  must say which.
+- **A seed is not a stream.** The boundary is a stream of draws "begun from a seed,
+  indexed from zero" (`crates/pawdoku/src/random.rs`), and T32's entry takes a stream,
+  which a caller may already have drawn from. What fixes the result is the draws taken,
+  from wherever the stream stands. A seed stands for them only when the stream is at
+  index zero. The module states replay in terms that hold for both.
+- **`floor(u * n)` has two readings.** `human-solving.allium`'s `ExactReplay` words a
+  choice among `n` as `floor(u*n)`. Read as exact arithmetic, and read as the binary64
+  product truncated, the two differ for a few draws beside a boundary. For the draw
+  `6004799503160661 / 2^53` and `n` of 3 the exact product is `2 - 2^-53`, whose floor
+  is 1, and the binary64 product rounds to 2.0. Some such draw exists for 74 of the
+  values of `n` from 1 to 81 (both computed on 2026-10-02). Each reading gives the same
+  answer on every IEEE 754 target; they do not give the same answer as each other. The
+  module must say which it means. Under either, the largest draw below one never
+  reaches `n`.
 - **Replay does not read the catalogue.** The module's Replay clause lists three
   versions. The basic way uses no technique, so its givens depend on
   `generation_version` and `random_version` and not on `catalogue_version`.
@@ -252,19 +273,24 @@ green.
 
 4. **The config.** The five tiers' figures as the table in Context gives them, with the
    answers to the Open points for tier 1's upper end; the count of seeded givens, 11;
-   the figure for grid attempts. Raise `generation_version` and extend its comment: a
-   change to the order in which the solver takes tied cells and branches is a change
-   that makes a seed give other givens. Run `just check-specs`.
+   the figure for grid attempts. Raise `generation_version` and extend its comment: it
+   is raised for any change, in this module or in the solver, that makes the same draws
+   give other givens or take a different number of draws. Name the two the solver
+   allows itself: the order in which it takes tied cells and branches, and what its
+   propagation strikes before it guesses. Run `just check-specs`.
 
 5. **The basic way's constructs.** Write them with the `tend` skill, at the level
    `solver.allium` is written: what happens and what is guaranteed, not how it is
    stored. Run `just check-specs` after each block. The module must say, in whatever
    constructs fit:
 
-   - **What is asked.** A tier and a seed. Nothing else chooses the result.
+   - **What is asked.** A tier and a stream of draws. A seed names a stream at index
+     zero, and then the tier and the seed choose the result between them. Say what
+     holds for a stream that has already been drawn from, as step 2 settled.
    - **A grid attempt.** Eleven positions and their digits are drawn as step 2 settled;
-     the givens go to `solver.allium`; a solution it finds is the solution grid; a
-     verdict of none ends the attempt and another begins.
+     the givens go to `solver.allium`; a solution it finds is the solution grid, and
+     when it finds two, the one step 2 settled; a verdict of none ends the attempt and
+     another begins.
    - **Spent attempts.** What is reported when the figure is reached with no grid.
    - **The bound.** One draw inside the tier's range, after the grid.
    - **The order.** The four orders, each stated so that the position visited at every
@@ -280,9 +306,11 @@ green.
      sooner once the count equals the bound, since nothing more can then be removed.
    - **What comes back.** The givens left, and that their verdict is one.
    - **The draws.** In the order they are taken, and how many each step takes. A choice
-     among `n` is `floor(u * n)` over a list in a stated order, the wording
-     `human-solving.allium`'s `ExactReplay` uses, restated here because this module does
-     not import that one.
+     among `n` is an index into a list in a stated order, computed from the draw as
+     step 2 settled. State the arithmetic in words that leave one answer for the draw
+     in Context's example, and give that draw as a worked case. `human-solving.allium`'s
+     `ExactReplay` words it `floor(u*n)`; this module does not import that one and
+     restates what it means.
 
    And it must guarantee, each as a named invariant or guarantee:
 
@@ -292,8 +320,9 @@ green.
      least the floor;
    - no position is visited twice and none is refilled;
    - removal asks for at most 81 verdicts and always ends;
-   - the same tier, seed, config, `generation_version` and `random_version` give the
-     same givens, for one order of the solver's tied cells and branches;
+   - the same tier, config, `generation_version` and `random_version` and the same
+     draws give the same givens, for one implementation of the solver; and a seed
+     stands for the draws exactly when the stream begins at index zero;
    - no draw is taken from anywhere but the boundary.
 
    Then one surface for the asking and one for what comes back, in the shape of
@@ -327,8 +356,9 @@ green.
    - **Consequences, the ones that hurt included:** one module now states two ways of
      finding givens; the specifications carry settings built on a count of givens beside
      the sentence that a count is never a rating, and say why that is not a
-     contradiction; the same seed gives the same puzzle only while the solver's order
-     of tied cells holds; grids come from eleven givens and the solver's first
+     contradiction; the same seed gives the same puzzle only for one implementation of
+     the solver, so a solver that propagates more or breaks ties otherwise is a new
+     `generation_version`; grids come from eleven givens and the solver's first
      solutions, so they are not spread evenly over all valid grids, as the paper's are
      not; tiers 3 to 5 leave their givens where a fixed order puts them.
    - **What would reopen this:** a comparison that shows the tiers do not differ as
@@ -382,8 +412,12 @@ green.
   that asks for the designed way is still there in each.
 - The module has four `use` lines, unchanged, and nothing the basic way states names
   `technique` or `reach`.
-- `generation_version` is no longer `"generation-0"`, and its comment names the solver's
-  order as a cause.
+- `generation_version` is no longer `"generation-0"`, and its comment covers any change,
+  here or in the solver, that makes the same draws give other givens, naming the
+  solver's order of tied cells and what its propagation strikes.
+- The module says how a draw becomes an index in words that leave one answer for the
+  draw in Context's example, says which solution is the grid when the search finds two,
+  and states replay for a stream that has already been drawn from.
 - No page under `docs/` says the whole module is a skeleton or that the engine has no
   generator specified; `purpose-and-scope.md` and `architecture.md` say the same thing.
 - Every `generation.allium` line cited in `puzzle-design.md` holds the text its row
@@ -436,6 +470,9 @@ To be filled in. At the least:
 - **T20.** Its draft writes "triggers, guarantees and fixtures on the skeleton". It now
   writes a second way beside the basic one, and inherits the vocabulary and the replay
   clause this ticket wrote.
+- **`human-solving.allium`.** Its `ExactReplay` words a choice among `n` as `floor(u*n)`,
+  which has the two readings Context describes. That module is not edited here; say
+  which reading this ticket chose, for whoever builds that one.
 
 ### Open points settled
 
@@ -460,6 +497,19 @@ Each is the maintainer's. The proposal beside it is the ticket writer's, made on
   Proposed: a position among the empty cells, in row order; then a digit among those no
   earlier given holds in its row, column or box, lowest first. A position with no digit
   left ends the attempt, which is counted and begun again.
+- **Which solution is the grid when the search finds two.** `solver.allium` exposes the
+  solved branches with no order. Proposed: the one that comes first reading the grid row
+  by row, a rule this module can state without reaching into the solver. The other
+  choice is the first the search found, which needs a sentence in `solver.allium` to
+  give the branches an order, and that file is not in this ticket.
+- **How a draw becomes an index.** Proposed: the binary64 product of the draw and `n`,
+  truncated toward zero, stated as such with the worked draw from Context, so that an
+  implementation in exact arithmetic knows it differs. The other choice is the floor of
+  the exact product, which T32 would compute from the draw's bits.
+- **A stream already drawn from.** Proposed: replay is stated over draws, which holds
+  wherever the stream stands, and the module adds that a seed stands for them when the
+  stream begins at index zero. A caller that makes several puzzles from one stream
+  records the index each began at beside the seed.
 - **Removal that ends above the tier's range.** The floor or the verdict can stop
   removal early. Proposed: return what was reached and retry nothing, as the paper's
   flow does; the count of givens says whether the range was met. This is what makes the

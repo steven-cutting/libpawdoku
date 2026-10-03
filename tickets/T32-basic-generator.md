@@ -52,47 +52,62 @@ tickets need".
 - **One entry.** `generation::generate(tier, stream)` takes a `Tier` and a
   `&mut dyn RandomStream` and returns `Result<WellPosed, GenerateError>`. If T31 made
   the figure for grid attempts the caller's, it is a third argument.
-- **The proof comes from the solver.** When removal ends, the givens left go to
-  `solver::solve`, and the proof it returns is the result. `WellPosed::vouch` keeps its
-  one caller (decision 0014). A consumer opens a board with
+- **It draws from wherever the stream stands.** The entry takes a stream and not a
+  seed, because the boundary is a trait and a test supplies its draws through the fake.
+  A stream a caller has already drawn from gives another puzzle than a fresh one from
+  the same seed. The documentation of `generate` says so, and says what replays a
+  puzzle: the tier, the versions, the seed and the index the stream stood at
+  (`RandomStream::index`), or simply a fresh stream for each puzzle.
+- **The proof comes from the solver**, and `WellPosed::vouch` keeps its one caller
+  (decision 0014). Two shapes do it. Removal can ask `solver::search` for each verdict
+  and put the givens left to `solver::solve` once at the end. Or each visit can ask
+  `solver::solve` and keep the proof of the last removal that went through, which saves
+  the closing search. Choose the one that leaves fewer lines no input can reach, and
+  say which under "Names later tickets need". A consumer opens a board with
   `Board::open(proof.givens().iter().copied())`; `board` is not touched.
 - **`Tier` is a public enum** of five, `#[non_exhaustive]`, that can say its own range
   and floor, so a caller can tell whether a result met its range.
 - **`GenerateError` is a `thiserror` enum** with stable `Display` text: the stream ran
   out (it wraps the `RandomError`, transparently, as `SolveError::NotPosed` wraps its
-  cause); grid attempts were spent; and one conversion from `SolveError` for the closing
-  `solve`.
+  cause); grid attempts were spent; and, if the shape chosen needs it, one conversion
+  from `SolveError` for a refusal no input reaches.
 - **`GENERATION_VERSION`** is a public constant equal to the specification's
   `config.generation_version`, as `random::RANDOM_VERSION` equals `random_version`.
 
 Facts that shape the work:
 
-- **The closing `solve` cannot fail on a correct removal.** The first position visited
-  is always removed: 80 givens are above every bound, eight in a row are above every
-  floor, and a full grid less one cell has one solution. So "nothing left to play"
-  cannot arrive, and neither can the other refusals. `generate` must still not panic.
-  Give the error one conversion from `SolveError` and test that conversion directly; do
-  not write a branch per impossible case, because unreachable lines count against the
-  coverage floor. T26 did the same for the proof constructor's errors.
+- **A correct removal always has a proof.** The first position visited is always
+  removed: 80 givens are above every bound, eight in a row are above every floor, and a
+  full grid less one cell has one solution. So "nothing left to play" cannot arrive at
+  the end, and neither can the solver's other refusals. `generate` must still not
+  panic. Whichever shape is chosen, give what cannot happen one path and test that path
+  directly; do not write a branch per impossible case, because unreachable lines count
+  against the coverage floor. T26 did the same for the proof constructor's errors.
 - **A stream can run out.** `RandomStream::next_draw` returns a `Result`. The library's
   `SeededStream` never fails; the `ReplayStream` fake does when its script ends. Every
   draw's error is carried out of `generate`, at whichever draw it happens.
-- **A choice among `n` is `floor(u * n)`.** `f64::floor` may not be nameable under
-  `no_std`; a truncating cast is floor for a product that is never negative. Put the
-  cast in one function with its `#[expect]` lines and reasons, as `random.rs` does for
-  its own cast. A draw is below one, so the index is below `n`, and a test holds that at
-  the top: the largest draw a stream can give picks the last of `n` for every `n` from
-  1 to 81.
-- **The solver's tie-break decides the grid.** Eleven givens nearly always have many
-  solutions, and `solver::search` stops at two. Which it reaches follows from the rule
-  `pawdoku::solver` documents under "The tie-break". A change to that rule changes what
-  every seed gives. The test that pins a seed's givens says so, and so does the
-  documentation of `GENERATION_VERSION`.
+- **How a draw becomes an index is T31's to settle, and it has two answers.** The
+  binary64 product of the draw and `n`, truncated, is not always the floor of the exact
+  product: for the draw `6004799503160661 / 2^53` and `n` of 3 the first gives 2 and the
+  second 1. T31 proposed the first. If that stands, the index is one multiplication and
+  a truncating cast, which is floor for a product that is never negative (`f64::floor`
+  may not be nameable under `no_std`); if the exact reading was chosen, compute it from
+  the draw's bits in integers. Either way put it in one function, with its `#[expect]`
+  lines and reasons where a cast needs them, as `random.rs` does for its own cast. Two
+  tests hold it: the largest draw a stream can give picks the last of `n` for every `n`
+  from 1 to 81, and the draw above picks what T31's reading says.
+- **What the solver does decides the grid.** Eleven givens nearly always have many
+  solutions, and `solver::search` stops at two. Which two it reaches follows from the
+  rule `pawdoku::solver` documents under "The tie-break", and from what its propagation
+  strikes before a guess, since a guess is on a cell with the fewest candidates. A
+  change to either changes what a seed gives, with nothing in this module touched.
+  Which of two solutions is the grid is T31's rule. The tests that pin what seeds give
+  say all this, and so does the documentation of `GENERATION_VERSION`.
 - **Removal in a fixed order draws nothing.** It is a function of a solution grid, an
   order, a bound and a floor. Build it so, and test it apart from the grid, on the
   solution of the fixture below.
-- **One call is many searches.** Up to 81 for removal, one for the proof, one for each
-  grid attempt. Keep each property's case count small, and quote how long `just test`
+- **One call is many searches.** Up to 81 for removal, one more if the proof is taken
+  at the end, and one for each grid attempt. Keep each property's case count small, and quote how long `just test`
   takes before and after.
 - **Draws come through the fake.** `docs/reference/testing.md`: "A test that needs
   randomness scripts its draws with `ReplayStream`". A property hands the fake draws
@@ -229,9 +244,13 @@ Every other name is this ticket's to choose and to report.
 
 5. **Pin what a seed gives.** One test drives `SeededStream` from seed zero through
    `generate` for each tier and compares the givens with a literal in the test, beside
-   an assertion on `GENERATION_VERSION`. Say in the test that the givens follow from
-   the solver's tie-break and from this module's draws, and that whoever changes either
-   changes the constant in the same commit.
+   an assertion on `GENERATION_VERSION`. One seed is a tripwire and not a proof: a
+   change in the solver can move other seeds' grids and leave seed zero's alone. So a
+   second test folds the givens of seeds 0 to 99, in one tier, into one number by a
+   rule written out in the test, and pins that number. Say in both tests that the
+   givens follow from the solver's tie-break, from what its propagation strikes and
+   from this module's draws, and that whoever changes any of them changes the constant
+   in the same commit.
 
 6. **Snapshots**, once the list is empty, in `crates/pawdoku/tests/snapshots.rs`, each
    by a test named `snapshot_...`, through the public API:
@@ -264,7 +283,7 @@ Every other name is this ticket's to choose and to report.
    fewest and the most givens, how many results fell within the tier's range, and the
    most grid attempts any seed took. Take the figures from a test that asserts what
    `generation.allium` guarantees over those seeds; do not assert the figures
-   themselves, which follow from the tie-break. Quote them in the hand-back notes as a
+   themselves, which follow from the solver. Quote them in the hand-back notes as a
    table. They are the first row of any later comparison. The source paper reports
    every attempt succeeding for its level 5 under row order, and 13.33 per cent under a
    drawn order.
@@ -300,7 +319,10 @@ names in the table. By subject:
   as T31 settled. The drawn order visits each position once whatever the draws, and a
   scripted set of draws gives the order worked out by hand.
 - **A choice among `n`.** A draw of zero picks the first. The largest draw a stream can
-  give picks the last, for every `n` from 1 to 81.
+  give picks the last, for every `n` from 1 to 81. The draw `6004799503160661 / 2^53`
+  among three picks what T31's reading says, and the test says which reading that is.
+- **Which solution is the grid.** Eleven scripted givens with more than one solution
+  give the grid T31's rule names, not the other.
 - **A grid attempt.** Scripted draws place eleven givens, no two in conflict. A script
   that leaves a drawn position no digit ends the attempt. Eleven givens that agree and
   have no solution end the attempt: the digits 1 to 8 along a row and a 9 in the box of
@@ -318,9 +340,12 @@ names in the table. By subject:
   position; `solver::search` gives the givens the verdict of one and the same solution;
   the count is at least the low end of the tier's range; every row and column holds at
   least the floor.
-- **Replay.** The same draws give the same givens. The pinned test of step 5.
+- **Replay.** The same draws give the same givens. Two calls on one stream give two
+  puzzles, and the second is had again from a stream brought to the index the second
+  call began at, and not from a fresh stream of the same seed. The pinned tests of
+  step 5.
 - **`generate` from outside.** A puzzle from a seed opens as a board and can be played.
-  Each refusal reads as its text. The conversion from `SolveError`, tested directly.
+  Each refusal reads as its text. The one path for what cannot happen, tested directly.
   Every new public type is in the two bounds tests.
 
 ## Acceptance criteria
@@ -338,8 +363,10 @@ names in the table. By subject:
   `#[expect]` added is on the cast that turns a draw into an index, with its reason.
 - Every public item of `generation` has a doc example that runs and asserts, and the
   hand-back notes list each beside its doctest.
-- The pinned test names `GENERATION_VERSION`, and the constant equals the default of
+- Both pinned tests name `GENERATION_VERSION`, and the constant equals the default of
   `config.generation_version` in `docs/specs/generation.allium`.
+- The documentation of `generate` says it draws from wherever the stream stands and
+  what a caller records to have a puzzle again.
 - Line coverage of `src/generation` alone is at or above 90 per cent.
 - The six snapshots of step 6 exist as `.snap` files, each taken by a test named
   `snapshot_...` through the public API. None appears in the hand-back table as the
@@ -394,9 +421,10 @@ worktree is unchanged.`
   needs a name. The ticket suggests the numbers spelt out, with a method that gives the
   number. The maintainer may want others; the behaviour is fixed.
 - **Whether `Tier` serialises.** A caller that wants to replay a puzzle records the
-  tier, the seed and the two versions. The ticket suggests `Tier` derives the `serde`
-  traits under the existing feature, as `Position` and `Given` do, and that nothing
-  else here does.
+  tier, the seed, the two versions, the figure for grid attempts if it is the caller's,
+  and the index the stream stood at unless every puzzle has a fresh stream. The ticket
+  suggests that `Tier` derives the `serde` traits under the existing feature, as
+  `Position` and `Given` do, and that nothing else here does.
 - **What `generate` returns beside the proof.** The ticket returns the proof alone: the
   givens, the solution, and through `Tier` whether the range was met. The bound that
   was drawn and the count of grid attempts are not returned. A comparison may later ask
