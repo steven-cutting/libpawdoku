@@ -491,9 +491,9 @@ were present, so `just initialize` was not run.
   second pass settled below is its even-numbered steps. The module states it that way.
 - **`puzzle-design.md`.** Fourteen citations of `generation.allium` moved, one of them
   written `:134` with no file name, which the first pass missed and Codex's review
-  found. Each new line was printed and holds what its row describes: 825, 827, 829, 831,
-  833, 835 and 837 are the open questions that were 122 to 134; 71 is the Replay clause
-  that was 34; 346-353 is the three versions, 109-115 before; 278-354 is the config
+  found. Each new line was printed and holds what its row describes: 829, 831, 833, 835,
+  837, 839 and 841 are the open questions that were 122 to 134; 71 is the Replay clause
+  that was 34; 350-357 is the three versions, 109-115 before; 278-358 is the config
   block, 85-116 before.
 - **"Skeleton".** `rg -n -i 'skeleton' docs README.md crates/pawdoku/README.md` hits
   only sentences that call the designed way one, and decisions 0004 and 0012, records
@@ -529,8 +529,11 @@ were present, so `just initialize` was not run.
   showed a refused generation's givens; `found_grid` had no stated answer for a short
   seeding; `AlwaysEnds` and `DrawsInOrder` overstated the solver calls and the draws of
   a refused generation; a stream that runs out had no stated outcome, and
-  `AStreamThatRunsOut` now gives T32's; the config says its guarantees are stated of
-  its figures as they stand. The review also found three wrong line citations in
+  `AStreamThatRunsOut` now gives T32's; the config says its figures are not a caller's
+  to change. On that last the maintainer said, the same day: "Generally I want you do
+  match the paper as closely as possible. Except when paper is under specified." So
+  the tiers' figures and the eleven are the paper's and fixed, and the limit on grid
+  attempts, which is this module's own, is fixed too. The review also found three wrong line citations in
   `puzzle-design.md` that predate this ticket, of `sudoku.allium:169`,
   `board.allium:785` and `architecture.md:84-88`. Step 9 allows no other change to
   that page, so they are handed back below.
@@ -623,7 +626,7 @@ generation, the count of givens and each given.
 - **S08.** Its Context calls `generation.allium` a skeleton and its Verification expects
   "the seven open questions". It now finds a module that states the basic way in full
   and the designed way as a skeleton; the seven open questions are all there, four with
-  a closing clause for the basic way, at lines 825 to 837. Its control row, removal "at
+  a closing clause for the basic way, at lines 829 to 841. Its control row, removal "at
   random, then the verdict and `Rate`", is not the basic way: that row draws its order,
   has no bound and no floor, and is put to `Rate`. Tiers 1 and 2 are its nearest kin.
 - **T20.** Its draft writes "triggers, guarantees and fixtures on the skeleton". It now

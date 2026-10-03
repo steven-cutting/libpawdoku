@@ -306,10 +306,11 @@ config {
     -- floor, where its own example counts 22 givens as within 22 to 27 and
     -- a row of no givens as reaching a floor of 0; both are read as at
     -- least. No tier's range holds 50, as in the paper. A count of givens
-    -- is a construction setting here and never a rating. Everything this
-    -- module guarantees of the basic way is guaranteed of these figures,
-    -- seeded_givens and grid_attempt_limit as they stand below; what holds
-    -- under other figures is not stated.
+    -- is a construction setting here and never a rating. These figures and
+    -- seeded_givens below are the paper's method and not a caller's to
+    -- change: they are named so that no rule carries a bare number, not so
+    -- that they can be tuned, and everything this module guarantees of the
+    -- basic way is guaranteed of them as they stand.
     tier_1_fewest_givens: Integer = 51
     tier_1_most_givens: Integer = 60
     tier_1_floor: Integer = 5
@@ -332,7 +333,10 @@ config {
 
     -- The most grid attempts a generation may fail before it is refused.
     -- Drawing the grid is the one step of the basic way that can repeat, so
-    -- this is the one limit it reads. No measurement stands behind 100.
+    -- this is the one limit it reads. The figure is this module's own and
+    -- not the paper's, which timed its attempts where this module counts
+    -- them, and no measurement stands behind 100. It is not a caller's to
+    -- change either: a generation is asked for with a tier and a stream.
     grid_attempt_limit: Integer = 100
 
     -- The three names replay depends on, as human-solving.allium records
