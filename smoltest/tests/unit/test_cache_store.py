@@ -72,12 +72,25 @@ def populate(
     keep_machine: bool = False,
     inputs: dict[str, Any] | None = INPUTS,
 ) -> tuple[VariantClaim, FakeMachine]:
-    """Cold-boot a fake machine on ``port`` and populate ``key`` with it."""
-    port = port or pick_free_port()
+    """Cold-boot a fake machine on ``port`` and populate ``key`` with it.
+
+    Without an explicit ``port`` one is picked that no variant of this cache
+    already uses: the machine is deleted on return, which frees its host port,
+    and a later call that drew the same port would collide with the claim the
+    first call left behind. The machine is also deleted when the claim or the
+    checkpoint fails, so a failure never shows up as a leaked machine.
+    """
+    if port is None:
+        taken = {v.port for k in cache.ls().keys for v in k.variants if v.port is not None}
+        port = pick_free_port(exclude=taken)
     machine = engine.create(mspec(port), "local")
     assert isinstance(machine, FakeMachine)
-    claim = cache.reserve_new_variant(key, port)
-    cache.populate(key, claim, machine, inputs, engine=engine)
+    try:
+        claim = cache.reserve_new_variant(key, port)
+        cache.populate(key, claim, machine, inputs, engine=engine)
+    except BaseException:
+        machine.delete()
+        raise
     if not keep_machine:
         machine.delete()
     return claim, machine
