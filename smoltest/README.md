@@ -26,6 +26,8 @@ pip install "smoltest[cloud]"        # + websockets, needed for the TCP tunnel t
 ```
 
 Until the package is on PyPI, install it from a checkout: `pip install /path/to/smoltest`.
+pytest 7 or newer is installed with it: the plugin registers itself through the `pytest11`
+entry point and needs pytest's `StashKey`, so an older pytest would fail at collection.
 
 Requirements: Python 3.10 or newer, and one of
 
@@ -190,7 +192,9 @@ smoltest [--cache-dir DIR] [--target {auto,local,cloud}] [-v] COMMAND
   [--cpus N] [--memory-mb MIB] [--variants K]` boots K machines with the cache enabled, keeping
   each alive until the last is up so each lands on its own host port, then deletes them. Run it
   before `pytest -n K` so every worker restores. Prints one row per boot (via, key, port, size,
-  populate time (checkpoint write and cache bookkeeping), elapsed, seed state).
+  populate time (checkpoint write and cache bookkeeping), elapsed, seed state). Exit 0 only when
+  every requested variant is in the cache, populated and intact; a boot that finished uncached
+  (busy key lock, failed capture) is reported on stderr and the exit status is 1.
 - `smoltest cache ls [--json]`, `smoltest cache prune [--older-than 14d] [--keep-latest N]
   [--max-bytes 2G] [--stale] [-y]`, `smoltest cache clear [-y]` and
   `smoltest cache export KEY[:PORT] OUT` manage the local store; `--target cloud` switches to the
@@ -261,9 +265,12 @@ that no longer matches simply misses and boots cold.
 Directories are `0o700` and files `0o600`. **A checkpoint contains the guest's RAM**, so it
 holds the database, its credentials and whatever else the guest had in memory: keep the cache
 private, never commit a `.smolcheckpoint` (the repository's `.gitignore` already excludes them)
-and treat `smoltest cache export` output the same way. The cache is pruned least-recently-used
-down to `cache_max_bytes` (10 GiB by default); a variant that fails to restore is invalidated
-and replaced by a cold boot.
+and treat `smoltest cache export` output the same way. When those modes cannot be applied (a
+filesystem that refuses or ignores `chmod`), the checkpoint just written is removed again and
+the operation fails with code `CHECKPOINT_PERMISSIONS` rather than leaving a readable copy; this
+holds for cache variants, `cache export` and `PostgresMachine.checkpoint()` alike. The cache is
+pruned least-recently-used down to `cache_max_bytes` (10 GiB by default); a variant that fails
+to restore is invalidated and replaced by a cold boot.
 
 ## Compared with testcontainers-python
 
@@ -372,7 +379,8 @@ seed=, capture_logs=)` override the settings for that machine only.
   the engine default of 600 s.
 - URLs: the default `driver="psycopg2"` yields `postgresql+psycopg2://`, `driver="psycopg"`
   yields `postgresql+psycopg://`, `driver=None` yields `postgresql://`; the password is
-  percent-encoded exactly as testcontainers does.
+  percent-encoded exactly as testcontainers does, and the user and database names are
+  percent-encoded too, so `/`, `@`, `#` or `?` in any of them keeps the URL well-formed.
 - Errors are a small hierarchy under `SmoltestError`: `TargetUnavailable` (nothing can boot here;
   the message points at `smoltest doctor`), `BootError` with a `.stage` (`create`, `restore`,
   `tunnel`, `wait`, `seed`, ...), `ReadinessTimeout` (also a `TimeoutError`), `CacheError`,

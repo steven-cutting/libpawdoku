@@ -26,6 +26,28 @@ from ..wait.strategies import WaitStrategy
 from .strategy import BootInfo, BootResult, boot_postgres
 
 
+@dataclass(frozen=True, eq=False)
+class EngineIdentity:
+    """An :class:`~smoltest.transport.base.Engine` compared and hashed by identity.
+
+    The protocol asks engines for neither hashing nor identity-based equality (a
+    mutable dataclass is unhashable; a value-equal pair would share a golden), so
+    the registry key wraps the instance: equal only to a wrapper of the very same
+    object, hashed by ``id``. Holding the engine keeps that id from being reused.
+    """
+
+    engine: Engine
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, EngineIdentity) and other.engine is self.engine
+
+    def __hash__(self) -> int:
+        return id(self.engine)
+
+    def __repr__(self) -> str:
+        return f"EngineIdentity({type(self.engine).__name__} at {id(self.engine):#x})"
+
+
 @dataclass(frozen=True)
 class GoldenKey:
     """What :class:`GoldenRegistry` dedups on.
@@ -35,8 +57,9 @@ class GoldenKey:
     pinned PostgreSQL host port (a second template pinned elsewhere would never
     get its port published), the same URL driver, machine name, settings
     (branching policy, exec timeout, cache directory, ...), wait strategy and
-    the very same engine instance: a golden booted through one engine must never
-    be handed to a template that injected another.
+    the very same engine instance (by identity, see :class:`EngineIdentity`): a
+    golden booted through one engine must never be handed to a template that
+    injected another.
     """
 
     cache_key: str
@@ -46,7 +69,7 @@ class GoldenKey:
     name: str | None
     settings: Settings
     wait: tuple[str, str] | None
-    engine: Engine = field(compare=True, hash=True, repr=False)
+    engine: EngineIdentity = field(repr=False)
 
 
 def _wait_identity(strategy: WaitStrategy | None) -> tuple[str, str] | None:
@@ -323,7 +346,7 @@ class GoldenRegistry:
             name=template.name,
             settings=template.settings,
             wait=_wait_identity(template.wait_strategy),
-            engine=template.engine,
+            engine=EngineIdentity(template.engine),
         )
 
     def get_or_boot(self, template: PostgresMachine, seed: Seed | None = None) -> PostgresGolden:
@@ -363,4 +386,4 @@ class GoldenRegistry:
             return len(self._goldens)
 
 
-__all__ = ["GoldenKey", "GoldenRegistry", "PostgresGolden", "template_key"]
+__all__ = ["EngineIdentity", "GoldenKey", "GoldenRegistry", "PostgresGolden", "template_key"]

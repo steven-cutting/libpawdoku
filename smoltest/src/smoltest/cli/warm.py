@@ -55,7 +55,8 @@ def register(
         help="PostgreSQL",
         description=(
             "Boot K PostgreSQL machines with the cache enabled, apply the seed SQL, "
-            "checkpoint each on its own host port and delete them again."
+            "checkpoint each on its own host port and delete them again. Exit 1 when a "
+            "requested variant is not in the cache afterwards."
         ),
     )
     add_postgres_options(postgres)
@@ -144,8 +145,32 @@ def table_rows(infos: Sequence[BootInfo], backend: CheckpointBackend) -> list[tu
     return rows
 
 
+def missing_variants(
+    infos: Sequence[BootInfo], backend: CheckpointBackend, *, seeded: bool
+) -> list[tuple[str | None, int | None]]:
+    """``(key, port)`` pairs a later identical boot would restore but the cache lacks.
+
+    For each boot, the key that boot path restores first (the seeded key when a
+    seed was given, else the base key) must have a populated, intact variant on
+    the boot's port. A boot that ran uncached (its key ``None``: the key lock was
+    busy, or the capture failed and the ladder continued) is missing as well.
+    """
+    entries = {(v.key, v.port): v for key in backend.ls().keys for v in key.variants}
+    missing: list[tuple[str | None, int | None]] = []
+    for info in infos:
+        key = info.seeded_key if seeded else info.cache_key
+        entry = entries.get((key, info.variant_port)) if key is not None else None
+        if entry is None or not entry.populated or entry.corrupt:
+            missing.append((key, info.variant_port))
+    return missing
+
+
 def run_warm(args: argparse.Namespace, ctx: Context) -> int:
-    """Boot ``--variants`` machines with the cache on, then print what the cache holds."""
+    """Boot ``--variants`` machines with the cache on, print what the cache holds, verify it.
+
+    Exit 0 only when every requested variant is in the cache, populated and
+    intact; a boot the ladder finished uncached is reported and makes this 1.
+    """
     settings = ctx.settings.replace(
         postgres_image=args.image,
         cpus=args.cpus,
@@ -171,7 +196,26 @@ def run_warm(args: argparse.Namespace, ctx: Context) -> int:
     infos = warm_postgres(settings, engine, variants=variants, seed=seed, env=env)
     backend = open_checkpoint_backend(settings, target)
     print(format_table(COLUMNS, table_rows(infos, backend), align=ALIGN))
+    missing = missing_variants(infos, backend, seeded=seed is not None)
+    if missing:
+        for key, port in missing:
+            where = "" if port is None else f" on port {port}"
+            print_err(f"error: no populated checkpoint for {short_key(key)}{where}")
+        print_err(
+            f"error: {len(missing)} of {len(infos)} requested variant(s) are not in the cache; "
+            "the warnings above say why (a busy key lock or a failed checkpoint capture), "
+            "rerun `smoltest warm` once other boots have finished"
+        )
+        return EXIT_FAILURE
     return EXIT_OK
 
 
-__all__ = ["ALIGN", "COLUMNS", "register", "run_warm", "table_rows", "warm_postgres"]
+__all__ = [
+    "ALIGN",
+    "COLUMNS",
+    "missing_variants",
+    "register",
+    "run_warm",
+    "table_rows",
+    "warm_postgres",
+]

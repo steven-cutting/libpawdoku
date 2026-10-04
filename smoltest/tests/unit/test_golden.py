@@ -8,7 +8,13 @@ import pytest
 
 from smoltest._log import reset_warn_once
 from smoltest._ports import pick_free_port
-from smoltest.boot.golden import GoldenKey, GoldenRegistry, PostgresGolden, template_key
+from smoltest.boot.golden import (
+    EngineIdentity,
+    GoldenKey,
+    GoldenRegistry,
+    PostgresGolden,
+    template_key,
+)
 from smoltest.config import Settings
 from smoltest.errors import NotSupportedError, SmoltestError, SmoltestWarning
 from smoltest.postgres import PostgresMachine, Seed
@@ -313,6 +319,45 @@ def test_registry_separates_templates_with_different_engines(
     assert len(registry) == 2
     registry.close_all()
     assert fake_engine.live_machines == set() and other.live_machines == set()
+
+
+class _UnhashableEngine(FakeEngine):
+    """An engine like a mutable dataclass: equality by value, no hash."""
+
+    __hash__ = None  # type: ignore[assignment]
+
+
+class _ValueEqualEngine(FakeEngine):
+    """Two instances compare equal and hash alike, as a frozen dataclass engine would."""
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, _ValueEqualEngine)
+
+    def __hash__(self) -> int:
+        return 7
+
+
+def test_registry_keys_engines_by_identity_without_hashing_them(settings: Settings) -> None:
+    unhashable = _UnhashableEngine()
+    twin_a, twin_b = _ValueEqualEngine(), _ValueEqualEngine()
+    assert twin_a == twin_b and hash(twin_a) == hash(twin_b)
+    registry = GoldenRegistry()
+    try:
+        plain = registry.get_or_boot(PostgresMachine(settings=settings, engine=unhashable))
+        assert plain.engine is unhashable
+        assert registry.get_or_boot(PostgresMachine(settings=settings, engine=unhashable)) is plain
+        first = registry.get_or_boot(PostgresMachine(settings=settings, engine=twin_a))
+        second = registry.get_or_boot(PostgresMachine(settings=settings, engine=twin_b))
+        assert first is not second, "value-equal engines must not share a golden"
+        assert first.engine is twin_a and second.engine is twin_b
+        assert len(registry) == 3
+        key = GoldenRegistry.key_for(PostgresMachine(settings=settings, engine=twin_a), None)
+        assert key.engine == EngineIdentity(twin_a) and key.engine != EngineIdentity(twin_b)
+        assert "EngineIdentity" in repr(key.engine) and "_ValueEqualEngine" in repr(key.engine)
+    finally:
+        registry.close_all()
+    for engine in (unhashable, twin_a, twin_b):
+        assert engine.live_machines == set()
 
 
 def test_fresh_prunes_stopped_children(fake_engine: FakeEngine, template: PostgresMachine) -> None:

@@ -94,6 +94,27 @@ All notable changes to smoltest are recorded here. The format follows
 - The cloud checkpoint index validates each record against its own key (embedded key, no port,
   cloud ref) before claiming it and drops a mismatched record instead of restoring another key's
   checkpoint, mirroring the local metadata check.
+- A process that forks while holding a `FileLock` no longer hands the child a lock it believes
+  it holds: the child's inherited descriptors are closed without unlocking the parent, its hold
+  state is reset, and its first `acquire()` takes its own `flock`.
+- `make_private` (cache variants, `cache export`, `PostgresMachine.checkpoint()`) raises
+  `CacheError` with code `CHECKPOINT_PERMISSIONS` when a `chmod` fails or does not take effect,
+  instead of silently leaving a copy of guest RAM with the umask's permissions; the checkpoint
+  that could not be protected is removed, and `checkpoint()` raises `SmoltestError` with the same
+  code.
+- `GoldenRegistry` compares engines by identity without hashing them: an unhashable engine (a
+  mutable dataclass) no longer fails `get_or_boot()` with `TypeError`, and two value-equal engine
+  instances no longer share a golden.
+- `get_connection_url()` percent-encodes the user and database names as well as the password,
+  so `/`, `@`, `#` or `?` in them no longer corrupt the URL.
+- `WaitStrategy.resolve()` / `wait_until_ready(target, timeout_s, poll_s)` reject non-finite
+  direct arguments (`inf`, `nan`) with `InvalidConfig` instead of polling forever.
+- `TunnelBridge`: a stop requested while the worker thread was still creating its event loop
+  (the connect timeout beat it) is remembered and honoured once the task exists, so no tunnel is
+  left open on a run the bridge has already discarded.
+- `smoltest warm` exits 1, after printing its table, when a requested variant is not in the
+  cache populated and intact afterwards (a boot that continued uncached after a busy key lock
+  or a failed capture); previously it exited 0 and deleted the machines.
 
 ### Added
 
@@ -111,6 +132,9 @@ All notable changes to smoltest are recorded here. The format follows
   time (checkpoint write and cache bookkeeping), which is what it always measured.
 - README: the cloud `auto_stop` / `ttl` safety net is documented as applying only to machines
   smoltest creates; restored and branched cloud machines carry no TTL smoltest can set.
+- `pytest>=7` is a runtime dependency: the plugin is loaded through the `pytest11` entry point
+  whenever smoltest is installed and needs `pytest.StashKey`, so declaring it keeps an older
+  pytest from failing at collection.
 
 ## 0.1.0 - 2026-10-03
 

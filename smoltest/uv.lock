@@ -518,6 +518,7 @@ name = "smoltest"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "pytest" },
     { name = "smolmachines" },
 ]
 
@@ -533,7 +534,6 @@ psycopg = [
 dev = [
     { name = "mypy" },
     { name = "psycopg", extra = ["binary"] },
-    { name = "pytest" },
     { name = "pytest-xdist" },
     { name = "ruff" },
 ]
@@ -541,6 +541,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "psycopg", extras = ["binary"], marker = "extra == 'psycopg'", specifier = ">=3.1" },
+    { name = "pytest", specifier = ">=7" },
     { name = "smolmachines", specifier = ">=1.22,<2" },
     { name = "smolmachines", extras = ["tunnel"], marker = "extra == 'cloud'", specifier = ">=1.22,<2" },
 ]
@@ -550,7 +551,6 @@ provides-extras = ["cloud", "psycopg"]
 dev = [
     { name = "mypy", specifier = ">=1.10" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.1" },
-    { name = "pytest", specifier = ">=8" },
     { name = "pytest-xdist", specifier = ">=3" },
     { name = "ruff", specifier = ">=0.6" },
 ]

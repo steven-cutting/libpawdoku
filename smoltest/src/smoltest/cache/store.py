@@ -90,19 +90,46 @@ def write_private(path: Path, data: bytes) -> None:
 
 
 def make_private(path: Path) -> None:
-    """Chmod ``path`` to ``0o600`` (files) / ``0o700`` (directories), recursively."""
-    with contextlib.suppress(OSError):
-        if path.is_dir() and not path.is_symlink():
-            path.chmod(DIR_MODE)
-            for root, dirs, files in os.walk(path):
-                for name in dirs:
-                    with contextlib.suppress(OSError):
-                        Path(root, name).chmod(DIR_MODE)
-                for name in files:
-                    with contextlib.suppress(OSError):
-                        Path(root, name).chmod(FILE_MODE)
-        else:
-            path.chmod(FILE_MODE)
+    """Chmod ``path`` to ``0o600`` (files) / ``0o700`` (directories), recursively.
+
+    Raises :class:`~smoltest.errors.CacheError` (code ``CHECKPOINT_PERMISSIONS``)
+    when a ``chmod`` fails or does not take effect, which a re-``stat`` checks:
+    every caller holds a copy of guest RAM that must not be handed out with the
+    permissions the engine's umask gave it. Symbolic links inside a tree are left
+    alone (their targets are not the checkpoint's).
+    """
+    targets: list[tuple[Path, int]] = []
+    if path.is_dir() and not path.is_symlink():
+        targets.append((path, DIR_MODE))
+        for root, dirs, files in os.walk(path):
+            targets.extend((Path(root, name), DIR_MODE) for name in dirs)
+            targets.extend((Path(root, name), FILE_MODE) for name in files)
+    else:
+        targets.append((path, FILE_MODE))
+    for target, mode in targets:
+        if target is not path and target.is_symlink():
+            continue
+        try:
+            target.chmod(mode)
+            actual = stat.S_IMODE(target.stat().st_mode)
+        except OSError as exc:
+            raise CacheError(
+                f"cannot make {target} private: {exc}", code="CHECKPOINT_PERMISSIONS"
+            ) from exc
+        if actual != mode:
+            raise CacheError(
+                f"cannot make {target} private: mode is {actual:#o} after chmod {mode:#o}",
+                code="CHECKPOINT_PERMISSIONS",
+            )
+
+
+def _private_or_removed(path: Path, remove: Path) -> None:
+    """``make_private(path)``, deleting ``remove`` on failure: guest RAM never stays readable."""
+    try:
+        make_private(path)
+    except CacheError:
+        remove_path(remove)
+        raise
 
 
 def path_size(path: Path) -> int:
@@ -867,7 +894,7 @@ class CheckpointCache:
             # Record the variant's own path, not the engine's spelling of it, so the
             # meta matches what _check_meta_matches expects whatever the SDK echoes.
             ref = CheckpointRef("file", str(paths.checkpoint))
-            make_private(out)  # the engine writes with the default umask
+            _private_or_removed(out, paths.checkpoint)  # the engine writes with the umask
             size = path_size(out) or (info.size_bytes or 0)
             if inputs is not None and not self.inputs_path(key).exists():
                 self._write_inputs(key, inputs)
@@ -1146,7 +1173,7 @@ class CheckpointCache:
                 "credentials and data the guest held; keep them private",
             )
             written = engine.export_checkpoint(str(chosen.paths.checkpoint), str(out))
-            make_private(out)  # the engine writes with the default umask
+            _private_or_removed(out, out)  # the engine writes with the default umask
             return written
 
 

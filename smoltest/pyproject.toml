@@ -5,7 +5,12 @@ description = "Testcontainers-style PostgreSQL fixtures that boot in Smol Machin
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
-dependencies = ["smolmachines>=1.22,<2"]
+dependencies = [
+  "smolmachines>=1.22,<2",
+  # The pytest plugin registers through the pytest11 entry point and builds a
+  # pytest.StashKey at import, which pytest 7 introduced.
+  "pytest>=7",
+]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Framework :: Pytest",
@@ -25,7 +30,6 @@ psycopg = ["psycopg[binary]>=3.1"]
 
 [dependency-groups]
 dev = [
-  "pytest>=8",
   "pytest-xdist>=3",
   "ruff>=0.6",
   "mypy>=1.10",

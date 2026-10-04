@@ -499,3 +499,18 @@ def test_builders_reject_non_finite_seconds(value: float) -> None:
         PortWaitStrategy().with_startup_timeout(value)
     with pytest.raises(InvalidConfig, match="finite"):
         PortWaitStrategy().with_poll_interval(value)
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf")])
+def test_direct_wait_arguments_must_be_finite(value: float, pg: FakeMachine) -> None:
+    """``wait_until_ready(target, inf)`` bypasses the builders; it must not poll forever."""
+    strategy = PortWaitStrategy()
+    with pytest.raises(InvalidConfig, match="finite"):
+        strategy.resolve(value)
+    with pytest.raises(InvalidConfig, match="finite"):
+        strategy.resolve(10, value)
+    with pytest.raises(InvalidConfig, match="finite"):
+        strategy.wait_until_ready(view(pg), value)
+    with pytest.raises(InvalidConfig, match="finite"):
+        strategy.wait_until_ready(view(pg), 1.0, value)
+    assert strategy.resolve(10, 1) == (10.0, 1.0)  # finite arguments still resolve

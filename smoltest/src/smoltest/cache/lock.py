@@ -5,10 +5,15 @@ hold a key lock across a whole cold boot while the store's own methods take the
 same lock again underneath. Instances are shared per path through
 :meth:`FileLock.for_path`, which is what makes that re-entrancy work across
 separately opened caches.
+
+A forked child starts with every hold forgotten (see
+:meth:`FileLock._reset_after_fork`): a lock the parent held is the parent's, and
+the child takes its own ``flock`` when it asks for one.
 """
 
 from __future__ import annotations
 
+import contextlib
 import errno
 import fcntl
 import os
@@ -48,6 +53,9 @@ class FileLock:
 
     _registry: weakref.WeakValueDictionary[str, FileLock] = weakref.WeakValueDictionary()
     _registry_lock = threading.Lock()
+    # Every live instance, registered or not, so a fork can reset each one.
+    _instances: weakref.WeakSet[FileLock] = weakref.WeakSet()
+    _instances_lock = threading.Lock()
 
     def __init__(
         self,
@@ -63,6 +71,8 @@ class FileLock:
         self._fd: int | None = None
         self._depth = 0
         self._shared = False
+        with FileLock._instances_lock:
+            FileLock._instances.add(self)
 
     @classmethod
     def for_path(
@@ -87,6 +97,33 @@ class FileLock:
                 lock = cls(key, timeout_s=timeout_s, poll_interval_s=poll_interval_s)
                 cls._registry[key] = lock
             return lock
+
+    @classmethod
+    def _reset_after_fork(cls) -> None:
+        """Forget every hold the parent had; runs in the child right after ``fork``.
+
+        The child inherits each instance's ``_depth``, thread lock and descriptor,
+        which would make its first ``acquire`` look re-entrant and skip ``flock``,
+        and a ``release`` there would ``LOCK_UN`` the open file description it
+        shares with the parent. So: descriptors are closed *without* unlocking
+        (the parent's copy keeps the lock), the state is reset in place so a cache
+        object the child inherited takes a fresh lock through the same per-path
+        instance, and the class-level locks are replaced in case another thread
+        of the parent held one at the moment of the fork. A ``with lock:`` block
+        that straddles a plain ``os.fork()`` therefore leaves the child outside
+        the lock, and a ``release()`` there raises; ``multiprocessing`` children
+        never return into such a block.
+        """
+        cls._registry_lock = threading.Lock()
+        cls._instances_lock = threading.Lock()
+        for lock in list(cls._instances):
+            fd, lock._fd = lock._fd, None
+            lock._depth = 0
+            lock._shared = False
+            lock._tlock = threading.RLock()
+            if fd is not None:
+                with contextlib.suppress(OSError):
+                    os.close(fd)
 
     def __repr__(self) -> str:
         mode = "shared" if self._shared else "exclusive"
@@ -176,6 +213,10 @@ class FileLock:
             yield self
         finally:
             self.release()
+
+
+if hasattr(os, "register_at_fork"):  # POSIX only, like ``fcntl`` above
+    os.register_at_fork(after_in_child=FileLock._reset_after_fork)
 
 
 __all__ = ["DEFAULT_POLL_S", "DEFAULT_TIMEOUT_S", "FileLock", "LockTimeout"]

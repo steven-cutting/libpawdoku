@@ -46,6 +46,10 @@ class _Run:
     endpoint: HostEndpoint | None = None
     error: BaseException | None = None
     ready: threading.Event = field(default_factory=threading.Event)
+    stop_requested: bool = False
+    """Set by ``_request_stop`` before it looks for a loop to signal, so a request that
+    arrives while the worker is still creating its loop and task is honoured by the
+    worker once they exist instead of being lost."""
 
 
 class TunnelBridge:
@@ -135,7 +139,14 @@ class TunnelBridge:
 
     @staticmethod
     def _request_stop(run: _Run) -> None:
-        """Ask ``run``'s loop thread to leave the tunnel; harmless once it has finished."""
+        """Ask ``run``'s loop thread to leave the tunnel; harmless once it has finished.
+
+        The flag goes first: if the worker has not assigned ``loop`` and ``task``
+        yet (``open()`` timed out during its start-up), it sees the flag right
+        after creating the task and cancels it, so no tunnel is left open on a
+        run the bridge has already discarded.
+        """
+        run.stop_requested = True
         loop, task = run.loop, run.task
         if loop is None or task is None or loop.is_closed():
             return
@@ -161,6 +172,8 @@ class TunnelBridge:
         run.loop = loop
         try:
             run.task = loop.create_task(self._serve(run))
+            if run.stop_requested:  # a stop that arrived before the task existed
+                run.task.cancel()
             loop.run_until_complete(run.task)
         except asyncio.CancelledError:
             pass

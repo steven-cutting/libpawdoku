@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import errno
 import gc
 import json
 import multiprocessing
@@ -30,6 +31,7 @@ from smoltest.cache.store import (
     PruneReport,
     VariantClaim,
     VariantMeta,
+    make_private,
     path_size,
     pid_alive,
     read_claim,
@@ -351,6 +353,75 @@ def test_reserve_new_variant_rejects_live_claims_and_populated_ports(
 
 
 # -- populate / invalidate ----------------------------------------------------------------
+
+
+def test_make_private_fails_when_modes_cannot_be_set(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "ram.smolcheckpoint"
+    target.write_bytes(b"guest ram")
+    target.chmod(0o644)
+    make_private(target)
+    assert stat.S_IMODE(target.stat().st_mode) == 0o600
+    tree = tmp_path / "tree"
+    (tree / "sub").mkdir(parents=True)
+    (tree / "sub" / "f").write_bytes(b"x")
+    (tree / "sub").chmod(0o755)
+    (tree / "sub" / "f").chmod(0o644)
+    make_private(tree)
+    assert stat.S_IMODE((tree / "sub").stat().st_mode) == 0o700
+    assert stat.S_IMODE((tree / "sub" / "f").stat().st_mode) == 0o600
+    # A filesystem that accepts chmod but ignores it.
+    target.chmod(0o644)  # before the patch below takes chmod away
+    monkeypatch.setattr(Path, "chmod", lambda self, mode, *a, **k: None)
+    with pytest.raises(CacheError, match="after chmod") as info:
+        make_private(target)
+    assert info.value.code == "CHECKPOINT_PERMISSIONS"
+
+    # A filesystem that refuses chmod.
+    def refuse(self: Path, mode: int, *a: object, **k: object) -> None:
+        raise PermissionError(errno.EPERM, "Operation not permitted", str(self))
+
+    monkeypatch.setattr(Path, "chmod", refuse)
+    with pytest.raises(CacheError, match="cannot make") as info:
+        make_private(tree)
+    assert info.value.code == "CHECKPOINT_PERMISSIONS"
+    assert isinstance(info.value.__cause__, PermissionError)
+
+
+def test_populate_and_export_remove_what_they_cannot_make_private(
+    cache: CheckpointCache, fake_engine: FakeEngine, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    port = pick_free_port()
+    machine = fake_engine.create(mspec(port), "local")
+    claim = cache.reserve_new_variant(KEY, port)
+    paths = cache.paths(KEY, port)
+
+    def refuse(self: Path, mode: int, *a: object, **k: object) -> None:
+        if self.name.endswith(".smolcheckpoint"):
+            raise PermissionError(errno.EPERM, "Operation not permitted", str(self))
+
+    with monkeypatch.context() as patched:
+        patched.setattr(Path, "chmod", refuse)
+        with pytest.raises(CacheError, match="private") as info:
+            cache.populate(KEY, claim, machine, INPUTS)
+    assert info.value.code == "CHECKPOINT_PERMISSIONS"
+    assert not paths.checkpoint.exists() and not paths.meta.exists()
+    assert not claim.populated and paths.claim.exists()
+    cache.populate(KEY, claim, machine, INPUTS)  # the same variant populates once chmod works
+    assert claim.populated and stat.S_IMODE(paths.checkpoint.stat().st_mode) == 0o600
+    claim.release()
+    machine.delete()
+    out = tmp_path / "exported.smolcheckpoint"
+    reset_warn_once()
+    with monkeypatch.context() as patched:
+        patched.setattr(Path, "chmod", refuse)
+        with (
+            pytest.warns(SmoltestWarning, match="guest RAM"),
+            pytest.raises(CacheError, match="private"),
+        ):
+            cache.export(KEY, None, out, fake_engine)
+    assert not out.exists(), "an export that cannot be made private is removed"
 
 
 def test_populate_validates_claim_and_cleans_up_on_failure(
@@ -893,6 +964,48 @@ def test_two_processes_racing_for_one_key_boot_cold_exactly_once(tmp_path: Path)
     cache = CheckpointCache(root, max_bytes=10**9)
     assert ports_of(cache) == {port}
     assert not cache.paths(KEY, port).claim.exists()
+
+
+def _fork_worker(lock: FileLock, results: Any) -> None:
+    """Report what a forked child inherits of the parent's hold and whether it can lock."""
+    held_before, fd_closed = lock.held, lock._fd is None
+    try:
+        lock.acquire(timeout_s=0.3)
+    except LockTimeout:
+        outcome = "timeout"
+    else:
+        lock.release()
+        outcome = "acquired"
+    results.put((held_before, fd_closed, outcome))
+
+
+@pytest.mark.skipif(
+    "fork" not in multiprocessing.get_all_start_methods(), reason="needs the fork start method"
+)
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")  # fork() with live threads, 3.12+
+def test_forked_child_does_not_inherit_a_held_lock(tmp_path: Path) -> None:
+    """A child must take its own flock, and its release must not unlock the parent."""
+    ctx = multiprocessing.get_context("fork")
+    lock = FileLock.for_path(tmp_path / "forked.lock", timeout_s=5, poll_interval_s=0.01)
+
+    def fork_and_report() -> tuple[bool, bool, str]:
+        results = ctx.Queue()
+        proc = ctx.Process(target=_fork_worker, args=(lock, results), daemon=True)
+        proc.start()
+        outcome: tuple[bool, bool, str] = results.get(timeout=60)
+        proc.join(timeout=30)
+        assert proc.exitcode == 0
+        return outcome
+
+    with lock:
+        assert fork_and_report() == (False, True, "timeout"), "the child reused the parent's hold"
+        assert lock.held, "the child's attempt must not have unlocked the parent"
+        other = FileLock(tmp_path / "forked.lock", timeout_s=0.05, poll_interval_s=0.01)
+        with pytest.raises(LockTimeout):
+            other.acquire()  # the parent's flock is intact
+    assert fork_and_report() == (False, True, "acquired")
+    lock.acquire(0)  # the child's release left the file free for the parent
+    lock.release()
 
 
 # -- the cloud index ------------------------------------------------------------------------

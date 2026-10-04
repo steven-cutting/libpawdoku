@@ -29,9 +29,9 @@ from ._ports import HostEndpoint
 from .boot import strategy as _boot
 from .boot.spec import LOG_PATH, PostgresSpec
 from .boot.strategy import BootInfo, BootResult
-from .cache.store import make_private
+from .cache.store import make_private, remove_path
 from .config import Settings
-from .errors import InvalidConfig, NotSupportedError, SmoltestError
+from .errors import CacheError, InvalidConfig, NotSupportedError, SmoltestError
 from .transport import get_engine
 from .transport.base import CheckpointInfo, Engine, ExecOutcome, MachineHandle, PortMapping
 from .wait.strategies import EXEC_PROBE_TIMEOUT_S, WaitStrategy, default_wait
@@ -489,16 +489,18 @@ class PostgresMachine:
         """SQLAlchemy-style URL: ``postgresql+<driver>://user:pw@host:port/db``.
 
         ``driver=None`` gives a plain ``postgresql://`` URL (libpq, psycopg3 and
-        asyncpg accept it); ``host`` overrides the endpoint host.
+        asyncpg accept it); ``host`` overrides the endpoint host. The user name,
+        password and database name are percent-encoded, so URI delimiters in
+        any of them (``/``, ``@``, ``#``, ``?``) cannot move the URL's
+        authority, path, query or fragment.
         """
         endpoint = self._require().endpoint
         chosen = self._driver if isinstance(driver, _DefaultDriver) else driver
         dialect = "postgresql" if chosen is None else f"postgresql+{chosen}"
-        password = quote(self.password, safe=" +")
-        return (
-            f"{dialect}://{self.username}:{password}@{host or endpoint.host}:{endpoint.port}"
-            f"/{self.dbname}"
-        )
+        user = quote(self.username, safe="")
+        password = quote(self.password, safe=" +")  # testcontainers' encoding of the password
+        dbname = quote(self.dbname, safe="")
+        return f"{dialect}://{user}:{password}@{host or endpoint.host}:{endpoint.port}/{dbname}"
 
     @property
     def url(self) -> str:
@@ -622,12 +624,24 @@ class PostgresMachine:
 
         A local checkpoint is a copy of guest RAM, credentials included; the engine
         writes it with the process umask, so it is made private (``0o600`` files,
-        ``0o700`` directories) before it is handed back, as the cache does.
+        ``0o700`` directories) before it is handed back, as the cache does. When
+        that fails (a filesystem or path whose modes cannot be changed) the
+        checkpoint is removed again and :class:`~smoltest.errors.SmoltestError`
+        with code ``CHECKPOINT_PERMISSIONS`` is raised: a readable snapshot is
+        never handed out.
         """
         target = None if output is None else os.fspath(output)
         info = self._require().handle.checkpoint(output=target, store=None)
         if info.ref.kind == "file":
-            make_private(Path(info.ref.locator))
+            written = Path(info.ref.locator)
+            try:
+                make_private(written)
+            except CacheError as exc:
+                remove_path(written)
+                raise SmoltestError(
+                    f"checkpoint {written} could not be made private and was removed: {exc}",
+                    code="CHECKPOINT_PERMISSIONS",
+                ) from exc
         return info
 
     # -- state -------------------------------------------------------------------------

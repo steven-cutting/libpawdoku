@@ -9,6 +9,7 @@ versions that create real FakeEngine machines. ``test_boot_strategy.py`` and
 from __future__ import annotations
 
 import asyncio
+import errno
 import gc
 import hashlib
 import os
@@ -30,7 +31,13 @@ from smoltest.boot import strategy
 from smoltest.boot.spec import LOG_PATH, PostgresSpec, build_machine_spec
 from smoltest.boot.strategy import BootInfo, BootResult
 from smoltest.config import Settings
-from smoltest.errors import InvalidConfig, NotSupportedError, SmoltestError, SmoltestWarning
+from smoltest.errors import (
+    CacheError,
+    InvalidConfig,
+    NotSupportedError,
+    SmoltestError,
+    SmoltestWarning,
+)
 from smoltest.postgres import (
     AsyncPostgresMachine,
     ExecResult,
@@ -475,6 +482,11 @@ def test_connection_urls(fake_boot: BootLog, settings: Settings) -> None:
         )
     with PostgresMachine(settings=settings, driver=None, username="u", dbname="d") as plain:
         assert plain.url.startswith("postgresql://u:test@127.0.0.1:") and plain.url.endswith("/d")
+    # URI delimiters in the user or database name are encoded like the password's.
+    with PostgresMachine(settings=settings, username="al/ice@x", dbname="my db#1?") as odd:
+        port = odd.get_exposed_port()
+        assert odd.url == f"postgresql+psycopg2://al%2Fice%40x:test@127.0.0.1:{port}/my%20db%231%3F"
+        assert (odd.username, odd.dbname) == ("al/ice@x", "my db#1?")
     with PostgresMachine(settings=settings, driver="psycopg") as v3:
         assert v3.url.startswith("postgresql+psycopg://")
 
@@ -612,6 +624,26 @@ def test_checkpoint_passes_through(fake_boot: BootLog, settings: Settings, tmp_p
         assert info.ref.locator == str(out) and out.is_file()
         # Guest RAM, credentials included: never left world-readable.
         assert stat.S_IMODE(out.stat().st_mode) == 0o600
+
+
+def test_checkpoint_that_cannot_be_made_private_is_removed(
+    fake_boot: BootLog, settings: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(self: Path, mode: int, *a: object, **k: object) -> None:
+        raise PermissionError(errno.EPERM, "Operation not permitted", str(self))
+
+    out = tmp_path / "exposed.smolcheckpoint"
+    with PostgresMachine(settings=settings) as m:
+        with monkeypatch.context() as patched:
+            patched.setattr(Path, "chmod", refuse)
+            with pytest.raises(SmoltestError, match="could not be made private") as info:
+                m.checkpoint(out)
+        assert info.value.code == "CHECKPOINT_PERMISSIONS"
+        assert isinstance(info.value.__cause__, CacheError)
+        assert not out.exists(), "a snapshot with the umask's permissions is never left behind"
+        assert m.is_running
+        info2 = m.checkpoint(out)  # the same path works once modes can be set
+        assert info2.ref.locator == str(out) and stat.S_IMODE(out.stat().st_mode) == 0o600
 
 
 def test_from_boot_classmethod(

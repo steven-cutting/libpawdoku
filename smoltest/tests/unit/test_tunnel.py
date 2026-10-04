@@ -14,6 +14,7 @@ import time
 from collections.abc import AsyncIterator, Iterator
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
+from typing import Any
 
 import pytest
 
@@ -218,6 +219,31 @@ def test_open_timeout_cancels_a_tunnel_that_never_comes_up() -> None:
     assert events == ["cancelled"]
     assert not tunnel_threads()
     assert bridge.endpoint is None
+
+
+def test_stop_before_the_worker_initialises_is_not_lost(echo: EchoServer) -> None:
+    """A connect timeout that beats the worker to its loop must still stop that worker."""
+    gate = threading.Event()
+    log: list[str] = []
+
+    class SlowStart(TunnelBridge):
+        def _serve_thread(self, run: Any) -> None:
+            gate.wait(5)  # the worker has no loop or task yet when open() gives up
+            super()._serve_thread(run)
+
+    bridge = SlowStart(relay_to(echo.port, log), connect_timeout_s=0.1)
+    with pytest.raises(BootError, match="did not open within") as info:
+        bridge.open()
+    assert info.value.stage == "tunnel"
+    assert log == [], "the opener must not have run before the worker was released"
+    gate.set()
+    deadline = time.monotonic() + 5.0
+    while tunnel_threads() and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert not tunnel_threads(), "the released worker must honour the earlier stop and exit"
+    assert log == [], "a stop requested before the task existed must cancel it unopened"
+    assert bridge.endpoint is None
+    bridge.close()  # nothing left to do, must not raise
 
 
 def test_double_close_and_close_before_open_are_safe(echo: EchoServer) -> None:

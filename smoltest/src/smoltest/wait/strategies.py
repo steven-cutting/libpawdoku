@@ -176,7 +176,16 @@ class WaitStrategy:
     def resolve(
         self, timeout_s: float | None = None, poll_s: float | None = None
     ) -> tuple[float, float]:
-        """The effective ``(timeout, poll)`` for a call with these arguments."""
+        """The effective ``(timeout, poll)`` for a call with these arguments.
+
+        Direct arguments are checked like the builders' values: a non-finite
+        timeout or poll interval raises :class:`~smoltest.errors.InvalidConfig`
+        here, before it could make the wait poll forever.
+        """
+        if timeout_s is not None:
+            timeout_s = _seconds(timeout_s)
+        if poll_s is not None:
+            poll_s = _seconds(poll_s)
         timeout = (
             self._startup_timeout_s
             if self._startup_timeout_s is not None

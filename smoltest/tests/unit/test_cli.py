@@ -36,7 +36,7 @@ from smoltest.cli import (
 )
 from smoltest.cli.main import main
 from smoltest.config import Settings
-from smoltest.errors import BootError, InvalidConfig
+from smoltest.errors import BootError, CacheError, InvalidConfig
 from smoltest.testing import FakeEngine, FakeMachine
 
 UNAVAILABLE = (False, "KVM_UNAVAILABLE", "no /dev/kvm")
@@ -440,6 +440,43 @@ def test_warm_boot_failure_stops_earlier_machines(
     assert "boom" in captured.err and captured.out == ""
     assert len(fake_engine.ops("restore")) == 1
     assert fake_engine.live_machines == set()
+
+
+def test_warm_fails_when_a_boot_stays_uncached(
+    fake_engine: FakeEngine,
+    cache_dir: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A seeded capture that fails is a cache miss for the boot, but a failure for warm."""
+    seed_file = tmp_path / "schema.sql"
+    seed_file.write_text("CREATE TABLE t (id int);\n")
+    real_populate = CheckpointCache.populate
+    calls: list[str] = []
+
+    def flaky(self: CheckpointCache, key: str, *args: Any, **kwargs: Any) -> Any:
+        calls.append(key)
+        if len(calls) == 2:  # the seeded variant, after the base one succeeded
+            raise CacheError("disk full")
+        return real_populate(self, key, *args, **kwargs)
+
+    monkeypatch.setattr(CheckpointCache, "populate", flaky)
+    assert warm(1, "--seed-sql", str(seed_file)) == EXIT_FAILURE
+    captured = capsys.readouterr()
+    assert len(calls) == 2 and fake_engine.live_machines == set()
+    summary = CheckpointCache(cache_dir).ls()
+    assert summary.variant_count == 1, "the base variant is cached, the seeded one is not"
+    rows = captured.out.splitlines()
+    assert len(rows) == 2 and rows[1].split()[1] == "cold", "the table is still printed"
+    assert f"no populated checkpoint for {calls[1][:12]}" in captured.err
+    assert "1 of 1 requested variant(s) are not in the cache" in captured.err
+    assert "rerun `smoltest warm`" in captured.err
+    # Without the fault the same warm succeeds and caches both keys.
+    monkeypatch.setattr(CheckpointCache, "populate", real_populate)
+    capsys.readouterr()
+    assert warm(1, "--seed-sql", str(seed_file)) == EXIT_OK
+    assert CheckpointCache(cache_dir).ls().variant_count == 2
 
 
 # -- cache ------------------------------------------------------------------------------
