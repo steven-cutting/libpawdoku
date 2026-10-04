@@ -12,7 +12,7 @@ from __future__ import annotations
 import threading
 import weakref
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import ClassVar
 
 from .._lifecycle import Finalizer, get_reaper
@@ -34,7 +34,9 @@ class GoldenKey:
     reusable only if the template also asks for the same runtime: the same
     pinned PostgreSQL host port (a second template pinned elsewhere would never
     get its port published), the same URL driver, machine name, settings
-    (branching policy, exec timeout, cache directory, ...) and wait strategy.
+    (branching policy, exec timeout, cache directory, ...), wait strategy and
+    the very same engine instance: a golden booted through one engine must never
+    be handed to a template that injected another.
     """
 
     cache_key: str
@@ -44,6 +46,7 @@ class GoldenKey:
     name: str | None
     settings: Settings
     wait: tuple[str, str] | None
+    engine: Engine = field(compare=True, hash=True, repr=False)
 
 
 def _wait_identity(strategy: WaitStrategy | None) -> tuple[str, str] | None:
@@ -320,6 +323,7 @@ class GoldenRegistry:
             name=template.name,
             settings=template.settings,
             wait=_wait_identity(template.wait_strategy),
+            engine=template.engine,
         )
 
     def get_or_boot(self, template: PostgresMachine, seed: Seed | None = None) -> PostgresGolden:

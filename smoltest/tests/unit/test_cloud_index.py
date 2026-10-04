@@ -91,3 +91,40 @@ def test_unpopulated_claim_invalidate_drops_nothing(index: CloudCheckpointIndex)
     assert index.get(KEY) == "ckpt-Y" and reserved.released
     index.touch(reserved)
     assert index.get(KEY) == "ckpt-Y"
+
+
+KEY2 = "b" * 32
+
+
+def rewrite_entries(index: CloudCheckpointIndex, mutate) -> None:  # type: ignore[no-untyped-def]
+    raw = json.loads(index.path.read_text())
+    mutate(raw["entries"])
+    index.path.write_text(json.dumps(raw))
+
+
+def test_entry_recorded_under_another_key_is_dropped_not_claimed(
+    index: CloudCheckpointIndex,
+) -> None:
+    index.set(KEY2, "ckpt-other", sdk_version="fake")
+    index.set(KEY, "ckpt-mine", sdk_version="fake")
+    # KEY's record is replaced by a copy of KEY2's: its embedded key says KEY2.
+    rewrite_entries(index, lambda entries: entries.__setitem__(KEY, dict(entries[KEY2])))
+    assert index.claim_variant(KEY) is None
+    assert index.get(KEY) is None, "the swapped record is dropped"
+    assert index.get(KEY2) == "ckpt-other", "the genuine record survives"
+    assert KEY not in index.entries() and KEY2 in index.entries()
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda entries: entries[KEY].__setitem__("port", 20808),
+        lambda entries: entries[KEY]["ref"].__setitem__("kind", "file"),
+    ],
+    ids=["port", "file-ref"],
+)
+def test_entry_with_a_port_or_a_file_ref_is_dropped(index: CloudCheckpointIndex, mutate) -> None:  # type: ignore[no-untyped-def]
+    index.set(KEY, "ckpt-mine", sdk_version="fake")
+    rewrite_entries(index, mutate)
+    assert index.claim_variant(KEY) is None
+    assert index.get(KEY) is None

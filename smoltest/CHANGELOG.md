@@ -87,6 +87,13 @@ All notable changes to smoltest are recorded here. The format follows
 - `smoltest run postgres` could not be interrupted while the machine was still booting (the
   signal handler only set an event the boot never checked). `SIGINT`/`SIGTERM` during startup
   now abort the boot, which deletes whatever it had created, and exit 1.
+- `GoldenRegistry` also keys goldens by the engine instance, so templates that inject
+  different engines never share a golden.
+- `Settings` and the wait-strategy builders reject non-finite timeouts (`nan`, `inf`), which would
+  otherwise make a readiness wait poll forever.
+- The cloud checkpoint index validates each record against its own key (embedded key, no port,
+  cloud ref) before claiming it and drops a mismatched record instead of restoring another key's
+  checkpoint, mirroring the local metadata check.
 
 ### Added
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import math
 import re
 import shlex
 import socket
@@ -119,7 +120,11 @@ def _argv(command: str | Sequence[str]) -> tuple[str, ...]:
 
 
 def _seconds(value: float | timedelta) -> float:
-    return value.total_seconds() if isinstance(value, timedelta) else float(value)
+    seconds = value.total_seconds() if isinstance(value, timedelta) else float(value)
+    if not math.isfinite(seconds):
+        # NaN never compares as expired and infinity never arrives: either would poll forever.
+        raise InvalidConfig(f"expected a finite number of seconds; got {value!r}")
+    return seconds
 
 
 class WaitStrategy:

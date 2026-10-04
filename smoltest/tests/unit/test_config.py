@@ -201,3 +201,13 @@ def test_get_engine_shares_the_default_fake(fake_engine: FakeEngine, settings: S
 def test_load_engine_factory_rejects_bad_paths(path: str) -> None:
     with pytest.raises(InvalidConfig):
         load_engine_factory(path)
+
+
+@pytest.mark.parametrize("raw", ["nan", "inf", "-inf"])
+def test_non_finite_timeouts_are_rejected(raw: str) -> None:
+    """A NaN or infinite timeout would make the readiness wait poll forever."""
+    with pytest.raises(InvalidConfig, match="SMOLTEST_READY_TIMEOUT"):
+        Settings.from_env({"SMOLTEST_READY_TIMEOUT": raw})
+    for name in ("ready_timeout_s", "poll_interval_s", "exec_timeout_s"):
+        with pytest.raises(InvalidConfig, match="finite"):
+            Settings(**{name: float(raw)})

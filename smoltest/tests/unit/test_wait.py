@@ -491,3 +491,11 @@ def test_other_probe_errors_still_propagate(fake_engine: FakeEngine, pg: FakeMac
     fake_engine.exec_handlers["pg_isready"] = broken
     with pytest.raises(SmoltestError, match="agent gone"):
         PgIsReadyWaitStrategy().probe(view(pg))
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf")])
+def test_builders_reject_non_finite_seconds(value: float) -> None:
+    with pytest.raises(InvalidConfig, match="finite"):
+        PortWaitStrategy().with_startup_timeout(value)
+    with pytest.raises(InvalidConfig, match="finite"):
+        PortWaitStrategy().with_poll_interval(value)

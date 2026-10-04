@@ -300,6 +300,21 @@ def test_registry_separates_templates_that_differ_at_runtime(
     assert fake_engine.live_machines == set()
 
 
+def test_registry_separates_templates_with_different_engines(
+    fake_engine: FakeEngine, settings: Settings
+) -> None:
+    """Two engines reporting the same version and target still get their own goldens."""
+    other = FakeEngine()
+    registry = GoldenRegistry()
+    first = registry.get_or_boot(PostgresMachine(settings=settings, engine=fake_engine))
+    second = registry.get_or_boot(PostgresMachine(settings=settings, engine=other))
+    assert second is not first and second.engine is other and first.engine is fake_engine
+    assert registry.get_or_boot(PostgresMachine(settings=settings, engine=other)) is second
+    assert len(registry) == 2
+    registry.close_all()
+    assert fake_engine.live_machines == set() and other.live_machines == set()
+
+
 def test_fresh_prunes_stopped_children(fake_engine: FakeEngine, template: PostgresMachine) -> None:
     golden = PostgresGolden.boot(template)
     first = golden.fresh()

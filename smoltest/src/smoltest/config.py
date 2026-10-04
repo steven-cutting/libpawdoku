@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import math
 import os
 import sys
 from collections.abc import Callable, Mapping
@@ -61,9 +62,12 @@ def _parse_int(raw: str) -> int:
 
 def _parse_float(raw: str) -> float:
     try:
-        return float(raw.strip())
+        value = float(raw.strip())
     except ValueError as exc:
         raise InvalidConfig(f"expected a number, got {raw!r}") from exc
+    if not math.isfinite(value):
+        raise InvalidConfig(f"expected a finite number, got {raw!r}")
+    return value
 
 
 def _parse_target(raw: str) -> Target:
@@ -142,12 +146,12 @@ class Settings:
             raise InvalidConfig(f"cpus must be >= 1; got {self.cpus}")
         if self.memory_mb < 64:
             raise InvalidConfig(f"memory_mb must be >= 64; got {self.memory_mb}")
-        if self.ready_timeout_s <= 0:
-            raise InvalidConfig(f"ready_timeout_s must be > 0; got {self.ready_timeout_s}")
-        if self.poll_interval_s <= 0:
-            raise InvalidConfig(f"poll_interval_s must be > 0; got {self.poll_interval_s}")
-        if self.exec_timeout_s <= 0:
-            raise InvalidConfig(f"exec_timeout_s must be > 0; got {self.exec_timeout_s}")
+        for name in ("ready_timeout_s", "poll_interval_s", "exec_timeout_s"):
+            value = getattr(self, name)
+            # NaN compares false with everything and infinity never expires: a
+            # deadline built from either would wait forever, so both are rejected.
+            if not math.isfinite(value) or value <= 0:
+                raise InvalidConfig(f"{name} must be a finite number > 0; got {value}")
         object.__setattr__(self, "cache_dir", Path(self.cache_dir).expanduser())
 
     @classmethod

@@ -144,7 +144,22 @@ class CloudCheckpointIndex:
 
     @staticmethod
     def _meta(key: str, entry: Mapping[str, Any]) -> VariantMeta:
-        return VariantMeta.from_dict(dict(entry), source=f"index entry {key}")
+        """The meta an index entry records, or :class:`CacheCorrupt` if it is not ``key``'s.
+
+        A record copied or swapped under another key, carrying a port or a non-cloud
+        ref, would otherwise restore a different database state under this key.
+        """
+        source = f"index entry {key}"
+        meta = VariantMeta.from_dict(dict(entry), source=source)
+        if meta.key != key:
+            raise CacheCorrupt(f"{source}: records key {meta.key}", code="INDEX_MISMATCH")
+        if meta.port is not None:
+            raise CacheCorrupt(f"{source}: records port {meta.port}", code="INDEX_MISMATCH")
+        if meta.ref.kind != "cloud":
+            raise CacheCorrupt(
+                f"{source}: records a {meta.ref.kind} checkpoint", code="INDEX_MISMATCH"
+            )
+        return meta
 
     @classmethod
     def _meta_or_none(cls, key: str, entry: Mapping[str, Any]) -> VariantMeta | None:
@@ -256,13 +271,19 @@ class CloudCheckpointIndex:
         with self.key_lock(key):
             try:
                 entry = self._load().get(key)
-                meta = None if entry is None else self._meta(key, entry)
             except CacheCorrupt as exc:
                 with self._lock():
                     self._quarantine(exc)
                 return None
-        if meta is None:
-            return None
+            if entry is None:
+                return None
+            try:
+                meta = self._meta(key, entry)
+            except CacheCorrupt as exc:
+                # One bad record is not a bad index: drop it, keep the rest.
+                logger.warning("dropping corrupt cloud index entry %s: %s", key, exc)
+                self.drop(key)
+                return None
         return VariantClaim(key, None, meta.ref, meta, "cloud")
 
     def reserve_new_variant(self, key: str, port: int | None = None) -> VariantClaim:

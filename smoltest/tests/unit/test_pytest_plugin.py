@@ -36,7 +36,13 @@ def record():
 
     def _record(machine, **extra):
         info = machine.boot_info
-        row = {"port": machine.get_exposed_port(), "via": info.via, "name": machine.name}
+        parent = machine.parent
+        row = {
+            "port": machine.get_exposed_port(),
+            "via": info.via,
+            "name": machine.name,
+            "golden_port": parent.get_exposed_port() if parent is not None else None,
+        }
         row.update(extra)
         with out.open("a") as fh:
             fh.write(json.dumps(row) + "\\n")
@@ -100,7 +106,10 @@ def test_postgres_fixture_branches_a_distinct_machine_per_test(
     result.assert_outcomes(passed=3)
     seen = rows(records)
     assert [row["via"] for row in seen] == ["branch", "branch", "branch"]
-    assert len({row["port"] for row in seen}) == 3
+    # Three distinct machines; a child never shares its live golden's port, while the
+    # port of a child that already stopped may legitimately be picked again later.
+    assert len({row["name"] for row in seen}) == 3
+    assert all(row["port"] != row["golden_port"] for row in seen), seen
     assert len(fake_engine.ops("create")) == 1 and len(fake_engine.ops("branch")) == 3
     assert len(fake_engine.ops("delete")) == 4  # three children, then the golden
     assert fake_engine.live_machines == set()
@@ -275,7 +284,10 @@ def test_marker_isolation_overrides_the_ini(
     result.assert_outcomes(passed=3)
     seen = rows(records)
     assert [row["via"] == "branch" for row in seen] == [True, False, False]
-    assert len({row["port"] for row in seen}) == 3
+    # Three distinct machines; a child never shares its live golden's port, while the
+    # port of a child that already stopped may legitimately be picked again later.
+    assert len({row["name"] for row in seen}) == 3
+    assert all(row["port"] != row["golden_port"] for row in seen), seen
     result.stdout.fnmatch_lines(["*per-test machines: 1 branched (mean * ms), 1 fresh*, 1 shared"])
     assert fake_engine.live_machines == set()
 
