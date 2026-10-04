@@ -31,19 +31,22 @@ import pytest
 
 
 @pytest.fixture
-def record():
+def record(smoltest_postgres_golden):
+    # The worker's golden is read from the plugin, not from machine.parent: a fresh
+    # fallback machine (when the golden cannot be branched) has no parent but
+    # still came from this golden.
     out = os.environ["SMOLTEST_E2E_RECORDS"]
+    golden = smoltest_postgres_golden
 
     def _record(machine):
         info = machine.boot_info
-        parent = machine.parent
         row = {
             "worker": os.environ.get("PYTEST_XDIST_WORKER", "main"),
             "via": info.via,
             "port": machine.get_exposed_port(),
-            "golden": parent.name if parent is not None else None,
-            "golden_via": parent.boot_info.via if parent is not None else None,
-            "golden_port": parent.get_exposed_port() if parent is not None else None,
+            "golden": golden.machine.name,
+            "golden_via": golden.boot_info.via,
+            "golden_port": golden.machine.get_exposed_port(),
         }
         with open(out, "a") as fh:
             fh.write(json.dumps(row) + "\\n")

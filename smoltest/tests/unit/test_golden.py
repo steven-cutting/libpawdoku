@@ -7,11 +7,13 @@ import warnings
 import pytest
 
 from smoltest._log import reset_warn_once
-from smoltest.boot.golden import GoldenRegistry, PostgresGolden, template_key
+from smoltest._ports import pick_free_port
+from smoltest.boot.golden import GoldenKey, GoldenRegistry, PostgresGolden, template_key
 from smoltest.config import Settings
 from smoltest.errors import NotSupportedError, SmoltestError, SmoltestWarning
 from smoltest.postgres import PostgresMachine, Seed
 from smoltest.testing import FakeEngine, FakeMachine
+from smoltest.wait.strategies import PortWaitStrategy
 
 
 @pytest.fixture(autouse=True)
@@ -260,9 +262,52 @@ def test_registry_key_uses_the_machine_spec(fake_engine: FakeEngine, settings: S
     b = PostgresMachine(settings=settings).with_env("TZ", "UTC")
     assert template_key(a) == template_key(PostgresMachine(settings=settings))
     assert template_key(a) != template_key(b)
-    assert GoldenRegistry.key_for(a, None) == (template_key(a), None)
-    assert GoldenRegistry.key_for(a, Seed.from_sql("x", key="k")) == (template_key(a), "k")
+    key = GoldenRegistry.key_for(a, None)
+    assert isinstance(key, GoldenKey)
+    assert key.cache_key == template_key(a) and key.seed_key is None
+    assert key == GoldenRegistry.key_for(PostgresMachine(settings=settings), None)
+    assert GoldenRegistry.key_for(a, Seed.from_sql("x", key="k")).seed_key == "k"
     assert fake_engine.calls == []  # computing keys boots nothing
+
+
+def test_registry_separates_templates_that_differ_at_runtime(
+    fake_engine: FakeEngine, settings: Settings
+) -> None:
+    """The same checkpoint key is not enough: runtime options must match too."""
+    registry = GoldenRegistry()
+    base = registry.get_or_boot(PostgresMachine(settings=settings))
+    port = pick_free_port()
+    pinned = registry.get_or_boot(PostgresMachine(settings=settings).with_bind_ports(5432, port))
+    assert pinned is not base and pinned.machine.get_exposed_port() == port
+    no_branch = registry.get_or_boot(
+        PostgresMachine(settings=settings.replace(disable_branch=True))
+    )
+    assert no_branch is not base and not no_branch.branch_supported and base.branch_supported
+    bare = registry.get_or_boot(PostgresMachine(settings=settings, driver=None))
+    assert bare is not base and bare.machine.url.startswith("postgresql://")
+    quick = registry.get_or_boot(PostgresMachine(settings=settings.replace(exec_timeout_s=30.0)))
+    assert quick is not base
+    strategy = PortWaitStrategy()
+    waiting = registry.get_or_boot(PostgresMachine(settings=settings).waiting_for(strategy))
+    assert waiting is not base
+    named = registry.get_or_boot(PostgresMachine(settings=settings).with_name("golden-x"))
+    assert named is not base and named.machine.name == "golden-x"
+    assert registry.get_or_boot(PostgresMachine(settings=settings)) is base
+    assert len(registry) == 7
+    # All of them share one checkpoint key: the cache, not the registry, decides reuse there.
+    assert len({GoldenRegistry.key_for(g.machine, None).cache_key for g in registry.goldens}) == 1
+    registry.close_all()
+    assert fake_engine.live_machines == set()
+
+
+def test_fresh_prunes_stopped_children(fake_engine: FakeEngine, template: PostgresMachine) -> None:
+    golden = PostgresGolden.boot(template)
+    first = golden.fresh()
+    first.stop()
+    second = golden.fresh()
+    assert list(golden.children) == [second]
+    golden.close()
+    assert fake_engine.live_machines == set()
 
 
 def test_registry_instance_is_a_singleton() -> None:

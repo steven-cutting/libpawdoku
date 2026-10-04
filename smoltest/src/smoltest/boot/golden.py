@@ -12,6 +12,7 @@ from __future__ import annotations
 import threading
 import weakref
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import ClassVar
 
 from .._lifecycle import Finalizer, get_reaper
@@ -21,10 +22,36 @@ from ..config import Settings, resolve_target
 from ..errors import NotSupportedError, SmoltestError
 from ..postgres import PostgresMachine, Seed
 from ..transport.base import Engine
+from ..wait.strategies import WaitStrategy
 from .strategy import BootInfo, BootResult, boot_postgres
 
-GoldenKey = tuple[str, str | None]
-"""What :class:`GoldenRegistry` dedups on: ``(machine spec key, seed key)``."""
+
+@dataclass(frozen=True)
+class GoldenKey:
+    """What :class:`GoldenRegistry` dedups on.
+
+    The checkpoint key says which *checkpoints* a template can reuse; a golden is
+    reusable only if the template also asks for the same runtime: the same
+    pinned PostgreSQL host port (a second template pinned elsewhere would never
+    get its port published), the same URL driver, machine name, settings
+    (branching policy, exec timeout, cache directory, ...) and wait strategy.
+    """
+
+    cache_key: str
+    seed_key: str | None
+    pinned_host_port: int | None
+    driver: str | None
+    name: str | None
+    settings: Settings
+    wait: tuple[str, str] | None
+
+
+def _wait_identity(strategy: WaitStrategy | None) -> tuple[str, str] | None:
+    """A hashable description of a wait strategy: its class and configuration."""
+    if strategy is None:
+        return None
+    kind = type(strategy)
+    return f"{kind.__module__}.{kind.__qualname__}", repr(sorted(vars(strategy).items()))
 
 
 def template_key(template: PostgresMachine) -> str:
@@ -205,6 +232,7 @@ class PostgresGolden:
         """A fresh machine from the same template and seed (restore or cold boot)."""
         with self._lock:
             self._require_open()
+            self._prune()
             template = self._template
             result = boot_postgres(
                 template.spec,
@@ -252,7 +280,7 @@ class PostgresGolden:
 
 
 class GoldenRegistry:
-    """Process-wide goldens, one per ``(machine spec key, seed key)``.
+    """Process-wide goldens, one per :class:`GoldenKey` (spec, seed and runtime options).
 
     :meth:`instance` is the shared registry; :meth:`close_all` runs at interpreter
     exit through the :class:`~smoltest._lifecycle.Reaper`.
@@ -283,8 +311,16 @@ class GoldenRegistry:
 
     @staticmethod
     def key_for(template: PostgresMachine, seed: Seed | None) -> GoldenKey:
-        """The dedup key for ``template`` with ``seed``."""
-        return template_key(template), seed.key if seed is not None else None
+        """The dedup key for ``template`` with ``seed``: checkpoint key plus runtime options."""
+        return GoldenKey(
+            cache_key=template_key(template),
+            seed_key=seed.key if seed is not None else None,
+            pinned_host_port=template.pinned_host_port,
+            driver=template.driver,
+            name=template.name,
+            settings=template.settings,
+            wait=_wait_identity(template.wait_strategy),
+        )
 
     def get_or_boot(self, template: PostgresMachine, seed: Seed | None = None) -> PostgresGolden:
         """The golden for ``template`` and ``seed``, booting it on first request."""

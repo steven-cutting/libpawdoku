@@ -72,6 +72,12 @@ All notable changes to smoltest are recorded here. The format follows
   as `BootError` with the cause and leaves the cached variant intact.
 - `Settings.from_env(mapping)` derives the default cache directory from the supplied mapping
   instead of the process environment; explicit `cache_dir` overrides still win.
+- `GoldenRegistry` keyed goldens by checkpoint key and seed only, so a template pinned to
+  another host port, or asking for another driver, name, wait strategy or settings (branching
+  policy, exec timeout, ...), was handed the first golden. The registry identity now carries
+  those runtime options too; checkpoint reuse is unchanged.
+- `PostgresGolden.fresh()` now prunes stopped children like `branch()` does, so the fresh
+  isolation mode no longer retains every finished test's machine until session teardown.
 
 ### Added
 
