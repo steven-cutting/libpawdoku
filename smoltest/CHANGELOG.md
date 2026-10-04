@@ -43,6 +43,35 @@ All notable changes to smoltest are recorded here. The format follows
   as `0o600`.
 - On the cloud target the missing `websockets` extra is reported before a billed machine is
   created.
+- `PostgresMachine(port=N)` with `N != 5432` booted a server still listening on 5432 and ended
+  in a startup timeout; the argv now sets `-c port=N` and every in-guest client (`psql()`, SQL
+  seeds, `pg_isready`, the in-guest `SqlWaitStrategy` probe, the pre-checkpoint backend
+  termination) passes `-p N`. Default-port argvs are unchanged.
+- `Settings.exec_timeout_s` reached only cold machines; restored and branched handles got the
+  600 s engine default. `Engine.restore_checkpoint(..., exec_timeout_s=)` now carries it and
+  branches inherit it.
+- Children of a golden (`branch()` and `fresh()`) and `PostgresMachine.branch()` now carry the
+  seed, so a `stop()` / `start()` of such a child boots seeded (restores the seeded checkpoint
+  or re-seeds) instead of unseeded.
+- `TunnelBridge`: a worker thread abandoned by `close(timeout_s)` can no longer corrupt a
+  bridge reopened afterwards; its late error and endpoint writes land in an orphaned run.
+- The exit reaper forgot nothing until exit: completed and detached registrations are now
+  dropped immediately (`Reaper.detach(token)`), so memory no longer grows per test and the
+  exit sweep is linear.
+- The cloud checkpoint index only drops or rewrites an entry while it still records the
+  checkpoint id the claim was taken on, so a stale claim can neither erase a replacement
+  another process recorded nor resurrect the old id.
+- A local variant whose meta file does not describe it (another key, port or checkpoint path,
+  or a cloud ref) is treated as corrupt and invalidated instead of being restored. `populate`
+  records the variant's own checkpoint path in the meta (and refuses an engine that wrote the
+  checkpoint anywhere else), so that check never depends on how the SDK spells the path.
+- A restored variant is invalidated when readiness times out or when the readiness probe
+  fails with any other smoltest error (a guest agent that refuses every command, a machine
+  that died on resume); a wait strategy refusing the machine (`NotSupportedError` or
+  `InvalidConfig`, for example `LogMessageWaitStrategy` without `capture_logs=True`) surfaces
+  as `BootError` with the cause and leaves the cached variant intact.
+- `Settings.from_env(mapping)` derives the default cache directory from the supplied mapping
+  instead of the process environment; explicit `cache_dir` overrides still win.
 
 ### Added
 
@@ -53,6 +82,11 @@ All notable changes to smoltest are recorded here. The format follows
 
 ### Changed
 
+- Cache keys changed (key format 2): the pinned host ports of extra guest ports are now part of
+  the key, so a restore can no longer bind a different extra host port than the one asked for.
+  Existing checkpoints miss once and are re-created on the next boot.
+- `smoltest warm` table: the `pause ms` column is now `populate ms`; it reports the populate
+  time (checkpoint write and cache bookkeeping), which is what it always measured.
 - README: the cloud `auto_stop` / `ttl` safety net is documented as applying only to machines
   smoltest creates; restored and branched cloud machines carry no TTL smoltest can set.
 

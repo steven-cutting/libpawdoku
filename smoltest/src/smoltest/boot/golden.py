@@ -98,8 +98,8 @@ class PostgresGolden:
             template.settings,
             template.engine,
             driver=template.driver,
+            seed=chosen,
         )
-        machine._seed = chosen
         return cls(machine, result, template=template, seed=chosen)
 
     # -- state -------------------------------------------------------------------------
@@ -216,7 +216,12 @@ class PostgresGolden:
                 name=name,
             )
             child = PostgresMachine._from_boot(
-                result, template.spec, template.settings, template.engine, driver=template.driver
+                result,
+                template.spec,
+                template.settings,
+                template.engine,
+                driver=template.driver,
+                seed=self._seed,
             )
             self._fresh_count += 1
             self._children.append(child)

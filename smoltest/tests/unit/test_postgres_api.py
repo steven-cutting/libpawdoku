@@ -187,9 +187,9 @@ def test_sql_seed_apply_writes_file_and_runs_psql(
         fake = fake_of(m)
         argv = fake.exec_log[-1]
         assert argv[:4] == ("psql", "-v", "ON_ERROR_STOP=1", "-U")
-        assert argv[4:8] == ("alice", "-d", "app", "-f")
-        assert argv[8].startswith("/tmp/smoltest-") and argv[8].endswith(".sql")
-        assert fake.files[argv[8]] == b"CREATE TABLE t (id int);"
+        assert argv[4:10] == ("alice", "-d", "app", "-p", "5432", "-f")
+        assert argv[10].startswith("/tmp/smoltest-") and argv[10].endswith(".sql")
+        assert fake.files[argv[10]] == b"CREATE TABLE t (id int);"
         assert fake_engine.ops("write_file")[-1]["mode"] == 0o600
     assert ran == ["CREATE TABLE t (id int);"]
 
@@ -537,6 +537,8 @@ def test_psql(fake_boot: BootLog, fake_engine: FakeEngine, settings: Settings) -
             "alice",
             "-d",
             "app",
+            "-p",
+            "5432",
             "-c",
             "SELECT 1",
         )

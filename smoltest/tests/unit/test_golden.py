@@ -114,6 +114,29 @@ def test_seed_is_applied_once_and_inherited(fake_engine: FakeEngine, settings: S
         assert again.boot_info.restored_key == again.boot_info.seeded_key
 
 
+def test_children_carry_the_seed_so_a_restart_boots_seeded(
+    fake_engine: FakeEngine, settings: Settings
+) -> None:
+    seed = Seed.from_sql("CREATE TABLE s (id int);")
+    with PostgresGolden.boot(PostgresMachine(settings=settings), seed=seed) as golden:
+        branch = golden.branch()
+        fresh = golden.fresh()
+        assert branch.seed is seed and fresh.seed is seed
+        branch.stop()
+        fresh.stop()
+        fresh.start()  # a stop()/start() cycle re-runs the ladder with the seed
+        try:
+            info = fresh.boot_info
+            assert info is not None and info.seeded_key is not None
+            assert info.seeded or info.restored_key == info.seeded_key
+            assert "CREATE TABLE s (id int)" in (
+                fake_of(fresh).sql_log + fake_of(fresh).inherited_sql
+            )
+        finally:
+            fresh.stop()
+    assert fake_engine.live_machines == set()
+
+
 def test_not_supported_falls_back_to_fresh_with_one_warning(
     fake_engine: FakeEngine, template: PostgresMachine
 ) -> None:

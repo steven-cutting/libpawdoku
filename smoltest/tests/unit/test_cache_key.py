@@ -13,6 +13,7 @@ import pytest
 from smoltest.boot.spec import PostgresSpec
 from smoltest.cache.key import (
     DEFAULT_CLOUD_URL,
+    KEY_FORMAT,
     KEY_LENGTH,
     CacheKey,
     HostSignature,
@@ -61,7 +62,7 @@ def test_key_is_deterministic_and_well_formed() -> None:
     assert len(a.key) == KEY_LENGTH and is_cache_key(a.key)
     assert a.key == hashlib.sha256(a.canonical_json().encode()).hexdigest()[:KEY_LENGTH]
     assert a.canonical_json() == canonical_json(a.inputs)
-    assert json.loads(a.canonical_json())["format"] == 1
+    assert json.loads(a.canonical_json())["format"] == KEY_FORMAT == 2
     assert a.target == "local" and a.seed_key is None
 
 
@@ -140,7 +141,42 @@ def test_host_port_is_not_part_of_the_key() -> None:
     c = CacheKey.from_machine_spec(mspec(None), "local", "fake", host=HOST)
     assert a.key == b.key == c.key
     assert a.inputs["guest_ports"] == [5432]
+    assert a.inputs["pinned_ports"] == []
     assert "ports" not in a.inputs and "host_port" not in a.inputs
+
+
+def test_pinned_extra_host_ports_are_part_of_the_key() -> None:
+    def spec(*extra: PortMapping) -> MachineSpec:
+        return MachineSpec(image="postgres:16", ports=(PortMapping(21000, 5432), *extra))
+
+    def key(*extra: PortMapping) -> CacheKey:
+        return CacheKey.from_machine_spec(spec(*extra), "local", "fake", host=HOST)
+
+    unpinned = key(PortMapping(None, 9080))
+    pinned_a = key(PortMapping(29080, 9080))
+    pinned_b = key(PortMapping(29081, 9080))
+    assert pinned_a.key != pinned_b.key, "a different pinned host port restores differently"
+    assert pinned_a.key != unpinned.key, "pinned and engine-chosen host ports differ"
+    assert pinned_a.inputs["pinned_ports"] == [[9080, 29080]]
+    assert unpinned.inputs["pinned_ports"] == []
+    assert unpinned.inputs["guest_ports"] == pinned_a.inputs["guest_ports"] == [5432, 9080]
+    # Order of declaration does not matter; the PostgreSQL host port still does not.
+    two = key(PortMapping(29081, 9081), PortMapping(29080, 9080))
+    assert two.inputs["pinned_ports"] == [[9080, 29080], [9081, 29081]]
+    assert two == CacheKey.from_machine_spec(
+        MachineSpec(
+            image="postgres:16",
+            ports=(PortMapping(22000, 5432), PortMapping(29080, 9080), PortMapping(29081, 9081)),
+        ),
+        "local",
+        "fake",
+        host=HOST,
+    )
+    # Through the PostgreSQL spec too.
+    assert (
+        key_for(PostgresSpec(extra_ports=(PortMapping(29080, 9080),))).key
+        != key_for(PostgresSpec(extra_ports=(PortMapping(None, 9080),))).key
+    )
 
 
 def test_env_order_does_not_matter() -> None:

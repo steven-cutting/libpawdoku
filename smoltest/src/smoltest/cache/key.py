@@ -1,7 +1,9 @@
 """Cache keys: canonical JSON of everything that shapes a checkpoint, hashed.
 
-A key identifies a machine *shape*, never a host port: the port is a per-variant
-attribute of the store. Local keys carry a host signature because a checkpoint
+A key identifies a machine *shape*, never the PostgreSQL host port: that port is
+a per-variant attribute of the store. Pinned host ports of *extra* guest ports
+are part of the shape, because a restored machine binds them exactly as the
+checkpointed one did. Local keys carry a host signature because a checkpoint
 restores only on the OS, architecture and CPU feature set that produced it;
 cloud keys carry the API base URL instead.
 """
@@ -24,8 +26,11 @@ from ..boot.spec import PostgresSpec, build_machine_spec
 from ..config import Settings
 from ..transport.base import Engine, MachineSpec, Target
 
-KEY_FORMAT = 1
-"""Bump when the key inputs change shape; old entries then simply miss."""
+KEY_FORMAT = 2
+"""Bump when the key inputs change shape; old entries then simply miss.
+
+Format 2 added ``pinned_ports`` (the pinned host ports of extra guest ports).
+"""
 
 KEY_LENGTH = 32
 """Hex characters kept from the SHA-256 digest."""
@@ -218,12 +223,20 @@ class CacheKey:
     ) -> CacheKey:
         """Compute the key of an engine-level :class:`~smoltest.transport.base.MachineSpec`.
 
-        Host ports in ``spec.ports`` are ignored; only guest ports count. ``host``
-        overrides the detected host signature (tests); ``env`` is the process
-        environment the cloud URL is read from.
+        The first mapping in ``spec.ports`` is the PostgreSQL port (by construction
+        of :func:`~smoltest.boot.spec.build_machine_spec`); its host side is the
+        variant port and is ignored, only its guest port counts. Every later
+        mapping is an extra port: its guest port counts, and so does its host port
+        when it is pinned (``pinned_ports``, sorted ``[guest, host]`` pairs),
+        because a restored machine publishes the extra port on the host port the
+        checkpoint recorded. ``host`` overrides the detected host signature
+        (tests); ``env`` is the process environment the cloud URL is read from.
         """
         local = target == "local"
         signature = (host or host_signature()).as_dict() if local else None
+        pinned_ports = sorted(
+            [mapping.guest, mapping.host] for mapping in spec.ports[1:] if mapping.host is not None
+        )
         inputs: dict[str, Any] = {
             "format": KEY_FORMAT,
             "smoltest_major": smoltest_major(),
@@ -235,6 +248,7 @@ class CacheKey:
             "argv": list(spec.argv) if spec.argv is not None else None,
             "env": dict(sorted(spec.env.items())),
             "guest_ports": sorted(spec.guest_ports),
+            "pinned_ports": pinned_ports,
             "cpus": spec.cpus,
             "memory_mb": spec.memory_mb,
             "storage_gb": spec.storage_gb,

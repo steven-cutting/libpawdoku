@@ -90,3 +90,35 @@ def test_unknown_parent_object_is_ignored() -> None:
 
 def test_get_reaper_is_a_singleton() -> None:
     assert get_reaper() is get_reaper()
+
+
+def test_fired_and_detached_registrations_are_forgotten() -> None:
+    reaper = Reaper(install_atexit=False)
+    parent = Thing("p")
+    tp = reaper.register(parent, lambda: None)
+    children = [Thing(f"c{i}") for i in range(50)]
+    tokens = [reaper.register(child, lambda: None, parent=tp) for child in children]
+    assert reaper.pending == 51 and len(reaper._entries[tp].children) == 50
+    for token in tokens[:25]:
+        token()  # fired early (what a GC'd or explicitly closed child does)
+    for token in tokens[25:]:
+        assert reaper.detach(token) is True  # cancelled (what stop() does)
+    assert reaper.pending == 1
+    assert list(reaper._entries) == [tp] and list(reaper._order) == [tp]
+    assert reaper._entries[tp].children == []
+    assert len(reaper._by_obj) == 1
+    assert reaper.detach(tokens[0]) is False  # already fired: nothing left to cancel
+    reaper.run()
+    assert reaper.pending == 0 and reaper._entries == {} and reaper._by_obj == {}
+    del parent, children
+
+
+def test_gc_removes_the_entry() -> None:
+    reaper = Reaper(install_atexit=False)
+    thing = Thing("x")
+    reaper.register(thing, lambda: None)
+    assert len(reaper._entries) == 1 and len(reaper._by_obj) == 1
+    del thing
+    gc.collect()
+    assert reaper._entries == {} and reaper._order == {} and reaper._by_obj == {}
+    assert reaper.pending == 0

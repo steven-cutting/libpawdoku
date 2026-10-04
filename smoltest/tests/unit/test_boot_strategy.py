@@ -26,6 +26,7 @@ from smoltest.cache.lock import FileLock
 from smoltest.config import Settings
 from smoltest.errors import (
     BootError,
+    ExecError,
     NotSupportedError,
     ReadinessTimeout,
     SmoltestError,
@@ -33,10 +34,11 @@ from smoltest.errors import (
 )
 from smoltest.postgres import PostgresMachine, Seed
 from smoltest.testing import FakeEngine, FakeMachine
-from smoltest.transport.base import MachineSpec, PortMapping
+from smoltest.transport.base import ExecOutcome, MachineSpec, PortMapping
 from smoltest.transport.tunnel import TunnelBridge
 from smoltest.wait.strategies import (
     EXEC_PROBE_TIMEOUT_S,
+    LogMessageWaitStrategy,
     PortWaitStrategy,
     ReadinessTarget,
     WaitStrategy,
@@ -594,6 +596,52 @@ def test_uncached_cold_boot_waits_before_seeding(
         result.release()
 
 
+def test_non_default_guest_port_reaches_the_server_and_every_client(
+    fake_engine: FakeEngine, settings: Settings
+) -> None:
+    seed = Seed.from_sql("CREATE TABLE t (id int);")
+    machine = PostgresMachine(port=5433, settings=settings, seed=seed).start()
+    try:
+        created: MachineSpec = fake_engine.ops("create")[0]["spec"]
+        assert created.argv is not None and "port=5433" in created.argv
+        assert created.argv[:4] == ("docker-entrypoint.sh", "postgres", "-c", "port=5433")
+        assert created.ports[0].guest == 5433 and machine.port == 5433
+        machine.psql("SELECT 1")
+        execs = [tuple(c["argv"]) for c in fake_engine.ops("exec")]
+        psqls = [argv for argv in execs if argv[0] == "psql"]
+        seeds = [argv for argv in psqls if "-f" in argv]
+        terminates = [argv for argv in psqls if TERMINATE_FOREIGN_BACKENDS_SQL in argv]
+        probes = [argv for argv in execs if argv[0] == "pg_isready"]
+        assert seeds and terminates and probes and len(psqls) >= 3
+        assert all(argv[argv.index("-p") + 1] == "5433" for argv in psqls)
+        assert all("-p 5433" in " ".join(argv) for argv in probes)
+    finally:
+        machine.stop()
+    assert fake_engine.live_machines == set()
+
+
+def test_exec_timeout_reaches_cold_and_restored_machines(
+    fake_engine: FakeEngine, settings: Settings
+) -> None:
+    tuned = settings.replace(exec_timeout_s=30.0)
+    first = boot_postgres(SPEC, tuned, fake_engine)
+    first.release()
+    second = boot_postgres(SPEC, tuned, fake_engine)
+    try:
+        assert second.info.via == "restore"
+        assert fake_engine.ops("create")[0]["spec"].exec_timeout_s == 30.0
+        assert fake_engine.ops("restore")[0]["exec_timeout_s"] == 30.0
+        assert fake_of(second).spec.exec_timeout_s == 30.0
+        child = branch_from(second, "child", tuned, fake_engine)
+        try:
+            assert fake_of(child).spec.exec_timeout_s == 30.0
+        finally:
+            child.release()
+    finally:
+        second.release()
+    assert fake_engine.live_machines == set()
+
+
 def test_default_wait_and_housekeeping_execs_are_bounded(
     fake_engine: FakeEngine, settings: Settings
 ) -> None:
@@ -661,6 +709,100 @@ def test_poisoned_seeded_variant_falls_through_to_the_base_key(
         assert len(fake_engine.live_machines) == 1
     finally:
         second.release()
+    assert fake_engine.live_machines == set() and claim_files(settings) == []
+
+
+def test_wait_strategy_refusal_after_restore_does_not_invalidate(
+    fake_engine: FakeEngine, settings: Settings
+) -> None:
+    first = boot_postgres(SPEC, settings, fake_engine)
+    port = first.endpoint.port
+    first.release()
+    key = base_key(settings, fake_engine)
+    cache = CheckpointCache.open(settings)
+    # LogMessageWaitStrategy needs capture_logs: it raises NotSupportedError, not a timeout.
+    with pytest.raises(BootError, match=r"\[wait\] NotSupportedError") as info:
+        boot_postgres(SPEC, settings, fake_engine, wait=LogMessageWaitStrategy("ready"))
+    assert isinstance(info.value.cause, NotSupportedError) and info.value.stage == "wait"
+    assert len(fake_engine.ops("restore")) == 1 and len(fake_engine.ops("create")) == 1
+    assert [v.port for v in cache.variants(key.key)] == [port]
+    assert cache.paths(key.key, port).meta.is_file()
+    assert fake_engine.live_machines == set() and claim_files(settings) == []
+    # The variant is intact: the next boot restores it.
+    again = boot_postgres(SPEC, settings, fake_engine)
+    try:
+        assert again.info.via == "restore" and again.endpoint.port == port
+    finally:
+        again.release()
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        ExecError("agent unreachable", code="EXEC_FAILED"),
+        BootError("agent unreachable", stage="exec", code="EXEC_FAILED"),
+    ],
+    ids=["ExecError", "BootError[exec]"],
+)
+def test_restored_machine_that_cannot_exec_is_invalidated(
+    fake_engine: FakeEngine, settings: Settings, error: SmoltestError
+) -> None:
+    """A guest that refuses every command is the checkpoint's fault, like a timeout."""
+    first = boot_postgres(SPEC, settings, fake_engine)
+    old_port = first.endpoint.port
+    first.release()
+    key = base_key(settings, fake_engine)
+
+    def agent_down(machine: FakeMachine, argv: tuple[str, ...]) -> ExecOutcome | None:
+        if machine.via == "restore":
+            raise error
+        return None
+
+    fake_engine.exec_handlers["pg_isready"] = agent_down
+    second = boot_postgres(SPEC, settings, fake_engine)
+    try:
+        assert second.info.via == "cold" and second.info.populated
+        assert len(fake_engine.ops("restore")) == 1 and len(fake_engine.ops("create")) == 2
+        cache = CheckpointCache.open(settings)
+        assert [v.port for v in cache.variants(key.key)] == [second.endpoint.port]
+        if second.endpoint.port != old_port:
+            assert not cache.paths(key.key, old_port).checkpoint.exists()
+        assert len(fake_engine.live_machines) == 1
+    finally:
+        second.release()
+    assert fake_engine.live_machines == set() and claim_files(settings) == []
+
+
+def test_unready_restores_stop_at_the_limit_and_boot_cold(
+    fake_engine: FakeEngine,
+    settings: Settings,
+    listener: socket.socket,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    key = base_key(settings, fake_engine)
+    first = boot_postgres(SPEC, settings, fake_engine)
+    port_a = first.endpoint.port
+    first.release()
+    listener.bind((LOOPBACK, port_a))  # keep A busy so the next boot makes variant B
+    listener.listen(1)
+    second = boot_postgres(SPEC, settings, fake_engine)
+    port_b = second.endpoint.port
+    second.release()
+    listener.close()
+    assert port_a != port_b
+    for port in (port_a, port_b):
+        poison_variant(settings, key, port)
+    monkeypatch.setattr(strategy, "MAX_UNREADY_RESTORES", 1)
+    quick = settings.replace(ready_timeout_s=0.1, poll_interval_s=0.01)
+    third = boot_postgres(SPEC, quick, fake_engine)
+    try:
+        assert third.info.via == "cold" and third.info.populated
+        # One poisoned variant was tried and invalidated; the cap stopped the second try.
+        assert len(fake_engine.ops("restore")) == 1 and len(fake_engine.ops("create")) == 3
+        remaining = {v.port for v in CheckpointCache.open(settings).variants(key.key)}
+        assert third.endpoint.port in remaining and len(remaining) == 2
+    finally:
+        third.release()
     assert fake_engine.live_machines == set() and claim_files(settings) == []
 
 

@@ -15,7 +15,7 @@ import pytest
 
 from smoltest.errors import BootError, NotSupportedError
 from smoltest.transport import smol_engine
-from smoltest.transport.base import MachineSpec, PortMapping
+from smoltest.transport.base import CheckpointRef, MachineSpec, PortMapping
 from smoltest.transport.smol_engine import DEFAULT_EXEC_TIMEOUT_S, SmolEngine, _translate
 
 
@@ -70,6 +70,9 @@ class StubMachine:
         self.execs.append((argv, opts))
         return ExecResult()
 
+    def branch(self, name: str, ports: Any = None, *, branchable: bool = False) -> StubMachine:
+        return StubMachine(name)
+
 
 @pytest.fixture
 def stub_smol(monkeypatch: pytest.MonkeyPatch) -> types.ModuleType:
@@ -108,6 +111,10 @@ def stub_smol(monkeypatch: pytest.MonkeyPatch) -> types.ModuleType:
             created.append(config)
             return StubMachine()
 
+        @staticmethod
+        def restore_checkpoint(checkpoint_id: str, name: str, conn: Any) -> StubMachine:
+            return StubMachine(name)
+
     module.ExecOptions = ExecOptions  # type: ignore[attr-defined]
     module.PortSpec = PortSpec  # type: ignore[attr-defined]
     module.ResourceSpec = ResourceSpec  # type: ignore[attr-defined]
@@ -141,6 +148,24 @@ def test_create_hands_the_spec_exec_timeout_to_the_handle(stub_smol: types.Modul
     assert isinstance(handle, smol_engine.SmolHandle) and handle.exec_timeout_s == 99.0
     handle.exec(["true"])
     assert handle.machine.execs[-1][1].timeout == 99.0
+
+
+def test_restore_hands_the_exec_timeout_to_the_handle_and_its_branches(
+    stub_smol: types.ModuleType,
+) -> None:
+    engine = SmolEngine()
+    ref = CheckpointRef("file", "/tmp/golden.smolcheckpoint")
+    restored = engine.restore_checkpoint(ref, "restored", "local", exec_timeout_s=30.0)
+    assert isinstance(restored, smol_engine.SmolHandle) and restored.exec_timeout_s == 30.0
+    restored.exec(["psql", "-c", "SELECT 1"])
+    assert restored.machine.execs[-1][1].timeout == 30.0
+    child = restored.branch("child")
+    assert isinstance(child, smol_engine.SmolHandle) and child.exec_timeout_s == 30.0
+    child.exec(["true"])
+    assert child.machine.execs[-1][1].timeout == 30.0
+    plain = engine.restore_checkpoint(ref, "plain", "local")
+    assert isinstance(plain, smol_engine.SmolHandle)
+    assert plain.exec_timeout_s == DEFAULT_EXEC_TIMEOUT_S
 
 
 def test_cloud_create_refuses_before_a_machine_exists_without_websockets(

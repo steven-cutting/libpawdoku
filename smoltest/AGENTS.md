@@ -1,13 +1,14 @@
 # Agent instructions for smoltest
 
-`smoltest` is a **standalone** Python project that lives in a subdirectory of
-the `libpawdoku` repository without being part of the engine. The parent's
-`AGENTS.md`, `CLAUDE.md`, `Justfile`, Allium specifications and quality gates
-**do not apply** here: the hook gate (`.pre-commit-config.yaml`), taplo,
-markdownlint, typos and lychee each exclude `smoltest/` explicitly, and this
-project's own checks run from `.github/workflows/smoltest.yml` and the commands
-below. Never run `just`, `cargo`, `pixi` or `prek` for this project, and never
-touch files outside this directory on its behalf.
+`smoltest` is a **standalone** Python project inside the `libpawdoku`
+repository, carved out by the root `AGENTS.md` ("Standalone subprojects"). The
+root's safety and authority rules apply here unchanged; its engine workflow
+(`just`, `cargo`, `pixi`, `prek`, the Allium specifications) does not, and this
+project's checks are the `uv` commands below plus
+`.github/workflows/smoltest.yml`. The hook gate (`.pre-commit-config.yaml`),
+taplo, markdownlint, typos and lychee each exclude `smoltest/` explicitly.
+Never run `just`, `cargo`, `pixi` or `prek` for this project, and never touch
+files outside this directory on its behalf.
 
 ## What it is
 

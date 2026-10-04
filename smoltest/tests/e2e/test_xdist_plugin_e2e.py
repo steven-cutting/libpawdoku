@@ -43,6 +43,7 @@ def record():
             "port": machine.get_exposed_port(),
             "golden": parent.name if parent is not None else None,
             "golden_via": parent.boot_info.via if parent is not None else None,
+            "golden_port": parent.get_exposed_port() if parent is not None else None,
         }
         with open(out, "a") as fh:
             fh.write(json.dumps(row) + "\\n")
@@ -133,4 +134,7 @@ def test_two_workers_each_boot_a_golden_and_branch_per_test(tmp_path: Path) -> N
     assert None not in goldens and len(goldens) == 2, goldens_by_worker
     assert all(row["golden_via"] in ("cold", "restore") for row in rows), rows
     assert all(row["via"] in ("branch", "restore", "cold") for row in rows), rows
-    assert len({row["port"] for row in rows}) == 4, rows
+    # Branching guarantees a child never shares its golden's host port while both are live;
+    # ports of machines that have already stopped may legitimately be reused.
+    assert all(row["golden_port"] is not None for row in rows), rows
+    assert all(row["port"] != row["golden_port"] for row in rows), rows

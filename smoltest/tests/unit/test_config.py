@@ -131,6 +131,25 @@ def test_default_cache_dir_precedence() -> None:
     assert fallback in (Path("/h/.cache/smoltest"), Path("/h/Library/Caches/smoltest"))
 
 
+def test_from_env_mapping_decides_the_default_cache_dir(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SMOLTEST_CACHE_DIR", "/from-the-process")
+    assert Settings.from_env({"XDG_CACHE_HOME": "/isolated"}).cache_dir == Path(
+        "/isolated/smoltest"
+    ), "a supplied mapping, not the process environment, decides the default"
+    assert Settings.from_env({"HOME": "/h"}).cache_dir == default_cache_dir({"HOME": "/h"})
+    assert Settings.from_env({"SMOLTEST_CACHE_DIR": "/e", "XDG_CACHE_HOME": "/x"}).cache_dir == (
+        Path("/e")
+    )
+    assert Settings.from_env({"XDG_CACHE_HOME": "/isolated"}, cache_dir="/o").cache_dir == Path(
+        "/o"
+    ), "an explicit override still wins"
+    assert Settings.from_env({"XDG_CACHE_HOME": "/isolated"}, cache_dir=None).cache_dir == Path(
+        "/isolated/smoltest"
+    ), "a None override means no override"
+    assert Settings.from_env().cache_dir == Path("/from-the-process")
+    assert Settings().cache_dir == Path("/from-the-process")
+
+
 def test_resolve_target_explicit_wins() -> None:
     engine = FakeEngine(availability=(False, "KVM_UNAVAILABLE", "no kvm"))
     assert resolve_target(Settings(target="local"), engine, {"SMOL_CLOUD_TOKEN": "t"}) == "local"

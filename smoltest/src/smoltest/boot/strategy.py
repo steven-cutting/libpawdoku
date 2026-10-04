@@ -22,7 +22,13 @@ from .._ports import HostEndpoint, pick_free_port
 from ..cache import CacheKey, CheckpointBackend, VariantClaim, open_checkpoint_backend
 from ..cache.lock import LockTimeout
 from ..config import Settings, resolve_target
-from ..errors import BootError, CacheError, NotSupportedError, SmoltestError
+from ..errors import (
+    BootError,
+    CacheError,
+    InvalidConfig,
+    NotSupportedError,
+    SmoltestError,
+)
 from ..transport.base import Bridge, CheckpointRef, Engine, MachineHandle, PortMapping, Target
 from ..wait.strategies import (
     EXEC_PROBE_TIMEOUT_S,
@@ -154,8 +160,8 @@ def _resync_clock(handle: MachineHandle) -> bool:
 
 def _terminate_foreign_backends(handle: MachineHandle, spec: PostgresSpec) -> None:
     """Close every client connection (seeds may have left one open) before a checkpoint."""
-    argv = ["psql", "-tA", "-U", spec.username, "-d", spec.dbname, "-c"]
-    argv.append(TERMINATE_FOREIGN_BACKENDS_SQL)
+    argv = ["psql", "-tA", "-U", spec.username, "-d", spec.dbname, "-p", str(spec.guest_port)]
+    argv.extend(("-c", TERMINATE_FOREIGN_BACKENDS_SQL))
     try:
         outcome = handle.exec(argv, timeout_s=EXEC_PROBE_TIMEOUT_S)
     except Exception as exc:
@@ -308,7 +314,12 @@ class _Boot:
         self.stage = "restore"
         try:
             with self.timer.stage("restore"):
-                handle = self.engine.restore_checkpoint(claim.ref, self.name, self.target)
+                handle = self.engine.restore_checkpoint(
+                    claim.ref,
+                    self.name,
+                    self.target,
+                    exec_timeout_s=self.settings.exec_timeout_s,
+                )
         except SmoltestError as exc:
             if _is_port_conflict(exc):
                 logger.info("variant %s:%s lost its port, skipping: %s", key, claim.port, exc)
@@ -327,11 +338,16 @@ class _Boot:
     def _ready_restored(self) -> bool:
         """Bridge, clock and readiness for a restored machine.
 
-        A readiness failure means the variant is poisoned (a snapshot whose server
-        never answers): the machine is deleted, the variant invalidated and the
-        ladder state reset so the caller tries the next rung. A bridge failure is
-        the host's or the network's problem, not the checkpoint's, so it propagates
-        without invalidating anything.
+        A :class:`~smoltest.errors.ReadinessTimeout`, or any other smoltest error
+        the probe raises (a guest agent that refuses every command, a machine that
+        died on resume), means the variant is poisoned: the machine is deleted,
+        the variant invalidated and the ladder state reset so the caller tries the
+        next rung. A strategy refusing this machine
+        (:class:`~smoltest.errors.NotSupportedError`,
+        :class:`~smoltest.errors.InvalidConfig`), a bridge that will not open or a
+        non-smoltest exception is not the checkpoint's fault: the machine is
+        deleted and the claim released, nothing is invalidated and the error
+        propagates.
         """
         handle = self.handle
         assert handle is not None
@@ -340,24 +356,32 @@ class _Boot:
         self.clock_resynced = _resync_clock(handle)
         try:
             self._wait(handle)
-        except Exception as exc:
+        except (NotSupportedError, InvalidConfig):
+            self._discard_restored(invalidate=False)
+            raise
+        except SmoltestError as exc:
             self.unready_restores += 1
             logger.warning(
-                "restored %s:%s never became ready, invalidating: %s",
+                "restored %s:%s is unusable (%s: %s), invalidating",
                 self.restored_key,
                 self.port,
+                type(exc).__name__,
                 exc,
             )
-            self._discard_restored()
+            self._discard_restored(invalidate=True)
             return False
+        except Exception:
+            self._discard_restored(invalidate=False)
+            raise
         return True
 
-    def _discard_restored(self) -> None:
+    def _discard_restored(self, *, invalidate: bool) -> None:
+        """Delete the restored machine, release its claim (invalidating it if asked), reset."""
         backend, claim = self.backend, self.claim
         _teardown(self.bridge, self.handle)
         if claim is not None:
             try:
-                if backend is not None:
+                if invalidate and backend is not None:
                     backend.invalidate(claim)
             except SmoltestError as exc:
                 logger.debug("could not invalidate %s:%s: %s", claim.key, claim.port, exc)

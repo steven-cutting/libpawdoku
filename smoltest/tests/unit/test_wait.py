@@ -246,11 +246,24 @@ def test_sql_in_guest_psql_path(pg: FakeMachine, not_pg: FakeMachine) -> None:
     assert strategy.select_driver() is None
     strategy.wait_until_ready(view(pg), 1, 0.01)
     assert pg.sql_log == ["SELECT 1"]
-    assert pg.exec_log[-1] == ("psql", "-tA", "-U", "test", "-d", "test", "-c", "SELECT 1")
+    assert pg.exec_log[-1] == (
+        "psql",
+        "-tA",
+        "-U",
+        "test",
+        "-d",
+        "test",
+        "-p",
+        "5432",
+        "-c",
+        "SELECT 1",
+    )
     with pytest.raises(ReadinessTimeout, match="SELECT 1"):
         strategy.wait_until_ready(view(not_pg), 0.1, 0.01)
-    SqlWaitStrategy("SELECT 2", prefer=("psql",)).wait_until_ready(view(pg, dbname="app"), 1, 0.01)
-    assert pg.exec_log[-1][5:] == ("app", "-c", "SELECT 2")
+    SqlWaitStrategy("SELECT 2", prefer=("psql",)).wait_until_ready(
+        view(pg, dbname="app", guest_port=5433), 1, 0.01
+    )
+    assert pg.exec_log[-1][5:] == ("app", "-p", "5433", "-c", "SELECT 2")
 
 
 def test_sql_unknown_driver_falls_through_to_psql(pg: FakeMachine) -> None:

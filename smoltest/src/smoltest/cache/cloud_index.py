@@ -155,6 +155,19 @@ class CloudCheckpointIndex:
             return None
 
     @staticmethod
+    def _entry_locator(entry: Mapping[str, Any]) -> str | None:
+        """The checkpoint id an index entry records, or ``None`` when it has none."""
+        ref = entry.get("ref")
+        locator = ref.get("locator") if isinstance(ref, Mapping) else None
+        return None if locator is None else str(locator)
+
+    @staticmethod
+    def _claim_locator(claim: VariantClaim) -> str | None:
+        """The checkpoint id ``claim`` was taken on, or ``None`` for an unpopulated claim."""
+        ref = claim.ref if claim.ref is not None else (claim.meta.ref if claim.meta else None)
+        return None if ref is None else ref.locator
+
+    @staticmethod
     def _entry(key: str, meta: VariantMeta | None) -> VariantEntry:
         if meta is None:
             return VariantEntry(key, None, None, 0, populated=False, corrupt=True)
@@ -288,8 +301,30 @@ class CloudCheckpointIndex:
         return meta
 
     def invalidate(self, claim: VariantClaim) -> None:
-        """Forget the key behind ``claim`` (the cloud checkpoint itself is left alone)."""
-        self.drop(claim.key)
+        """Forget the key behind ``claim`` (the cloud checkpoint itself is left alone).
+
+        Compare-and-set: the entry is dropped only while it still records the
+        checkpoint id ``claim`` was taken on. A replacement another process
+        recorded in the meantime is left in place.
+        """
+        locator = self._claim_locator(claim)
+        if locator is not None:
+            with self._lock():
+                try:
+                    entries = self._load()
+                except CacheCorrupt as exc:
+                    self._quarantine(exc)
+                else:
+                    entry = entries.get(claim.key)
+                    if entry is not None and self._entry_locator(entry) == locator:
+                        del entries[claim.key]
+                        self._save(entries)
+                    else:
+                        logger.debug(
+                            "cloud index entry %s no longer records %s; not dropping it",
+                            claim.key,
+                            locator,
+                        )
         claim.release()
 
     def touch(self, claim: VariantClaim) -> None:
@@ -301,7 +336,14 @@ class CloudCheckpointIndex:
         self._rewrite(claim, branch_ok=ok)
 
     def _rewrite(self, claim: VariantClaim, **changes: Any) -> None:
-        if claim.meta is None:
+        """Merge ``changes`` into the *current* entry of ``claim.key``, compare-and-set.
+
+        The entry is rewritten only while it still records the checkpoint id
+        ``claim`` was taken on, and from the entry as it is now, never from the
+        claim's possibly stale copy; otherwise nothing is written.
+        """
+        locator = self._claim_locator(claim)
+        if claim.meta is None or locator is None:
             return
         with self._lock():
             try:
@@ -310,9 +352,15 @@ class CloudCheckpointIndex:
                 self._quarantine(exc)
                 return
             entry = entries.get(claim.key)
-            if entry is None:
+            current = None if entry is None else self._meta_or_none(claim.key, entry)
+            if entry is None or current is None or current.ref.locator != locator:
+                logger.debug(
+                    "cloud index entry %s no longer records %s; not rewriting it",
+                    claim.key,
+                    locator,
+                )
                 return
-            meta = replace(claim.meta, **changes)
+            meta = replace(current, **changes)
             entries[claim.key] = {**entry, **meta.to_dict()}
             self._save(entries)
         claim.meta = meta

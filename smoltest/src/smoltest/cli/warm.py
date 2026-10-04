@@ -33,7 +33,7 @@ from . import (
     short_key,
 )
 
-COLUMNS = ("#", "via", "key", "port", "size", "pause ms", "elapsed s", "seed")
+COLUMNS = ("#", "via", "key", "port", "size", "populate ms", "elapsed s", "seed")
 ALIGN = "rllrrrrl"
 
 
@@ -128,7 +128,7 @@ def table_rows(infos: Sequence[BootInfo], backend: CheckpointBackend) -> list[tu
     for index, info in enumerate(infos, 1):
         keys = [key for key in (info.cache_key, info.seeded_key) if key is not None]
         size = sum(sizes.get((key, info.variant_port), 0) for key in keys)
-        pause_ms = sum(info.timings.get(stage, 0.0) for stage in ("populate", "populate_seed"))
+        populate_ms = sum(info.timings.get(stage, 0.0) for stage in ("populate", "populate_seed"))
         rows.append(
             (
                 index,
@@ -136,7 +136,7 @@ def table_rows(infos: Sequence[BootInfo], backend: CheckpointBackend) -> list[tu
                 short_key(info.cache_key),
                 "-" if info.variant_port is None else info.variant_port,
                 human_bytes(size),
-                f"{pause_ms * 1000:.0f}" if info.populated else "-",
+                f"{populate_ms * 1000:.0f}" if info.populated else "-",
                 f"{info.elapsed_s:.2f}",
                 _seed_text(info),
             )

@@ -360,7 +360,18 @@ class SqlWaitStrategy(WaitStrategy):
         return True
 
     def _probe_psql(self, target: ReadinessTarget) -> bool:
-        argv = ["psql", "-tA", "-U", target.username, "-d", target.dbname, "-c", self._sql]
+        argv = [
+            "psql",
+            "-tA",
+            "-U",
+            target.username,
+            "-d",
+            target.dbname,
+            "-p",
+            str(target.guest_port),
+            "-c",
+            self._sql,
+        ]
         return exec_probe(target.handle, argv) == 0
 
     def _probe_dbapi(self, module: Any, dsn: str) -> None:

@@ -2,7 +2,9 @@
 
 The :class:`Reaper` wraps :func:`weakref.finalize` so an object is cleaned up
 when it is garbage collected *or* at interpreter exit, whichever comes first,
-in LIFO order with children closed before their parents.
+in LIFO order with children closed before their parents. A registration is
+forgotten as soon as it has run or been detached, so the registry only ever
+holds the live ones.
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ Finalizer: TypeAlias = "weakref.finalize[Any, Any]"
 class _Entry:
     token: Finalizer
     parent: Finalizer | None
+    obj_id: int
     children: list[Finalizer] = field(default_factory=list)
 
 
@@ -33,7 +36,7 @@ class Reaper:
     def __init__(self, *, install_atexit: bool = True) -> None:
         self._lock = threading.RLock()
         self._entries: dict[Finalizer, _Entry] = {}
-        self._order: list[Finalizer] = []
+        self._order: dict[Finalizer, None] = {}  # insertion-ordered set
         self._by_obj: dict[int, Finalizer] = {}
         if install_atexit:
             atexit.register(self.run)
@@ -48,18 +51,29 @@ class Reaper:
 
         ``parent`` is the token (or the object) of a registration that must outlive
         this one; at exit children run before parents. The returned token can be
-        called to clean up early or ``detach()``-ed to cancel.
+        called to clean up early or cancelled with :meth:`detach`.
         """
-        token = weakref.finalize(obj, self._fire, close_fn)
+        # The finalizer needs its own token to forget itself once it has run; the
+        # token does not exist until ``weakref.finalize`` returns, hence the box.
+        box: list[Finalizer] = []
+        token = weakref.finalize(obj, self._fire, close_fn, box)
         token.atexit = False  # our own atexit hook orders the calls
+        box.append(token)
         with self._lock:
             parent_token = self._resolve_parent(parent)
-            self._entries[token] = _Entry(token, parent_token)
-            self._order.append(token)
+            self._entries[token] = _Entry(token, parent_token, id(obj))
+            self._order[token] = None
             self._by_obj[id(obj)] = token
             if parent_token is not None and parent_token in self._entries:
                 self._entries[parent_token].children.append(token)
         return token
+
+    def detach(self, token: Finalizer) -> bool:
+        """Cancel ``token`` and forget it; ``True`` when its cleanup had not run yet."""
+        detached = token.detach() is not None
+        with self._lock:
+            self._forget(token)
+        return detached
 
     def _resolve_parent(self, parent: Finalizer | object | None) -> Finalizer | None:
         if parent is None:
@@ -74,17 +88,22 @@ class Reaper:
             return None
         return token
 
-    def _fire(self, close_fn: Callable[[], None]) -> None:
+    def _fire(self, close_fn: Callable[[], None], box: list[Finalizer]) -> None:
         try:
             close_fn()
         except Exception:
             logger.exception("smoltest cleanup failed")
+        finally:
+            if box:
+                with self._lock:
+                    self._forget(box[0])
 
     @property
     def pending(self) -> int:
         """Registrations whose object is alive and not yet cleaned up."""
         with self._lock:
-            return sum(1 for token in self._order if token.alive)
+            tokens = list(self._order)
+        return sum(1 for token in tokens if token.alive)
 
     def run(self) -> None:
         """Run every pending cleanup: LIFO, children before parents. Idempotent."""
@@ -93,9 +112,9 @@ class Reaper:
         for token in order:
             self._run_tree(token)
         with self._lock:
-            dead = [t for t in self._order if not t.alive]
-            for token in dead:
-                self._forget(token)
+            for token in list(self._order):
+                if not token.alive:
+                    self._forget(token)
 
     def _run_tree(self, token: Finalizer) -> None:
         with self._lock:
@@ -107,12 +126,17 @@ class Reaper:
             token()
 
     def _forget(self, token: Finalizer) -> None:
-        self._entries.pop(token, None)
-        if token in self._order:
-            self._order.remove(token)
-        for key, value in list(self._by_obj.items()):
-            if value is token:
-                del self._by_obj[key]
+        """Drop every trace of ``token``; the caller holds the lock."""
+        entry = self._entries.pop(token, None)
+        self._order.pop(token, None)
+        if entry is None:
+            return
+        if self._by_obj.get(entry.obj_id) is token:
+            del self._by_obj[entry.obj_id]
+        if entry.parent is not None:
+            parent_entry = self._entries.get(entry.parent)
+            if parent_entry is not None and token in parent_entry.children:
+                parent_entry.children.remove(token)
 
 
 _default: Reaper | None = None

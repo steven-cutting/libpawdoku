@@ -10,7 +10,9 @@ import asyncio
 import contextlib
 import socket
 import threading
+import time
 from collections.abc import AsyncIterator, Iterator
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 
 import pytest
@@ -247,6 +249,51 @@ def test_error_while_closing_does_not_escape_close(echo: EchoServer) -> None:
     after = bridge.endpoint
     assert after is None
     assert not tunnel_threads()
+
+
+def test_abandoned_worker_cannot_corrupt_a_reopened_bridge(echo: EchoServer) -> None:
+    """A worker that outlives ``close(timeout_s)`` writes only to its own, orphaned run."""
+    gate = threading.Event()
+    log: list[str] = []
+    relay = relay_to(echo.port, log)
+    calls = 0
+
+    @contextlib.asynccontextmanager
+    async def slow_teardown() -> AsyncIterator[Ep]:
+        server = await asyncio.start_server(lambda r, w: w.close(), "127.0.0.1", 0)
+        try:
+            yield Ep("127.0.0.1", server.sockets[0].getsockname()[1])
+        finally:
+            server.close()
+            await server.wait_closed()
+            await asyncio.get_running_loop().run_in_executor(None, gate.wait)
+            raise RuntimeError("late teardown")
+
+    def opener() -> AbstractAsyncContextManager[Ep]:
+        nonlocal calls
+        calls += 1
+        return slow_teardown() if calls == 1 else relay()
+
+    bridge = TunnelBridge(opener)
+    try:
+        bridge.open()
+        bridge.close(timeout_s=0.1)  # the first worker is stuck in its finally: abandoned
+        assert bridge.endpoint is None
+        assert len(tunnel_threads()) == 1, "the abandoned worker is still alive"
+        second = bridge.open()
+        assert bridge.endpoint == second
+        gate.set()  # the stale worker now fails its teardown and exits
+        deadline = time.monotonic() + 5.0
+        while len(tunnel_threads()) > 1 and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert len(tunnel_threads()) == 1, tunnel_threads()
+        assert bridge.endpoint == second, "the stale worker's error must not reach the bridge"
+        assert round_trip(second, b"survivor") == b"survivor"
+    finally:
+        gate.set()
+        bridge.close()
+    assert bridge.endpoint is None and not tunnel_threads()
+    assert log == ["open", "close"]
 
 
 def test_repr_reports_state(echo: EchoServer) -> None:

@@ -538,6 +538,30 @@ class _Scanned:
         )
 
 
+def _check_meta_matches(meta: VariantMeta, key: str, port: int, paths: VariantPaths) -> None:
+    """Raise :class:`CacheCorrupt` unless ``meta`` describes the variant at ``paths``.
+
+    A meta file copied or moved from another key or port would otherwise be
+    restored as if it were this variant's: its ``key``, ``port`` and ``ref``
+    (a ``file`` ref whose real path is this variant's checkpoint, whether or not
+    that checkpoint exists yet) must all match.
+    """
+    source = str(paths.meta)
+    if meta.key != key:
+        raise CacheCorrupt(f"{source}: records key {meta.key}, not {key}", code="META_MISMATCH")
+    if meta.port != port:
+        raise CacheCorrupt(f"{source}: records port {meta.port}, not {port}", code="META_MISMATCH")
+    if meta.ref.kind != "file":
+        raise CacheCorrupt(
+            f"{source}: records a {meta.ref.kind} checkpoint, not a file", code="META_MISMATCH"
+        )
+    if os.path.realpath(meta.ref.locator) != os.path.realpath(paths.checkpoint):
+        raise CacheCorrupt(
+            f"{source}: records checkpoint {meta.ref.locator}, not {paths.checkpoint}",
+            code="META_MISMATCH",
+        )
+
+
 def _lru_order(variants: Iterable[_Scanned]) -> list[_Scanned]:
     """Least recently used first; ties broken by key then port for determinism."""
     return sorted(variants, key=lambda v: (v.meta.last_used_at if v.meta else 0.0, v.key, v.port))
@@ -683,8 +707,10 @@ class CheckpointCache:
         if paths.meta.exists():
             try:
                 meta = VariantMeta.load(paths.meta)
+                _check_meta_matches(meta, key, port, paths)
             except CacheCorrupt as exc:
                 logger.warning("corrupt cache entry %s: %s", paths.meta, exc)
+                meta = None
                 corrupt = True
         return _Scanned(key, port, paths, has_checkpoint, meta, corrupt, read_claim(paths.claim))
 
@@ -801,7 +827,8 @@ class CheckpointCache:
 
         Under the key and store locks: evict least recently used variants over
         ``max_bytes`` (never the current claim or a live-claimed variant), remove
-        a leftover output, take the checkpoint into the dedup store, write
+        a leftover output, take the checkpoint into the dedup store (the engine
+        must write it at the variant's own path, which the meta records), write
         ``inputs.json`` (redacted) if missing, write the meta marker last, then
         evict again now that the new size is known. ``engine`` lets the store be
         pruned after eviction and stamps the SDK version into the meta.
@@ -835,6 +862,11 @@ class CheckpointCache:
             out = Path(ref.locator)
             if not (out.exists() or out.is_symlink()):
                 raise CacheCorrupt(f"engine reported checkpoint {out} but nothing is there")
+            if os.path.realpath(out) != os.path.realpath(paths.checkpoint):
+                raise CacheCorrupt(f"engine wrote checkpoint {out}, not {paths.checkpoint}")
+            # Record the variant's own path, not the engine's spelling of it, so the
+            # meta matches what _check_meta_matches expects whatever the SDK echoes.
+            ref = CheckpointRef("file", str(paths.checkpoint))
             make_private(out)  # the engine writes with the default umask
             size = path_size(out) or (info.size_bytes or 0)
             if inputs is not None and not self.inputs_path(key).exists():

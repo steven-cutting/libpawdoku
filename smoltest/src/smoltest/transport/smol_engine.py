@@ -492,6 +492,7 @@ class SmolEngine:
         return self._adopt(machine, target, exec_timeout_s=spec.exec_timeout_s)
 
     def connect(self, machine_id: str, target: Target) -> MachineHandle:
+        """Attach to a machine made elsewhere; its handle keeps the default exec timeout."""
         smol = _smol()
         try:
             machine = smol.Machine.connect(machine_id, self._conn(target))
@@ -499,7 +500,14 @@ class SmolEngine:
             raise _translate(exc, stage="connect") from exc
         return self._adopt(machine, target)
 
-    def restore_checkpoint(self, ref: CheckpointRef, name: str, target: Target) -> MachineHandle:
+    def restore_checkpoint(
+        self,
+        ref: CheckpointRef,
+        name: str,
+        target: Target,
+        *,
+        exec_timeout_s: float | None = None,
+    ) -> MachineHandle:
         expected = "file" if target == "local" else "cloud"
         if ref.kind != expected:
             raise InvalidConfig(
@@ -511,7 +519,8 @@ class SmolEngine:
             machine = smol.Machine.restore_checkpoint(ref.locator, name, self._conn(target))
         except Exception as exc:
             raise _translate(exc, stage="restore") from exc
-        return self._adopt(machine, target)
+        timeout = DEFAULT_EXEC_TIMEOUT_S if exec_timeout_s is None else exec_timeout_s
+        return self._adopt(machine, target, exec_timeout_s=timeout)
 
     def export_checkpoint(self, source: str, output: str) -> int:
         smol = _smol()

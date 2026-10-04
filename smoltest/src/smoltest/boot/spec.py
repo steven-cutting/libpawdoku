@@ -10,6 +10,8 @@ from ..errors import InvalidConfig
 from ..transport.base import MachineSpec, PortMapping, Target
 
 ENTRYPOINT: tuple[str, ...] = ("docker-entrypoint.sh", "postgres")
+DEFAULT_PORT = 5432
+"""The port the image's server listens on unless the argv says otherwise."""
 FAST_ARGS: tuple[str, ...] = (
     "-c",
     "fsync=off",
@@ -117,11 +119,15 @@ def default_argv(spec: PostgresSpec, settings: Settings | None = None) -> tuple[
     """The explicit workload argv smoltest always passes.
 
     Starts with ``docker-entrypoint.sh postgres`` so it works whether the engine's
-    ``command`` replaces ENTRYPOINT+CMD or CMD only, then adds the fast-mode and
-    log-capture ``-c`` switches the spec asks for.
+    ``command`` replaces ENTRYPOINT+CMD or CMD only, moves the server to
+    ``spec.guest_port`` when that is not :data:`DEFAULT_PORT` (the image's
+    ``initdb`` phase keeps its temporary server on the default port), then adds
+    the fast-mode and log-capture ``-c`` switches the spec asks for.
     """
     settings = settings or Settings()
     argv: list[str] = list(ENTRYPOINT)
+    if spec.guest_port != DEFAULT_PORT:
+        argv.extend(("-c", f"port={spec.guest_port}"))
     if spec.resolved_fast(settings):
         argv.extend(FAST_ARGS)
     if spec.capture_logs:
@@ -170,6 +176,7 @@ def build_machine_spec(
 __all__ = [
     "CAPTURE_LOGS_ARGS",
     "CREDENTIAL_VARS",
+    "DEFAULT_PORT",
     "ENTRYPOINT",
     "FAST_ARGS",
     "INITDB_NO_SYNC",

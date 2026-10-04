@@ -343,7 +343,7 @@ def test_warm_two_variants_on_distinct_ports(
         "key",
         "port",
         "size",
-        "pause",
+        "populate",
         "ms",
         "elapsed",
         "s",

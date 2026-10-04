@@ -190,7 +190,7 @@ smoltest [--cache-dir DIR] [--target {auto,local,cloud}] [-v] COMMAND
   [--cpus N] [--memory-mb MIB] [--variants K]` boots K machines with the cache enabled, keeping
   each alive until the last is up so each lands on its own host port, then deletes them. Run it
   before `pytest -n K` so every worker restores. Prints one row per boot (via, key, port, size,
-  checkpoint pause, elapsed, seed state).
+  populate time (checkpoint write and cache bookkeeping), elapsed, seed state).
 - `smoltest cache ls [--json]`, `smoltest cache prune [--older-than 14d] [--keep-latest N]
   [--max-bytes 2G] [--stale] [-y]`, `smoltest cache clear [-y]` and
   `smoltest cache export KEY[:PORT] OUT` manage the local store; `--target cloud` switches to the
@@ -237,9 +237,12 @@ seeded variant on the same port. A cold boot with a seed writes both checkpoints
 smoltest's major version, the SDK version, the target, the host signature (OS, kernel major,
 architecture, a hash of the CPU feature flags, libc) for local or the cloud base URL for cloud,
 the image, the full workload argv, the guest environment (credentials included, sorted), the
-guest ports, cpus, memory, storage and network, and the seed key or `None`. The host port is
-deliberately not in it. Anything that would make a restored server differ from a fresh one
-changes the key; a key that no longer matches simply misses and boots cold.
+guest ports, the pinned host ports of extra guest ports (`extra_ports=(PortMapping(29080,
+9080),)` restores on host port 29080, so it is part of the shape; an engine-chosen extra port
+is not), cpus, memory, storage and network, and the seed key or `None`. The PostgreSQL host
+port is deliberately not in it: it is the variant's attribute. The key format is now 2.
+Anything that would make a restored server differ from a fresh one changes the key; a key
+that no longer matches simply misses and boots cold.
 
 **What is on disk.** Local checkpoints live under the user cache directory
 (`~/.cache/smoltest` by default, see the configuration reference) as
@@ -297,7 +300,7 @@ variant, and `PostgresMachine(settings=...)` or the `smoltest_settings` fixture 
 | `fast_mode` | `SMOLTEST_FAST` | `True` | `fsync=off`, `synchronous_commit=off`, `full_page_writes=off`, `initdb --no-sync` |
 | `ready_timeout_s` | `SMOLTEST_READY_TIMEOUT` | `120.0` | readiness timeout in seconds (also `TC_MAX_TRIES * TC_POOLING_INTERVAL` when unset) |
 | `poll_interval_s` | – | `0.05` | readiness poll interval in seconds |
-| `exec_timeout_s` | `SMOLTEST_EXEC_TIMEOUT` | `600.0` | default timeout for in-guest commands (seeds, `psql`, `exec`) when the call passes none; the command is killed when it expires |
+| `exec_timeout_s` | `SMOLTEST_EXEC_TIMEOUT` | `600.0` | default timeout for in-guest commands (seeds, `psql`, `exec`) when the call passes none, on cold, restored and branched machines; the command is killed when it expires |
 | `cache_max_bytes` | `SMOLTEST_CACHE_MAX_BYTES` | `10 GiB` | LRU budget of the local checkpoint cache |
 | `cloud_auto_stop_seconds` | `SMOLTEST_CLOUD_AUTO_STOP` | `1800` | `auto_stop_seconds` given to every cloud machine smoltest creates (cold boots) |
 | `cloud_ttl_seconds` | `SMOLTEST_CLOUD_TTL` | `7200` | `ttl_seconds` given to every cloud machine smoltest creates (cold boots) |
@@ -321,6 +324,12 @@ seed=, capture_logs=)` override the settings for that machine only.
   semantics, e.g. to test crash recovery.
 - The workload argv is always explicit: `docker-entrypoint.sh postgres` plus the `-c` switches
   for fast mode and log capture. `with_command(...)` replaces it entirely.
+- A non-default `port=` moves the server itself: `-c port=<port>` is appended right after
+  `docker-entrypoint.sh postgres`, and every in-guest client smoltest runs (`psql()`, SQL seeds,
+  `pg_isready`, the in-guest `SqlWaitStrategy` probe and the pre-checkpoint backend
+  termination) passes `-p <port>`. `with_command(...)` replaces the whole argv, so with
+  `port != 5432` set the port yourself (`-c port=<port>`); otherwise the readiness probes on
+  that port never pass.
 - The default readiness check is in-guest `pg_isready` (`default_wait`), which proves the final
   server, not initdb's temporary one, is accepting TCP connections. `SqlWaitStrategy` probes
   from the host with the first importable driver (`psycopg`, `psycopg2`, `asyncpg`) and closes
@@ -357,8 +366,10 @@ seed=, capture_logs=)` override the settings for that machine only.
 - `exec()` returns an `ExecResult`; `exit_code, output = postgres.exec("...")` and
   `postgres.exec("...")[1]` work as with docker's result tuple, and `.stdout`, `.stderr`,
   `.text` and `.ok` are there too. Without `timeout_s`, in-guest commands (also seeds and
-  `psql()`) run under `Settings.exec_timeout_s` (600 s by default) on both targets; the Smol
-  SDK would otherwise cap a cloud exec at its 30 s HTTP read timeout.
+  `psql()`) run under `Settings.exec_timeout_s` (600 s by default) on both targets, on cold,
+  restored and branched machines alike; the Smol SDK would otherwise cap a cloud exec at its
+  30 s HTTP read timeout. A machine attached with `Engine.connect()` (made elsewhere) keeps
+  the engine default of 600 s.
 - URLs: the default `driver="psycopg2"` yields `postgresql+psycopg2://`, `driver="psycopg"`
   yields `postgresql+psycopg://`, `driver=None` yields `postgresql://`; the password is
   percent-encoded exactly as testcontainers does.
@@ -392,8 +403,10 @@ seed=, capture_logs=)` override the settings for that machine only.
   golden, smoltest warns once and falls back to fresh machines for every test, exactly as it
   does for a target that cannot branch. A seeded variant that cannot be captured for the same
   reason is handed out working and simply not cached.
-- A restored checkpoint whose server never becomes ready is invalidated and the boot moves on
-  to the next variant or a cold boot; a second process still populating a cache key is waited
+- A restored checkpoint whose server never becomes ready, or whose guest cannot run the
+  readiness probe at all, is invalidated and the boot moves on to the next variant or a cold
+  boot (a wait strategy that refuses the machine raises instead and keeps the variant); a
+  second process still populating a cache key is waited
   for, and when that wait runs out the boot proceeds cold without caching instead of failing.
 - PostgreSQL is the only service today; the images must use the official
   `docker-entrypoint.sh` conventions (`POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB`,

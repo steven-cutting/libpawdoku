@@ -9,6 +9,7 @@ import pytest
 from smoltest.boot.spec import (
     CAPTURE_LOGS_ARGS,
     CREDENTIAL_VARS,
+    DEFAULT_PORT,
     FAST_ARGS,
     LOG_PATH,
     PostgresSpec,
@@ -31,6 +32,19 @@ def test_default_argv_fast_and_capture_combinations() -> None:
         "-c" in CAPTURE_LOGS_ARGS
         and f"log_directory={LOG_PATH.rsplit('/', 1)[0]}" in CAPTURE_LOGS_ARGS
     )
+
+
+def test_default_argv_moves_the_server_to_a_non_default_port() -> None:
+    base = ("docker-entrypoint.sh", "postgres")
+    port = ("-c", "port=5433")
+    assert default_argv(PostgresSpec(fast=False, guest_port=5433)) == base + port
+    assert default_argv(PostgresSpec(guest_port=5433)) == base + port + FAST_ARGS
+    assert (
+        default_argv(PostgresSpec(guest_port=5433, capture_logs=True))
+        == base + port + FAST_ARGS + CAPTURE_LOGS_ARGS
+    )
+    assert default_argv(PostgresSpec(guest_port=DEFAULT_PORT)) == base + FAST_ARGS
+    assert "-c" not in default_argv(PostgresSpec(fast=False))  # the default stays as it was
 
 
 def test_fast_none_follows_settings() -> None:

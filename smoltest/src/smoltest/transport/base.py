@@ -233,11 +233,28 @@ class Engine(Protocol):
         ...
 
     def connect(self, machine_id: str, target: Target) -> MachineHandle:
-        """Attach to an existing machine."""
+        """Attach to an existing machine.
+
+        The machine was made elsewhere, so its handle gets the engine's default
+        exec timeout rather than any :class:`MachineSpec` of ours.
+        """
         ...
 
-    def restore_checkpoint(self, ref: CheckpointRef, name: str, target: Target) -> MachineHandle:
-        """Resume a checkpoint as a new machine named ``name``."""
+    def restore_checkpoint(
+        self,
+        ref: CheckpointRef,
+        name: str,
+        target: Target,
+        *,
+        exec_timeout_s: float | None = None,
+    ) -> MachineHandle:
+        """Resume a checkpoint as a new machine named ``name``.
+
+        ``exec_timeout_s`` is the default :meth:`MachineHandle.exec` timeout of the
+        restored machine (and of the branches made from it); ``None`` means the
+        engine's own default, the same one a cold ``create`` applies when its spec
+        says nothing.
+        """
         ...
 
     def export_checkpoint(self, source: str, output: str) -> int:

@@ -156,7 +156,9 @@ class Settings:
 
         Precedence is overrides > environment > defaults. The testcontainers
         variables ``TC_MAX_TRIES`` and ``TC_POOLING_INTERVAL`` set the readiness
-        timeout when ``SMOLTEST_READY_TIMEOUT`` is absent.
+        timeout when ``SMOLTEST_READY_TIMEOUT`` is absent. The default cache
+        directory is derived from ``env`` too (see :func:`default_cache_dir`),
+        never from the process environment when a mapping is supplied.
         """
         env = os.environ if env is None else env
         values: dict[str, Any] = {}
@@ -168,6 +170,7 @@ class Settings:
                 values[var.field] = var.parse(raw)
             except InvalidConfig as exc:
                 raise InvalidConfig(f"{var.name}: {exc}") from None
+        values.setdefault("cache_dir", default_cache_dir(env))
         if "ready_timeout_s" not in values and "TC_MAX_TRIES" in env:
             tries = _parse_int(env["TC_MAX_TRIES"])
             interval = _parse_float(env.get("TC_POOLING_INTERVAL", "1"))

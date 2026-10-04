@@ -462,6 +462,7 @@ class FakeMachine:
             name=name,
             auto_stop_seconds=self.spec.auto_stop_seconds,
             ttl_seconds=self.spec.ttl_seconds,
+            exec_timeout_s=self.spec.exec_timeout_s,
         )
         child = self.engine.new_machine(
             spec,
@@ -719,8 +720,15 @@ class FakeEngine:
             raise BootError(f"unsupported checkpoint format in {path}", stage="restore")
         return shape
 
-    def restore_checkpoint(self, ref: CheckpointRef, name: str, target: Target) -> MachineHandle:
-        self.tick("restore", ref=ref, name=name, target=target)
+    def restore_checkpoint(
+        self,
+        ref: CheckpointRef,
+        name: str,
+        target: Target,
+        *,
+        exec_timeout_s: float | None = None,
+    ) -> MachineHandle:
+        self.tick("restore", ref=ref, name=name, target=target, exec_timeout_s=exec_timeout_s)
         shape = self._load_shape(ref)
         # Local checkpoints preserve the published host port (the real collision
         # smoltest's port variants exist for); the cloud assigns fresh ones.
@@ -738,6 +746,9 @@ class FakeEngine:
             network=shape["network"],
             branchable=self.restored_branchable,
             name=name,
+            exec_timeout_s=(
+                MachineSpec.exec_timeout_s if exec_timeout_s is None else exec_timeout_s
+            ),
         )
         machine = self.new_machine(
             spec,

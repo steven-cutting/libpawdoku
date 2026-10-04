@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import dataclasses
 import gc
 import json
 import multiprocessing
 import os
+import re
 import socket
 import stat
 import threading
@@ -413,6 +415,99 @@ def test_corrupt_meta_raises_cache_corrupt_and_is_invalidated_on_claim(
     assert len(listed) == 1 and listed[0].corrupt and not listed[0].populated
     assert cache.claim_variant(KEY) is None
     assert not paths.meta.exists() and not paths.checkpoint.exists(), "invalidated"
+
+
+def test_meta_copied_from_another_variant_or_key_is_invalidated(
+    cache: CheckpointCache, fake_engine: FakeEngine
+) -> None:
+    first, _ = populate(cache, fake_engine)
+    other, _ = populate(cache, fake_engine, KEY2)
+    port, other_port = first.port, other.port
+    assert port is not None and other_port is not None
+    first.release()
+    other.release()
+    paths = cache.paths(KEY, port)
+    genuine = paths.meta.read_bytes()
+
+    def check_rejected(label: str) -> None:
+        listed = cache.variants(KEY)
+        assert len(listed) == 1 and listed[0].corrupt and not listed[0].populated, label
+        assert cache.claim_variant(KEY) is None, label
+        assert not paths.meta.exists() and not paths.checkpoint.exists(), f"{label}: invalidated"
+
+    def rewrite(**changes: Any) -> None:
+        data = json.loads(genuine)
+        data.update(changes)
+        paths.meta.write_bytes(json.dumps(data).encode())
+        paths.checkpoint.write_bytes(b"checkpoint")
+
+    # A meta copied from another key (its key, ref and port all say so).
+    paths.meta.write_bytes(cache.paths(KEY2, other_port).meta.read_bytes())
+    paths.checkpoint.write_bytes(b"checkpoint")
+    check_rejected("foreign key")
+    rewrite(port=port + 1)
+    check_rejected("foreign port")
+    rewrite(ref={"kind": "file", "locator": str(cache.paths(KEY, port + 1).checkpoint)})
+    check_rejected("foreign checkpoint path")
+    rewrite(ref={"kind": "cloud", "locator": "ckpt-1"})
+    check_rejected("cloud ref in a local cache")
+    # The genuine meta is still accepted, and a symlinked cache root resolves alike.
+    other_claim = cache.claim_variant(KEY2)
+    assert other_claim is not None and other_claim.port == other_port
+    other_claim.release()
+    link = cache.root.parent / "link"
+    link.symlink_to(cache.root, target_is_directory=True)
+    linked = CheckpointCache(link, max_bytes=10**9, lock_timeout_s=10)
+    assert ports_of(linked, KEY2) == {other_port}, "realpath comparison tolerates a symlinked root"
+    assert not cache.variants(KEY2)[0].corrupt
+
+
+def test_populate_records_the_variant_path_however_the_engine_spells_it(
+    cache: CheckpointCache, fake_engine: FakeEngine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The meta's ref is the variant's own path, so the scan check never depends on the SDK."""
+    port = pick_free_port()
+    machine = fake_engine.create(mspec(port), "local")
+    assert isinstance(machine, FakeMachine)
+    paths = cache.paths(KEY, port)
+    alias = cache.root.parent / "alias"
+    alias.symlink_to(cache.root, target_is_directory=True)
+    echoed = alias / paths.checkpoint.relative_to(cache.root)
+    real_checkpoint = machine.checkpoint
+
+    def checkpoint_via_alias(output: str | None = None, store: str | None = None) -> Any:
+        info = real_checkpoint(output, store)
+        return dataclasses.replace(info, ref=CheckpointRef("file", str(echoed)))
+
+    monkeypatch.setattr(machine, "checkpoint", checkpoint_via_alias)
+    claim = cache.reserve_new_variant(KEY, port)
+    meta = cache.populate(KEY, claim, machine, INPUTS, engine=fake_engine)
+    machine.delete()  # frees the port for the bind probe in claim_variant
+    assert meta.ref == CheckpointRef("file", str(paths.checkpoint)) == claim.ref
+    assert VariantMeta.load(paths.meta).ref.locator == str(paths.checkpoint)
+    claim.release()
+    assert [v.corrupt for v in cache.variants(KEY)] == [False]
+    claimed = cache.claim_variant(KEY)
+    assert claimed is not None and claimed.port == port
+    claimed.release()
+
+    # An engine that writes somewhere else does not populate the variant.
+    other = fake_engine.create(mspec(port + 1), "local")
+    assert isinstance(other, FakeMachine)
+    elsewhere = cache.root.parent / "elsewhere.smolcheckpoint"
+    other_checkpoint = other.checkpoint
+
+    def checkpoint_elsewhere(output: str | None = None, store: str | None = None) -> Any:
+        return other_checkpoint(str(elsewhere), store)
+
+    monkeypatch.setattr(other, "checkpoint", checkpoint_elsewhere)
+    stray = cache.reserve_new_variant(KEY2, port + 1)
+    with pytest.raises(CacheCorrupt, match=re.escape(f"wrote checkpoint {elsewhere}, not")):
+        cache.populate(KEY2, stray, other, INPUTS, engine=fake_engine)
+    assert not cache.paths(KEY2, port + 1).meta.exists()
+    stray.release()
+    assert not cache.variants(KEY2)
+    other.delete()
 
 
 def test_touch_and_record_branch_ok_rewrite_meta(

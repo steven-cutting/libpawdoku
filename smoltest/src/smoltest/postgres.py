@@ -125,6 +125,8 @@ def apply_sql_script(machine: PostgresMachine, sql: bytes, *, label: str = "seed
         machine.username,
         "-d",
         machine.dbname,
+        "-p",
+        str(machine.port),
         "-f",
         path,
     ]
@@ -257,10 +259,13 @@ class PostgresMachine:
         parent: PostgresMachine | None = None,
         *,
         driver: str | None = "psycopg2",
+        seed: Seed | None = None,
         register_finalizer: bool = True,
     ) -> PostgresMachine:
         """Wrap an already booted machine (used by ``branch`` and the pytest plugin).
 
+        ``seed`` is the seed the machine's data came from, so a child restarted
+        with ``stop()`` and ``start()`` boots seeded again.
         ``register_finalizer=False`` builds a facade that does not own the machine,
         e.g. the one ``boot_postgres`` hands to ``Seed.apply`` mid-boot: collecting
         it never tears the machine down.
@@ -273,6 +278,7 @@ class PostgresMachine:
             dbname=spec.dbname,
             driver=driver,
             settings=settings,
+            seed=seed,
             engine=engine,
         )
         machine._spec = spec
@@ -461,7 +467,7 @@ class PostgresMachine:
             self._parent = None
             token, self._finalizer = self._finalizer, None
         # Detach first so GC or exit cannot run the release a second time.
-        if token is None or token.detach() is not None:
+        if token is None or get_reaper().detach(token):
             result.release()
 
     def __enter__(self) -> PostgresMachine:
@@ -571,7 +577,18 @@ class PostgresMachine:
         :class:`~smoltest.errors.SmoltestError` when psql exits non-zero.
         ``timeout_s=None`` applies the engine default (``Settings.exec_timeout_s``).
         """
-        argv = ["psql", "-tA", "-U", self.username, "-d", dbname or self.dbname, "-c", sql]
+        argv = [
+            "psql",
+            "-tA",
+            "-U",
+            self.username,
+            "-d",
+            dbname or self.dbname,
+            "-p",
+            str(self.port),
+            "-c",
+            sql,
+        ]
         outcome = self._require().handle.exec(argv, timeout_s=timeout_s)
         if not outcome.ok:
             detail = outcome.stderr_text.strip() or outcome.text.strip()
@@ -596,6 +613,7 @@ class PostgresMachine:
             self.engine,
             parent=self,
             driver=self._driver,
+            seed=self._seed,
         )
 
     def checkpoint(self, output: str | os.PathLike[str] | None = None) -> CheckpointInfo:
