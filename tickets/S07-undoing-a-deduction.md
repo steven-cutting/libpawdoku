@@ -107,9 +107,9 @@ opening the grid afresh on the givens left, which is what `OpenGrid` already doe
 | 23 | `remote_pair` | strikes | Provisional: yes, where the chain's cells hold exactly {a, b} and no target stands in L. | Gives a, b or both back to outside cells seeing two chain cells an odd number of links apart. | Which subset of M's members among the targets. | Provisional. Reading: one deduction for each chain, as written. Waits on D3 (output and witness), D5 (its load is variable, and seeing reads it) and D7. |
 | 24 | `x_chain` | strikes | Provisional: yes, at targets whose return leaves every conjugate link of the chain standing. | Gives d back to cells seeing both endpoints. | Which subset of the targets, every target that is an interior node of the chain included; which chain is the witness. | Provisional. Reading: a chain may repeat a candidate, entry as written. Waits on D1, D2, D4, D5, D7. Giving back can break links. |
 | 25 | `xy_chain` | strikes | Provisional: yes; the targets are the endpoint digit at cells seeing both endpoint cells, chain cells among them. | Gives the endpoint digit back to cells seeing both endpoint cells. | Which subset of the targets, every target that is a node of the chain included; which chain is the witness. | Provisional. Reading as rank 24. Waits on D1, D2, D4, D5, D7. A target that is a node of the chain must be given back: it supplies the bivalue cell. A digit foreign to a chain cell is never in an output. |
-| 26 | `alternating_inference_chain` | strikes; places on a closure from a negative start | Provisional: yes in both forms, wherever the path is valid on the earlier grid. | Strike: gives targets or the closure's one candidate back. Placement: takes the digit out. | Placement: C and G, within "c bivalue or d two-placed in a unit of c". Strike: the subset, every interior-node target included. | Provisional. Reading: repeats allowed, entry as written. Waits on D1, D4, D5, D7. Strict undefined: no order at this rank. |
-| 27 | `forcing_chain` | places on a positive conclusion; strikes on a negative one | Provisional: yes, wherever every path is valid on the earlier grid. | Placement: takes the digit out. Strike: gives the one denied candidate back. | Placement: C and G, which also set the roots. Strike: nothing, one candidate. | Provisional. Reading, a pair: no candidate twice (D1) and no empty path (D6), in the verity and the contradiction form alike; with an empty path it would license every single, and under a walk it licenses a single wherever (c, d) has a strong link. Waits on D1, D4, D5, D6, D7. Strict undefined. |
-| 28 | `unique_rectangle_type_1` | strikes | Yes, on condition: only with `uniqueness_promised`. It keeps every solution only if the earlier grid passes check 2 (its digits having verdict one is enough); it is promised only if the verdict where the walk ends is one. For a born-kept end the two agree. | Gives both a and b back to the fourth corner, together. | Nothing: both digits, one cell. | With verdict many the step is still correct for S but the givens are not a puzzle and a solved run proves nothing. |
+| 26 | `alternating_inference_chain` | strikes; places on a closure from a negative start | Provisional: yes in both forms, wherever the path is valid on the earlier grid. | Strike: gives targets or the closure's one candidate back. Placement: takes the digit out. | Placement: C and G, within "c bivalue or d two-placed in a unit of c". Strike: the subset, every interior-node target included. | Provisional. Reading: repeats allowed, entry as written. Waits on D1, D4, D5, D7. Strict not measured: S06's order by rank and output reaches this rank, but the catalogue it orders waits on S11. |
+| 27 | `forcing_chain` | places on a positive conclusion; strikes on a negative one | Provisional: yes, wherever every path is valid on the earlier grid. | Placement: takes the digit out. Strike: gives the one denied candidate back. | Placement: C and G, which also set the roots. Strike: nothing, one candidate. | Provisional. Reading, a pair: no candidate twice (D1) and no empty path (D6), in the verity and the contradiction form alike; with an empty path it would license every single, and under a walk it licenses a single wherever (c, d) has a strong link. That pair shuts out only those trivial proofs: a two-link path through another cell's single can still place what a single places. Waits on D1, D4, D5, D6, D7. Strict not measured. |
+| 28 | `unique_rectangle_type_1` | strikes | Yes, on condition: only with `uniqueness_promised`. Where the later grid admits S alone, it keeps every solution exactly when the earlier grid passes check 2 (its digits having verdict one is enough); it is promised only if the verdict where the walk ends is one. For a born-kept end the two agree. | Gives both a and b back to the fourth corner, together. | Nothing: both digits, one cell. | With verdict many the step is still correct for S but the givens are not a puzzle and a solved run proves nothing. |
 | 29 | `bug_plus_one` | places | Yes, on the same condition, and on at most one member of the family. | Takes the digit out of T, leaving three candidates, and gives it back to exactly two peers in each unit of T. | Nothing: C and G are forced by L's counts. | Not seen by profile A, nor by any profile whose capacity is below the BUG proof's load (the expert preset's 4): then not even broad. No single is licensed on such a grid. The condition is on the earlier grid, which has one digit fewer. Worth exactly the verdict, as rank 28. |
 
 The letters in the table (L, S, C, G, A(c), P(c), M) are defined under "The frame" in
@@ -449,8 +449,9 @@ afresh, which gives all of M back at once with no deduction licensing any of it.
 
 - *Strict* retraces by induction: the first entry on each earlier grid is the deduction
   undone, and taking it gives the next grid. It leans on S06's order being what the run
-  takes, which is normative for ranks 1 to 12, measured to 22, 28 and 29, and undefined
-  for ranks 23 to 27.
+  takes, which is normative for ranks 1 to 12 and measured to 22, 28 and 29. For ranks
+  23 to 27 the order by rank and output is stated, but the catalogue it orders waits
+  on S11, so the strict reading there is provisional and unmeasured.
 - *Broad* guarantees only that some sequence of licensed deductions leads back. The run
   takes its own first entry and may leave the walk's path.
 - *Singles survive more digits.* If a single of ranks 1 to 4 places d at c on a
@@ -652,6 +653,14 @@ and 0; `empty_rectangle` 1 and 0; `simple_colouring` 2,789 and 0;
 `unique_rectangle_type_1` 1 and 0. On four further files of 1,177 later grids from the
 runs the two also agree, on 220,427 undone deductions.
 
+The acceptance criterion asks for the same deductions on every sampled grid, and that
+is shown in full on 416 of the 680: the grids (205 under A, 211 under B; M empty at
+164 and of 1 to 12 at 252) where no family is over 4,096 members and every nonempty O
+was listed, so that the independent search is exhaustive over every earlier grid.
+There the two programs give the same 92,500 undone deductions, 13,414 of them strict.
+On the other 264 grids the agreement is over part of the output only, as the next
+paragraph says, and the criterion is met to that extent and no further.
+
 What the comparison does not cover, each stated and none silent: the 1,737 placed
 cells of the sample whose family is over 4,096 members (the prototype's 3,474 undone
 placements there stand on its own checks); 18,134 strike outputs of more than 3
@@ -741,7 +750,7 @@ was every placing technique through rank 4; `hidden_single` drops out.
 - *Not the two uniqueness techniques.* An undoing of either is worth the verdict of
   the givens, which the solver must give anyway.
 - *Ranks 23 to 27.* Not adopted and not refuted: on paper they can be undone, the
-  strict reading is undefined for them, and the rows wait on S11.
+  strict reading is unmeasured for them, and the rows wait on S11.
 
 Proposed text. No specification is edited here. The part adopted needs no word for
 undoing and no list that runs the other way: it is a condition on a removal, read from
@@ -1113,6 +1122,17 @@ $ git status --porcelain
 - **Fetched sources** were read as they stood on the day; the HoDoKu manual through an
   extractor and the forum threads from archive snapshots.
 - **No build ticket is drafted,** for the reason step 7 gives.
+- **Reviews answered.** Before the commit, three reviewers read the written ticket
+  against the data, the specifications and the acceptance criteria; their findings
+  were checked and the text corrected. After it, an adversarial review by Codex made
+  four findings, each checked and upheld: a `forcing_chain` can place what a single
+  places even with no empty path and no candidate twice (row 27 and the hand-back to
+  S11 now say so); "keeps every solution only if" in row 28 needed the premise that
+  the later grid admits S alone; the completeness comparison is exhaustive on 416 of
+  the 680 sampled grids and partial on the rest (step 4 now says which); and S06's
+  order by rank and output does reach ranks 23 to 27, so the strict reading there is
+  unmeasured, not undefined. Codex found nothing in the frame, the singles
+  guarantees, the walk's uniqueness argument, the proposed text or the arithmetic.
 
 ### Handed back
 
@@ -1126,8 +1146,12 @@ $ git status --porcelain
 - **To S11:** the rows for ranks 23 to 27, each with the decisions it waits on; and two
   findings the paper analysis met on the way. Under a walk (D1's starting
   recommendation) a `forcing_chain` licenses a single wherever the placed candidate has
-  a strong link, whatever D6 says; only "no candidate twice" with "no empty path"
-  keeps the singles out. And D2 decides how often `x_chain` undoes what `pointing` and
+  a strong link, whatever D6 says; "no candidate twice" with "no empty path" shuts
+  out those trivial proofs and no more. A nonempty path with no repeat can still place
+  what a single places: with r1c1 holding 1 alone, r2c1 holding 1 and 4 and r2c7
+  holding 1 alone, denying 1 at r1c1 forces it at r2c1 (two places in the column) and
+  so out of r2c7, which is left with nothing. So `forcing_chain` overlaps the singles
+  under every option, and what S11 decides is how far. And D2 decides how often `x_chain` undoes what `pointing` and
   `claiming` would.
 - **To T35 (drafted in S06's notes):** the strict reading rests on the first entry of
   the list being what a run takes; nothing here contradicts the order, and the two
