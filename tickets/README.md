@@ -43,7 +43,7 @@ authoritative; this table is a snapshot.
 | T30 | The first-change tutorial: an exercise that can be followed again | `T30-first-change-tutorial.md` | T25 | T26 to T28 | done |
 | T31 | Spec change: the basic generator in generation, a published method of removal checked by the verdict | `T31-basic-generator-spec.md` | T19 | none | done |
 | T32 | The basic generator in Rust: the solution grid, removal in order and the five tiers | `T32-basic-generator.md` | T31, T28 | none | done |
-| T33 | The API reference on GitHub Pages: a deploy workflow, a site recipe and the first workflow that publishes | `T33-api-reference-on-github-pages.md` | T11 | S10 | open |
+| T33 | The API reference on GitHub Pages: a deploy workflow, a site recipe and the first workflow that publishes | `T33-api-reference-on-github-pages.md` | T11 | S10 | done |
 
 Spike tickets. Each weighs options and ends in a recommendation; none blocks the build and
 none is picked up before T11.

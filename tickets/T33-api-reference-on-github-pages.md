@@ -1,7 +1,7 @@
 ---
 id: T33
 title: "The API reference on GitHub Pages: a deploy workflow, a site recipe and the first workflow that publishes"
-status: open
+status: done
 depends_on: [T11]
 parallel_with: [S10]
 branch: ticket/t33-api-reference-on-github-pages
@@ -672,6 +672,64 @@ ended at the basic generator; it now ends at this record. And decision 0016 said
 merging was on `AGENTS.md`'s list of authorised actions, which names pushing and not
 merging; the record and the `AGENTS.md` sentence now rest on the push, and say a merge
 is the maintainer's own act.
+
+### Closing pull request, 2026-10-04
+
+PR #38 merged as `f2c195c`. The push to `main` ran `pages.yml`, run 37182195910, and
+both jobs succeeded. Each remote call below had the maintainer's leave; the branch
+pushed for the hand-started run is this pull request's, `ticket/T33-closing`, cut from
+`main` and pushed before it had a commit of its own.
+
+```console
+$ gh api repos/steven-cutting/libpawdoku/pages --jq '.build_type, .html_url'
+workflow
+http://stevencutting.com/libpawdoku/
+$ gh api repos/steven-cutting/libpawdoku/environments/github-pages --jq .deployment_branch_policy
+{"custom_branch_policies":true,"protected_branches":false}
+$ gh api repos/steven-cutting/libpawdoku/environments/github-pages/deployment-branch-policies --jq '.branch_policies[].name'
+main
+$ gh run list --workflow pages.yml --branch main --limit 1
+completed  success  Merge pull request #38 [...]  Deploy to GitHub Pages  main  push  37182195910  56s  2026-10-04T06:13:52Z
+$ gh run view 37182195910 --json jobs --jq '.jobs[] | [.name, .conclusion] | @tsv'
+build   success
+deploy  success
+$ curl -sI https://steven-cutting.github.io/libpawdoku/
+HTTP/2 301
+location: https://stevencutting.com/libpawdoku/
+$ curl -sIL https://steven-cutting.github.io/libpawdoku/
+HTTP/2 301
+location: https://stevencutting.com/libpawdoku/
+HTTP/2 200
+$ curl -sL https://steven-cutting.github.io/libpawdoku/
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>pawdoku: API reference</title>
+<meta http-equiv="refresh" content="0; url=pawdoku/index.html">
+<p><a href="pawdoku/index.html">The pawdoku API reference</a></p>
+</html>
+$ curl -sIL https://steven-cutting.github.io/libpawdoku/pawdoku/index.html
+HTTP/2 301
+location: https://stevencutting.com/libpawdoku/pawdoku/index.html
+HTTP/2 200
+$ gh workflow run pages.yml --ref ticket/T33-closing
+https://github.com/steven-cutting/libpawdoku/actions/runs/37182614363
+$ gh run view 37182614363 --json jobs --jq '.jobs[] | [.name, .conclusion] | @tsv'
+build   success
+deploy  skipped
+```
+
+A deviation from the expected output, foretold in the first pull request's notes: the
+`github.io` address answers 301 and the page behind it 200, because the owner's Pages
+host carries a custom domain. The seven lines of the redirect are served, and the
+crate's page answers 200. `.lock` answers 404: cargo's lock file was not published.
+
+The hand-started run did not redeploy: the repository's deployments still list one,
+`github-pages  main  f2c195c  2026-10-04T06:14:35Z`.
+
+Carried, for the maintainer: whether to add `&& github.ref_protected` to the deploy
+job's `if:` (the case-variant branch of the Codex finding above), and `https_enforced`,
+which is `false` on the site.
 
 **Seen and not fixed:** `CHANGELOG.md` says the handbook has "twenty-five pages"; the
 manifest held 42 before this change and holds 44 after. The ticket names only the count
