@@ -10,6 +10,7 @@ exclude: >-
     target/|
     \.tools/|
     allium-skill-reference/|
+    smoltest/|
     Cargo\.lock$|
     pixi\.lock$
   )

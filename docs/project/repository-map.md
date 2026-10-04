@@ -68,6 +68,7 @@ under `crates/` as siblings, each depending on the engine and none on another.
 | `.pixi/envs/default/bin` | Every tool `pyproject.toml` pins and the tooling package's console scripts, installed from `pixi.lock`. First on `PATH` inside every recipe, and nowhere else. |
 | `.tools/bin` | cargo-hack from `tools.txt`, rustqual from `tools-source.txt`, and the Allium checker. On `PATH` inside every recipe, after the pixi environment. |
 | `tests/fixtures/metrics-violation/` | A directory shaped like a crate, with no manifest, that breaks every module-boundary rule once. `just metrics` requires rustqual to fail on it; nothing compiles it. |
+| `smoltest/` | A standalone Python project, `smoltest`: PostgreSQL test machines on Smol Machines microVMs behind the testcontainers-python API. It has its own `pyproject.toml`, `uv.lock`, tests and `AGENTS.md`, is excluded from this repository's gates (the hook gate, taplo, markdownlint, typos and lychee each name it), and is checked by `.github/workflows/smoltest.yml`, which runs only when it changes. |
 | `target/` | Cargo's build output. `just coverage` writes its report under `target/llvm-cov/`. |
 
 Which of these may import which is not a matter of taste; see
