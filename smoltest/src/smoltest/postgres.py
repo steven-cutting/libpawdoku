@@ -29,6 +29,7 @@ from ._ports import HostEndpoint
 from .boot import strategy as _boot
 from .boot.spec import LOG_PATH, PostgresSpec
 from .boot.strategy import BootInfo, BootResult
+from .cache.store import make_private
 from .config import Settings
 from .errors import InvalidConfig, NotSupportedError, SmoltestError
 from .transport import get_engine
@@ -617,9 +618,17 @@ class PostgresMachine:
         )
 
     def checkpoint(self, output: str | os.PathLike[str] | None = None) -> CheckpointInfo:
-        """Snapshot the running machine (``output`` is required on the local target)."""
+        """Snapshot the running machine (``output`` is required on the local target).
+
+        A local checkpoint is a copy of guest RAM, credentials included; the engine
+        writes it with the process umask, so it is made private (``0o600`` files,
+        ``0o700`` directories) before it is handed back, as the cache does.
+        """
         target = None if output is None else os.fspath(output)
-        return self._require().handle.checkpoint(output=target, store=None)
+        info = self._require().handle.checkpoint(output=target, store=None)
+        if info.ref.kind == "file":
+            make_private(Path(info.ref.locator))
+        return info
 
     # -- state -------------------------------------------------------------------------
 

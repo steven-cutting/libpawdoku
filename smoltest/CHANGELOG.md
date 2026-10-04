@@ -78,6 +78,9 @@ All notable changes to smoltest are recorded here. The format follows
   those runtime options too; checkpoint reuse is unchanged.
 - `PostgresGolden.fresh()` now prunes stopped children like `branch()` does, so the fresh
   isolation mode no longer retains every finished test's machine until session teardown.
+- `PostgresMachine.checkpoint(path)` makes the local checkpoint private (`0o600` files, `0o700`
+  directories) before returning it, as the cache and `cache export` already did; the engine
+  writes it with the process umask.
 
 ### Added
 

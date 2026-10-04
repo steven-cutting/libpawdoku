@@ -11,7 +11,9 @@ from __future__ import annotations
 import asyncio
 import gc
 import hashlib
+import os
 import re
+import stat
 import warnings
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -601,9 +603,15 @@ def test_checkpoint_passes_through(fake_boot: BootLog, settings: Settings, tmp_p
         with pytest.raises(InvalidConfig, match="output"):
             m.checkpoint()
         out = tmp_path / "golden.smolcheckpoint"
-        info = m.checkpoint(out)
+        previous = os.umask(0o022)  # a permissive umask: the engine writes 0o644
+        try:
+            info = m.checkpoint(out)
+        finally:
+            os.umask(previous)
         assert isinstance(info, CheckpointInfo) and info.ref.kind == "file"
         assert info.ref.locator == str(out) and out.is_file()
+        # Guest RAM, credentials included: never left world-readable.
+        assert stat.S_IMODE(out.stat().st_mode) == 0o600
 
 
 def test_from_boot_classmethod(
