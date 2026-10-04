@@ -81,6 +81,12 @@ All notable changes to smoltest are recorded here. The format follows
 - `PostgresMachine.checkpoint(path)` makes the local checkpoint private (`0o600` files, `0o700`
   directories) before returning it, as the cache and `cache export` already did; the engine
   writes it with the process umask.
+- `FileLock.for_path` registered instances under the resolved path but built them from the path
+  as given, so a relative lock path locked a different file after a `chdir`. The shared
+  instance is now built from the resolved path.
+- `smoltest run postgres` could not be interrupted while the machine was still booting (the
+  signal handler only set an event the boot never checked). `SIGINT`/`SIGTERM` during startup
+  now abort the boot, which deletes whatever it had created, and exit 1.
 
 ### Added
 

@@ -781,6 +781,25 @@ def test_file_lock_is_reentrant_shared_by_path_and_times_out(tmp_path: Path) -> 
     lock.release()
 
 
+def test_for_path_locks_the_resolved_file_after_a_chdir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The shared instance must guard the file it was registered under, not a relative name."""
+    first, second = tmp_path / "a", tmp_path / "b"
+    first.mkdir()
+    second.mkdir()
+    monkeypatch.chdir(first)
+    lock = FileLock.for_path("guard.lock", timeout_s=0.3, poll_interval_s=0.01)
+    assert lock.path == (first / "guard.lock").resolve()
+    monkeypatch.chdir(second)
+    assert FileLock.for_path(first / "guard.lock") is lock
+    with lock:
+        assert (first / "guard.lock").exists() and not (second / "guard.lock").exists()
+        other = FileLock(first / "guard.lock", timeout_s=0.05, poll_interval_s=0.01)
+        with pytest.raises(LockTimeout):
+            other.acquire()
+
+
 def test_shared_locks_coexist_but_exclude_writers(tmp_path: Path) -> None:
     path = tmp_path / "s.lock"
     reader = FileLock(path, timeout_s=0.2, poll_interval_s=0.01)

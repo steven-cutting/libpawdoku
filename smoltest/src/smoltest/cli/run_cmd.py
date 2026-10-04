@@ -19,6 +19,7 @@ from ..errors import SmoltestError
 from ..postgres import PostgresMachine
 from ..transport import get_engine
 from . import (
+    EXIT_FAILURE,
     EXIT_OK,
     Context,
     add_postgres_options,
@@ -85,6 +86,31 @@ def stop_on_signals(stop: threading.Event) -> Iterator[None]:
             signal.signal(sig, signal.SIG_DFL if old is None else old)
 
 
+@contextlib.contextmanager
+def interrupt_on_signals() -> Iterator[None]:
+    """Turn ``SIGINT``/``SIGTERM`` into :class:`KeyboardInterrupt` while the block runs.
+
+    Used around startup, where nothing polls a stop event: the exception unwinds
+    the boot, whose cleanup deletes whatever machine it had created. Main thread
+    only; elsewhere the block runs with the handlers it finds.
+    """
+    if threading.current_thread() is not threading.main_thread():
+        yield
+        return
+
+    def handler(signum: int, frame: FrameType | None) -> None:
+        del frame
+        note(f"received {signal.Signals(signum).name} during startup, aborting")
+        raise KeyboardInterrupt
+
+    previous = {sig: signal.signal(sig, handler) for sig in STOP_SIGNALS}
+    try:
+        yield
+    finally:
+        for sig, old in previous.items():
+            signal.signal(sig, signal.SIG_DFL if old is None else old)
+
+
 def run_postgres(args: argparse.Namespace, ctx: Context) -> int:
     """Boot, print the URL and boot info, wait for a stop, delete."""
     settings = ctx.settings.replace(
@@ -101,8 +127,14 @@ def run_postgres(args: argparse.Namespace, ctx: Context) -> int:
     if args.port is not None:
         machine.with_bind_ports(machine.port, args.port)
     stop = ctx.stop_event if ctx.stop_event is not None else threading.Event()
+    try:
+        with interrupt_on_signals():
+            machine.start()
+    except KeyboardInterrupt:
+        machine.stop()  # the boot already tore its machine down; this covers the gap after it
+        note("startup aborted; nothing left running")
+        return EXIT_FAILURE
     with stop_on_signals(stop):
-        machine.start()
         info = machine.boot_info
         if info is None:
             raise SmoltestError(f"{machine.name} started without boot information")
@@ -123,4 +155,11 @@ def run_postgres(args: argparse.Namespace, ctx: Context) -> int:
     return EXIT_OK
 
 
-__all__ = ["POLL_S", "STOP_SIGNALS", "register", "run_postgres", "stop_on_signals"]
+__all__ = [
+    "POLL_S",
+    "STOP_SIGNALS",
+    "interrupt_on_signals",
+    "register",
+    "run_postgres",
+    "stop_on_signals",
+]

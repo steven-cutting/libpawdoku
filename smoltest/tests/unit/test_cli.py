@@ -652,6 +652,32 @@ def test_run_stops_on_sigint_and_restores_the_handler(
     assert fake_engine.live_machines == set()
 
 
+def test_run_signal_during_startup_aborts_and_cleans_up(
+    fake_engine: FakeEngine, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Ctrl-C while the machine is still booting must not leave it running."""
+    if threading.current_thread() is not threading.main_thread():
+        pytest.skip("signal handlers can only be installed from the main thread")
+    before = signal.getsignal(signal.SIGINT)
+    fake_engine.latency["create"] = 2.0  # a slow boot, interrupted part-way
+
+    def interrupt() -> None:
+        time.sleep(0.2)
+        os.kill(os.getpid(), signal.SIGINT)
+
+    thread = threading.Thread(target=interrupt, daemon=True)
+    thread.start()
+    started = time.monotonic()
+    assert run("run", "postgres") == EXIT_FAILURE
+    assert time.monotonic() - started < 1.5, "startup kept going after SIGINT"
+    thread.join(timeout=5)
+    assert signal.getsignal(signal.SIGINT) is before
+    captured = capsys.readouterr()
+    assert "received SIGINT during startup, aborting" in captured.err
+    assert "startup aborted" in captured.err and captured.out == ""
+    assert fake_engine.live_machines == set()
+
+
 def test_run_boot_failure_exits_1(
     fake_engine: FakeEngine, capsys: pytest.CaptureFixture[str]
 ) -> None:

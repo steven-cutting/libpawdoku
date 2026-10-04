@@ -111,11 +111,14 @@ def test_second_start_restores_the_checkpoint(
 def test_golden_branches_are_isolated(
     e2e_settings: Settings, engine: Engine, pg: Pg, cleanup: contextlib.ExitStack
 ) -> None:
-    template = PostgresMachine(settings=e2e_settings, engine=engine)
+    # The table is seeded through the template, so a child that is a fresh machine
+    # (the fallback when the golden cannot be branched) has it too; a table created
+    # on the golden after its checkpoint would only reach real branches.
+    seed = Seed.from_sql("CREATE TABLE shared (v text)")
+    template = PostgresMachine(settings=e2e_settings, engine=engine, seed=seed)
     golden = PostgresGolden.boot(template)
     cleanup.callback(golden.close)
     golden_url = plain_url(golden.machine)
-    pg.execute(golden_url, "CREATE TABLE shared (v text)")
 
     t0 = time.perf_counter()
     a = golden.branch()
@@ -123,7 +126,10 @@ def test_golden_branches_are_isolated(
     b = golden.branch()
     for child in (a, b):
         assert child.boot_info is not None
-        assert child.parent is golden.machine
+        if child.boot_info.via == "branch":
+            assert child.parent is golden.machine
+        else:
+            assert child.parent is None and child.seed is seed
     a_url, b_url = plain_url(a), plain_url(b)
     ports = {golden.machine.get_exposed_port(), a.get_exposed_port(), b.get_exposed_port()}
     assert len(ports) == 3

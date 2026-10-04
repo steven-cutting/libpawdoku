@@ -81,7 +81,10 @@ class FileLock:
         with cls._registry_lock:
             lock = cls._registry.get(key)
             if lock is None:
-                lock = cls(path, timeout_s=timeout_s, poll_interval_s=poll_interval_s)
+                # Built from the resolved path, never the one given: the shared
+                # instance outlives the caller's working directory, so a relative
+                # path would lock a different file after a chdir.
+                lock = cls(key, timeout_s=timeout_s, poll_interval_s=poll_interval_s)
                 cls._registry[key] = lock
             return lock
 
