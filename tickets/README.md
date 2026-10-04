@@ -55,7 +55,7 @@ none is picked up before T11.
 | S03 | Spike: benchmarks, fuzzing and mutation testing | `S03-bench-fuzz-mutants.md` | T11 | done |
 | S04 | Spike: bindings and CLI groundwork, pawdoku-cli, pawdoku-py, pawdoku-wasm | `S04-bindings-and-cli.md` | T11, T06 | done |
 | S06 | Spike: one ordered list of licensed deductions, and a run that takes the first | `S06-licensed-deductions-in-order.md` | T19 | done |
-| S07 | Spike: undoing a deduction, technique by technique | `S07-undoing-a-deduction.md` | S06 | open |
+| S07 | Spike: undoing a deduction, technique by technique | `S07-undoing-a-deduction.md` | S06 | done |
 | S08 | Spike: removal by undoing deductions, against removal and a rating | `S08-removal-by-undoing.md` | S06, S07 | open |
 | S09 | Spike: code-quality metrics as a gate, module boundaries, complexity, coupling and cohesion | `S09-code-quality-metrics.md` | T11 | done |
 | S10 | Spike: prose pages, diagrams and raw HTML inside rustdoc | `S10-pages-and-diagrams-in-rustdoc.md` | T11 | done |
