@@ -21,6 +21,7 @@ from smoltest._ports import pick_free_port
 from smoltest.boot.spec import PostgresSpec
 from smoltest.boot.strategy import boot_postgres
 from smoltest.cache import CheckpointCache
+from smoltest.cache.lock import _UNSET, FileLock, LockTimeout
 from smoltest.cache.store import pid_alive
 from smoltest.cli import (
     EXIT_FAILURE,
@@ -33,6 +34,7 @@ from smoltest.cli import (
     parse_duration,
     parse_env_assignments,
     parse_size,
+    short_key,
 )
 from smoltest.cli.main import main
 from smoltest.config import Settings
@@ -442,6 +444,18 @@ def test_warm_boot_failure_stops_earlier_machines(
     assert fake_engine.live_machines == set()
 
 
+def test_run_rejects_port_on_the_cloud_before_booting(
+    fake_engine: FakeEngine, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("SMOL_CLOUD_TOKEN", "x")  # auto-selection picks the cloud
+    assert run("run", "postgres", "--port", "24000") == EXIT_FAILURE
+    err = capsys.readouterr().err
+    assert "--port is not supported on the cloud target" in err
+    assert fake_engine.ops("create") == [] and fake_engine.live_machines == set()
+    assert run("--target", "cloud", "run", "postgres", "--port", "24000") == EXIT_FAILURE
+    assert fake_engine.ops("create") == []
+
+
 def test_warm_fails_when_a_boot_stays_uncached(
     fake_engine: FakeEngine,
     cache_dir: Path,
@@ -469,7 +483,7 @@ def test_warm_fails_when_a_boot_stays_uncached(
     assert summary.variant_count == 1, "the base variant is cached, the seeded one is not"
     rows = captured.out.splitlines()
     assert len(rows) == 2 and rows[1].split()[1] == "cold", "the table is still printed"
-    assert f"no populated checkpoint for {calls[1][:12]}" in captured.err
+    assert f"no populated checkpoint for {short_key(calls[1])}" in captured.err
     assert "1 of 1 requested variant(s) are not in the cache" in captured.err
     assert "rerun `smoltest warm`" in captured.err
     # Without the fault the same warm succeeds and caches both keys.
@@ -477,6 +491,33 @@ def test_warm_fails_when_a_boot_stays_uncached(
     capsys.readouterr()
     assert warm(1, "--seed-sql", str(seed_file)) == EXIT_OK
     assert CheckpointCache(cache_dir).ls().variant_count == 2
+
+
+def test_warm_fails_when_the_key_lock_is_busy(
+    fake_engine: FakeEngine,
+    cache_dir: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A busy key lock makes the boot continue uncached; warm must say so and exit 1."""
+    real_acquire = FileLock.acquire
+    refused: list[Path] = []
+
+    def busy_once(self: FileLock, timeout_s: Any = _UNSET, *, shared: bool = False) -> None:
+        if not refused:  # the boot's first lock is the base key's: another process holds it
+            refused.append(self.path)
+            raise LockTimeout(self.path, 0.0)
+        real_acquire(self, timeout_s, shared=shared)
+
+    monkeypatch.setattr(FileLock, "acquire", busy_once)
+    assert warm(1) == EXIT_FAILURE
+    captured = capsys.readouterr()
+    assert len(refused) == 1 and refused[0].suffix == ".lock"
+    assert fake_engine.live_machines == set() and fake_engine.ops("checkpoint") == []
+    assert CheckpointCache(cache_dir).ls().variant_count == 0
+    assert "no populated checkpoint for" in captured.err
+    assert "1 of 1 requested variant(s) are not in the cache" in captured.err
+    assert "cold" in captured.out.splitlines()[1]
 
 
 # -- cache ------------------------------------------------------------------------------

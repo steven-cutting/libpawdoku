@@ -370,9 +370,11 @@ class FakeAsyncpg(types.ModuleType):
         self.executed: list[str] = []
         self.closed = 0
         self.timeouts: list[float] = []
+        self.dsns: list[str] = []
 
     async def connect(self, dsn: str, timeout: float) -> _FakeAsyncConn:
         self.timeouts.append(timeout)
+        self.dsns.append(dsn)
         return _FakeAsyncConn(self)
 
 
@@ -389,6 +391,12 @@ def test_sql_asyncpg_path_runs_its_own_loop(
     strategy.wait_until_ready(view(pg), 1, 0.01)
     assert module.executed == ["SELECT 1"] and module.closed == 1 and module.timeouts == [1.5]
     assert pg.sql_log == []
+    # asyncpg forwards unknown URI parameters to the server as settings, so its DSN
+    # carries no libpq connect_timeout; the libpq-based drivers keep it.
+    assert module.dsns == [strategy.dsn(view(pg), driver="asyncpg")]
+    assert "connect_timeout" not in module.dsns[0] and "?" not in module.dsns[0]
+    assert strategy.dsn(view(pg)).endswith("?connect_timeout=2")
+    assert strategy.dsn(view(pg), driver="psycopg").endswith("?connect_timeout=2")
 
 
 def test_sql_skips_asyncpg_inside_a_running_loop(

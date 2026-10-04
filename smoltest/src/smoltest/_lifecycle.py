@@ -4,12 +4,14 @@ The :class:`Reaper` wraps :func:`weakref.finalize` so an object is cleaned up
 when it is garbage collected *or* at interpreter exit, whichever comes first,
 in LIFO order with children closed before their parents. A registration is
 forgotten as soon as it has run or been detached, so the registry only ever
-holds the live ones.
+holds the live ones. A forked child forgets them all: the parent's machines
+and claims are the parent's to close.
 """
 
 from __future__ import annotations
 
 import atexit
+import os
 import threading
 import weakref
 from collections.abc import Callable
@@ -30,6 +32,10 @@ class _Entry:
     children: list[Finalizer] = field(default_factory=list)
 
 
+def _noop() -> None:
+    """Callback of the throwaway finalizer that pins weakref's exit hook ahead of ours."""
+
+
 class Reaper:
     """Registry of close functions run at exit in a deterministic order."""
 
@@ -38,7 +44,15 @@ class Reaper:
         self._entries: dict[Finalizer, _Entry] = {}
         self._order: dict[Finalizer, None] = {}  # insertion-ordered set
         self._by_obj: dict[int, Finalizer] = {}
+        _reapers.add(self)
         if install_atexit:
+            # weakref registers its own exit hook when the first ``finalize`` of
+            # the process is created, and atexit runs hooks LIFO. Registered after
+            # ours, that hook would run first, set ``finalize._shutdown`` and turn
+            # every ``token()`` in :meth:`run` into a no-op, leaving machines
+            # running. Creating (and dropping) a finalizer here pins weakref's
+            # hook ahead of ours.
+            weakref.finalize(self, _noop).detach()
             atexit.register(self.run)
 
     def register(
@@ -125,6 +139,22 @@ class Reaper:
         if token.alive:
             token()
 
+    def _reset_after_fork(self) -> None:
+        """Forget the parent's registrations; runs in a forked child.
+
+        The child inherits every finalizer and this reaper's exit hook, so a
+        garbage collection or a normal exit there would run the parent's close
+        functions: delete its machines, release its cache claims. Detaching
+        leaves the inherited objects alone and keeps the reaper usable for the
+        child's own registrations.
+        """
+        self._lock = threading.RLock()  # a parent thread may have held it at the fork
+        for token in list(self._order):
+            token.detach()
+        self._entries.clear()
+        self._order.clear()
+        self._by_obj.clear()
+
     def _forget(self, token: Finalizer) -> None:
         """Drop every trace of ``token``; the caller holds the lock."""
         entry = self._entries.pop(token, None)
@@ -139,6 +169,7 @@ class Reaper:
                 parent_entry.children.remove(token)
 
 
+_reapers: weakref.WeakSet[Reaper] = weakref.WeakSet()
 _default: Reaper | None = None
 _default_lock = threading.Lock()
 
@@ -150,6 +181,17 @@ def get_reaper() -> Reaper:
         if _default is None:
             _default = Reaper()
         return _default
+
+
+def _after_fork_in_child() -> None:
+    global _default_lock  # noqa: PLW0603 - replaced, a parent thread may hold the old one
+    _default_lock = threading.Lock()
+    for reaper in list(_reapers):
+        reaper._reset_after_fork()
+
+
+if hasattr(os, "register_at_fork"):  # POSIX; elsewhere there is no fork to survive
+    os.register_at_fork(after_in_child=_after_fork_in_child)
 
 
 __all__ = ["Finalizer", "Reaper", "get_reaper"]

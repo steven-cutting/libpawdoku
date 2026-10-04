@@ -29,7 +29,7 @@ from ._ports import HostEndpoint
 from .boot import strategy as _boot
 from .boot.spec import LOG_PATH, PostgresSpec
 from .boot.strategy import BootInfo, BootResult
-from .cache.store import make_private, remove_path
+from .cache.store import make_private, remove_path_strict
 from .config import Settings
 from .errors import CacheError, InvalidConfig, NotSupportedError, SmoltestError
 from .transport import get_engine
@@ -637,7 +637,14 @@ class PostgresMachine:
             try:
                 make_private(written)
             except CacheError as exc:
-                remove_path(written)
+                try:
+                    remove_path_strict(written)
+                except CacheError as left:
+                    raise SmoltestError(
+                        f"checkpoint {written} could not be made private nor removed and is "
+                        f"readable: {left}",
+                        code="CHECKPOINT_PERMISSIONS",
+                    ) from left
                 raise SmoltestError(
                     f"checkpoint {written} could not be made private and was removed: {exc}",
                     code="CHECKPOINT_PERMISSIONS",

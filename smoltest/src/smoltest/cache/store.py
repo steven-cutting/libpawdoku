@@ -39,7 +39,14 @@ from .._log import logger, warn_once
 from .._ports import is_port_free
 from ..config import Settings
 from ..errors import CacheCorrupt, CacheError, NotSupportedError, SmoltestError
-from ..transport.base import CheckpointKind, CheckpointRef, Engine, MachineHandle, Target
+from ..transport.base import (
+    CheckpointInfo,
+    CheckpointKind,
+    CheckpointRef,
+    Engine,
+    MachineHandle,
+    Target,
+)
 from .key import host_signature, redact_inputs
 from .lock import DEFAULT_POLL_S, DEFAULT_TIMEOUT_S, FileLock
 
@@ -98,10 +105,16 @@ def make_private(path: Path) -> None:
     permissions the engine's umask gave it. Symbolic links inside a tree are left
     alone (their targets are not the checkpoint's).
     """
+
+    def unreadable(exc: OSError) -> None:  # a directory the walk could not list
+        raise CacheError(
+            f"cannot make {path} private: {exc}", code="CHECKPOINT_PERMISSIONS"
+        ) from exc
+
     targets: list[tuple[Path, int]] = []
     if path.is_dir() and not path.is_symlink():
         targets.append((path, DIR_MODE))
-        for root, dirs, files in os.walk(path):
+        for root, dirs, files in os.walk(path, onerror=unreadable):
             targets.extend((Path(root, name), DIR_MODE) for name in dirs)
             targets.extend((Path(root, name), FILE_MODE) for name in files)
     else:
@@ -116,11 +129,27 @@ def make_private(path: Path) -> None:
             raise CacheError(
                 f"cannot make {target} private: {exc}", code="CHECKPOINT_PERMISSIONS"
             ) from exc
-        if actual != mode:
+        if actual & 0o077:  # group or world bits survived: a mount with a fixed mask, say
             raise CacheError(
                 f"cannot make {target} private: mode is {actual:#o} after chmod {mode:#o}",
                 code="CHECKPOINT_PERMISSIONS",
             )
+
+
+def remove_path_strict(path: Path) -> None:
+    """:func:`remove_path`, raising :class:`~smoltest.errors.CacheError` when it cannot.
+
+    For a checkpoint that could not be made private: a removal that fails leaves
+    guest RAM readable, which the caller must hear about rather than a bare
+    ``OSError`` that hides the permission failure it was cleaning up after.
+    """
+    try:
+        remove_path(path)
+    except OSError as exc:
+        raise CacheError(
+            f"could not remove {path}, which is still readable: {exc}",
+            code="CHECKPOINT_PERMISSIONS",
+        ) from exc
 
 
 def _private_or_removed(path: Path, remove: Path) -> None:
@@ -128,7 +157,7 @@ def _private_or_removed(path: Path, remove: Path) -> None:
     try:
         make_private(path)
     except CacheError:
-        remove_path(remove)
+        remove_path_strict(remove)
         raise
 
 
@@ -225,6 +254,25 @@ def _unlink_claim(path: Path, token: str) -> None:
     if record is not None and record.token == token:
         with contextlib.suppress(OSError):
             path.unlink()
+
+
+_claims: weakref.WeakSet[VariantClaim] = weakref.WeakSet()
+"""Every claim with a finalizer, so a forked child can disown the parent's."""
+
+
+def _disown_inherited_claims() -> None:
+    """In a forked child, the parent's claim files are the parent's to remove.
+
+    The child inherits each claim's finalizer; garbage collection or weakref's
+    exit hook there would unlink a claim file the parent still relies on.
+    """
+    for claim in list(_claims):
+        if claim._finalizer is not None:
+            claim._finalizer.detach()
+
+
+if hasattr(os, "register_at_fork"):  # POSIX; elsewhere there is no fork to survive
+    os.register_at_fork(after_in_child=_disown_inherited_claims)
 
 
 @dataclass(frozen=True)
@@ -324,6 +372,7 @@ class VariantClaim:
     def __post_init__(self) -> None:
         if self.claim_path is not None and self.token is not None:
             self._finalizer = weakref.finalize(self, _unlink_claim, self.claim_path, self.token)
+            _claims.add(self)
 
     @property
     def populated(self) -> bool:
@@ -875,27 +924,11 @@ class CheckpointCache:
             self._evict_lru(self.max_bytes, protect, engine)
             remove_path(paths.meta)
             remove_path(paths.checkpoint)
-            try:
-                info = handle.checkpoint(str(paths.checkpoint), str(self.store_dir))
-            except SmoltestError:
-                remove_path(paths.checkpoint)
-                raise
-            except Exception as exc:
-                remove_path(paths.checkpoint)
-                raise CacheError(f"checkpoint of {handle.name} failed: {exc}") from exc
-            ref = info.ref
-            if ref.kind != "file":
-                raise CacheCorrupt(f"engine returned a {ref.kind} checkpoint for a local cache")
-            out = Path(ref.locator)
-            if not (out.exists() or out.is_symlink()):
-                raise CacheCorrupt(f"engine reported checkpoint {out} but nothing is there")
-            if os.path.realpath(out) != os.path.realpath(paths.checkpoint):
-                raise CacheCorrupt(f"engine wrote checkpoint {out}, not {paths.checkpoint}")
+            info = self._take_checkpoint(handle, paths)
             # Record the variant's own path, not the engine's spelling of it, so the
             # meta matches what _check_meta_matches expects whatever the SDK echoes.
             ref = CheckpointRef("file", str(paths.checkpoint))
-            _private_or_removed(out, paths.checkpoint)  # the engine writes with the umask
-            size = path_size(out) or (info.size_bytes or 0)
+            size = path_size(paths.checkpoint) or (info.size_bytes or 0)
             if inputs is not None and not self.inputs_path(key).exists():
                 self._write_inputs(key, inputs)
             sdk_version = engine.sdk_version() if engine is not None else None
@@ -917,6 +950,46 @@ class CheckpointCache:
         claim.meta = meta
         claim.ref = ref
         return meta
+
+    def _take_checkpoint(self, handle: MachineHandle, paths: VariantPaths) -> CheckpointInfo:
+        """``handle.checkpoint`` into ``paths.checkpoint``, validated and made private.
+
+        Whatever the engine wrote is a copy of guest RAM with the umask's
+        permissions, so any failure after the call (an engine error, a reported
+        ref that is not this file, a ``chmod`` that does not take) removes the
+        requested output, and the file the engine reported if that differs,
+        before the error propagates.
+        """
+        reported: Path | None = None
+        try:
+            info = handle.checkpoint(str(paths.checkpoint), str(self.store_dir))
+            ref = info.ref
+            if ref.kind != "file":
+                raise CacheCorrupt(f"engine returned a {ref.kind} checkpoint for a local cache")
+            reported = Path(ref.locator)
+            if not (reported.exists() or reported.is_symlink()):
+                raise CacheCorrupt(f"engine reported checkpoint {reported} but nothing is there")
+            if os.path.realpath(reported) != os.path.realpath(paths.checkpoint):
+                raise CacheCorrupt(f"engine wrote checkpoint {reported}, not {paths.checkpoint}")
+            make_private(paths.checkpoint)  # the engine writes with the default umask
+        except SmoltestError:
+            self._discard_checkpoint(paths, reported)
+            raise
+        except Exception as exc:
+            self._discard_checkpoint(paths, reported)
+            raise CacheError(f"checkpoint of {handle.name} failed: {exc}") from exc
+        except BaseException:  # KeyboardInterrupt / SystemExit: tidy, then propagate
+            self._discard_checkpoint(paths, reported)
+            raise
+        return info
+
+    @staticmethod
+    def _discard_checkpoint(paths: VariantPaths, reported: Path | None) -> None:
+        remove_path_strict(paths.checkpoint)
+        if reported is not None and os.path.realpath(reported) != os.path.realpath(
+            paths.checkpoint
+        ):
+            remove_path_strict(reported)
 
     def _write_inputs(self, key: str, inputs: Mapping[str, Any]) -> None:
         payload = {
@@ -1202,5 +1275,6 @@ __all__ = [
     "pid_alive",
     "read_claim",
     "remove_path",
+    "remove_path_strict",
     "write_private",
 ]

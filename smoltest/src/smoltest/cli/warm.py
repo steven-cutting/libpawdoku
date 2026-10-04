@@ -12,7 +12,7 @@ import argparse
 from collections.abc import Mapping, Sequence
 
 from ..boot.strategy import BootInfo
-from ..cache import CheckpointBackend, open_checkpoint_backend
+from ..cache import CacheSummary, open_checkpoint_backend
 from ..config import Settings, resolve_target
 from ..errors import SmoltestError
 from ..postgres import PostgresMachine, Seed
@@ -122,9 +122,9 @@ def _seed_text(info: BootInfo) -> str:
     return "applied" if info.seeded else "cached"
 
 
-def table_rows(infos: Sequence[BootInfo], backend: CheckpointBackend) -> list[tuple[object, ...]]:
+def table_rows(infos: Sequence[BootInfo], summary: CacheSummary) -> list[tuple[object, ...]]:
     """One row per boot: the variant it used or wrote, with the sizes the cache reports."""
-    sizes = {(v.key, v.port): v.size_bytes for key in backend.ls().keys for v in key.variants}
+    sizes = {(v.key, v.port): v.size_bytes for key in summary.keys for v in key.variants}
     rows: list[tuple[object, ...]] = []
     for index, info in enumerate(infos, 1):
         keys = [key for key in (info.cache_key, info.seeded_key) if key is not None]
@@ -146,16 +146,17 @@ def table_rows(infos: Sequence[BootInfo], backend: CheckpointBackend) -> list[tu
 
 
 def missing_variants(
-    infos: Sequence[BootInfo], backend: CheckpointBackend, *, seeded: bool
+    infos: Sequence[BootInfo], summary: CacheSummary, *, seeded: bool
 ) -> list[tuple[str | None, int | None]]:
     """``(key, port)`` pairs a later identical boot would restore but the cache lacks.
 
     For each boot, the key that boot path restores first (the seeded key when a
     seed was given, else the base key) must have a populated, intact variant on
-    the boot's port. A boot that ran uncached (its key ``None``: the key lock was
-    busy, or the capture failed and the ladder continued) is missing as well.
+    the boot's port. A boot that ran uncached (the key lock was busy, or the
+    capture failed and the ladder continued) has no entry there and is missing
+    as well; a boot without a key (the cache disabled) always is.
     """
-    entries = {(v.key, v.port): v for key in backend.ls().keys for v in key.variants}
+    entries = {(v.key, v.port): v for key in summary.keys for v in key.variants}
     missing: list[tuple[str | None, int | None]] = []
     for info in infos:
         key = info.seeded_key if seeded else info.cache_key
@@ -194,9 +195,9 @@ def run_warm(args: argparse.Namespace, ctx: Context) -> int:
         f"into {settings.cache_dir}"
     )
     infos = warm_postgres(settings, engine, variants=variants, seed=seed, env=env)
-    backend = open_checkpoint_backend(settings, target)
-    print(format_table(COLUMNS, table_rows(infos, backend), align=ALIGN))
-    missing = missing_variants(infos, backend, seeded=seed is not None)
+    summary = open_checkpoint_backend(settings, target).ls()  # one scan for table and verdict
+    print(format_table(COLUMNS, table_rows(infos, summary), align=ALIGN))
+    missing = missing_variants(infos, summary, seeded=seed is not None)
     if missing:
         for key, port in missing:
             where = "" if port is None else f" on port {port}"

@@ -335,14 +335,22 @@ class SqlWaitStrategy(WaitStrategy):
     def describe(self) -> str:
         return f"SqlWaitStrategy({self._sql!r})"
 
-    def dsn(self, target: ReadinessTarget) -> str:
-        """The libpq URI a host driver uses to reach ``target``."""
-        timeout = max(1, round(self._connect_timeout_s))
-        return (
+    def dsn(self, target: ReadinessTarget, *, driver: str | None = None) -> str:
+        """The URI a host driver uses to reach ``target``.
+
+        libpq-based drivers take ``connect_timeout`` as a URI parameter. asyncpg
+        hands every URI parameter it does not know to the server as a session
+        setting, which rejects ``connect_timeout`` and would fail every probe, so
+        its DSN carries none: :meth:`_probe_asyncpg` passes ``timeout=`` instead.
+        """
+        base = (
             f"postgresql://{quote(target.username, safe='')}:{quote(target.password, safe='')}"
             f"@{target.endpoint.host}:{target.endpoint.port}/{quote(target.dbname, safe='')}"
-            f"?connect_timeout={timeout}"
         )
+        if driver == "asyncpg":
+            return base
+        timeout = max(1, round(self._connect_timeout_s))
+        return f"{base}?connect_timeout={timeout}"
 
     def select_driver(self) -> tuple[str, Any] | None:
         """``(name, module)`` of the first usable host driver, or ``None`` for in-guest psql."""
@@ -365,9 +373,9 @@ class SqlWaitStrategy(WaitStrategy):
         name, module = driver
         try:
             if name == "asyncpg":
-                asyncio.run(self._probe_asyncpg(module, self.dsn(target)))
+                asyncio.run(self._probe_asyncpg(module, self.dsn(target, driver=name)))
             else:
-                self._probe_dbapi(module, self.dsn(target))
+                self._probe_dbapi(module, self.dsn(target, driver=name))
         except Exception as exc:
             logger.debug("%s via %s not ready: %s", self.describe(), name, exc)
             return False

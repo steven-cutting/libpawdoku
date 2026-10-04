@@ -700,3 +700,14 @@ def test_seed_type_is_the_one_the_marker_checks() -> None:
     assert options.wants_own_golden
     assert not plugin.MarkerOptions(isolation="fresh").wants_own_golden
     assert plugin.ISOLATIONS == ("branch", "fresh", "shared")
+
+
+def test_pytest_is_an_unconditional_runtime_dependency() -> None:
+    """The ``pytest11`` plugin builds a ``pytest.StashKey`` at import; pytest 7+ is declared."""
+    import importlib.metadata
+
+    requires = importlib.metadata.requires("smoltest") or []
+    pytest_requirements = [r for r in requires if r.split(";")[0].strip().startswith("pytest")]
+    assert pytest_requirements, requires
+    assert any(";" not in r for r in pytest_requirements), "pytest must not hide behind an extra"
+    assert any(">=7" in r for r in pytest_requirements), pytest_requirements

@@ -14,7 +14,6 @@ import time
 from collections.abc import AsyncIterator, Iterator
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
-from typing import Any
 
 import pytest
 
@@ -23,7 +22,7 @@ from smoltest.errors import BootError
 from smoltest.testing import FakeEngine
 from smoltest.transport.base import Bridge, MachineSpec, PortMapping
 from smoltest.transport.base import StaticBridge as BaseStaticBridge
-from smoltest.transport.tunnel import StaticBridge, TunnelBridge, TunnelOpener
+from smoltest.transport.tunnel import StaticBridge, TunnelBridge, TunnelOpener, _Run
 
 THREAD_NAME = "smoltest-tunnel"
 
@@ -223,20 +222,24 @@ def test_open_timeout_cancels_a_tunnel_that_never_comes_up() -> None:
 
 def test_stop_before_the_worker_initialises_is_not_lost(echo: EchoServer) -> None:
     """A connect timeout that beats the worker to its loop must still stop that worker."""
-    gate = threading.Event()
     log: list[str] = []
 
     class SlowStart(TunnelBridge):
-        def _serve_thread(self, run: Any) -> None:
-            gate.wait(5)  # the worker has no loop or task yet when open() gives up
+        def _serve_thread(self, run: _Run) -> None:
+            # The worker has no loop or task yet when open() gives up; it only
+            # starts once the stop request has been recorded, so the request
+            # must be honoured by the task that is created afterwards.
+            deadline = time.monotonic() + 5.0
+            while not run.stop_requested and time.monotonic() < deadline:
+                time.sleep(0.001)
             super()._serve_thread(run)
 
     bridge = SlowStart(relay_to(echo.port, log), connect_timeout_s=0.1)
+    started = time.monotonic()
     with pytest.raises(BootError, match="did not open within") as info:
         bridge.open()
     assert info.value.stage == "tunnel"
-    assert log == [], "the opener must not have run before the worker was released"
-    gate.set()
+    assert time.monotonic() - started < 3.0, "the worker must exit as soon as it is released"
     deadline = time.monotonic() + 5.0
     while tunnel_threads() and time.monotonic() < deadline:
         time.sleep(0.01)

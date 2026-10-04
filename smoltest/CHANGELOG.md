@@ -101,10 +101,13 @@ All notable changes to smoltest are recorded here. The format follows
   `CacheError` with code `CHECKPOINT_PERMISSIONS` when a `chmod` fails or does not take effect,
   instead of silently leaving a copy of guest RAM with the umask's permissions; the checkpoint
   that could not be protected is removed, and `checkpoint()` raises `SmoltestError` with the same
-  code.
+  code. A removal that fails in turn is reported with that code too (the path is still readable)
+  rather than as a bare `OSError` hiding the permission failure. Group and world permission
+  bits are what the check rejects, so a mount with a fixed owner-only mask still works.
 - `GoldenRegistry` compares engines by identity without hashing them: an unhashable engine (a
   mutable dataclass) no longer fails `get_or_boot()` with `TypeError`, and two value-equal engine
-  instances no longer share a golden.
+  instances no longer share a golden. `GoldenKey.engine` is now an `EngineIdentity` wrapper (the
+  engine itself is `key.engine.engine`).
 - `get_connection_url()` percent-encodes the user and database names as well as the password,
   so `/`, `@`, `#` or `?` in them no longer corrupt the URL.
 - `WaitStrategy.resolve()` / `wait_until_ready(target, timeout_s, poll_s)` reject non-finite
@@ -114,7 +117,32 @@ All notable changes to smoltest are recorded here. The format follows
   left open on a run the bridge has already discarded.
 - `smoltest warm` exits 1, after printing its table, when a requested variant is not in the
   cache populated and intact afterwards (a boot that continued uncached after a busy key lock
-  or a failed capture); previously it exited 0 and deleted the machines.
+  or a failed capture); previously it exited 0 and deleted the machines. The two seeded
+  uncached paths now log at WARNING, so the CLI shows the cause without `-v`.
+- The exit reaper pins weakref's own exit hook ahead of its own. When the reaper created the
+  process's first `weakref.finalize`, atexit's LIFO order ran weakref's hook first, which
+  disables every finalizer, so machines relying on exit cleanup were left running.
+- A forked child no longer inherits the parent's cleanups: the reaper's registrations and the
+  cache claims' finalizers are detached in the child, so a garbage collection or a normal exit
+  there cannot delete the parent's machines or remove its claim files. The child's own
+  registrations work as before.
+- Locks returned by `FileLock.for_path` share the hold (re-entrancy across cache objects) but
+  carry each caller's own timeout and poll interval; previously the first caller's settings
+  stuck to the path, so a later caller with a shorter timeout waited the longer one (or forever).
+- A fixed PostgreSQL host port (`with_bind_ports(5432, N)`, `smoltest run postgres --port N`)
+  is refused on the cloud target with `NotSupportedError` (the CLI exits 1 before booting)
+  instead of being silently dropped while the tunnel picks another port.
+- A checkpoint the cache rejects after the engine wrote it (a ref that is not the requested
+  file, a file that is missing or elsewhere) is removed, together with the file the engine
+  reported, instead of staying behind with the umask's permissions.
+- `SqlWaitStrategy` builds the asyncpg DSN without `connect_timeout`: asyncpg forwards unknown
+  URI parameters to the server as session settings, which rejected every probe until the
+  readiness timeout. The libpq-based drivers keep the parameter; asyncpg gets `timeout=`.
+- `inputs.json`, the cloud index and `smoltest cache ls --json` hash every guest environment
+  value except the PostgreSQL image's documented non-secret settings (`POSTGRES_USER`,
+  `POSTGRES_DB`, `POSTGRES_INITDB_ARGS`, `TZ`, `LANG`, `PG*`, ...); previously only names
+  containing `PASSWORD`, `PASSWD`, `SECRET` or `TOKEN` were redacted, so an `API_KEY` or
+  `DATABASE_URL` passed through `with_env` was persisted in clear.
 
 ### Added
 
@@ -134,7 +162,7 @@ All notable changes to smoltest are recorded here. The format follows
   smoltest creates; restored and branched cloud machines carry no TTL smoltest can set.
 - `pytest>=7` is a runtime dependency: the plugin is loaded through the `pytest11` entry point
   whenever smoltest is installed and needs `pytest.StashKey`, so declaring it keeps an older
-  pytest from failing at collection.
+  pytest from aborting at startup while it loads the plugin.
 
 ## 0.1.0 - 2026-10-03
 

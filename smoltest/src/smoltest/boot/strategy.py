@@ -224,7 +224,14 @@ class _Boot:
         self.name = _machine_name(name, role)
         self.target: Target = resolve_target(settings, engine)
         self.local = self.target == "local"
-        self.pinned_port = host_port if self.local else None
+        if host_port is not None and not self.local:
+            # Silently booting on another port would break every client configured
+            # for the one asked for; the tunnel chooses its own loopback port.
+            raise NotSupportedError(
+                f"a fixed host port ({host_port}) is not supported on the cloud target: "
+                "the tunnel chooses its loopback port; drop the port pin or use the local target"
+            )
+        self.pinned_port = host_port
         use_cache = not settings.disable_cache and engine.supports_checkpoints(self.target)
         self.backend: CheckpointBackend | None = (
             open_checkpoint_backend(settings, self.target) if use_cache else None
@@ -530,7 +537,9 @@ class _Boot:
             try:
                 lock.acquire()
             except LockTimeout as exc:
-                logger.info("not caching seeded variant %s:%s (key busy): %s", key, self.port, exc)
+                logger.warning(
+                    "not caching seeded variant %s:%s (key busy): %s", key, self.port, exc
+                )
                 return
             try:
                 self._populate_seeded(backend, key, handle)
@@ -543,7 +552,7 @@ class _Boot:
         try:
             claim = backend.reserve_new_variant(key.key, self.port)
         except CacheError as exc:
-            logger.info("not caching seeded variant %s:%s: %s", key, self.port, exc)
+            logger.warning("not caching seeded variant %s:%s: %s", key, self.port, exc)
             return
         try:
             backend.populate(key.key, claim, handle, key.inputs, engine=self.engine)

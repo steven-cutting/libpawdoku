@@ -1,8 +1,15 @@
-"""Reaper ordering and idempotence."""
+"""Reaper ordering and idempotence, at exit and across a fork."""
 
 from __future__ import annotations
 
 import gc
+import multiprocessing
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
+import pytest
 
 from smoltest._lifecycle import Reaper, get_reaper
 
@@ -111,6 +118,68 @@ def test_fired_and_detached_registrations_are_forgotten() -> None:
     reaper.run()
     assert reaper.pending == 0 and reaper._entries == {} and reaper._by_obj == {}
     del parent, children
+
+
+def test_exit_hook_runs_even_when_the_reaper_creates_the_first_finalizer(tmp_path: Path) -> None:
+    """weakref's exit hook must be registered before ours or it disables our tokens first."""
+    marker = tmp_path / "cleaned"
+    code = (
+        "import sys\n"
+        "from pathlib import Path\n"
+        "from smoltest._lifecycle import get_reaper\n"
+        "class Thing: pass\n"
+        "thing = Thing()\n"
+        "marker = Path(sys.argv[1])\n"
+        "get_reaper().register(thing, lambda: marker.write_text('cleaned'))\n"
+    )
+    subprocess.run([sys.executable, "-c", code, str(marker)], check=True, timeout=120)
+    assert marker.read_text() == "cleaned", "the exit hook skipped the registered cleanup"
+
+
+def _forked_child(parent_marker: str, own_marker: str, results: Any) -> None:
+    """What a forked child sees: no inherited registrations, a reaper that still works."""
+    reaper = get_reaper()
+    inherited = reaper.pending
+    gc.collect()  # on the old code this fires the parent's finalizers
+    reaper.run()  # what a normal exit in the child would do
+
+    class Own:
+        pass
+
+    own = Own()
+    reaper.register(own, lambda: Path(own_marker).write_text("own"))
+    del own
+    gc.collect()
+    own_done = Path(own_marker).read_text() if Path(own_marker).exists() else None
+    results.put((inherited, Path(parent_marker).exists(), own_done))
+
+
+@pytest.mark.skipif(
+    "fork" not in multiprocessing.get_all_start_methods(), reason="needs the fork start method"
+)
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")  # fork() with live threads, 3.12+
+def test_forked_child_does_not_run_the_parents_cleanups(tmp_path: Path) -> None:
+    parent_marker, own_marker = tmp_path / "parent", tmp_path / "child"
+    reaper = get_reaper()
+    thing = Thing("parent-owned")
+    token = reaper.register(thing, lambda: parent_marker.write_text("released by the child"))
+    try:
+        ctx = multiprocessing.get_context("fork")
+        results = ctx.Queue()
+        proc = ctx.Process(
+            target=_forked_child, args=(str(parent_marker), str(own_marker), results), daemon=True
+        )
+        proc.start()
+        inherited, parent_marker_exists, own_done = results.get(timeout=60)
+        proc.join(timeout=30)
+        assert proc.exitcode == 0
+        assert inherited == 0, "the child must start with no inherited registrations"
+        assert parent_marker_exists is False, "the child ran a parent-owned cleanup"
+        assert own_done == "own", "child-owned registrations must still work"
+        assert token.alive and not parent_marker.exists(), "the parent's registration is intact"
+    finally:
+        reaper.detach(token)
+    del thing
 
 
 def test_gc_removes_the_entry() -> None:

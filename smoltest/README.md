@@ -27,7 +27,8 @@ pip install "smoltest[cloud]"        # + websockets, needed for the TCP tunnel t
 
 Until the package is on PyPI, install it from a checkout: `pip install /path/to/smoltest`.
 pytest 7 or newer is installed with it: the plugin registers itself through the `pytest11`
-entry point and needs pytest's `StashKey`, so an older pytest would fail at collection.
+entry point and needs pytest's `StashKey`, so an older pytest would abort at startup while
+loading the plugin.
 
 Requirements: Python 3.10 or newer, and one of
 
@@ -203,7 +204,8 @@ smoltest [--cache-dir DIR] [--target {auto,local,cloud}] [-v] COMMAND
   unfinished). `export` warns that the copy contains guest RAM.
 - `smoltest run postgres [--image IMAGE] [--no-fast] [--seed-sql FILE ...] [--env K=V ...]
   [--port HOST_PORT] [--no-cache]` boots one machine, prints its `postgresql://` URL and how it
-  booted, blocks until Ctrl-C (SIGINT/SIGTERM) and deletes it.
+  booted, blocks until Ctrl-C (SIGINT/SIGTERM) and deletes it. `--port` is refused on the cloud
+  target (exit 1 before anything boots): the tunnel chooses its loopback port.
 
 Exit status: 0 ok, 1 failure, 2 usage error, 3 no Smol target available.
 
@@ -255,7 +257,7 @@ that no longer matches simply misses and boots cold.
 <cache_dir>/postgres/.lock                      store-wide lock
 <cache_dir>/postgres/<key>.lock                 per-key lock
 <cache_dir>/postgres/store/                     the engine's dedup store
-<cache_dir>/postgres/<key>/inputs.json          what produced the key, passwords redacted
+<cache_dir>/postgres/<key>/inputs.json          what produced the key; env values hashed
 <cache_dir>/postgres/<key>/<port>.smolcheckpoint
 <cache_dir>/postgres/<key>/<port>.meta.json     commit marker, written last
 <cache_dir>/postgres/<key>/<port>.claim         pid + token of the process using the variant
@@ -268,7 +270,8 @@ private, never commit a `.smolcheckpoint` (the repository's `.gitignore` already
 and treat `smoltest cache export` output the same way. When those modes cannot be applied (a
 filesystem that refuses or ignores `chmod`), the checkpoint just written is removed again and
 the operation fails with code `CHECKPOINT_PERMISSIONS` rather than leaving a readable copy; this
-holds for cache variants, `cache export` and `PostgresMachine.checkpoint()` alike. The cache is
+holds for cache variants (during a boot the `BootError`'s cause carries the code), `cache export`
+and `PostgresMachine.checkpoint()` alike. The cache is
 pruned least-recently-used down to `cache_max_bytes` (10 GiB by default); a variant that fails
 to restore is invalidated and replaced by a cold boot.
 
@@ -398,7 +401,9 @@ seed=, capture_logs=)` override the settings for that machine only.
   set and SDK version (all part of the key), and they contain guest RAM.
 - The cloud target needs the `cloud` extra (`websockets`) for the TCP tunnel (checked before
   any cloud machine is created) and keeps the PostgreSQL port only (no `host_port` for extra
-  ports).
+  ports). A fixed PostgreSQL host port (`with_bind_ports(5432, N)`, `--port N`) is refused there
+  with `NotSupportedError`: the tunnel chooses its loopback port, and silently booting on another
+  port would break the clients configured for the requested one.
 - The `auto_stop_seconds` / `ttl_seconds` safety net is sent only when smoltest *creates* a
   cloud machine (a cold boot). Machines produced by a checkpoint restore (warm boots) and by
   branching the golden (the default pytest isolation) carry whatever Smol Cloud assigns them;

@@ -12,9 +12,11 @@ import pytest
 
 from smoltest.boot.spec import PostgresSpec
 from smoltest.cache.key import (
+    _SENSITIVE,
     DEFAULT_CLOUD_URL,
     KEY_FORMAT,
     KEY_LENGTH,
+    PLAIN_ENV_NAMES,
     CacheKey,
     HostSignature,
     canonical_json,
@@ -185,18 +187,33 @@ def test_env_order_does_not_matter() -> None:
     assert a.key == b.key
 
 
-def test_redaction_hashes_password_like_values_only() -> None:
-    key = key_for(PostgresSpec(password="s3cret", env={"API_TOKEN": "t", "TZ": "UTC"}))
+def test_redaction_hashes_every_env_value_but_the_known_plain_names() -> None:
+    env_in = {
+        "API_TOKEN": "t",
+        "API_KEY": "k",
+        "DATABASE_URL": "postgres://u:p@h/d",
+        "AUTH": "a",
+        "FOO": "bar",
+        "TZ": "UTC",
+        "POSTGRES_INITDB_ARGS": "--data-checksums",
+    }
+    key = key_for(PostgresSpec(password="s3cret", env=env_in))
     env = key.inputs["env"]
-    assert env["POSTGRES_PASSWORD"] == "s3cret"  # unredacted in memory
+    assert env["POSTGRES_PASSWORD"] == "s3cret" and env["DATABASE_URL"] == env_in["DATABASE_URL"]
     redacted = key.redacted_inputs()
     assert redacted["env"]["POSTGRES_PASSWORD"] == f"sha256:{digest('s3cret', 8)}"
-    assert redacted["env"]["API_TOKEN"] == f"sha256:{digest('t', 8)}"
+    for name in ("API_TOKEN", "API_KEY", "DATABASE_URL", "AUTH", "FOO"):
+        assert redacted["env"][name] == f"sha256:{digest(env_in[name], 8)}", name
     assert redacted["env"]["TZ"] == "UTC"
+    assert redacted["env"]["POSTGRES_INITDB_ARGS"] == env["POSTGRES_INITDB_ARGS"]  # in clear
     assert redacted["env"]["POSTGRES_USER"] == "test"
     assert redacted["image"] == key.inputs["image"]
-    assert "s3cret" not in json.dumps(redacted)
+    dumped = json.dumps(redacted)
+    for secret in ("s3cret", "postgres://u:p@h/d", '"bar"', '"k"', '"a"'):
+        assert secret not in dumped, secret
     assert len(redacted["env"]["POSTGRES_PASSWORD"]) == len("sha256:") + 8
+    assert {"POSTGRES_USER", "POSTGRES_DB", "TZ"} <= PLAIN_ENV_NAMES
+    assert not any(_SENSITIVE.search(name) for name in PLAIN_ENV_NAMES)
 
 
 def test_redact_inputs_recurses_and_copies() -> None:

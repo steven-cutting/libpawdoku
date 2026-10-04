@@ -4,7 +4,8 @@ A :class:`PostgresGolden` wraps one booted :class:`~smoltest.postgres.PostgresMa
 and hands out isolated children: copy-on-write branches when the engine supports
 them, otherwise fresh machines booted from the same template (a restore of
 another cache variant, or a cold boot). :class:`GoldenRegistry` keeps one golden
-per (machine spec, seed) in the process and closes them all at exit.
+per :class:`GoldenKey` (machine spec, seed, runtime options and engine instance)
+in the process and closes them all at exit.
 """
 
 from __future__ import annotations
@@ -39,7 +40,9 @@ class EngineIdentity:
     engine: Engine
 
     def __eq__(self, other: object) -> bool:
-        return isinstance(other, EngineIdentity) and other.engine is self.engine
+        if not isinstance(other, EngineIdentity):
+            return NotImplemented
+        return other.engine is self.engine
 
     def __hash__(self) -> int:
         return id(self.engine)

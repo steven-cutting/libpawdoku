@@ -15,6 +15,7 @@ import threading
 from collections.abc import Iterator
 from types import FrameType
 
+from ..config import resolve_target
 from ..errors import SmoltestError
 from ..postgres import PostgresMachine
 from ..transport import get_engine
@@ -27,6 +28,7 @@ from . import (
     note,
     parse_env_assignments,
     port_arg,
+    print_err,
 )
 
 STOP_SIGNALS = (signal.SIGINT, signal.SIGTERM)
@@ -121,6 +123,12 @@ def run_postgres(args: argparse.Namespace, ctx: Context) -> int:
     env = parse_env_assignments(args.env)
     seed = load_seed(args.seed_sql)
     engine = get_engine(settings)
+    if args.port is not None and resolve_target(settings, engine) == "cloud":
+        print_err(
+            "error: --port is not supported on the cloud target: the tunnel chooses its "
+            "loopback port; drop --port or use --target local"
+        )
+        return EXIT_FAILURE
     machine = PostgresMachine(settings=settings, engine=engine, seed=seed)
     for key, value in env.items():
         machine.with_env(key, value)

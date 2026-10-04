@@ -45,7 +45,7 @@ from smoltest.errors import (
     SmoltestWarning,
 )
 from smoltest.testing import FakeEngine, FakeMachine
-from smoltest.transport.base import CheckpointRef, MachineSpec, PortMapping
+from smoltest.transport.base import CheckpointInfo, CheckpointRef, MachineSpec, PortMapping
 
 KEY = "a" * 32
 KEY2 = "b" * 32
@@ -813,7 +813,7 @@ def test_export_copies_a_variant_and_warns_once(
 
 def test_file_lock_is_reentrant_shared_by_path_and_times_out(tmp_path: Path) -> None:
     lock = FileLock.for_path(tmp_path / "sub" / "x.lock", timeout_s=0.3, poll_interval_s=0.01)
-    assert FileLock.for_path(tmp_path / "sub" / "x.lock") is lock
+    assert FileLock.for_path(tmp_path / "sub" / "x.lock").shares_hold_with(lock)
     assert not is_held(lock)
     with lock:
         assert is_held(lock) and stat.S_IMODE(lock.path.stat().st_mode) == 0o600
@@ -863,12 +863,48 @@ def test_for_path_locks_the_resolved_file_after_a_chdir(
     lock = FileLock.for_path("guard.lock", timeout_s=0.3, poll_interval_s=0.01)
     assert lock.path == (first / "guard.lock").resolve()
     monkeypatch.chdir(second)
-    assert FileLock.for_path(first / "guard.lock") is lock
+    assert FileLock.for_path(first / "guard.lock").shares_hold_with(lock)
     with lock:
         assert (first / "guard.lock").exists() and not (second / "guard.lock").exists()
         other = FileLock(first / "guard.lock", timeout_s=0.05, poll_interval_s=0.01)
         with pytest.raises(LockTimeout):
             other.acquire()
+
+
+def test_for_path_applies_each_callers_timeout(tmp_path: Path) -> None:
+    """Shared hold, own patience: a later caller's shorter timeout is not discarded."""
+    path = tmp_path / "t.lock"
+    patient = FileLock.for_path(path, timeout_s=5)
+    hasty = FileLock.for_path(path, timeout_s=0.05, poll_interval_s=0.01)
+    assert hasty.shares_hold_with(patient) and hasty is not patient
+    assert (hasty.timeout_s, patient.timeout_s) == (0.05, 5)
+    with patient, hasty:  # one thread, two objects: re-entrant through the shared hold
+        assert patient.held and hasty.held
+    assert not patient.held and not hasty.held
+
+    acquired, release = threading.Event(), threading.Event()
+
+    def holder() -> None:
+        other = FileLock(path)  # another process in effect: its own hold, same file
+        other.acquire()
+        acquired.set()
+        release.wait(5)
+        other.release()
+
+    t = threading.Thread(target=holder)
+    t.start()
+    assert acquired.wait(5)
+    started = time.monotonic()
+    with pytest.raises(LockTimeout) as info:
+        hasty.acquire()
+    assert time.monotonic() - started < 2.0, "the hasty caller waited for the patient one's timeout"
+    assert info.value.timeout_s == 0.05
+    with pytest.raises(LockTimeout):
+        patient.acquire(timeout_s=0.05)  # an explicit timeout still wins
+    release.set()
+    t.join(5)
+    with hasty:
+        assert patient.held
 
 
 def test_shared_locks_coexist_but_exclude_writers(tmp_path: Path) -> None:
@@ -968,7 +1004,13 @@ def test_two_processes_racing_for_one_key_boot_cold_exactly_once(tmp_path: Path)
 
 def _fork_worker(lock: FileLock, results: Any) -> None:
     """Report what a forked child inherits of the parent's hold and whether it can lock."""
-    held_before, fd_closed = lock.held, lock._fd is None
+    held_before, fd_closed = lock.held, lock._hold.fd is None
+    try:
+        lock.release()  # releasing the parent's hold must be impossible, not a LOCK_UN
+    except CacheError:
+        bare_release = "raised"
+    else:
+        bare_release = "released"
     try:
         lock.acquire(timeout_s=0.3)
     except LockTimeout:
@@ -976,7 +1018,7 @@ def _fork_worker(lock: FileLock, results: Any) -> None:
     else:
         lock.release()
         outcome = "acquired"
-    results.put((held_before, fd_closed, outcome))
+    results.put((held_before, fd_closed, bare_release, outcome))
 
 
 @pytest.mark.skipif(
@@ -988,24 +1030,102 @@ def test_forked_child_does_not_inherit_a_held_lock(tmp_path: Path) -> None:
     ctx = multiprocessing.get_context("fork")
     lock = FileLock.for_path(tmp_path / "forked.lock", timeout_s=5, poll_interval_s=0.01)
 
-    def fork_and_report() -> tuple[bool, bool, str]:
+    def fork_and_report() -> tuple[bool, bool, str, str]:
         results = ctx.Queue()
         proc = ctx.Process(target=_fork_worker, args=(lock, results), daemon=True)
         proc.start()
-        outcome: tuple[bool, bool, str] = results.get(timeout=60)
+        outcome: tuple[bool, bool, str, str] = results.get(timeout=60)
         proc.join(timeout=30)
         assert proc.exitcode == 0
         return outcome
 
     with lock:
-        assert fork_and_report() == (False, True, "timeout"), "the child reused the parent's hold"
-        assert lock.held, "the child's attempt must not have unlocked the parent"
+        assert fork_and_report() == (False, True, "raised", "timeout"), "the child reused the hold"
+        assert lock.held, "the child's attempts must not have unlocked the parent"
         other = FileLock(tmp_path / "forked.lock", timeout_s=0.05, poll_interval_s=0.01)
         with pytest.raises(LockTimeout):
             other.acquire()  # the parent's flock is intact
-    assert fork_and_report() == (False, True, "acquired")
+    assert fork_and_report() == (False, True, "raised", "acquired")
     lock.acquire(0)  # the child's release left the file free for the parent
     lock.release()
+
+
+def _claim_fork_worker(claim: VariantClaim, results: Any) -> None:
+    """A forked child inherits the claim object; its finalizer must be disowned."""
+    fin = claim._finalizer
+    assert fin is not None and claim.claim_path is not None
+    alive = fin.alive
+    fin()  # what a garbage collection or weakref's exit hook would do in the child
+    results.put((alive, claim.claim_path.exists()))
+
+
+@pytest.mark.skipif(
+    "fork" not in multiprocessing.get_all_start_methods(), reason="needs the fork start method"
+)
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")  # fork() with live threads, 3.12+
+def test_forked_child_does_not_remove_the_parents_claim_file(cache: CheckpointCache) -> None:
+    claim = cache.reserve_new_variant(KEY, pick_free_port())
+    path = claim.claim_path
+    assert path is not None and path.exists()
+    ctx = multiprocessing.get_context("fork")
+    results = ctx.Queue()
+    proc = ctx.Process(target=_claim_fork_worker, args=(claim, results), daemon=True)
+    proc.start()
+    alive_in_child, exists_after = results.get(timeout=60)
+    proc.join(timeout=30)
+    assert proc.exitcode == 0
+    assert alive_in_child is False, "the child inherited a live finalizer for the parent's claim"
+    assert exists_after is True and path.exists(), "the child removed the parent's claim file"
+    claim.release()
+    assert not path.exists()
+
+
+def test_populate_removes_a_checkpoint_the_engine_reports_wrongly(
+    cache: CheckpointCache, fake_engine: FakeEngine, tmp_path: Path
+) -> None:
+    """A checkpoint rejected by validation is guest RAM too: it must not stay behind."""
+    port = pick_free_port()
+    machine = fake_engine.create(mspec(port), "local")
+    claim = cache.reserve_new_variant(KEY, port)
+    paths = cache.paths(KEY, port)
+    real = machine.checkpoint
+
+    def cloud_ref(output: str | None = None, store: str | None = None) -> CheckpointInfo:
+        info = real(output, store)  # the file is written as asked ...
+        return dataclasses.replace(
+            info, ref=CheckpointRef("cloud", "ckpt-x")
+        )  # ... but misreported
+
+    elsewhere = tmp_path / "elsewhere.smolcheckpoint"
+
+    def other_path(output: str | None = None, store: str | None = None) -> CheckpointInfo:
+        info = real(output, store)
+        elsewhere.write_bytes(Path(info.ref.locator).read_bytes())
+        return dataclasses.replace(info, ref=CheckpointRef("file", str(elsewhere)))
+
+    with pytest.raises(CacheCorrupt, match="cloud checkpoint"):
+        cache.populate(KEY, claim, _with_checkpoint(machine, cloud_ref), INPUTS)
+    assert not paths.checkpoint.exists() and not paths.meta.exists()
+    with pytest.raises(CacheCorrupt, match="not"):
+        cache.populate(KEY, claim, _with_checkpoint(machine, other_path), INPUTS)
+    assert not paths.checkpoint.exists() and not elsewhere.exists()
+    assert paths.claim.exists() and not claim.populated
+    cache.populate(KEY, claim, machine, INPUTS)  # the honest engine still populates
+    assert claim.populated and stat.S_IMODE(paths.checkpoint.stat().st_mode) == 0o600
+    claim.release()
+    machine.delete()
+
+
+def _with_checkpoint(machine: FakeMachine, checkpoint: Any) -> Any:
+    """``machine`` with its ``checkpoint`` method replaced for one populate call."""
+
+    class _View:
+        def __getattr__(self, name: str) -> Any:
+            return getattr(machine, name)
+
+    view = _View()
+    view.checkpoint = checkpoint  # type: ignore[attr-defined]
+    return view
 
 
 # -- the cloud index ------------------------------------------------------------------------

@@ -337,26 +337,38 @@ class _ValueEqualEngine(FakeEngine):
         return 7
 
 
-def test_registry_keys_engines_by_identity_without_hashing_them(settings: Settings) -> None:
+def test_registry_accepts_an_unhashable_engine(settings: Settings) -> None:
     unhashable = _UnhashableEngine()
-    twin_a, twin_b = _ValueEqualEngine(), _ValueEqualEngine()
-    assert twin_a == twin_b and hash(twin_a) == hash(twin_b)
+    with pytest.raises(TypeError, match="unhashable"):
+        hash(unhashable)
     registry = GoldenRegistry()
     try:
         plain = registry.get_or_boot(PostgresMachine(settings=settings, engine=unhashable))
         assert plain.engine is unhashable
         assert registry.get_or_boot(PostgresMachine(settings=settings, engine=unhashable)) is plain
+        assert len(registry) == 1
+    finally:
+        registry.close_all()
+    assert unhashable.live_machines == set()
+
+
+def test_registry_separates_value_equal_engines(settings: Settings) -> None:
+    twin_a, twin_b = _ValueEqualEngine(), _ValueEqualEngine()
+    assert twin_a == twin_b and hash(twin_a) == hash(twin_b)
+    registry = GoldenRegistry()
+    try:
         first = registry.get_or_boot(PostgresMachine(settings=settings, engine=twin_a))
         second = registry.get_or_boot(PostgresMachine(settings=settings, engine=twin_b))
         assert first is not second, "value-equal engines must not share a golden"
         assert first.engine is twin_a and second.engine is twin_b
-        assert len(registry) == 3
+        assert len(registry) == 2
         key = GoldenRegistry.key_for(PostgresMachine(settings=settings, engine=twin_a), None)
         assert key.engine == EngineIdentity(twin_a) and key.engine != EngineIdentity(twin_b)
+        assert key.engine != twin_a and (key.engine == object()) is False
         assert "EngineIdentity" in repr(key.engine) and "_ValueEqualEngine" in repr(key.engine)
     finally:
         registry.close_all()
-    for engine in (unhashable, twin_a, twin_b):
+    for engine in (twin_a, twin_b):
         assert engine.live_machines == set()
 
 

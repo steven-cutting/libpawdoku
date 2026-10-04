@@ -417,6 +417,18 @@ def test_target_unavailable_propagates_unchanged(settings: Settings) -> None:
 # -- cloud --------------------------------------------------------------------------------
 
 
+def test_cloud_refuses_a_pinned_host_port(fake_engine: FakeEngine, settings: Settings) -> None:
+    """Booting on another port than the one asked for would break the clients configured for it."""
+    cloud = settings.replace(target="cloud")
+    with pytest.raises(NotSupportedError, match=r"fixed host port .* cloud"):
+        boot_postgres(SPEC, cloud, fake_engine, host_port=24000)
+    assert fake_engine.ops("create") == [] and fake_engine.live_machines == set()
+    machine = PostgresMachine(settings=cloud, engine=fake_engine).with_bind_ports(5432, 24000)
+    with pytest.raises(NotSupportedError, match="cloud"):
+        machine.start()
+    assert fake_engine.ops("create") == [] and fake_engine.live_machines == set()
+
+
 def test_cloud_uses_index_tunnel_and_safety_net(
     fake_engine: FakeEngine, settings: Settings
 ) -> None:
@@ -824,11 +836,20 @@ def test_tunnel_failure_after_restore_does_not_invalidate(
 
 
 def test_key_lock_timeout_falls_back_to_an_uncached_cold_boot(
-    fake_engine: FakeEngine, settings: Settings
+    fake_engine: FakeEngine, settings: Settings, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     key = base_key(settings, fake_engine)
-    # Registering the lock first makes the cache reuse this instance and its timeout.
-    lock = FileLock.for_path(settings.cache_dir / "postgres" / f"{key.key}.lock", timeout_s=0.3)
+    # The boot would wait 2 * ready_timeout_s + 120 s for the holder; make it impatient.
+    real_open = CheckpointCache.open
+
+    def impatient(settings: Settings, target: str) -> CheckpointCache:
+        cache = real_open(settings, target)  # type: ignore[arg-type]
+        cache.lock_timeout_s = 0.3
+        return cache
+
+    monkeypatch.setattr(CheckpointCache, "open", staticmethod(impatient))
+    # Another process in effect: a lock on the key file whose hold the cache's lock shares.
+    lock = FileLock.for_path(settings.cache_dir / "postgres" / f"{key.key}.lock", timeout_s=5)
     held, let_go = threading.Event(), threading.Event()
 
     def holder() -> None:

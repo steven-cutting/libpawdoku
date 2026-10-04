@@ -40,6 +40,32 @@ CLOUD_URL_ENV = "SMOL_CLOUD_URL"
 CPUINFO_PATH = Path("/proc/cpuinfo")
 
 _SENSITIVE = re.compile(r"PASSWORD|PASSWD|SECRET|TOKEN", re.IGNORECASE)
+PLAIN_ENV_NAMES = frozenset(
+    {
+        "LANG",
+        "LANGUAGE",
+        "LC_ALL",
+        "LC_COLLATE",
+        "LC_CTYPE",
+        "LC_MESSAGES",
+        "LC_MONETARY",
+        "LC_NUMERIC",
+        "LC_TIME",
+        "PGDATA",
+        "PGDATABASE",
+        "PGPORT",
+        "PGTZ",
+        "PGUSER",
+        "POSTGRES_DB",
+        "POSTGRES_HOST_AUTH_METHOD",
+        "POSTGRES_INITDB_ARGS",
+        "POSTGRES_INITDB_WALDIR",
+        "POSTGRES_USER",
+        "TZ",
+    }
+)
+"""Guest environment variables :func:`redact_inputs` keeps in clear: the PostgreSQL
+image's documented settings that carry no credential. Every other value is hashed."""
 _KEY_RE = re.compile(rf"^[0-9a-f]{{{KEY_LENGTH}}}$")
 
 
@@ -71,21 +97,27 @@ def digest(text: str, length: int = KEY_LENGTH) -> str:
 
 
 def redact_inputs(inputs: Mapping[str, Any]) -> dict[str, Any]:
-    """Copy ``inputs`` with every password-like value replaced by ``sha256:<8 hex>``.
+    """Copy ``inputs`` with secrets replaced by ``sha256:<8 hex>``.
 
-    A value is password-like when its key contains ``PASSWORD``, ``PASSWD``,
-    ``SECRET`` or ``TOKEN`` (any case), at any depth. The digest lets two
-    redacted files be compared without exposing the secret.
+    Under ``env`` every value is hashed unless its name is in
+    :data:`PLAIN_ENV_NAMES`: ``with_env`` carries arbitrary credentials
+    (``API_KEY``, ``DATABASE_URL``, ``AUTH``, ...) that no name pattern can know
+    in full. Elsewhere a value is hashed when its key contains ``PASSWORD``,
+    ``PASSWD``, ``SECRET`` or ``TOKEN`` (any case), at any depth. The digest lets
+    two redacted files be compared without exposing the value.
     """
     return _redact_mapping(inputs)
 
 
-def _redact_mapping(value: Mapping[Any, Any]) -> dict[str, Any]:
+def _redact_mapping(value: Mapping[Any, Any], *, env: bool = False) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for k, v in value.items():
         key = str(k)
-        if _SENSITIVE.search(key) and isinstance(v, str):
+        secret = _SENSITIVE.search(key) is not None or (env and key not in PLAIN_ENV_NAMES)
+        if secret and isinstance(v, str):
             out[key] = f"sha256:{digest(v, 8)}"
+        elif key == "env" and isinstance(v, Mapping):
+            out[key] = _redact_mapping(v, env=True)
         else:
             out[key] = _redact_value(v)
     return out
@@ -288,6 +320,7 @@ __all__ = [
     "DEFAULT_CLOUD_URL",
     "KEY_FORMAT",
     "KEY_LENGTH",
+    "PLAIN_ENV_NAMES",
     "CacheKey",
     "HostSignature",
     "canonical_json",
