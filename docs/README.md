@@ -41,6 +41,7 @@ it needs.
 - [Test and debug](how-to/test-and-debug.md)
 - [Work with the specifications](how-to/work-with-the-specs.md)
 - [Maintain dependencies](how-to/maintain-dependencies.md)
+- [Deploy to GitHub Pages](how-to/deploy-to-github-pages.md)
 
 ## Understand
 

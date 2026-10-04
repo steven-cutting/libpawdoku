@@ -76,7 +76,8 @@ Start at [the documentation map](docs/README.md).
 - [Make your first change](docs/tutorials/first-change.md) — clone to green gate
 - [Architecture](docs/explanation/architecture.md) — how a portable engine with one effect fits together
 - [Specifications](docs/explanation/specifications.md) — why behaviour is written down first
-- [API reference](docs/reference/api.md) — the rustdoc, and how it is built
+- [API reference](docs/reference/api.md) — the rustdoc, and how it is built; hosted for
+  `main` at <https://steven-cutting.github.io/libpawdoku/>
 
 Engineering conventions and the agent working agreement are in [AGENTS.md](AGENTS.md).
 
