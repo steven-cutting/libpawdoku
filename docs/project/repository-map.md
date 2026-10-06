@@ -33,6 +33,7 @@ under `crates/` as siblings, each depending on the engine and none on another.
 │       │   ├── board/      The board's parts: the cell, the note, the move, the journal, the reading, the check, the refusal, the record
 │       │   ├── generation.rs  The basic generator: the tiers, the one entry and its refusal
 │       │   ├── generation/ The generator's parts: a choice among n, the orders, the solution grid, removal
+│       │   ├── guide.rs    The engine map: a page of the API reference with its figures and their styles, compiled only when rustdoc builds
 │       │   ├── random.rs   The randomness boundary and its fake
 │       │   ├── solver.rs   The solver's two entries, search and solve, and its refusal
 │       │   ├── solver/     The solver's parts: candidates, the branch, the search, the result

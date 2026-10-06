@@ -39,6 +39,30 @@ the coverage floor, because the coverage tooling cannot measure doctests on a st
 toolchain. The division of labour follows: an example shows the contract to a reader and
 proves it, and a unit test earns the coverage. See [Testing](testing.md).
 
+## Pages and figures
+
+The reference carries one page that documents no item: `pawdoku::guide`, the engine
+map, which shows the crate in figures at four levels, from the engine seen from outside
+down to three calls followed through the code. It is a documentation-only module,
+`crates/pawdoku/src/guide.rs`, written as doc comments and declared under `cfg(doc)`, so
+it exists when rustdoc builds and nowhere else: no consumer can name it, and it adds no
+code. Its figures are inline SVG, styled by a `style` block the page itself carries,
+through rustdoc's own colour variables, so they follow the light, dark and ayu themes
+and render the same on the hosted site, on docs.rs and in a consumer's own `cargo doc`
+of the crate, which passes rustdoc no flag of ours. The page's prose names
+every item through an intra-doc link, and it carries one example, so a renamed item or
+a changed call fails gate 12 or gate 10. The names inside a figure are plain text, and
+keeping them true is review's work.
+
+The rule for what such a page may hold (decision 0017): a page in the reference is for
+someone using the crate, and shows how the public API fits together or how to do
+something with it. The handbook explains the project and its subject, and is where a
+contributor reads. A topic has one home. The guide's map of modules repeats the shape
+of [Layering and dependency direction](../explanation/layering.md) in a figure, and
+that page stays the owner of the import rule; the guide links to it by its address on
+GitHub, because a relative path means nothing on the hosted site or on docs.rs.
+[Add a reference page](../how-to/add-a-reference-page.md) has the steps.
+
 ## Hosted
 
 The reference for `main` is hosted at <https://steven-cutting.github.io/libpawdoku/>,
@@ -53,7 +77,7 @@ the workflow and the rollback.
 `crates/pawdoku/Cargo.toml` carries a `[package.metadata.docs.rs]` table: every feature,
 `--cfg docsrs`, and two targets, `x86_64-unknown-linux-gnu` and
 `wasm32-unknown-unknown`, so docs.rs shows what a native and a WebAssembly consumer
-each get. This is prospective. Every crate is `publish = false` until ticket
+each get, the guide page included. This is prospective. Every crate is `publish = false` until ticket
 S02 decides the release process, so nothing is on docs.rs yet. When a release is, docs.rs
 is the reference for it and the hosted site stays the reference for `main`.
 
@@ -71,6 +95,8 @@ additive, and adds `Serialize` and `Deserialize` to the types that can carry sta
 ## Related pages
 
 - [Deploy to GitHub Pages](../how-to/deploy-to-github-pages.md)
+- [Add a reference page](../how-to/add-a-reference-page.md)
+- [Decision 0017: Guide pages and figures in the API reference](../decisions/0017-guide-pages-in-the-api-reference.md)
 - [Architecture](../explanation/architecture.md)
 - [Testing](testing.md)
 - [Purpose and scope](../project/purpose-and-scope.md)

@@ -9,6 +9,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- A guide page in the API reference, `pawdoku::guide`: the engine map, which shows the
+  crate in hand-drawn figures at four levels, from the engine seen from outside down to
+  three calls followed through the code. It is documentation only, built under
+  `cfg(doc)`, and it carries its figures' styles, which take their colours from
+  rustdoc's themes, so it renders the same wherever rustdoc builds it (decision 0017).
 - The API reference hosted on GitHub Pages at
   <https://steven-cutting.github.io/libpawdoku/>, republished from `main` on every push
   by a workflow of its own. `just site` builds what is served: `just doc`, and a root
@@ -69,10 +74,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   bridges for Claude, Codex and Copilot.
 - The seven engine specifications migrated from Pawdoku, with the two explanation pages
   they cite, and an eighth, `board.allium`, for a puzzle as it is being played.
-- A handbook of twenty-five pages under `docs/`, held to the documentation contract and
+- A handbook of twenty-six pages under `docs/`, held to the documentation contract and
   reachable from its map.
-- Sixteen architecture decision records, from the engine as a library of its own to the
-  API reference on GitHub Pages.
+- Seventeen architecture decision records, from the engine as a library of its own to
+  guide pages and figures in the API reference.
 - A `metrics` gate, seventh in `just check`: rustqual, built from source from its pin in
   `tools-source.txt`, holds thresholds for complexity, cohesion and coupling and the
   module boundaries of the layering table, with a probe that proves the boundary rules
