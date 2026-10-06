@@ -54,7 +54,9 @@ Turned down, each on evidence:
   runs this repository's `Justfile`, so a consumer's own `cargo doc` builds the
   `cfg(doc)` page with no header, and an unstyled SVG draws black boxes with its labels
   lost in them. A `style` block in the page passes `-D warnings` and travels with it.
-  The header file returns only for what a doc comment cannot carry, a script.
+  A header file returns only for a script: one in the page would run in that consumer's
+  build too, and fetch from a third party there, so a script belongs in a file the
+  build is given and nowhere else.
 - **Mermaid fences drawn in the browser**, S10's first choice for diagrams and the
   handbook's own notation. The Mermaid page was built and compared. Its figures came
   out at sizes Mermaid chose, the wide ones shrunk to fit the column, two figures (the
@@ -82,7 +84,8 @@ Turned down, each on evidence:
   because sharing one through a header file is what was turned down.
 - **The map of modules now lives in two places**, as a table in the handbook and as a
   figure in the reference. The table is the owner; the figure links to it.
-- **No frozen file changed.** The `Justfile` and the docs.rs table are as T33 left them.
+- **The `Justfile` did not change.** Of the frozen files, only `docs/manifest.yml` and
+  `docs/README.md` did, for the two new pages, with the maintainer's leave.
 
 ## What would reopen this
 

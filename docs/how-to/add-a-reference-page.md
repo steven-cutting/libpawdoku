@@ -89,11 +89,13 @@ would.
 ## A diagram as a Mermaid fence
 
 Nothing in the reference draws with Mermaid today. A `mermaid` fence is drawn in the
-reader's browser by a script, and a script cannot live in a doc comment the way a
-`style` block does: it is given to rustdoc as a header file, with `--html-in-header`,
-spelt `crates/pawdoku/rustdoc/header.html` in the `Justfile`'s `doc` recipe (read from
-the workspace root) and `rustdoc/header.html` in `[package.metadata.docs.rs]` (read from
-the package root). `cargo doc` passes without the flag, so the recipe would need a probe
+reader's browser by a script. Rustdoc would pass a `script` element through a doc
+comment as it passes a `style` block, but a script in the page would run in a consumer's
+own `cargo doc` too and fetch from a third party there, so a script goes in a header
+file the build is given, with `--html-in-header`, spelt
+`crates/pawdoku/rustdoc/header.html` in the `Justfile`'s `doc` recipe (read from the
+workspace root) and `rustdoc/header.html` in `[package.metadata.docs.rs]` (read from the
+package root). `cargo doc` passes without the flag, so the recipe would need a probe
 that fails when a built page lacks the header; a consumer's own `cargo doc` would show
 the fence as its source text, which S10 accepted. The loader S10 wrote, with the two
 corrections T34 found when it drew inside rustdoc, is quoted in

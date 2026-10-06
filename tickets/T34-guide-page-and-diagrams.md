@@ -390,7 +390,8 @@ The maintainer chose, among four answers offered, to make the page self-containe
 stylesheet moved into `guide.rs` as a `style` block, which rustdoc passes through and
 `-D warnings` accepts; the header file, the flag in both spellings and the probe were
 removed, and the `Justfile` and `crates/pawdoku/Cargo.toml` are as `main` has them, so
-no frozen file changed after all. A build with none of the gate's flags,
+of the three frozen files the ticket asked leave for, the `Justfile` did not change after
+all. A build with none of the gate's flags,
 `cargo doc -p pawdoku --no-deps --all-features --locked`, was screenshotted in dark: the
 figures draw as the gate's build draws them. Decision 0017 records the header as turned
 down, and the how-to says where the loader would go if a page ever needs a script.
@@ -425,8 +426,8 @@ $ git status --porcelain
   as a file. The committed `guide.rs` is the source; nothing generates it again.
 - **The header file was built and then removed.** Steps 2, 3 and 10 describe it as the
   ticket was written; the adversarial review above is why the page carries its own
-  styles instead, and why the two frozen-file edits the ticket asked leave for were not
-  needed in the end.
+  styles instead, and why the `Justfile` edit the ticket asked leave for was not needed
+  in the end. `docs/manifest.yml` and `docs/README.md` changed, with that leave.
 
 ## Open points
 
