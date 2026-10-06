@@ -431,11 +431,11 @@ $ git status --porcelain
 
 ## Open points
 
-- **Which page stays** is the maintainer's, at step 7.
-- **Whether the Mermaid loader stays** when the SVG page is kept. Removing it means no
-  page of the reference loads a third-party script until a page has a fence, and the
-  loader returns with that page from S10's notes. Keeping it means the next page with a
-  fence needs no change to the header.
+- **Which page stays** was the maintainer's, at step 7: the SVG page, settled on
+  2026-10-05 (hand-back notes).
+- **Whether the Mermaid loader stays** was settled the same day: it goes, so no page of
+  the reference loads a third-party script until a page has a fence, and the loader
+  returns with that page from the hand-back notes above.
 - **A hand-drawn figure is edited by its coordinates.** When a module is built or an
   operation changes, the figure that shows it changes by hand. The how-to says where
   each figure is and how to look at the result.
