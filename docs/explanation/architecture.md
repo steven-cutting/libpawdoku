@@ -33,6 +33,12 @@ as one Rust module per specification module, and a module may use only what its
 specification imports, in the direction
 [Layering and dependency direction](layering.md) describes.
 
+One module is not behaviour. `src/guide.rs` is a page of the API reference, a map of the
+engine in figures: it holds documentation and no item, and `lib.rs` declares it under
+`cfg(doc)`, so it exists when rustdoc builds and nowhere else. `rustdoc/header.html`
+beside `src/` is the file rustdoc is given to style its figures.
+[API reference](../reference/api.md) says how a page of that kind is made.
+
 Three siblings join when ticket S04 opens them: `crates/pawdoku-cli`,
 `crates/pawdoku-py` (pyo3, built with maturin) and `crates/pawdoku-wasm`
 (wasm-bindgen). None exists yet. Every decision below is taken so that each stays a thin

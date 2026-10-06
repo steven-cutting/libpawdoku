@@ -42,6 +42,7 @@ it needs.
 - [Work with the specifications](how-to/work-with-the-specs.md)
 - [Maintain dependencies](how-to/maintain-dependencies.md)
 - [Deploy to GitHub Pages](how-to/deploy-to-github-pages.md)
+- [Add a reference page](how-to/add-a-reference-page.md)
 
 ## Understand
 

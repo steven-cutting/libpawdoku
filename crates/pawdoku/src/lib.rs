@@ -23,6 +23,9 @@
 //! [`generation::Tier`] and a stream of draws, by a published method that draws a full
 //! grid and takes givens away while the solver's verdict stays one.
 //!
+//! [`guide`] is a map of all of it in pictures: the engine from outside, its modules,
+//! each module that is built, and three calls followed through the code.
+//!
 //! A puzzle given, opened as a board and played:
 //!
 //! ```
@@ -80,6 +83,8 @@ extern crate std;
 
 pub mod board;
 pub mod generation;
+#[cfg(doc)]
+pub mod guide;
 pub mod random;
 pub mod solver;
 pub mod sudoku;

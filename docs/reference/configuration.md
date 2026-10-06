@@ -20,7 +20,7 @@ The tooling reads a few, each in one place:
 
 | Variable | Read by | Effect |
 | --- | --- | --- |
-| `RUSTDOCFLAGS` | The `doc` recipe, which sets it | `-D warnings --cfg docsrs`: warnings fail, and the build is the one docs.rs would make. Set on that recipe and nowhere else. |
+| `RUSTDOCFLAGS` | The `doc` recipe, which sets it | `-D warnings --cfg docsrs --html-in-header crates/pawdoku/rustdoc/header.html`: warnings fail, the build is the one docs.rs would make, and every page carries the header file that styles a guide page's figures. Set on that recipe and nowhere else. |
 | `CARGO_HOME` | The `check-toolchain` recipe | Where rustup's proxy is expected; `~/.cargo` when unset. |
 | `CARGO_TERM_COLOR`, `CARGO_INCREMENTAL`, `CARGO_NET_RETRY`, `RUST_BACKTRACE` | Every CI job | Coloured logs, no incremental artefacts on a fresh runner, retries for flaky fetches, and a backtrace on a panic. Exported by `ci.yml` and `pages.yml`; `audit.yml` exports the first three. |
 | `GITHUB_TOKEN` | CI's `install-tools` step only | Lifts GitHub's anonymous rate limit for cargo-binstall's release lookup in the `tools.txt` pass. The run's own token. The recipe unsets it, and `GH_TOKEN`, for the `tools-source.txt` pass, so no build script compiled in that pass can read it. |

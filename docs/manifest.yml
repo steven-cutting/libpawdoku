@@ -14,6 +14,7 @@
     {"path": "how-to/work-with-the-specs.md", "title": "Work with the specifications", "kind": "how-to", "audience": ["contributor", "maintainer", "agent"], "canonical_for": ["specification_workflow"], "requires": []},
     {"path": "how-to/maintain-dependencies.md", "title": "Maintain dependencies", "kind": "how-to", "audience": ["maintainer", "agent"], "canonical_for": ["dependency_maintenance"], "requires": []},
     {"path": "how-to/deploy-to-github-pages.md", "title": "Deploy to GitHub Pages", "kind": "how-to", "audience": ["maintainer", "operator", "agent"], "canonical_for": ["deployment_procedure"], "requires": []},
+    {"path": "how-to/add-a-reference-page.md", "title": "Add a reference page", "kind": "how-to", "audience": ["contributor", "maintainer", "agent"], "canonical_for": ["reference_page_authoring"], "requires": []},
 
     {"path": "explanation/architecture.md", "title": "Architecture", "kind": "explanation", "audience": ["contributor", "maintainer", "operator", "agent"], "canonical_for": ["system_architecture"], "requires": []},
     {"path": "explanation/layering.md", "title": "Layering and dependency direction", "kind": "explanation", "audience": ["contributor", "maintainer", "agent"], "canonical_for": ["dependency_boundaries"], "requires": []},
@@ -49,6 +50,7 @@
     {"path": "decisions/0014-board-imports-solver.md", "title": "Decision 0014: The board imports the solver, and well-posedness is a proof value", "kind": "decision", "audience": ["contributor", "maintainer", "agent"], "canonical_for": ["decision_board_imports_solver"], "requires": []},
     {"path": "decisions/0015-basic-generator.md", "title": "Decision 0015: A basic generator from a published method, as the yardstick", "kind": "decision", "audience": ["contributor", "maintainer", "agent"], "canonical_for": ["decision_basic_generator"], "requires": []},
     {"path": "decisions/0016-api-reference-on-github-pages.md", "title": "Decision 0016: The API reference on GitHub Pages", "kind": "decision", "audience": ["contributor", "maintainer", "agent"], "canonical_for": ["decision_api_reference_on_pages"], "requires": []},
+    {"path": "decisions/0017-guide-pages-in-the-api-reference.md", "title": "Decision 0017: Guide pages and figures in the API reference", "kind": "decision", "audience": ["contributor", "maintainer", "agent"], "canonical_for": ["decision_guide_pages_in_reference"], "requires": []},
 
     {"path": "explanation/solving-sudoku.md", "title": "Strategies for Solving Sudoku Puzzles: Human Logic, Mathematical Structure, and Algorithms", "kind": "explanation", "audience": ["contributor", "maintainer", "agent"], "canonical_for": ["sudoku_solving_strategies"], "requires": []},
     {"path": "explanation/human-solving.md", "title": "Modelling a human Sudoku solver", "kind": "explanation", "audience": ["contributor", "maintainer", "agent"], "canonical_for": ["human_solving_model"], "requires": []},

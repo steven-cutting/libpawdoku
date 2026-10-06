@@ -26,7 +26,7 @@ is ignored.
 | 9 | `wasm-check` | The core compiles for `wasm32-unknown-unknown`, the target wasm-bindgen uses, and for `wasm32v1-none`, which has no standard library: the proof that the core is `no_std`. |
 | 10 | `test-doc` | Every doc example compiles and passes. |
 | 11 | `coverage` | Every unit and integration test passes, and line coverage is at or above the floor. Doctests are gate 10's. |
-| 12 | `doc` | rustdoc is warning-free under `--cfg docsrs`, intra-doc links and missing docs included. |
+| 12 | `doc` | rustdoc is warning-free under `--cfg docsrs`, intra-doc links and missing docs included, and the built guide page carries the header file the recipe passes. |
 | 13 | `deny` | Every dependency that ships has an allowed licence, no banned crate is in that graph, and every source is crates.io. Development dependencies are outside the graph. |
 | 14 | `deps-unused` | No crate declares a dependency it does not use. |
 | 15 | `check-docs` | The documentation contract holds. |
