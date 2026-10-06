@@ -12,9 +12,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A guide page in the API reference, `pawdoku::guide`: the engine map, which shows the
   crate in hand-drawn figures at four levels, from the engine seen from outside down to
   three calls followed through the code. It is documentation only, built under
-  `cfg(doc)`, and its figures take their colours from rustdoc's themes through a header
-  file the `doc` recipe passes; the recipe fails when a built page lacks it (decision
-  0017).
+  `cfg(doc)`, and it carries its figures' styles, which take their colours from
+  rustdoc's themes, so it renders the same wherever rustdoc builds it (decision 0017).
 - The API reference hosted on GitHub Pages at
   <https://steven-cutting.github.io/libpawdoku/>, republished from `main` on every push
   by a workflow of its own. `just site` builds what is served: `just doc`, and a root

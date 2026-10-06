@@ -35,8 +35,8 @@ specification imports, in the direction
 
 One module is not behaviour. `src/guide.rs` is a page of the API reference, a map of the
 engine in figures: it holds documentation and no item, and `lib.rs` declares it under
-`cfg(doc)`, so it exists when rustdoc builds and nowhere else. `rustdoc/header.html`
-beside `src/` is the file rustdoc is given to style its figures.
+`cfg(doc)`, so it exists when rustdoc builds and nowhere else. Its figures and their
+styles are in the file, so the page needs nothing from the build that renders it.
 [API reference](../reference/api.md) says how a page of that kind is made.
 
 Three siblings join when ticket S04 opens them: `crates/pawdoku-cli`,

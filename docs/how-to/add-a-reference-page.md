@@ -30,26 +30,27 @@ with it, and anything it needs from the handbook it links to and does not repeat
 5. Give the page at least one example that compiles and asserts. `just test-doc` runs it.
 6. Name every item in the prose through an intra-doc link whose target is the item's
    path, such as `crate::board::Board`, inline or as a reference definition at the foot
-   of the page, so a renamed item fails `just doc`.
-   Link to a handbook page by its address on GitHub,
-   `https://github.com/steven-cutting/libpawdoku/blob/main/docs/...`: a relative path
-   means nothing on the hosted site or on docs.rs.
+   of the page, so a renamed item fails `just doc`. Link to a handbook page by its
+   address on GitHub, `https://github.com/steven-cutting/libpawdoku/blob/main/docs/...`:
+   a relative path means nothing on the hosted site or on docs.rs.
 7. Run `just doc`, `just test-doc`, `just lint` and `just fmt-check`, then
    `just check`. A heading inside the page is one level below rustdoc's own, so start at
    `##`.
 
 ## Add a figure
 
-A figure is an inline `svg` with the class `pg` inside a `div` with the class `pg-fig`,
-styled by `crates/pawdoku/rustdoc/header.html`, which the `doc` recipe passes to rustdoc
-with `--html-in-header`.
+A figure is an inline `svg` with the class `pg` inside a `div` with the class `pg-fig`.
+Its styles are a `style` block near the top of the same page, and nothing outside the
+page: a consumer who documents a project that depends on this crate builds the page
+with rustdoc's defaults and no flag of ours, and a figure styled from anywhere else
+would come out as black boxes for them.
 
 - Put the whole figure in one HTML block: no blank line from `<div` to `</div>`, since a
   blank line ends the block and the rest prints as text. Close every element, or
   `rustdoc::invalid_html_tags` fails the gate under `-D warnings`.
 - Draw on a `viewBox` of `0 0 960 H`, and let the stylesheet scale it: the page's column
   is about that wide, and a narrower window scrolls the figure sideways.
-- Use the header's classes and no others, so a name cannot collide with rustdoc's
+- Use the page's classes and no others, so a name cannot collide with rustdoc's
   stylesheet (rustdoc defines `.hidden`, which hides an element). The classes are: `pg-h`
   for a heading, `pg-ch` and `pg-c` for a name set in code, `pg-d` and `pg-s` for a
   smaller note, `pg-lab` for a small-caps label; `pg-bx` for a plain box, `pg-built`,
@@ -59,8 +60,12 @@ with `--html-in-header`.
 - Give each `<svg>` a `role="img"` and an `aria-label` that states what the figure
   shows, and give every marker an id that begins `pg-`, unique on the page.
 - Colours come from rustdoc's variables (`--main-color`, `--border-color`,
-  `--code-block-background-color`) and from the header's three of its own, each defined
-  for light and again for dark and ayu. Use no literal colour in a figure.
+  `--code-block-background-color`) and from three of the page's own, each defined for
+  light and again for dark and ayu. Use no literal colour in a figure.
+
+A second page with figures copies the `style` block. Moving it to a file every page
+shares means passing that file to rustdoc with `--html-in-header`, and a consumer's
+`cargo doc` would not pass it; see below.
 
 Names inside a figure are plain text. Nothing fails when an item they name is renamed,
 so a change to the engine is a change to its figure, by hand, by coordinates.
@@ -77,28 +82,24 @@ python3 -m http.server 8734 --bind 127.0.0.1 --directory target/doc
 
 Then open `http://127.0.0.1:8734/pawdoku/guide/index.html` and look at light, dark and
 ayu. A figure that is right in one theme can be unreadable in another when a colour was
-written as a literal.
+written as a literal. A build with none of the gate's flags,
+`cargo doc -p pawdoku --no-deps --all-features`, shows what a consumer's own `cargo doc`
+would.
 
 ## A diagram as a Mermaid fence
 
-Nothing in the reference draws with Mermaid today, and the header file loads no script.
-If a page needs a `mermaid` fence, the loader S10 wrote and T34 built for its comparison
-comes back, with two corrections T34 found: rustdoc wraps a fence in `div.example-wrap`,
-a flex row, so the drawn figure must be inserted after that wrapper, not after the `pre`
-inside it, and the wrapper hidden with `display: none`; and no Mermaid class may be
-named `hidden`. The loader is quoted in `tickets/T34-guide-page-and-diagrams.md`. With
-it, [Deploy to GitHub Pages](deploy-to-github-pages.md), the security model and
-`SECURITY.md` each need a sentence about the one script a reader's browser fetches, and
-decision 0017 says what would reopen it.
-
-## Move the header
-
-The header's path is spelt two ways, and the two move together:
-`crates/pawdoku/rustdoc/header.html` in the `Justfile`'s `doc` recipe, read from the
-workspace root, and `rustdoc/header.html` in `[package.metadata.docs.rs]` of
-`crates/pawdoku/Cargo.toml`, read from the package root. The recipe's last line fails
-when a built guide page lacks the header's first line, `pawdoku-rustdoc-header`, so
-dropping the flag by mistake fails gate 12.
+Nothing in the reference draws with Mermaid today. A `mermaid` fence is drawn in the
+reader's browser by a script, and a script cannot live in a doc comment the way a
+`style` block does: it is given to rustdoc as a header file, with `--html-in-header`,
+spelt `crates/pawdoku/rustdoc/header.html` in the `Justfile`'s `doc` recipe (read from
+the workspace root) and `rustdoc/header.html` in `[package.metadata.docs.rs]` (read from
+the package root). `cargo doc` passes without the flag, so the recipe would need a probe
+that fails when a built page lacks the header; a consumer's own `cargo doc` would show
+the fence as its source text, which S10 accepted. The loader S10 wrote, with the two
+corrections T34 found when it drew inside rustdoc, is quoted in
+`tickets/T34-guide-page-and-diagrams.md`. With it, [Deploy to GitHub Pages](deploy-to-github-pages.md),
+the security model and `SECURITY.md` each need a sentence about the one script a
+reader's browser fetches, and decision 0017 says what would reopen it.
 
 ## Related pages
 

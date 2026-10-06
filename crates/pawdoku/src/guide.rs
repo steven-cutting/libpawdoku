@@ -1,7 +1,8 @@
 // The engine map: a guide page of the API reference, and nothing but documentation.
 // `lib.rs` declares this module under `cfg(doc)`, so no consumer can name it. The
-// figures are inline SVG styled by `crates/pawdoku/rustdoc/header.html`; each sits in
-// one HTML block, which a blank line would end, with every tag closed.
+// figures are inline SVG, styled by the `style` block below so that the page renders
+// the same wherever rustdoc builds it; each sits in one HTML block, which a blank line
+// would end, with every tag closed.
 
 //! A map of the engine: what this crate is, what it does and how, drawn at four levels.
 //!
@@ -13,6 +14,61 @@
 //! The page goes from far to near. Level 0 is the engine seen from outside. Level 1 is its
 //! modules. Level 2 opens each module that is built. Level 3 follows three calls through
 //! the code. Five modules are built and five are specified and not built yet.
+//!
+//! <style>
+//! /* Built, solution and refusal colours. Everything else is rustdoc's own. */
+//! :root {
+//! --pg-built: #2743a8;
+//! --pg-built-fill: rgba(60, 100, 230, 0.12);
+//! --pg-sol: #855600;
+//! --pg-sol-fill: rgba(240, 180, 30, 0.28);
+//! --pg-ref: #b0261e;
+//! --pg-ref-fill: rgba(220, 60, 50, 0.1);
+//! }
+//! :root[data-theme="dark"],
+//! :root[data-theme="ayu"] {
+//! --pg-built: #a3b6ff;
+//! --pg-built-fill: rgba(120, 150, 255, 0.16);
+//! --pg-sol: #f2c350;
+//! --pg-sol-fill: rgba(242, 195, 80, 0.16);
+//! --pg-ref: #ff9c92;
+//! --pg-ref-fill: rgba(255, 120, 110, 0.14);
+//! }
+//! .pg-fig { margin: 1em 0; padding: 10px; overflow-x: auto; border: 1px solid var(--border-color); border-radius: 4px; }
+//! .pg-fig svg { display: block; width: 100%; min-width: 760px; height: auto; font-family: "Fira Sans", Arial, NanumBarunGothic, sans-serif; }
+//! .pg-fig.pg-key { border: 0; padding: 0; }
+//! svg.pg text { font-size: 13px; fill: var(--main-color); }
+//! svg.pg .pg-h { font-weight: 500; }
+//! svg.pg .pg-ch { font-family: var(--font-family-code, "Source Code Pro", monospace); font-weight: 600; font-size: 13px; }
+//! svg.pg .pg-cs { font-family: var(--font-family-code, "Source Code Pro", monospace); font-weight: 600; font-size: 12px; }
+//! svg.pg .pg-c { font-family: var(--font-family-code, "Source Code Pro", monospace); font-size: 12px; }
+//! svg.pg .pg-n { font-size: 12px; }
+//! svg.pg .pg-d { font-size: 12px; fill-opacity: 0.72; }
+//! svg.pg .pg-s { font-size: 11px; fill-opacity: 0.72; }
+//! svg.pg .pg-lab { font-weight: 500; font-size: 11px; letter-spacing: 0.08em; fill-opacity: 0.72; }
+//! svg.pg .pg-mk { font-family: var(--font-family-code, "Source Code Pro", monospace); font-size: 11px; fill-opacity: 0.72; }
+//! svg.pg .pg-big { font-family: var(--font-family-code, "Source Code Pro", monospace); font-weight: 600; font-size: 30px; fill: var(--pg-built); }
+//! svg.pg .pg-rt { fill: var(--pg-ref); fill-opacity: 1; }
+//! svg.pg .pg-st { fill: var(--pg-sol); fill-opacity: 1; }
+//! svg.pg .pg-it { fill: var(--pg-built); fill-opacity: 1; }
+//! svg.pg .pg-bx { fill: var(--code-block-background-color); stroke: var(--main-color); stroke-width: 1.25; }
+//! svg.pg .pg-built { fill: var(--pg-built-fill); stroke: var(--pg-built); stroke-width: 1.5; }
+//! svg.pg .pg-plan { fill: none; stroke: var(--main-color); stroke-opacity: 0.6; stroke-width: 1.25; stroke-dasharray: 5 4; }
+//! svg.pg .pg-sol { fill: var(--pg-sol-fill); stroke: var(--pg-sol); stroke-width: 1.5; }
+//! svg.pg .pg-ref { fill: var(--pg-ref-fill); stroke: var(--pg-ref); stroke-width: 1.25; }
+//! svg.pg .pg-frame { fill: none; stroke: var(--main-color); stroke-width: 1.5; }
+//! svg.pg .pg-ln { fill: none; stroke: var(--main-color); stroke-width: 1.5; }
+//! svg.pg .pg-ln-m { fill: none; stroke: var(--main-color); stroke-opacity: 0.6; stroke-width: 1.5; }
+//! svg.pg .pg-ln-s { fill: none; stroke: var(--pg-sol); stroke-width: 1.5; }
+//! svg.pg .pg-ln-r { fill: none; stroke: var(--pg-ref); stroke-width: 1.5; }
+//! svg.pg .pg-back { stroke-dasharray: 6 4; }
+//! svg.pg .pg-life { stroke: var(--main-color); stroke-opacity: 0.5; stroke-width: 1; stroke-dasharray: 2 5; }
+//! svg.pg .pg-mkr { stroke: var(--pg-built); stroke-width: 2.5; }
+//! svg.pg .pg-ah { fill: var(--main-color); }
+//! svg.pg .pg-ah-m { fill: var(--main-color); fill-opacity: 0.6; }
+//! svg.pg .pg-ah-s { fill: var(--pg-sol); }
+//! svg.pg .pg-ah-r { fill: var(--pg-ref); }
+//! </style>
 //!
 //! ## How to read the figures
 //!

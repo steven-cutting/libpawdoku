@@ -44,7 +44,7 @@ authoritative; this table is a snapshot.
 | T31 | Spec change: the basic generator in generation, a published method of removal checked by the verdict | `T31-basic-generator-spec.md` | T19 | none | done |
 | T32 | The basic generator in Rust: the solution grid, removal in order and the five tiers | `T32-basic-generator.md` | T31, T28 | none | done |
 | T33 | The API reference on GitHub Pages: a deploy workflow, a site recipe and the first workflow that publishes | `T33-api-reference-on-github-pages.md` | T11 | S10 | done |
-| T34 | The engine map in the API reference: a header file, its flag and the first guide page | `T34-guide-page-and-diagrams.md` | T33, S10 | none | done |
+| T34 | The engine map in the API reference: the first guide page | `T34-guide-page-and-diagrams.md` | T33, S10 | none | done |
 
 Spike tickets. Each weighs options and ends in a recommendation; none blocks the build and
 none is picked up before T11.
@@ -137,10 +137,10 @@ nothing else; its experiments run in a scratch copy outside the repository. So i
 run beside T33, and the build ticket it drafts depends on T33. The ids between T30 and T33 are the
 basic-generator tickets'.
 
-T34 is the build ticket S10 drafted: the header file rustdoc is given, its flag in the
-`doc` recipe and the docs.rs table, and the first guide page, a map of the engine in
-figures. It follows T33 and S10 and edits the `Justfile` and the two frozen documentation
-files with the maintainer's leave.
+T34 is the build ticket S10 drafted: the first guide page in the reference, a map of the
+engine in figures that carries its own styles. It follows T33 and S10. The header file
+S10 drafted was built and then removed after an adversarial review, so of the frozen
+files only the two documentation files changed, with the maintainer's leave.
 
 ## How to pick up a ticket
 

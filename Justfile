@@ -212,14 +212,8 @@ coverage:
     mkdir -p target/llvm-cov
     cargo llvm-cov report --lcov --output-path target/llvm-cov/lcov.info
 
-# The header file styles the figures of a guide page. Its path is read from
-# the workspace root, where cargo runs rustdoc; docs.rs reads its own spelling
-# from the package root, in crates/pawdoku/Cargo.toml, and the two move
-# together. `cargo doc` exits 0 with the flag dropped, so the last line looks
-# for the header's first line in a built page.
 doc:
-    RUSTDOCFLAGS="-D warnings --cfg docsrs --html-in-header crates/pawdoku/rustdoc/header.html" cargo doc --workspace --no-deps --all-features --locked
-    grep -q 'pawdoku-rustdoc-header' target/doc/pawdoku/guide/index.html || { echo 'doc: target/doc/pawdoku/guide/index.html lacks the header file; is --html-in-header passed?' >&2; exit 1; }
+    RUSTDOCFLAGS="-D warnings --cfg docsrs" cargo doc --workspace --no-deps --all-features --locked
 
 # What GitHub Pages serves: the API reference `doc` builds, from an empty
 # target/doc so that nothing stale is published, and a root index.html that

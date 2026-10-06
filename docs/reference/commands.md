@@ -67,7 +67,7 @@ writes.
 | `just features` | Every feature combination compiles, through cargo-hack's powerset. Gate 8. |
 | `just wasm-check` | The core compiles for `wasm32-unknown-unknown` and for `wasm32v1-none`, which has no standard library, under every feature combination. Gate 9. |
 | `just coverage` | Every nextest test under instrumentation with `INSTA_UPDATE=no`, with the floor of 90 per cent of lines enforced; a snapshot mismatch fails without writing pending files. Writes `target/llvm-cov/lcov.info`. Gate 11. |
-| `just doc` | rustdoc over the workspace with warnings as errors, `--cfg docsrs` and the header file `crates/pawdoku/rustdoc/header.html`, then a probe that the built guide page carries that header. Gate 12. |
+| `just doc` | rustdoc over the workspace with warnings as errors and `--cfg docsrs`. Gate 12. |
 | `just site` | What GitHub Pages serves: empties `target/doc`, runs `just doc`, and writes a root `index.html` that sends a reader to the crate's page. Writes only under `target/`. Outside `just check`; the Pages workflow runs it on every push to `main`. |
 | `just deny` | cargo-deny's licence, ban and source checks over every dependency that ships, offline once `just sync` has run. Gate 13. |
 | `just audit` | cargo-deny's advisory check against the RustSec database. Over the network, so outside `just check`; CI runs it weekly in its own workflow. |

@@ -1,6 +1,6 @@
 ---
 id: T34
-title: "The engine map in the API reference: a header file, its flag and the first guide page"
+title: "The engine map in the API reference: the first guide page"
 status: done
 depends_on: [T33, S10]
 parallel_with: []
@@ -8,7 +8,7 @@ branch: ticket/t34-guide-page-and-diagrams
 estimated_size: M
 ---
 
-# T34: The engine map in the API reference: a header file, its flag and the first guide page
+# T34: The engine map in the API reference: the first guide page
 
 ## Context
 
@@ -71,10 +71,9 @@ Read first: `AGENTS.md`; `tickets/CONVENTIONS.md` §11;
 The hosted reference carries a page, `pawdoku::guide`, that shows the engine in
 figures at four levels, with every item it names linked to its own documentation and
 one example that compiles and runs. The figures follow rustdoc's light, dark and ayu
-themes. The header file that makes that possible is passed by the gate's own `doc`
-recipe and by the docs.rs table, and the gate fails when it is dropped. The handbook
-says how a page and a figure are added, and a decision record says what a page in the
-reference may hold.
+themes, and the page renders the same wherever rustdoc builds it: on the hosted site,
+on docs.rs, and in a consumer's own `cargo doc`. The handbook says how a page and a
+figure are added, and a decision record says what a page in the reference may hold.
 
 ## Non-goals
 
@@ -92,17 +91,16 @@ reference may hold.
 
 | Path | Class | Change |
 | --- | --- | --- |
-| `crates/pawdoku/rustdoc/header.html` | new | The figures' stylesheet, the Mermaid loader while a page has a fence, and the marker the probe looks for |
-| `crates/pawdoku/src/guide.rs` | new | The page, and with it `guide.md` if the Mermaid version is kept |
+| `crates/pawdoku/src/guide.rs` | new | The page, its figures and their `style` block |
 | `crates/pawdoku/src/lib.rs` | engine | `#[cfg(doc)] pub mod guide;` and one sentence of the crate's documentation |
-| `crates/pawdoku/Cargo.toml` | manifest | `--html-in-header rustdoc/header.html` in the docs.rs table |
-| `Justfile` | T00 follow-up | The flag in `doc`, and the probe. Frozen under CONVENTIONS.md §11; leave given |
-| `docs/reference/api.md` | reference | "Building it", a new section on pages and figures, the docs.rs sentence |
+| `crates/pawdoku/rustdoc/header.html` | new, then removed | The figures' stylesheet and the Mermaid loader, built for the comparison and taken out after the adversarial review (hand-back notes) |
+| `crates/pawdoku/Cargo.toml`, `Justfile` | edited, then restored | The header's flag in the docs.rs table and the `doc` recipe, with its probe; both files are as `main` has them |
+| `docs/reference/api.md` | reference | A new section on pages and figures, and the docs.rs sentence |
 | `docs/how-to/add-a-reference-page.md` | how-to | New |
 | `docs/decisions/0017-guide-pages-in-the-api-reference.md` | decision | New |
 | `docs/decisions/README.md` | decision index | The record's row; the "next decision" sentence |
 | `docs/manifest.yml`, `docs/README.md` | T00 follow-up | The two new pages. Frozen; leave given |
-| Pages that quote the `doc` recipe's flags or list the crate's files | handbook | Reworded where the change makes a sentence false (step 9) |
+| `docs/project/repository-map.md`, `docs/explanation/architecture.md` | handbook | The new file, and the module that is not behaviour (step 9) |
 | `CHANGELOG.md` | maintainer docs | Under Unreleased, Added |
 | `tickets/README.md`, this file | ticket | T34's row; the hand-back notes; `status:` |
 
@@ -224,14 +222,14 @@ reference may hold.
 ## Acceptance criteria
 
 - `just check` exits 0.
-- `just doc` fails when `--html-in-header` is taken out of the recipe, and the message
-  names the page and the flag.
 - `just test-doc` reports the guide's example as run and passing.
 - The page was seen in light, dark and ayu, and the notes say who saw it and how.
-- `cargo package --list -p pawdoku --allow-dirty` lists `rustdoc/header.html` and the
-  guide's source, so the packaged crate carries what docs.rs would build.
+- A build with none of the gate's flags, `cargo doc -p pawdoku --no-deps --all-features`,
+  draws the figures as the gate's build does: the page carries its own styles.
+- `cargo package --list -p pawdoku --allow-dirty` lists the guide's source, so the
+  packaged crate carries what docs.rs would build.
 - One guide page is committed, not two, and `lib.rs` declares it under `cfg(doc)`.
-- No sentence in the handbook still gives the `doc` recipe's flags without the header.
+- The `Justfile` and `crates/pawdoku/Cargo.toml` are unchanged from `main`.
 - `git status --porcelain` is empty after the commits.
 
 ## Verification
@@ -239,16 +237,16 @@ reference may hold.
 ```sh
 just check
 just test-doc 2>&1 | rg 'guide'
-rg -n 'html-in-header' Justfile crates/pawdoku/Cargo.toml
 rg -n 'cfg\(doc\)' crates/pawdoku/src/lib.rs
-rg -c 'pawdoku-rustdoc-header' target/doc/pawdoku/guide/index.html
-cargo package --list -p pawdoku --allow-dirty | rg 'rustdoc/header.html|src/guide'
+rg -c '<style>' crates/pawdoku/src/guide.rs
+git diff --stat main -- Justfile crates/pawdoku/Cargo.toml
+cargo package --list -p pawdoku --allow-dirty | rg 'src/guide'
 git status --porcelain
 ```
 
-Expected: exit 0; one line naming the guide's example as `ok`; one line in each of the
-two files; one `cfg(doc)` line; a count of one or more; the header and the guide's
-source; nothing.
+Expected: exit 0; one line naming the guide's example as `ok`; one `cfg(doc)` line; a
+count of one; no output, because neither file differs from `main`; the guide's source;
+nothing.
 
 ## Hand-back notes
 
@@ -347,7 +345,8 @@ made the figures' labels thin at eleven to thirteen pixels. The stylesheet names
 rustdoc's own sans face, `"Fira Sans"`, for the figures, and its code face through
 `--font-family-code`.
 
-**The probe** (step 10). With `--html-in-header` taken out of the recipe:
+**The probe** (step 10), as built before the review below took the header out. With
+`--html-in-header` taken out of the recipe:
 
 ```text
 $ just doc
@@ -366,34 +365,50 @@ text or a figure, and the sixteen findings of the first draft's review are each
 answered. `generation` is drawn as built, with a component figure of its own; the
 figures that showed four built modules show five.
 
-**The handbook.** `docs/reference/api.md` gained the header under "Building it", the
-section "Pages and figures", and the docs.rs path; `docs/how-to/add-a-reference-page.md`
-is new; decision 0017 is new, and "the next decision" is 0018; `CHANGELOG.md` gained its
-line and its counts moved to seventeen records and twenty-six pages. The sweep of step 9
-found and reworded `docs/reference/configuration.md` (the `RUSTDOCFLAGS` row),
-`docs/reference/commands.md` (`just doc`), `docs/reference/quality-gates.md` (gate 12),
-`docs/project/repository-map.md` (two files) and `docs/explanation/architecture.md` (the
-module that is not behaviour). `tickets/CONVENTIONS.md` §4 prints the `Justfile` as T00
-wrote it and no later ticket has updated it; this one does not either.
+**The handbook.** `docs/reference/api.md` gained the section "Pages and figures" and a
+word in the docs.rs sentence; `docs/how-to/add-a-reference-page.md` is new; decision
+0017 is new, and "the next decision" is 0018; `CHANGELOG.md` gained its line and its
+counts moved to seventeen records and twenty-six pages. The sweep of step 9 reworded
+`docs/project/repository-map.md` (the new file) and `docs/explanation/architecture.md`
+(the module that is not behaviour). While the header stood, `docs/reference/api.md`'s
+"Building it", `docs/reference/configuration.md`, `docs/reference/commands.md` and
+`docs/reference/quality-gates.md` carried the flag and the probe too; those sentences
+went back to `main`'s with the header.
 
-**Verification**, run on 2026-10-05 in this worktree:
+### Codex adversarial review, 2026-10-05
+
+Run by the plugin's `codex-companion.mjs adversarial-review` on the branch against
+`main`, after the first commit, `2a7d317`. One finding, medium: **a consumer's own
+`cargo doc` renders the figures unreadable.** The guide module exists under `cfg(doc)`,
+so rustdoc builds it when a project that depends on `pawdoku` documents itself, and that
+build gets no header: Cargo ignores `[package.metadata.docs.rs]` and never runs this
+repository's `Justfile`. An unstyled SVG draws its boxes solid black, with the labels
+lost in them. Codex could not build to confirm it (a read-only sandbox); the mechanism
+was confirmed here.
+
+The maintainer chose, among four answers offered, to make the page self-contained. The
+stylesheet moved into `guide.rs` as a `style` block, which rustdoc passes through and
+`-D warnings` accepts; the header file, the flag in both spellings and the probe were
+removed, and the `Justfile` and `crates/pawdoku/Cargo.toml` are as `main` has them, so
+no frozen file changed after all. A build with none of the gate's flags,
+`cargo doc -p pawdoku --no-deps --all-features --locked`, was screenshotted in dark: the
+figures draw as the gate's build draws them. Decision 0017 records the header as turned
+down, and the how-to says where the loader would go if a page ever needs a script.
+
+**Verification**, run on 2026-10-05 in this worktree, after the review was answered:
 
 ```text
 $ just check
 ...
 All checks passed and the worktree is unchanged.
 $ just test-doc 2>&1 | rg 'guide'
-test crates/pawdoku/src/guide.rs - guide (line 160) ... ok
-$ rg -n 'html-in-header' Justfile crates/pawdoku/Cargo.toml
-Justfile:221:    RUSTDOCFLAGS="-D warnings --cfg docsrs --html-in-header crates/pawdoku/rustdoc/header.html" cargo doc --workspace --no-deps --all-features --locked
-Justfile:222:    grep -q 'pawdoku-rustdoc-header' target/doc/pawdoku/guide/index.html || { ... }
-crates/pawdoku/Cargo.toml:35:rustdoc-args = ["--cfg", "docsrs", "--html-in-header", "rustdoc/header.html"]
+test crates/pawdoku/src/guide.rs - guide (line 216) ... ok
 $ rg -n 'cfg\(doc\)' crates/pawdoku/src/lib.rs
 86:#[cfg(doc)]
-$ rg -c 'pawdoku-rustdoc-header' target/doc/pawdoku/guide/index.html
+$ rg -c '<style>' crates/pawdoku/src/guide.rs
 1
-$ cargo package --list -p pawdoku --allow-dirty --offline | rg 'rustdoc/header.html|src/guide'
-rustdoc/header.html
+$ git diff --stat main -- Justfile crates/pawdoku/Cargo.toml
+$ cargo package --list -p pawdoku --allow-dirty --offline | rg 'src/guide'
 src/guide.rs
 $ git status --porcelain
 ```
@@ -408,6 +423,10 @@ $ git status --porcelain
 - **A sans face named in the stylesheet,** where the plan had rustdoc's variable.
 - **The page was generated once** from an HTML draft by a scratch script, then edited
   as a file. The committed `guide.rs` is the source; nothing generates it again.
+- **The header file was built and then removed.** Steps 2, 3 and 10 describe it as the
+  ticket was written; the adversarial review above is why the page carries its own
+  styles instead, and why the two frozen-file edits the ticket asked leave for were not
+  needed in the end.
 
 ## Open points
 

@@ -29,8 +29,5 @@ proptest = { workspace = true }
 
 [package.metadata.docs.rs]
 all-features = true
-# docs.rs reads the header's path from the package root. The `doc` recipe reads
-# it from the workspace root, as crates/pawdoku/rustdoc/header.html, and the
-# two move together.
-rustdoc-args = ["--cfg", "docsrs", "--html-in-header", "rustdoc/header.html"]
+rustdoc-args = ["--cfg", "docsrs"]
 targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]

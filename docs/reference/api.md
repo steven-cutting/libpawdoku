@@ -16,17 +16,10 @@ API promises, and what a doc example is for.
 ## Building it
 
 `just doc` runs `cargo doc` over the workspace with every feature and no dependencies,
-with `RUSTDOCFLAGS="-D warnings --cfg docsrs --html-in-header
-crates/pawdoku/rustdoc/header.html"`. The result opens at `target/doc/pawdoku/index.html`.
-It is gate 12 of `just check`, so a broken intra-doc link, a link to a private item or an
-undocumented public item fails the gate rather than producing a page with a hole in it.
-
-The header file is put in the head of every page. It holds the stylesheet for the
-figures of a guide page, and nothing else: no script, and nothing fetched from anywhere.
-`cargo doc` succeeds without the flag, so the recipe ends with a probe: it fails unless
-the built guide page holds the header's first line. The path is read from the workspace
-root, where cargo runs rustdoc; docs.rs reads its own spelling from the package root, as
-the "docs.rs" section says, and the two move together.
+with `RUSTDOCFLAGS="-D warnings --cfg docsrs"`. The result opens at
+`target/doc/pawdoku/index.html`. It is gate 12 of `just check`, so a broken intra-doc
+link, a link to a private item or an undocumented public item fails the gate rather than
+producing a page with a hole in it.
 
 ## What is documented
 
@@ -53,8 +46,10 @@ map, which shows the crate in figures at four levels, from the engine seen from 
 down to three calls followed through the code. It is a documentation-only module,
 `crates/pawdoku/src/guide.rs`, written as doc comments and declared under `cfg(doc)`, so
 it exists when rustdoc builds and nowhere else: no consumer can name it, and it adds no
-code. Its figures are inline SVG, styled by the header file above through rustdoc's own
-colour variables, so they follow the light, dark and ayu themes. The page's prose names
+code. Its figures are inline SVG, styled by a `style` block the page itself carries,
+through rustdoc's own colour variables, so they follow the light, dark and ayu themes
+and render the same on the hosted site, on docs.rs and in a consumer's own `cargo doc`
+of the crate, which passes rustdoc no flag of ours. The page's prose names
 every item through an intra-doc link, and it carries one example, so a renamed item or
 a changed call fails gate 12 or gate 10. The names inside a figure are plain text, and
 keeping them true is review's work.
@@ -80,10 +75,9 @@ the workflow and the rollback.
 ## docs.rs
 
 `crates/pawdoku/Cargo.toml` carries a `[package.metadata.docs.rs]` table: every feature,
-`--cfg docsrs`, the header file as `--html-in-header rustdoc/header.html`, a path read
-from the package root, and two targets, `x86_64-unknown-linux-gnu` and
+`--cfg docsrs`, and two targets, `x86_64-unknown-linux-gnu` and
 `wasm32-unknown-unknown`, so docs.rs shows what a native and a WebAssembly consumer
-each get, guide page included. This is prospective. Every crate is `publish = false` until ticket
+each get, the guide page included. This is prospective. Every crate is `publish = false` until ticket
 S02 decides the release process, so nothing is on docs.rs yet. When a release is, docs.rs
 is the reference for it and the hosted site stays the reference for `main`.
 
