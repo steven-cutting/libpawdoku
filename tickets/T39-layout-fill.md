@@ -54,18 +54,19 @@ shape below is the ticket writer's recommendation; the maintainer asks for one w
 choice is about Rust and not about the product. Report what was built under "Names
 later tickets need".
 
-- **`Layout` is a public set of positions**, built from any positions and refusing what
-  the specification refuses at the asking: a position off the grid, a position twice,
-  fewer than the figure, or 81. It says its count and iterates its positions in row order. It serialises under
-  the `serde` feature as `Tier` does, so a caller can record what was asked for.
+- **`Layout` is a public set of positions**, `#[non_exhaustive]`, built from any
+  positions and refusing what the specification refuses at the asking: a position off
+  the grid, a position twice, fewer than the figure, or 81. It says its count and
+  iterates its positions in row order. It serialises under the `serde` feature as
+  `Tier` does, so a caller can record what was asked for.
 - **One entry.** `layout::fill(layout, repertoire, trial_limit, stream)` takes a
   `&Layout`, a `Repertoire`, the limit as a `u32` if T37 made it the caller's, and a
   `&mut dyn RandomStream`, and returns `Result<Filled, FillError>`. If T37 put the limit
   in config, it is a constant and `fill` has three arguments.
-- **`Filled` carries the proof and the count.** `proof()` gives the `WellPosed` of the
-  givens, from `solver::solve` once at the end, so the proof's constructor keeps its one
-  caller (decision 0014); `trials()` gives how many trials the filling took, which the
-  comparison needs. A consumer opens a board with
+- **`Filled` carries the proof and the count**, and is `#[non_exhaustive]`. `proof()`
+  gives the `WellPosed` of the givens, from `solver::solve` once at the end, so the
+  proof's constructor keeps its one caller (decision 0014); `trials()` gives how many
+  trials the filling took, which the comparison needs. A consumer opens a board with
   `Board::open(filled.proof().givens().iter().copied())`.
 - **`FillError` is a `thiserror` enum**, `#[non_exhaustive]`, with stable `Display`
   text: the stream ran out (it wraps the `RandomError` transparently, as
@@ -84,10 +85,13 @@ Facts that shape the work:
 
 - **The grid attempt is `generation`'s, reused and not copied.** `generation::grid::draw_grid`
   (`src/generation/grid.rs`, `pub(super)`) draws a grid attempt after attempt and gives
-  `Ok(None)` when a hundred have failed. Widen it, and `GRID_ATTEMPT_LIMIT` if the
-  refusal's text wants the figure, to `pub(crate)`, and change nothing else in
-  `generation`: its tests, its pins and `GENERATION_VERSION` stay as they are, because
-  no draw of the basic way changes. T32's notes say T20 may reuse `draw_grid` as it is;
+  `Ok(None)` when a hundred have failed. Its module is private: `generation.rs` declares
+  `mod grid;`, so widening the function alone does not reach it. Widen `draw_grid`, and
+  `GRID_ATTEMPT_LIMIT` if the refusal's text wants the figure, to `pub(crate)` in
+  `grid.rs`, and `mod grid;` to `pub(crate) mod grid;` in `generation.rs`, keeping the
+  path `generation::grid::draw_grid`; change nothing else in `generation`: its tests,
+  its pins and `GENERATION_VERSION` stay as they are, because no draw of the basic way
+  changes. T32's notes say T20 may reuse `draw_grid` as it is;
   this is the first module to do so from outside.
 - **A trial never draws for itself.** The layout is the caller's and the run draws
   nothing, so a filling's draws are its grid attempts' alone. Build the trial so, and
@@ -127,7 +131,8 @@ Facts that shape the work:
   time in seconds for its exact method under naked singles alone, a dash where it did
   not end within several hours. A test forgets the digits and keeps the positions, as
   the paper did. The paper proved each timed one not solvable by naked singles alone
-  with any digits; of the others it says nothing.
+  with any digits; of the others it says nothing. One time is in question: see the
+  Open point "852 or 849" before embedding the table.
 
    | Grid | Time |
    | --- | --- |
@@ -224,6 +229,7 @@ and to report.
 | `crates/pawdoku/src/layout.rs` | `fill`, `Filled`, `FillError`, and the module documentation now covering the filling |
 | `crates/pawdoku/src/layout/` | New files for the layout and the trial; the dead-code expectations T38 left come off |
 | `crates/pawdoku/src/lib.rs` | The crate overview: a puzzle filled to a layout |
+| `crates/pawdoku/src/generation.rs` | `mod grid` to `pub(crate)`; nothing else |
 | `crates/pawdoku/src/generation/grid.rs` | `draw_grid`, and `GRID_ATTEMPT_LIMIT` if the refusal's text wants it, to `pub(crate)`; nothing else |
 | `crates/pawdoku/tests/api_bounds.rs` | Every new public type |
 | `crates/pawdoku/tests/layout.rs` | `fill` through the public API; the pins; the measurements |
@@ -333,11 +339,11 @@ and to report.
       paper's finding to set it beside is that generate-and-test filled none of its
       instances with 50 or more positions in 600 seconds.
    2. **The paper's 30 layouts** under naked singles alone, with the same limit, each
-      from a fresh `SeededStream`: how many were filled (the expectation is none) and
-      the trials spent. The figure to set beside it is the paper's: 14 proved
-      unfillable by its exact method, 16 undecided. A filling here would contradict a
-      proof for a timed one and would be a defect to find before anything else is
-      reported.
+      from a fresh `SeededStream`: how many were filled and the trials spent. The
+      figure to set beside it is the paper's: 14 proved unfillable under naked singles
+      by its exact method, 16 left undecided. Filling one of the 16 is a result, to be
+      reported with its givens; filling one of the 14 timed ones would contradict a
+      proof and is a defect to find before anything else is reported.
    3. **The basic generator's puzzles.** For seeds 0 to 99 in each tier,
       `generation::generate` and then `check` under naked singles alone, under naked
       and hidden singles, and under the four: how many of the hundred each repertoire
@@ -410,12 +416,11 @@ the table. By subject:
 - `pawdoku::layout` exports `Layout`, `fill`, `Filled` and `FillError` beside T38's
   items, with the meanings above. Nothing in `src/layout` names an engine module other
   than `sudoku`, `solver`, `generation` and `random`.
-- `Layout`, `Filled` and `FillError` are `#[non_exhaustive]` where they are enums or
-  structs with public construction; read by inspection and stated in the hand-back
-  notes.
-- `src/generation` differs from `main` only in the visibility of `draw_grid` and, if
-  needed, `GRID_ATTEMPT_LIMIT`; its tests, snapshots and pins are unchanged and
-  `GENERATION_VERSION` is unchanged.
+- `Layout`, `Filled` and `FillError` are all three `#[non_exhaustive]`; read by
+  inspection and stated in the hand-back notes.
+- `src/generation` differs from `main` only in the visibility of the `grid` module,
+  `draw_grid` and, if needed, `GRID_ATTEMPT_LIMIT`; its tests, snapshots and pins are
+  unchanged and `GENERATION_VERSION` is unchanged.
 - The only caller of the proof's constructor outside test code is still in
   `src/solver`, read by inspection and stated in the hand-back notes.
 - `fill` cannot panic on any layout, repertoire, limit or stream, a stream that runs
@@ -457,7 +462,7 @@ just coverage
 just doc
 just check-docs
 just check
-git diff main -- crates/pawdoku/src/generation
+git diff main -- crates/pawdoku/src/generation.rs crates/pawdoku/src/generation
 git status --porcelain
 ```
 
@@ -504,6 +509,12 @@ worktree is unchanged.`; only paths in Files touched.
   from the stream's index by a caller, as `generate`'s are; the ticket adds nothing for
   them. A comparison that wants the grid attempts per trial asks for it in its own
   ticket.
+- **852 or 849.** Added on 2026-10-06, after a review. T37's Context says the exact
+  method ended in 852 to 26,835 seconds, but the table above lists 849 for
+  `600800000.000090500…` as the lowest time, and 852 for
+  `050000200.000700010…`. One transcription of the paper's Tables 2 and 3 is wrong,
+  and only the paper settles which. No proposal: the maintainer checks the paper
+  before T39 embeds the table, and the correction lands in whichever ticket is wrong.
 - **Whether `Layout` offers the named symmetries.** A caller builds a symmetric layout
   by hand today. A constructor that mirrors a half-turn, or any scheme, is the designed
   way's open question on symmetry and is not built here.

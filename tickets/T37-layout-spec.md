@@ -152,9 +152,9 @@ beside them.
   solved 65, "much faster even in near 20 cells", and none with 50 or more positions.
 - Its Section 7.3: the positions of 30 Sudokus drawn at random from Royle's collection,
   digits forgotten, under naked singles alone. Within several hours the exact method
-  ended for 14 of the 30, each proved not strategy-solvable, in 852 to 26,835 seconds;
-  the other 16 did not end. The 30 are printed in the paper's Tables 2 and 3, and T39
-  carries them.
+  ended for 14 of the 30, each proved not strategy-solvable, in 852 to 26,835 seconds
+  (T39's table reads 849; see its Open points); the other 16 did not end. The 30 are
+  printed in the paper's Tables 2 and 3, and T39 carries them.
 
 **Facts that shape the work**, each verified on 2026-10-05 against `main` at `f580c02`.
 
@@ -202,8 +202,12 @@ beside them.
   the lower of two solutions row by row, count failed attempts against
   `config.grid_attempt_limit` and refuse when it is spent; a full seeding takes 22 draws
   and a short one `2k + 1`. In Rust it is `generation::grid::draw_grid`, which T32's
-  notes say T20 may reuse as it is; it is `pub(super)` today and a sibling module needs
-  `pub(crate)`, which is T39's one edit to `generation`.
+  notes say T20 may reuse as it is; it is `pub(super)` in a private `mod grid;` today,
+  and a sibling module needs a visibility change to the `grid` module and `draw_grid`,
+  T39's only edit to `generation`. Both rules are keyed to a `Generation` with a tier,
+  and `FollowGridAttempt`'s found branch draws the bound, a 23rd draw, and moves the
+  generation to `removing`, so pinning them by name does not by itself give a trial of
+  22 draws and no tier; the Open point on the grid attempt asks how to settle that.
 - **`generation.allium` says two ways.** Its Scope opens "The module states two ways of
   doing it, side by side"; `docs/how-to/work-with-the-specs.md` line 28 and
   `docs/explanation/layering.md` lines 36 to 46 say the same and that nothing imports
@@ -219,7 +223,10 @@ beside them.
   run of its own; this module's run is another. Layout is free: `puzzle-design.md`
   says "given layout" for the arrangement of givens, and no module uses the word. The
   proposed word for the paper's set of clue positions is **layout**; the first Open point
-  asks the maintainer.
+  asks the maintainer. Trial and check are not free: trial is banned as a synonym for
+  guess by `terminology.md`, `solver.allium` and `lapse.allium`, and check is
+  `board.allium`'s `Check` and `lapse.allium`'s; the Open point "Trial and check are
+  words already taken" asks the maintainer.
 - **Seventeen is `sudoku.allium`'s figure.** `SetPuzzle` requires fewer than 81 givens
   and exactly one solution, and says "the fewest givens that can pass is 17, which is a
   fact about this rule". A layout of fewer positions can never be filled, and a layout of
@@ -237,7 +244,7 @@ beside them.
   whether or not its Rust exists yet. Odd files there break their rule with a `use`
   line and even files with an inline path; `layout.rs` is the eleventh.
 - **`puzzle-design.md` cites `generation.allium` by line number** in its closing table,
-  fourteen times. Any edit above an open question moves those lines; T31's step 9 is
+  thirteen times. Any edit above an open question moves those lines; T31's step 9 is
   the procedure.
 - **`.tools/` may be absent in the worktree.** `just check-specs`, `analyse-specs`,
   `plan-spec` and `metrics` need `.tools/bin/allium` and `.tools/bin/rustqual`, which
@@ -249,7 +256,7 @@ and `.agents/skills/tend/SKILL.md`; `tickets/T31-basic-generator-spec.md` whole,
 shape of a specification ticket and its hand-back; `docs/specs/generation.allium`,
 `docs/specs/solver.allium` and `docs/specs/sudoku.allium` in full; `docs/specs/technique.allium`
 lines 284 to 520 (the grid, the units and the predicates that license the first twelve
-techniques), 715 to 800 (`LayOutGrid` and the grid's invariants) and 870 to 882
+techniques), 715 to 838 (`LayOutGrid` and the grid's invariants) and 870 to 882
 (`DeductionsAreSound`); `docs/specs/reach.allium`, its header, `OpenGrid` and
 `KeepMarksTrue` (lines 195 to 240) and its `Rating` surface (lines 340 to 372);
 `docs/decisions/0015-basic-generator.md`; `docs/decisions/README.md` ("Writing a new
@@ -291,7 +298,7 @@ fires the new rule once, and `just check` is green.
 | Path | Change |
 | --- | --- |
 | `docs/specs/layout.allium` | New: the module, steps 3 to 7 |
-| `docs/specs/generation.allium` | One sentence in Scope naming the third way and where it lives; a clause on two open questions (step 8) |
+| `docs/specs/generation.allium` | One sentence in Scope naming the third way and where it lives; a clause on two open questions (step 8); under (b) of the Open point on the grid attempt, the grid attempt split out of `Generation` |
 | `docs/decisions/0018-layout-by-search.md` | New decision record (step 9); the number is the next free one on the day |
 | `docs/decisions/README.md` | The record's row; the "next decision" sentence |
 | `docs/manifest.yml` | Entry for the record. Frozen under CONVENTIONS.md §11; see Open points |
@@ -301,9 +308,9 @@ fires the new rule once, and `just check` is green.
 | `docs/README.md` | The sentence at 23 to 26. Frozen under CONVENTIONS.md §11; see Open points |
 | `docs/project/terminology.md` | Rows for layout, filling, trial, and the run as this module uses the word |
 | `docs/explanation/puzzle-design.md` | Line numbers in the closing table that cite `generation.allium`; the technique-contract row's "Where it lands" cell gains `layout.allium`; nothing else |
-| `rustqual.toml` | The rule `layout_imports_sudoku_solver_technique_generation` (step 10) |
+| `rustqual.toml` | The rule `layout_imports_sudoku_solver_technique_generation`; `"crate::layout"` in each of the ten existing rules; "all nine" to "all ten" in the comment (step 10) |
 | `tests/fixtures/metrics-violation/src/layout.rs` | New: the stub that fires the rule once |
-| `tests/fixtures/metrics-violation/src/lib.rs` | `pub mod layout;` and the count in its comment |
+| `tests/fixtures/metrics-violation/src/lib.rs` | `pub mod layout;` and "the other nine" to "the other ten" in its comment |
 | `CHANGELOG.md` | Under Unreleased: the module specified; the count of decision records |
 | `tickets/README.md` | T37's index row set `done` |
 | `tickets/T37-layout-spec.md` | `status:`, hand-back notes |
@@ -321,7 +328,8 @@ fires the new rule once, and `just check` is green.
    answer. They are product decisions and the specification is where they are recorded,
    so do not pick one silently. Record each answer, with its date, under "Open points
    settled". The word the maintainer chooses for the layout renames the module, its
-   file, its Rust module and every path in this ticket.
+   file, its Rust module and every path in this ticket; the words chosen for the trial
+   and the check rename their rules, surfaces, vocabulary and terminology rows likewise.
 
 3. **The header.** Follow the `spec-change` and `tend` skills, in the shape of
    `generation.allium`'s header.
@@ -444,7 +452,8 @@ fires the new rule once, and `just check` is green.
      `generation.allium`'s grid attempts do, attempt after attempt until one finds a
      grid or `generation/config.grid_attempt_limit` have failed; pin a black box to
      `SettleGridAttempt` and `FollowGridAttempt` by name, with the draws each attempt
-     takes, as `generation.allium` pins `verdict_is_one` to the solver. Spent grid
+     takes, as `generation.allium` pins `verdict_is_one` to the solver, and as the Open
+     point on the grid attempt settles: no tier and no bound draw. Spent grid
      attempts refuse the filling, with nothing to show, as they refuse the basic way's
      generation. A grid found is read at the layout: the candidate givens are the grid's
      digit at each of the layout's positions, and nothing else. The givens go to a run
@@ -461,7 +470,7 @@ fires the new rule once, and `just check` is green.
      `generation.allium`'s `draw_at` and `index_among`, which this module reads through
      the import and does not restate; the run takes none, and no draw chooses anything
      of this module's own. So a filling whose every trial finds its grid at once takes
-     22 draws a trial.
+     22 draws a trial, as the Open point on the grid attempt settles.
 
    And it must guarantee, each as a named invariant or guarantee:
 
@@ -551,10 +560,13 @@ fires the new rule once, and `just check` is green.
     `crate::reach`, `crate::effort`, `crate::lapse`, `crate::human_solving` and
     `crate::board` in `src/layout{.rs,/**}`, with the reason in the shape of its
     neighbours. `reach` is forbidden until the open question of step 7 is answered the
-    other way; say so in the reason. Add `tests/fixtures/metrics-violation/src/layout.rs`
-    in the shape of `generation.rs` there, breaking the rule once with a `use` line
-    naming `effort`, and `pub mod layout;` in that `lib.rs` with its count. Run
-    `just metrics` and quote the probe's closing lines.
+    other way; say so in the reason. Nothing may import `layout`, so add
+    `"crate::layout"` to the `forbid_path_prefix` of each of the ten existing rules, and
+    change the comment above them that says `random`'s rule "forbids all nine" to "all
+    ten". Add `tests/fixtures/metrics-violation/src/layout.rs` in the shape of
+    `generation.rs` there, breaking the rule once with a `use` line naming `effort`,
+    `pub mod layout;` in that `lib.rs`, and its comment's "the other nine" changed to
+    "the other ten". Run `just metrics` and quote the probe's closing lines.
 
 11. **The pages.** Each stays within what `docs/manifest.yml` says it owns. The three
     that describe the specifications (`specifications.md`, `work-with-the-specs.md` and
@@ -597,10 +609,11 @@ fires the new rule once, and `just check` is green.
 - The module carries at most the three open questions of step 7.
 - `generation.allium` keeps seven `open question` blocks, two of which carry a clause
   for this module; the text that asks for the designed way is still there in each; its
-  rules, invariants, surfaces and config are unchanged; `generation_version` is
-  unchanged, because no draw gives other givens.
-- `rustqual.toml` names eleven rules and `just metrics` ends with the probe fired once
-  for each.
+  rules, invariants, surfaces and config are unchanged, unless the maintainer chose (b)
+  in the Open point on the grid attempt; `generation_version` is unchanged, because no
+  draw gives other givens.
+- `rustqual.toml` names eleven rules, every rule but `layout`'s own forbids
+  `crate::layout`, and `just metrics` ends with the probe fired once for each.
 - No page under `docs/` says the engine finds givens in two ways only or that nothing
   imports `generation`, decision records of their day excepted.
 - Every `generation.allium` line cited in `puzzle-design.md` holds the text its row
@@ -622,6 +635,7 @@ rg -n '^use ' docs/specs/layout.allium
 rg -n -w -i 'clue|strategy|strategies|level|difficulty|band' docs/specs/layout.allium
 rg -n -i 'two ways|nothing imports' docs README.md crates/pawdoku/README.md
 rg -n 'generation\.allium:[0-9]+' docs/explanation/puzzle-design.md
+rg -c '"crate::layout"' rustqual.toml
 just check-docs
 just check
 git status --porcelain
@@ -632,7 +646,8 @@ obligations with an empty `diagnostics` array; the probe fired once for eleven r
 most three open questions in `layout.allium` and seven in `generation.allium`; four `use`
 lines; the paper's words only in the Source note's lines; "two ways" only where a page
 says `generation.allium` states two and "nothing imports" only of leaves; each cited
-line checked by hand; the documents gate green with one more page than before;
+line checked by hand; `10`, one `"crate::layout"` for each rule but `layout`'s own; the
+documents gate green with one more page than before;
 `All checks passed and the worktree is unchanged.`; only paths in Files touched.
 
 ## Hand-back notes
@@ -650,7 +665,8 @@ line checked by hand; the documents gate green with one more page than before;
 ## Open points
 
 Each is the maintainer's. The proposal beside it is the ticket writer's, made on
-2026-10-05.
+2026-10-05; the grid attempt's three choices and the point on trial and check were added
+on 2026-10-06, after a review of the ticket.
 
 - **The word for the paper's set of clue positions, and the module's name.** Proposed:
   layout, and `docs/specs/layout.allium`, with `pawdoku::layout` to follow. Pattern is
@@ -661,9 +677,32 @@ Each is the maintainer's. The proposal beside it is the ticket writer's, made on
   nothing calls until T39. The other choice keeps the same run behind `Fill` alone and
   drops the comparison of the basic generator's puzzles by repertoire from T39.
 - **Whether the module imports `generation.allium` for the grid attempt.** Proposed:
-  yes, with a black box pinned to `SettleGridAttempt` and `FollowGridAttempt`, so the
-  eleven-given draw has one statement and one Rust function. The other choice restates
-  the grid attempt in this module and lets T39 copy `draw_grid`.
+  yes, so the eleven-given draw has one statement and one Rust function. But pinning a
+  black box to `SettleGridAttempt` and `FollowGridAttempt` by name is not enough as they
+  stand: both are keyed to a `Generation` with a tier, and `FollowGridAttempt`'s found
+  branch draws the bound, a 23rd draw, and moves the generation to `removing`. So a
+  tier-less trial of 22 draws cannot be had from them while `generation.allium`'s rules
+  stay unchanged. Three choices. (a) Restate a tier-less grid attempt in `layout.allium`
+  and let T39 copy `draw_grid` or call it, two statements of one draw. (b) Split
+  `generation.allium`'s grid attempt out of `Generation` into an entity of its own that
+  both modules use; this relaxes the acceptance that its rules are unchanged, and grows
+  its row in Files touched and step 8, though `generation_version` stays, because no
+  draw changes. (c) Pin a black box to the seeding and the settling alone, and say in
+  prose that the bound draw is not taken. The Rust already takes 22 draws a trial
+  whichever is chosen: `draw_grid(stream)` (`generation/grid.rs:85`) takes no tier, and
+  the bound is drawn by `draw_bound` in `generate` (`generation.rs:352`), so no choice
+  asks for a refactor and (c) is the cheapest in the specification. The ticket writer
+  proposes (b), as the one statement and one function this point argues for, with (c)
+  named as the cheapest; the maintainer decides.
+- **Trial and check are words already taken.** Trial is banned as a synonym for guess:
+  `docs/project/terminology.md` line 49 ("Never trial or assumption"),
+  `solver.allium` line 58 and `lapse.allium` line 67, and `layout.allium` imports
+  `solver.allium`. Check is `board.allium`'s `Check`, the player's question about one
+  cell, built as `board::Check`, and `lapse.allium`'s check of the marks, so
+  `layout::check` would be a third meaning. Attempt is no way out: it is
+  `generation.allium`'s grid attempt and `human-solving.allium`'s attempt. No proposal:
+  naming is the maintainer's. T38 and T39 already read their words from T37's hand-back
+  notes.
 - **Whether `trial_limit` is the caller's or a figure in config.** Proposed: the
   caller's, with no default, as the designed way's `step_budget` and `candidate_limit`
   are, because the paper's own limit is a clock the engine cannot carry, so no figure is

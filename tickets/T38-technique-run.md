@@ -68,22 +68,22 @@ built under "Names T39 needs".
   caller can tell which it is. It is a different type from any later `technique`
   module's catalogue entry and says so in its documentation; when that module lands it
   is the one to keep.
-- **`Repertoire` is a public set of those four**, built from any techniques and refusing
-  an empty set; with `contains`, an iterator of what it holds, and two constants or
-  constructors for the sets the paper runs: the three strategies (all four here) and
-  naked singles alone. It serialises under the `serde` feature as `Tier` does, so a
-  caller can record what a puzzle was checked against.
+- **`Repertoire` is a public set of those four**, `#[non_exhaustive]`, built from any
+  techniques and refusing an empty set; with `contains`, an iterator of what it holds,
+  and two constants or constructors for the sets the paper runs: the three strategies
+  (all four here) and naked singles alone. It serialises under the `serde` feature as
+  `Tier` does, so a caller can record what a puzzle was checked against.
 - **`check(givens, repertoire)` takes `impl IntoIterator<Item = Given>`**, as
   `solver::search` does, and returns `Result<Run, CheckError>`. It refuses givens that
   are two to a position, in conflict, or 81, and takes no draw and opens no grid when it
   does; reuse `sudoku`'s refusal for malformed givens where one exists with the right
   text, and add a variant only where none does.
-- **`Run` is the result**: `outcome()` gives `Outcome::Solved` or `Outcome::Stalled`, a
-  public `#[non_exhaustive]` enum; `steps()` the count of steps taken; `grid()` the
-  digits placed as a `Grid<u8>`, 0 for an open cell, so a caller can see how far a
-  stalled run got and a solved run's grid is the one solution. Nothing else is exposed:
-  not the deductions, not the candidates. A run is a plain value, `Clone`, `Debug`,
-  `PartialEq`, `Send + Sync + 'static`.
+- **`Run` is the result**, `#[non_exhaustive]`: `outcome()` gives `Outcome::Solved` or
+  `Outcome::Stalled`, a public `#[non_exhaustive]` enum; `steps()` the count of steps
+  taken; `grid()` the digits placed as a `Grid<u8>`, 0 for an open cell, so a caller
+  can see how far a stalled run got and a solved run's grid is the one solution.
+  Nothing else is exposed: not the deductions, not the candidates. A run is a plain
+  value, `Clone`, `Debug`, `PartialEq`, `Send + Sync + 'static`.
 - **`CheckError` is a `thiserror` enum**, `#[non_exhaustive]`, with stable `Display`
   text: the empty repertoire, and the refusals of the givens.
 - **`LAYOUT_VERSION`** is a public constant equal to the specification's
@@ -192,7 +192,7 @@ puzzle       solution
 ```
 
 Read first: `AGENTS.md`; `tickets/CONVENTIONS.md` §11; `docs/specs/layout.allium` in
-full and `docs/specs/technique.allium` lines 284 to 520, 715 to 760 and 870 to 882;
+full and `docs/specs/technique.allium` lines 284 to 520, 715 to 838 and 870 to 882;
 `docs/specs/reach.allium` lines 195 to 240 (`OpenGrid`, `KeepMarksTrue`);
 `tickets/T37-layout-spec.md`, Context and hand-back notes; the decision record T37
 wrote; `tickets/T32-basic-generator.md`, hand-back notes, as the shape of a Rust
@@ -305,11 +305,18 @@ choose and to report.
 5. **Hold the end against the order.** One property drives the inner loop with an order
    proptest made, choosing among the licensed deductions of the repertoire at each
    step, and compares the end and the digits placed with `check`'s run on the same
-   givens, for givens from `generation::generate` through the fake and for the fixture
-   and the study puzzles, under the repertoires the guarantee covers. For any other
-   repertoire the specification allows, the property asserts only that two runs by
-   `check` agree. Say in the test why it holds and where it does not, in one sentence
-   per technique, as T37's Context argues it.
+   givens, under the repertoires the guarantee covers. The inner loop is private, so
+   the property lives in test code under `src/layout`, which may name only `sudoku` and
+   `solver`, and `tests/` cannot be imported from there. Its inputs are the fixture and
+   the study puzzles, written as literals in the module's `#[cfg(test)]` code or a
+   `#[cfg(test)]` helper inside `src/layout`, and givens proptest draws as subsets of
+   their solutions: the fixture's solution is written above, and each study puzzle's is
+   taken from `solver::solve` in the test, so every subset is read from a known
+   solution and the soundness premise holds. Puzzles from `generation::generate` are
+   not inputs here; the properties over them stay in `tests/`, through the public
+   `check`. For any other repertoire the specification allows, the property asserts
+   only that two runs by `check` agree. Say in the test why it holds and where it does
+   not, in one sentence per technique, as T37's Context argues it.
 
 6. **Snapshots**, once the list is empty, in `crates/pawdoku/tests/snapshots.rs`, each
    by a test named `snapshot_...`, through the public API:
@@ -394,11 +401,15 @@ table. By subject:
 - **By property, over puzzles from `generate` through the fake**, in each tier: every
   digit a run places is the proof's solution's at that position; a solved run's grid is
   the solution; a solved run's givens get `solver::search`'s verdict of one; the same
-  givens and repertoire give an equal run; a run under a larger repertoire never ends
-  stalled where a smaller one ended solved; adding a given from the solution to solved
-  givens keeps them solved; the end and the digits placed are the same under an order
+  givens and repertoire give an equal run; where both repertoires are ones the
+  guarantee covers, a run under the larger never ends stalled where the smaller ended
+  solved; under a covered repertoire, adding a given from the solution to solved givens
+  keeps them solved. Both hold because, for those repertoires, every deduction licensed
+  on a grid stays licensed or moot after any sound step (T37's Context), and neither is
+  promised for the rest. The end and the digits placed are the same under an order
   proptest chose, for the repertoires the guarantee covers, and `check` is the same
-  each time for the rest (step 5).
+  each time for the rest; that clause runs over the fixture, the study puzzles and
+  subsets of their solutions, not over `generate`'s puzzles (step 5).
 - **The study puzzles.** Four grids, three repertoires, twelve outcomes recorded (step
   8); the guarantees asserted of each run.
 - **`check` from outside.** A puzzle from `generate` is checked under each named
@@ -410,9 +421,9 @@ table. By subject:
 - `pawdoku::layout` exports `Technique`, `Repertoire`, `check`, `Run`, `Outcome`,
   `CheckError` and `LAYOUT_VERSION` with the meanings above. Nothing in `src/layout`
   names an engine module other than `sudoku` and `solver`.
-- `Technique`, `Outcome` and `CheckError` are `#[non_exhaustive]`. The bounds tests
-  cannot see the attribute, so it is read by inspection and stated in the hand-back
-  notes.
+- `Technique`, `Repertoire`, `Run`, `Outcome` and `CheckError` are `#[non_exhaustive]`.
+  The bounds tests cannot see the attribute, so it is read by inspection and stated in
+  the hand-back notes.
 - `check` cannot panic on any givens and any repertoire.
 - Every line under "What the tests must cover" maps to a named test in the hand-back
   table, and every `just plan-spec layout` obligation of the run is in the table or
