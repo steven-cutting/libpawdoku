@@ -110,7 +110,7 @@ def fake_boot(monkeypatch: pytest.MonkeyPatch, fake_engine: FakeEngine) -> BootL
         info = BootInfo(via="branch", target="local", elapsed_s=0.001, machine_id=child.id)
         return BootResult(child, bridge, endpoint, info, result.spec, "local")
 
-    def release(self: BootResult) -> None:
+    def release(self: BootResult, *, strict: bool = False) -> None:
         log.released.append(self.handle.id)
         self.bridge.close()
         self.handle.delete()
@@ -644,6 +644,31 @@ def test_checkpoint_that_cannot_be_made_private_is_removed(
         assert m.is_running
         info2 = m.checkpoint(out)  # the same path works once modes can be set
         assert info2.ref.locator == str(out) and stat.S_IMODE(out.stat().st_mode) == 0o600
+
+
+def test_checkpoint_that_can_neither_be_protected_nor_removed_says_so(
+    fake_boot: BootLog, settings: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from smoltest.cache import store as store_module
+
+    def refuse(self: Path, mode: int, *a: object, **k: object) -> None:
+        raise PermissionError(errno.EPERM, "Operation not permitted", str(self))
+
+    def stuck(path: Path) -> bool:
+        raise PermissionError(errno.EPERM, "Operation not permitted", str(path))
+
+    out = tmp_path / "stuck.smolcheckpoint"
+    with PostgresMachine(settings=settings) as m:
+        with monkeypatch.context() as patched:
+            patched.setattr(Path, "chmod", refuse)
+            patched.setattr(store_module, "remove_path", stuck)
+            with pytest.raises(SmoltestError, match="nor removed and is readable") as info:
+                m.checkpoint(out)
+        assert info.value.code == "CHECKPOINT_PERMISSIONS"
+        cause = info.value.__cause__
+        assert isinstance(cause, CacheError) and "still readable" in str(cause)
+        assert out.exists(), "the message must describe the file that really is left"
+        out.unlink()
 
 
 def test_from_boot_classmethod(

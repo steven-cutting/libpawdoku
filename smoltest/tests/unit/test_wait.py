@@ -522,3 +522,17 @@ def test_direct_wait_arguments_must_be_finite(value: float, pg: FakeMachine) -> 
     with pytest.raises(InvalidConfig, match="finite"):
         strategy.wait_until_ready(view(pg), 1.0, value)
     assert strategy.resolve(10, 1) == (10.0, 1.0)  # finite arguments still resolve
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), 0, -1])
+def test_connect_timeouts_must_be_finite_and_positive(value: float) -> None:
+    """A per-attempt timeout of infinity would keep a stalled probe from ever returning."""
+    with pytest.raises(InvalidConfig, match=r"finite|> 0"):
+        SqlWaitStrategy(prefer=("asyncpg",), connect_timeout_s=value)
+    with pytest.raises(InvalidConfig, match=r"finite|> 0"):
+        PortWaitStrategy(connect_timeout_s=value)
+
+
+def test_connect_timeouts_accept_timedelta() -> None:
+    assert SqlWaitStrategy(connect_timeout_s=timedelta(seconds=2))._connect_timeout_s == 2.0
+    assert PortWaitStrategy(connect_timeout_s=timedelta(milliseconds=500))._connect_timeout_s == 0.5

@@ -72,7 +72,7 @@ microVM-only calls):
 
 | call | what it does |
 |---|---|
-| `start()` / `stop()` / `with ...:` | boot (branch, restore or cold) and tear down; `stop()` twice is harmless |
+| `start()` / `stop()` / `with ...:` | boot (branch, restore or cold) and tear down; `stop()` twice is harmless, and a `stop()` whose delete the engine refuses raises and can be retried |
 | `get_connection_url(host=None, driver=...)`, `.url` | `postgresql+<driver>://user:pw@host:port/db`; `driver=None` gives `postgresql://` |
 | `get_container_host_ip()`, `get_exposed_port(port=None)`, `.endpoint` | `127.0.0.1` and the host port locally; the tunnel endpoint on the cloud |
 | `with_env`, `with_envs`, `with_command`, `with_name`, `with_exposed_ports`, `with_bind_ports`, `waiting_for`, `with_startup_timeout` | the testcontainers builders, all returning `self` |
@@ -257,7 +257,7 @@ that no longer matches simply misses and boots cold.
 <cache_dir>/postgres/.lock                      store-wide lock
 <cache_dir>/postgres/<key>.lock                 per-key lock
 <cache_dir>/postgres/store/                     the engine's dedup store
-<cache_dir>/postgres/<key>/inputs.json          what produced the key; env values hashed
+<cache_dir>/postgres/<key>/inputs.json          what produced the key; env values and secrets hashed
 <cache_dir>/postgres/<key>/<port>.smolcheckpoint
 <cache_dir>/postgres/<key>/<port>.meta.json     commit marker, written last
 <cache_dir>/postgres/<key>/<port>.claim         pid + token of the process using the variant

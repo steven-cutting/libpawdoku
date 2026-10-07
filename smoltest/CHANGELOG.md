@@ -133,8 +133,11 @@ All notable changes to smoltest are recorded here. The format follows
   is refused on the cloud target with `NotSupportedError` (the CLI exits 1 before booting)
   instead of being silently dropped while the tunnel picks another port.
 - A checkpoint the cache rejects after the engine wrote it (a ref that is not the requested
-  file, a file that is missing or elsewhere) is removed, together with the file the engine
-  reported, instead of staying behind with the umask's permissions.
+  file, a file that is missing or elsewhere) is removed instead of staying behind with the
+  umask's permissions. A different path the engine reported is removed only when it is a stray
+  inside the variant's own key directory; the dedup store, other variants' files and anything
+  outside the cache are left in place with a warning, never deleted on the engine's word. An
+  interrupt during that clean-up still propagates as the interrupt.
 - `SqlWaitStrategy` builds the asyncpg DSN without `connect_timeout`: asyncpg forwards unknown
   URI parameters to the server as session settings, which rejected every probe until the
   readiness timeout. The libpq-based drivers keep the parameter; asyncpg gets `timeout=`.
@@ -142,7 +145,27 @@ All notable changes to smoltest are recorded here. The format follows
   value except the PostgreSQL image's documented non-secret settings (`POSTGRES_USER`,
   `POSTGRES_DB`, `POSTGRES_INITDB_ARGS`, `TZ`, `LANG`, `PG*`, ...); previously only names
   containing `PASSWORD`, `PASSWD`, `SECRET` or `TOKEN` were redacted, so an `API_KEY` or
-  `DATABASE_URL` passed through `with_env` was persisted in clear.
+  `DATABASE_URL` passed through `with_env` was persisted in clear. Strings in lists (the argv of
+  `with_command`, such as `-c primary_conninfo=... password=...`) are hashed when they name a
+  secret, and the secret names now also cover `PASSPHRASE`, `CREDENTIAL`, `API_KEY` and
+  `PRIVATE_KEY`.
+- `PostgresMachine.stop()` raises when the engine refuses to delete the machine, and keeps
+  everything needed to try again: the machine stays registered and `is_running`, its cache claim
+  stays held and its exit-time cleanup stays armed, so a second `stop()` (or interpreter exit)
+  retries. Previously the error was only logged and a still-running (on the cloud, still billed)
+  machine was forgotten. Cleanup at exit, on garbage collection and on a failed boot stays best
+  effort.
+- `FileLock.release()` from a thread that does not hold the lock raises `CacheError` before the
+  hold is touched; it used to drop the owner's `flock` first, letting another process into the
+  owner's critical section.
+- An unusable lock path (an unwritable directory, or a directory where the lock file belongs)
+  raises `CacheError` with code `LOCK_PATH`, so `smoltest cache prune` / `clear` print an error and
+  exit 1 instead of a traceback.
+- `warn_once` gets a fresh lock in a forked child; a parent thread holding it at the fork left
+  every later warning in the child (the golden's branch-fallback warning among them) hanging.
+- `SqlWaitStrategy` and `PortWaitStrategy` reject a non-finite or non-positive
+  `connect_timeout_s` with `InvalidConfig` (they also accept a `timedelta`): an infinite
+  per-attempt timeout kept a stalled probe from ever returning to the readiness deadline.
 
 ### Added
 

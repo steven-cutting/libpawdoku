@@ -452,6 +452,11 @@ class PostgresMachine:
         ``force`` exists for testcontainers compatibility (a microVM is always
         stopped hard). ``delete=False`` only stops the guest; it is deleted at exit.
         Calling ``stop`` twice is harmless.
+
+        When the engine refuses to delete the machine the error propagates and
+        nothing is forgotten: the machine stays registered (``is_running`` is
+        still true, though its bridge is closed), its cache claim stays held, and
+        another ``stop()`` (or interpreter exit) tries the delete again.
         """
         with self._lock:
             result = self._result
@@ -463,13 +468,15 @@ class PostgresMachine:
                     result.handle.stop()
                     self._halted = True
                 return
+            # Strict: a failed delete raises here with every reference still in place.
+            # A finalizer that already ran made this a no-op (the result is released).
+            result.release(strict=True)
             self._result = None
             self._halted = False
             self._parent = None
             token, self._finalizer = self._finalizer, None
-        # Detach first so GC or exit cannot run the release a second time.
-        if token is None or get_reaper().detach(token):
-            result.release()
+        if token is not None:
+            get_reaper().detach(token)
 
     def __enter__(self) -> PostgresMachine:
         return self.start()

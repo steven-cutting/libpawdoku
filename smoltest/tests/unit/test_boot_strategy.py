@@ -954,3 +954,79 @@ def test_keyboard_interrupt_during_branch_tears_the_child_down(
         assert fake_engine.live_machines == {fake_of(golden)}
     finally:
         golden.release()
+
+
+# -- explicit teardown that fails ------------------------------------------------------------
+
+
+def _failing_delete(machine: FakeMachine, monkeypatch: pytest.MonkeyPatch, times: int = 1) -> None:
+    """Make ``machine.delete()`` raise ``times`` times, as a transient SDK error would."""
+    real = machine.delete
+    left = [times]
+
+    def delete() -> None:
+        if left[0] > 0:
+            left[0] -= 1
+            raise SmoltestError("transient: the API said 503")
+        real()
+
+    monkeypatch.setattr(machine, "delete", delete)
+
+
+def test_stop_surfaces_a_failed_delete_and_can_retry(
+    fake_engine: FakeEngine, settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    machine = PostgresMachine(settings=settings, engine=fake_engine)
+    machine.start()
+    result = machine._result
+    assert result is not None and result.claim is not None
+    claim, handle, token = result.claim, fake_of(result), machine._finalizer
+    assert claim.claim_path is not None and token is not None
+    _failing_delete(handle, monkeypatch)
+    with pytest.raises(SmoltestError, match="transient"):
+        machine.stop()
+    assert machine.is_running, "a machine the engine kept must not look stopped"
+    assert handle in fake_engine.live_machines
+    assert claim.claim_path.exists() and not claim.released, "its port is still taken"
+    assert token.alive, "exit cleanup must still be able to retry"
+    assert not result.released
+    machine.stop()  # the retry deletes it
+    assert not machine.is_running and fake_engine.live_machines == set()
+    assert claim.released and not claim.claim_path.exists() and not token.alive
+    machine.stop()  # and stopping again stays harmless
+
+
+def test_lenient_release_still_finishes_when_delete_fails(
+    fake_engine: FakeEngine, settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Exit and garbage collection keep the best-effort behaviour."""
+    result = boot_postgres(SPEC, settings, fake_engine)
+    claim, handle = result.claim, fake_of(result)
+    assert claim is not None
+    _failing_delete(handle, monkeypatch)
+    result.release()  # logged, not raised
+    assert result.released and claim.released
+    handle.delete()  # what the engine would reap eventually
+
+
+def test_strict_release_wraps_foreign_errors(
+    fake_engine: FakeEngine, settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result = boot_postgres(SPEC, settings, fake_engine)
+    handle = fake_of(result)
+    real = handle.delete
+    calls = [0]
+
+    def boom() -> None:
+        calls[0] += 1
+        if calls[0] == 1:
+            raise OSError("socket closed")
+        real()
+
+    monkeypatch.setattr(handle, "delete", boom)
+    with pytest.raises(SmoltestError, match="socket closed") as info:
+        result.release(strict=True)
+    assert info.value.code == "DELETE_FAILED" and isinstance(info.value.__cause__, OSError)
+    assert not result.released
+    result.release(strict=True)
+    assert result.released and fake_engine.live_machines == set()

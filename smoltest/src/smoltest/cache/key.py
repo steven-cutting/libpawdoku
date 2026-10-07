@@ -39,7 +39,10 @@ DEFAULT_CLOUD_URL = "https://api.smolmachines.com"
 CLOUD_URL_ENV = "SMOL_CLOUD_URL"
 CPUINFO_PATH = Path("/proc/cpuinfo")
 
-_SENSITIVE = re.compile(r"PASSWORD|PASSWD|SECRET|TOKEN", re.IGNORECASE)
+_SENSITIVE = re.compile(
+    r"PASSWORD|PASSWD|PASSPHRASE|SECRET|TOKEN|CREDENTIAL|API_?KEY|PRIVATE_?KEY",
+    re.IGNORECASE,
+)
 PLAIN_ENV_NAMES = frozenset(
     {
         "LANG",
@@ -102,9 +105,12 @@ def redact_inputs(inputs: Mapping[str, Any]) -> dict[str, Any]:
     Under ``env`` every value is hashed unless its name is in
     :data:`PLAIN_ENV_NAMES`: ``with_env`` carries arbitrary credentials
     (``API_KEY``, ``DATABASE_URL``, ``AUTH``, ...) that no name pattern can know
-    in full. Elsewhere a value is hashed when its key contains ``PASSWORD``,
-    ``PASSWD``, ``SECRET`` or ``TOKEN`` (any case), at any depth. The digest lets
-    two redacted files be compared without exposing the value.
+    in full. Elsewhere a value is hashed when its key names a secret
+    (``PASSWORD``, ``PASSWD``, ``PASSPHRASE``, ``SECRET``, ``TOKEN``,
+    ``CREDENTIAL``, ``API_KEY``, ``PRIVATE_KEY``; any case), at any depth, and a
+    string inside a list (``argv``, for example ``-c primary_conninfo=...
+    password=...``) is hashed when its own text contains one of those words. The
+    digest lets two redacted files be compared without exposing the value.
     """
     return _redact_mapping(inputs)
 
@@ -127,8 +133,15 @@ def _redact_value(value: Any) -> Any:
     if isinstance(value, Mapping):
         return _redact_mapping(value)
     if isinstance(value, (list, tuple)):
-        return [_redact_value(v) for v in value]
+        return [_redact_item(v) for v in value]
     return value
+
+
+def _redact_item(value: Any) -> Any:
+    """A list element: a string that names a secret is hashed, everything else recurses."""
+    if isinstance(value, str) and _SENSITIVE.search(value):
+        return f"sha256:{digest(value, 8)}"
+    return _redact_value(value)
 
 
 # -- host signature ---------------------------------------------------------------
@@ -229,7 +242,7 @@ class CacheKey:
         return canonical_json(self.inputs)
 
     def redacted_inputs(self) -> dict[str, Any]:
-        """The inputs with password-like values replaced by short digests."""
+        """The inputs with secrets replaced by short digests (see :func:`redact_inputs`)."""
         return redact_inputs(self.inputs)
 
     def with_seed(self, seed_key: str | None) -> CacheKey:

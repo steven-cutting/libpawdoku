@@ -106,13 +106,24 @@ class BootResult:
         """``True`` once :meth:`release` ran."""
         return self._released
 
-    def release(self) -> None:
-        """Close the bridge, delete the machine and release the cache claims (idempotent)."""
+    def release(self, *, strict: bool = False) -> None:
+        """Close the bridge, delete the machine and release the cache claims (idempotent).
+
+        ``strict=True`` is for an explicit teardown: a failed delete propagates,
+        the claims stay held (the machine still owns its port) and the result is
+        not marked released, so a later call retries. Without it, as at exit or
+        on garbage collection, a failed delete is logged and the rest proceeds.
+        """
         with self._lock:
             if self._released:
                 return
             self._released = True
-        _teardown(self.bridge, self.handle, self.claim, self.seed_claim)
+        try:
+            _teardown(self.bridge, self.handle, self.claim, self.seed_claim, strict=strict)
+        except BaseException:
+            with self._lock:
+                self._released = False
+            raise
 
 
 def _is_port_conflict(exc: BaseException) -> bool:
@@ -124,8 +135,15 @@ def _teardown(
     bridge: Bridge | None,
     handle: MachineHandle | None,
     *claims: VariantClaim | None,
+    strict: bool = False,
 ) -> None:
-    """Best-effort cleanup in the only safe order: bridge, machine, claims."""
+    """Cleanup in the only safe order: bridge, machine, claims.
+
+    Best effort by default (the boot ladder's failure path, exit, GC). With
+    ``strict`` a failed delete is raised instead of logged, before any claim is
+    released: the machine is still alive (and, on the cloud, still billed), so
+    the caller must hear about it and be able to try again.
+    """
     if bridge is not None:
         try:
             bridge.close()
@@ -134,7 +152,15 @@ def _teardown(
     if handle is not None:
         try:
             handle.delete()
-        except Exception:
+        except SmoltestError:
+            if strict:
+                raise
+            logger.exception("deleting machine %s failed", handle.name)
+        except Exception as exc:
+            if strict:
+                raise SmoltestError(
+                    f"deleting machine {handle.name} failed: {exc}", code="DELETE_FAILED"
+                ) from exc
             logger.exception("deleting machine %s failed", handle.name)
     for claim in claims:
         if claim is not None:

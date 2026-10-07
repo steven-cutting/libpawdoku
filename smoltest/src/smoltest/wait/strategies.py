@@ -127,6 +127,18 @@ def _seconds(value: float | timedelta) -> float:
     return seconds
 
 
+def _connect_timeout(value: float | timedelta) -> float:
+    """A per-attempt connect timeout: finite and positive, or :class:`InvalidConfig`.
+
+    It bounds a single probe; an infinite one would keep the probe from ever
+    returning to the readiness loop, whose own deadline then cannot expire.
+    """
+    seconds = _seconds(value)
+    if seconds <= 0:
+        raise InvalidConfig(f"connect timeout must be > 0; got {value!r}")
+    return seconds
+
+
 class WaitStrategy:
     """Base class: poll :meth:`probe` until it passes or the timeout expires.
 
@@ -235,9 +247,11 @@ class PortWaitStrategy(WaitStrategy):
     or :class:`SqlWaitStrategy` to prove the server is.
     """
 
-    def __init__(self, port: int | None = None, *, connect_timeout_s: float = 1.0) -> None:
+    def __init__(
+        self, port: int | None = None, *, connect_timeout_s: float | timedelta = 1.0
+    ) -> None:
         self._port = port
-        self._connect_timeout_s = connect_timeout_s
+        self._connect_timeout_s = _connect_timeout(connect_timeout_s)
 
     def describe(self) -> str:
         return f"PortWaitStrategy(port={self._port if self._port is not None else 'endpoint'})"
@@ -319,13 +333,13 @@ class SqlWaitStrategy(WaitStrategy):
         sql: str = "SELECT 1",
         prefer: Sequence[str] = DRIVERS,
         *,
-        connect_timeout_s: float = CONNECT_TIMEOUT_S,
+        connect_timeout_s: float | timedelta = CONNECT_TIMEOUT_S,
     ) -> None:
         self._sql = sql
         self._prefer = tuple(prefer)
         if not self._prefer:
             raise InvalidConfig("SqlWaitStrategy needs at least one driver preference")
-        self._connect_timeout_s = connect_timeout_s
+        self._connect_timeout_s = _connect_timeout(connect_timeout_s)
 
     @property
     def sql(self) -> str:

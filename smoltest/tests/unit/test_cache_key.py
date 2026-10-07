@@ -269,3 +269,17 @@ def test_from_inputs_round_trip() -> None:
     again = CacheKey.from_inputs(dict(key.inputs))
     assert again == key
     assert CacheKey.from_inputs({**key.inputs, "image": "other"}).key != key.key
+
+
+def test_redaction_hashes_argv_strings_that_name_a_secret() -> None:
+    conninfo = "primary_conninfo=host=h user=r password=pw"
+    spec = PostgresSpec(command=("postgres", "-c", conninfo, "-c", "fsync=off"))
+    key = key_for(spec)
+    redacted = key.redacted_inputs()
+    argv = redacted["argv"]
+    assert conninfo in key.inputs["argv"], "the key itself still sees the real argv"
+    assert f"sha256:{digest(conninfo, 8)}" in argv
+    assert conninfo not in argv and "fsync=off" in argv and "postgres" in argv
+    assert "pw" not in json.dumps(redacted["argv"])
+    for name in ("API_KEY", "apikey", "PRIVATE_KEY", "DB_CREDENTIALS", "SSH_PASSPHRASE"):
+        assert _SENSITIVE.search(name), name

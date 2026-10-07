@@ -5,7 +5,7 @@ Layout under ``<cache_dir>/<family>/`` (``family`` is ``postgres``)::
     .lock                       store-wide lock (eviction, prune, clear)
     <key>.lock                  per-key lock (claims, populate, invalidate)
     store/                      the engine's dedup store
-    <key>/inputs.json           what produced the key, passwords redacted
+    <key>/inputs.json           what produced the key, secrets and env values hashed
     <key>/<port>.smolcheckpoint the checkpoint (a file or a directory)
     <key>/<port>.meta.json      commit marker: written last, read first
     <key>/<port>.claim          pid + token of the process using the variant
@@ -957,8 +957,9 @@ class CheckpointCache:
         Whatever the engine wrote is a copy of guest RAM with the umask's
         permissions, so any failure after the call (an engine error, a reported
         ref that is not this file, a ``chmod`` that does not take) removes the
-        requested output, and the file the engine reported if that differs,
-        before the error propagates.
+        requested output before the error propagates. A different path the
+        engine reported is removed too, but only when it is a stray inside this
+        variant's own key directory (see :meth:`_discard_checkpoint`).
         """
         reported: Path | None = None
         try:
@@ -979,17 +980,43 @@ class CheckpointCache:
             self._discard_checkpoint(paths, reported)
             raise CacheError(f"checkpoint of {handle.name} failed: {exc}") from exc
         except BaseException:  # KeyboardInterrupt / SystemExit: tidy, then propagate
-            self._discard_checkpoint(paths, reported)
+            try:
+                self._discard_checkpoint(paths, reported)
+            except CacheError as exc:  # the interrupt stays an interrupt
+                logger.warning("could not tidy up after an interrupted checkpoint: %s", exc)
             raise
         return info
 
     @staticmethod
     def _discard_checkpoint(paths: VariantPaths, reported: Path | None) -> None:
+        """Remove the requested output, and a stray the engine reported if it is safe to.
+
+        The reported path is engine-controlled. It is removed only when it lies
+        inside this variant's key directory and is none of the cache's own files
+        (another variant's checkpoint, meta or claim, ``inputs.json``); anything
+        else (the dedup store, the key directory itself, a path outside the
+        cache) is left in place with a warning, never deleted on the engine's word.
+        """
         remove_path_strict(paths.checkpoint)
-        if reported is not None and os.path.realpath(reported) != os.path.realpath(
-            paths.checkpoint
-        ):
+        if reported is None:
+            return
+        target = Path(os.path.realpath(reported))
+        if target == Path(os.path.realpath(paths.checkpoint)):
+            return
+        key_dir = Path(os.path.realpath(paths.checkpoint.parent))
+        inside = key_dir in target.parents  # strictly below: never the key dir itself
+        owned = target.name == INPUTS_FILENAME or any(
+            target.name.endswith(suffix)
+            for suffix in (CHECKPOINT_SUFFIX, META_SUFFIX, CLAIM_SUFFIX)
+        )
+        if inside and not owned:
             remove_path_strict(reported)
+        else:
+            logger.warning(
+                "engine reported checkpoint %s, which is not this variant's; left in place, "
+                "check that it is not readable by others",
+                reported,
+            )
 
     def _write_inputs(self, key: str, inputs: Mapping[str, Any]) -> None:
         payload = {

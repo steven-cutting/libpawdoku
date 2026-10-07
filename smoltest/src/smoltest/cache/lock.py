@@ -190,8 +190,11 @@ class FileLock:
             raise
 
     def _flock(self, deadline: float | None, shared: bool, timeout: float | None) -> int:
-        self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        fd = os.open(self.path, os.O_RDWR | os.O_CREAT | os.O_CLOEXEC, 0o600)
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            fd = os.open(self.path, os.O_RDWR | os.O_CREAT | os.O_CLOEXEC, 0o600)
+        except OSError as exc:  # an unwritable directory, or a directory at the lock path
+            raise CacheError(f"cannot open lock {self.path}: {exc}", code="LOCK_PATH") from exc
         op = (fcntl.LOCK_SH if shared else fcntl.LOCK_EX) | fcntl.LOCK_NB
         try:
             while not self._try_flock(fd, op):
@@ -213,21 +216,34 @@ class FileLock:
         return True
 
     def release(self) -> None:
-        """Give the lock back; the file lock drops with the outermost release."""
+        """Give the lock back; the file lock drops with the outermost release.
+
+        Only the thread that holds the lock may release it. Any other thread is
+        refused with :class:`~smoltest.errors.CacheError` *before* the hold is
+        touched, so the owner's ``flock`` stays in place for its critical section.
+        """
         hold = self._hold
-        if hold.depth == 0:
-            raise CacheError(f"lock {self.path} is not held")
-        hold.depth -= 1
-        if hold.depth == 0 and hold.fd is not None:
-            # Cleared before the close: a fork in between must not see a number
-            # that another thread has since reused and close that in the child.
-            fd, hold.fd = hold.fd, None
-            try:
-                fcntl.flock(fd, fcntl.LOCK_UN)
-            finally:
-                os.close(fd)
-                hold.shared = False
-        hold.tlock.release()
+        # A non-blocking probe of the thread lock: it succeeds for the owner
+        # (re-entrant) and on an idle hold, and fails for a thread that does not
+        # own a held lock. The ownership check and the mutation both happen under it.
+        if not hold.tlock.acquire(blocking=False):
+            raise CacheError(f"lock {self.path} is held by another thread")
+        try:
+            if hold.depth == 0:
+                raise CacheError(f"lock {self.path} is not held")
+            hold.depth -= 1
+            if hold.depth == 0 and hold.fd is not None:
+                # Cleared before the close: a fork in between must not see a number
+                # that another thread has since reused and close that in the child.
+                fd, hold.fd = hold.fd, None
+                try:
+                    fcntl.flock(fd, fcntl.LOCK_UN)
+                finally:
+                    os.close(fd)
+                    hold.shared = False
+        finally:
+            hold.tlock.release()  # the probe
+        hold.tlock.release()  # the acquisition this release gives back
 
     def __enter__(self) -> FileLock:
         self.acquire()

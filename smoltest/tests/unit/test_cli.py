@@ -629,6 +629,19 @@ def test_cache_clear(
     assert json.loads(capsys.readouterr().out)["keys"] == []
 
 
+def test_cache_clear_with_an_unusable_lock_path_fails_cleanly(
+    fake_engine: FakeEngine, cache_dir: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert warm(1) == EXIT_OK
+    capsys.readouterr()
+    store_lock = cache_dir / "postgres" / ".lock"
+    store_lock.unlink()
+    store_lock.mkdir()  # a directory where the store lock file belongs
+    assert run("cache", "clear", "--yes") == EXIT_FAILURE
+    err = capsys.readouterr().err
+    assert "error: cannot open lock" in err and "Traceback" not in err
+
+
 def test_cache_export(
     fake_engine: FakeEngine, cache_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -721,9 +734,21 @@ def test_run_stops_on_sigint_and_restores_the_handler(
     if threading.current_thread() is not threading.main_thread():
         pytest.skip("signal handlers can only be installed from the main thread")
     before = signal.getsignal(signal.SIGINT)
-    thread = when_live(fake_engine, lambda: os.kill(os.getpid(), signal.SIGINT))
-    assert run("run", "postgres") == EXIT_OK
-    thread.join(timeout=5)
+
+    class InterruptWhenIdle(threading.Event):
+        """The run's stop event: its first wait() is the idle loop, after start-up."""
+
+        sent = False
+
+        def wait(self, timeout: float | None = None) -> bool:
+            if not self.sent:
+                self.sent = True  # only now, with the running-state handler installed
+                os.kill(os.getpid(), signal.SIGINT)
+            return super().wait(timeout)
+
+    stop = InterruptWhenIdle()
+    assert run("run", "postgres", stop_event=stop) == EXIT_OK
+    assert stop.sent and stop.is_set()
     assert signal.getsignal(signal.SIGINT) is before
     captured = capsys.readouterr()
     assert "received SIGINT" in captured.err and "machine deleted" in captured.err

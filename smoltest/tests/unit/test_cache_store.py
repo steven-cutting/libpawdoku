@@ -6,6 +6,7 @@ import dataclasses
 import errno
 import gc
 import json
+import logging
 import multiprocessing
 import os
 import re
@@ -21,6 +22,7 @@ import pytest
 from smoltest._log import reset_warn_once
 from smoltest._ports import is_port_free, pick_free_port
 from smoltest.cache import open_checkpoint_backend
+from smoltest.cache import store as store_module
 from smoltest.cache.cloud_index import CloudCheckpointIndex
 from smoltest.cache.key import host_signature
 from smoltest.cache.lock import FileLock, LockTimeout
@@ -871,6 +873,53 @@ def test_for_path_locks_the_resolved_file_after_a_chdir(
             other.acquire()
 
 
+def test_release_from_a_non_owning_thread_is_refused_and_changes_nothing(
+    tmp_path: Path,
+) -> None:
+    """A stranger's release must not drop the owner's flock in the middle of its work."""
+    path = tmp_path / "owned.lock"
+    lock = FileLock.for_path(path, timeout_s=5, poll_interval_s=0.01)
+    held, done = threading.Event(), threading.Event()
+
+    def owner() -> None:
+        with lock:
+            held.set()
+            done.wait(10)
+
+    thread = threading.Thread(target=owner)
+    thread.start()
+    try:
+        assert held.wait(5)
+        with pytest.raises(CacheError, match="held by another thread"):
+            lock.release()
+        assert is_held(lock), "the refused release must not touch the hold"
+        other = FileLock(path, timeout_s=0.05, poll_interval_s=0.01)  # another process, in effect
+        with pytest.raises(LockTimeout):
+            other.acquire()
+    finally:
+        done.set()
+        thread.join(5)
+    assert not is_held(lock)
+    with pytest.raises(CacheError, match="not held"):
+        lock.release()  # an idle lock still reports "not held"
+    with lock:  # and the file is free again
+        pass
+
+
+def test_lock_path_errors_are_cache_errors(tmp_path: Path) -> None:
+    """An unusable lock path must reach the CLI's error handler, not print a traceback."""
+    as_directory = tmp_path / "is-a-dir.lock"
+    as_directory.mkdir()
+    with pytest.raises(CacheError, match="cannot open lock") as info:
+        FileLock(as_directory, timeout_s=0.1).acquire()
+    assert info.value.code == "LOCK_PATH" and isinstance(info.value.__cause__, OSError)
+    blocker = tmp_path / "not-a-dir"
+    blocker.write_text("")
+    with pytest.raises(CacheError, match="cannot open lock") as info:
+        FileLock(blocker / "x.lock", timeout_s=0.1).acquire()
+    assert info.value.code == "LOCK_PATH"
+
+
 def test_for_path_applies_each_callers_timeout(tmp_path: Path) -> None:
     """Shared hold, own patience: a later caller's shorter timeout is not discarded."""
     path = tmp_path / "t.lock"
@@ -1081,7 +1130,10 @@ def test_forked_child_does_not_remove_the_parents_claim_file(cache: CheckpointCa
 
 
 def test_populate_removes_a_checkpoint_the_engine_reports_wrongly(
-    cache: CheckpointCache, fake_engine: FakeEngine, tmp_path: Path
+    cache: CheckpointCache,
+    fake_engine: FakeEngine,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """A checkpoint rejected by validation is guest RAM too: it must not stay behind."""
     port = pick_free_port()
@@ -1096,24 +1148,117 @@ def test_populate_removes_a_checkpoint_the_engine_reports_wrongly(
             info, ref=CheckpointRef("cloud", "ckpt-x")
         )  # ... but misreported
 
-    elsewhere = tmp_path / "elsewhere.smolcheckpoint"
+    def reporting(where: Path, *, copy: bool = True) -> Any:
+        def checkpoint(output: str | None = None, store: str | None = None) -> CheckpointInfo:
+            info = real(output, store)
+            if copy:
+                where.write_bytes(Path(info.ref.locator).read_bytes())
+            return dataclasses.replace(info, ref=CheckpointRef("file", str(where)))
 
-    def other_path(output: str | None = None, store: str | None = None) -> CheckpointInfo:
-        info = real(output, store)
-        elsewhere.write_bytes(Path(info.ref.locator).read_bytes())
-        return dataclasses.replace(info, ref=CheckpointRef("file", str(elsewhere)))
+        return checkpoint
 
     with pytest.raises(CacheCorrupt, match="cloud checkpoint"):
         cache.populate(KEY, claim, _with_checkpoint(machine, cloud_ref), INPUTS)
     assert not paths.checkpoint.exists() and not paths.meta.exists()
+
+    # A stray the engine wrote inside this variant's key directory is removed ...
+    stray = paths.checkpoint.parent / "stray.tmp"
     with pytest.raises(CacheCorrupt, match="not"):
-        cache.populate(KEY, claim, _with_checkpoint(machine, other_path), INPUTS)
-    assert not paths.checkpoint.exists() and not elsewhere.exists()
+        cache.populate(KEY, claim, _with_checkpoint(machine, reporting(stray)), INPUTS)
+    assert not paths.checkpoint.exists() and not stray.exists()
+
+    # ... but nothing outside it is deleted on the engine's word: not a path elsewhere,
+    # not the dedup store the engine was handed.
+    elsewhere = tmp_path / "elsewhere.smolcheckpoint"
+    chunks_before = sorted(p.name for p in cache.store_dir.iterdir())
+    for target, copy in ((elsewhere, True), (cache.store_dir, False)):
+        caplog.clear()
+        with (
+            caplog.at_level(logging.WARNING, logger="smoltest"),
+            pytest.raises(CacheCorrupt, match="not"),
+        ):
+            cache.populate(
+                KEY, claim, _with_checkpoint(machine, reporting(target, copy=copy)), INPUTS
+            )
+        assert not paths.checkpoint.exists()
+        assert target.exists(), f"{target} must be left in place"
+        assert "left in place" in caplog.text
+    assert sorted(p.name for p in cache.store_dir.iterdir()) == chunks_before
     assert paths.claim.exists() and not claim.populated
     cache.populate(KEY, claim, machine, INPUTS)  # the honest engine still populates
     assert claim.populated and stat.S_IMODE(paths.checkpoint.stat().st_mode) == 0o600
     claim.release()
     machine.delete()
+
+
+def test_remove_path_strict_reports_what_it_could_not_remove(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "ram.smolcheckpoint"
+    target.write_bytes(b"guest ram")
+
+    def stuck(path: Path) -> bool:
+        raise PermissionError(errno.EPERM, "Operation not permitted", str(path))
+
+    monkeypatch.setattr(store_module, "remove_path", stuck)
+    with pytest.raises(CacheError, match="still readable") as info:
+        store_module.remove_path_strict(target)
+    assert info.value.code == "CHECKPOINT_PERMISSIONS"
+    assert isinstance(info.value.__cause__, PermissionError)
+
+
+def test_populate_reports_a_checkpoint_it_could_neither_protect_nor_remove(
+    cache: CheckpointCache, fake_engine: FakeEngine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    port = pick_free_port()
+    machine = fake_engine.create(mspec(port), "local")
+    claim = cache.reserve_new_variant(KEY, port)
+    paths = cache.paths(KEY, port)
+
+    def refuse(self: Path, mode: int, *a: object, **k: object) -> None:
+        if self.name.endswith(".smolcheckpoint"):
+            raise PermissionError(errno.EPERM, "Operation not permitted", str(self))
+
+    real_remove = store_module.remove_path
+
+    def stuck_on_checkpoints(path: Path) -> bool:
+        if path.name.endswith(".smolcheckpoint") and path.exists():
+            raise PermissionError(errno.EPERM, "Operation not permitted", str(path))
+        return real_remove(path)
+
+    with monkeypatch.context() as patched:
+        patched.setattr(Path, "chmod", refuse)
+        patched.setattr(store_module, "remove_path", stuck_on_checkpoints)
+        with pytest.raises(CacheError, match="still readable") as info:
+            cache.populate(KEY, claim, machine, INPUTS)
+    assert info.value.code == "CHECKPOINT_PERMISSIONS"
+    assert str(paths.checkpoint) in str(info.value)
+    assert not paths.meta.exists() and not claim.populated
+    store_module.remove_path(paths.checkpoint)
+    claim.release()
+    machine.delete()
+
+
+def test_make_private_fails_on_a_directory_it_cannot_list(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A subdirectory the walk cannot list must fail loudly, not leave its files unchanged."""
+    tree = tmp_path / "ckpt.smolcheckpoint"
+    locked = tree / "locked"
+    locked.mkdir(parents=True)
+    (locked / "chunk").write_bytes(b"x")
+    real_scandir = os.scandir
+
+    def unlistable(path: Any = ".") -> Any:  # what os.walk sees for a 0o000 directory
+        if os.fspath(path) == str(locked):
+            raise PermissionError(errno.EACCES, "Permission denied", str(locked))
+        return real_scandir(path)
+
+    monkeypatch.setattr(os, "scandir", unlistable)
+    with pytest.raises(CacheError, match="cannot make") as info:
+        make_private(tree)
+    assert info.value.code == "CHECKPOINT_PERMISSIONS"
+    assert isinstance(info.value.__cause__, PermissionError)
 
 
 def _with_checkpoint(machine: FakeMachine, checkpoint: Any) -> Any:
