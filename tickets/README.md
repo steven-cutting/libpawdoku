@@ -44,6 +44,9 @@ authoritative; this table is a snapshot.
 | T31 | Spec change: the basic generator in generation, a published method of removal checked by the verdict | `T31-basic-generator-spec.md` | T19 | none | done |
 | T32 | The basic generator in Rust: the solution grid, removal in order and the five tiers | `T32-basic-generator.md` | T31, T28 | none | done |
 | T33 | The API reference on GitHub Pages: a deploy workflow, a site recipe and the first workflow that publishes | `T33-api-reference-on-github-pages.md` | T11 | S10 | done |
+| T37 | Specification: a layout filled by search, and the run without guessing that checks it | `T37-layout-spec.md` | T32 | none | open |
+| T38 | The run without guessing in Rust: a kept grid, the four techniques and solved or stalled | `T38-technique-run.md` | T37 | none | open |
+| T39 | A layout filled in Rust: trials over drawn grids, the check, and the figures beside the paper's | `T39-layout-fill.md` | T38 | none | open |
 
 Spike tickets. Each weighs options and ends in a recommendation; none blocks the build and
 none is picked up before T11.
@@ -87,6 +90,7 @@ T12, T22 ── T23 ── T24 ── T29 ── T25 ──┬── T26 ── 
                                        └── T30   (the tutorial T25 left unfollowable)
 
 T19 ── T31 ── T32 (also after T28)   (the basic generator: its specification, then its Rust)
+T32 ── T37 ── T38 ── T39   (Nishikawa and Toda by search: the layout module, its run, its filling)
 T11 ──┬── T33   (the API reference on GitHub Pages)
       └── S10   (pages and diagrams inside rustdoc; its follow-up needs T33)
 S06 ── S11   (the chain techniques S06 could not argue; beside S07 and S08)
@@ -134,6 +138,17 @@ rustdoc. It shares one path with T33, this index, where each sets its own row an
 nothing else; its experiments run in a scratch copy outside the repository. So it may
 run beside T33, and the build ticket it drafts depends on T33. The ids between T30 and T33 are the
 basic-generator tickets'.
+
+T37 to T39 are the second generator, from Nishikawa and Toda's paper on strategy-solvable
+Sudoku clues: a layout of positions and a repertoire of techniques go in, and digits
+come out, found by trials over drawn grids and checked by a run that never guesses. The
+paper's own method is exact; these tickets build the generate-and-test search it
+describes, faithfully, so that it can be compared with the basic generator and with the
+paper's figures. T37 writes `layout.allium`, a module of its own that imports
+`generation.allium` for its grid attempt, and decision 0018; T38 builds the run and its
+check; T39 builds the filling and measures it. They follow T32 in strict sequence. The
+ids skip T34, S10's follow-up on its own branch, T35, the spec change S06 drafted, and
+T36, which S11's amendments may take; the tickets' open points say so.
 
 ## How to pick up a ticket
 
