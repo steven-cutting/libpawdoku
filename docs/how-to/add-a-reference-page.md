@@ -80,14 +80,13 @@ one theme. Serve the build and switch themes with the gear icon on the page:
 
 ```console
 just doc
-python3 -m http.server 8734 --bind 127.0.0.1 --directory target/doc
+just doc-serve
 ```
 
 Then open `http://127.0.0.1:8734/pawdoku/guide/index.html` and look at light, dark and
 ayu. A figure that is right in one theme can be unreadable in another when a colour was
-written as a literal. A build with none of the gate's flags,
-`cargo doc -p pawdoku --no-deps --all-features`, shows what a consumer's own `cargo doc`
-would.
+written as a literal. `just doc-plain` builds what a consumer's own `cargo doc` would,
+with none of the gate's flags; serve it the same way, with `just doc-serve`.
 
 ## A diagram as a Mermaid fence
 

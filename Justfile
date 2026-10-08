@@ -226,6 +226,19 @@ site:
     just doc
     printf '%s\n' '<!doctype html>' '<html lang="en">' '<meta charset="utf-8">' '<title>pawdoku: API reference</title>' '<meta http-equiv="refresh" content="0; url=pawdoku/index.html">' '<p><a href="pawdoku/index.html">The pawdoku API reference</a></p>' '</html>' > target/doc/index.html
 
+# Serves target/doc on the loopback address until interrupted, so that
+# rustdoc's theme switcher works, which it does not from a file. python3 is
+# pixi's, because the PATH export above puts its environment first. Writes
+# nothing; outside `just check`.
+doc-serve:
+    python3 -m http.server 8734 --bind 127.0.0.1 --directory target/doc
+
+# The reference as a consumer's own `cargo doc` builds it: none of `doc`'s
+# flags, and RUSTDOCFLAGS unset so the shell cannot add any. Writes only under
+# target/doc; outside `just check`.
+doc-plain:
+    env -u RUSTDOCFLAGS cargo doc -p pawdoku --no-deps --all-features --locked
+
 # Licences, bans and sources are answerable offline once `just sync` has run.
 deny:
     cargo deny --locked check licenses bans sources

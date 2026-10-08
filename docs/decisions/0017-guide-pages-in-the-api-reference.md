@@ -86,8 +86,10 @@ Turned down, each on evidence:
   because sharing one through a header file is what was turned down.
 - **The map of modules now lives in two places**, as a table in the handbook and as a
   figure in the reference. The table is the owner; the figure links to it.
-- **The `Justfile` did not change.** Of the frozen files, only `docs/manifest.yml` and
-  `docs/README.md` did, for the two new pages, with the maintainer's leave.
+- **The `Justfile` gained two recipes and nothing else.** `doc-serve` and `doc-plain`
+  are how the how-to looks at a page, added in answer to the pull request's review, so
+  that it calls no command of its own. `docs/manifest.yml` and `docs/README.md` changed
+  for the two new pages. All three are frozen files, edited with the maintainer's leave.
 
 ## What would reopen this
 
