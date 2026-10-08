@@ -26,9 +26,10 @@ a header file rustdoc was given by flag, and the page was made self-contained.
 
 **A page in the reference is a documentation-only module.** It is written as doc comments
 in a `.rs` file when it holds raw HTML, and declared in `lib.rs` under `cfg(doc)`, so it
-exists when rustdoc builds and nowhere else. It carries at least one example, and names
-every item it mentions through an intra-doc link, so that gates 10 and 12 hold what they
-can. `pawdoku::guide`, the engine map, is the first.
+exists when rustdoc builds and nowhere else. It carries at least one example, and its
+prose names every item that exists through an intra-doc link, so that gates 10 and 12
+hold what they can; a module not built yet has no item to link, and the names inside a
+figure are plain text. `pawdoku::guide`, the engine map, is the first.
 
 **What a page may hold.** A page in the reference is for someone using the crate: it
 shows how the public API fits together, or how to do something with it. The handbook
@@ -75,9 +76,10 @@ Turned down, each on evidence:
 
 ## Consequences
 
-- **A figure's names are not held by the gate.** Prose names are intra-doc links and
-  fail when an item is renamed; a name inside an `svg` is plain text and does not. A
-  figure that falls behind the code is a defect review has to catch.
+- **A figure's names are not held by the gate.** Prose names of items that exist are
+  intra-doc links and fail when an item is renamed; a name inside an `svg` is plain text
+  and does not, nor does the name of a module not built yet, which has no item to link.
+  A figure that falls behind the code is a defect review has to catch.
 - **Editing a figure means editing coordinates.** The how-to says where each class is
   and how to look at the result in three themes.
 - **The styles live in the page.** A second page with figures copies the `style` block,

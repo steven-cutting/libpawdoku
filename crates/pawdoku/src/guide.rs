@@ -6,7 +6,7 @@
 
 //! A map of the engine: what this crate is, what it does and how, drawn at four levels.
 //!
-//! `pawdoku` is the classic-sudoku engine behind Pawdoku. It is a library. It knows the
+//! [`pawdoku`] is the classic-sudoku engine behind Pawdoku. It is a library. It knows the
 //! rules, proves that a puzzle has exactly one solution, makes puzzles from a stream of
 //! draws, and keeps one game in play, with notes, undo and a check. It draws nothing and
 //! stores nothing. The program that calls it does both.
@@ -249,9 +249,9 @@
 //!
 //! The map has nine specification modules and the randomness boundary. Each specification
 //! module is one file under `docs/specs/` and, once built, one Rust module of the same
-//! name. `random` has no specification file: it is the boundary the engine takes its draws
-//! through, and it imports none of the others. A module may use only the modules its arrows
-//! point to.
+//! name. [`random`] has no specification file: it is the boundary the engine takes its
+//! draws through, and it imports none of the others. A module may use only the modules its
+//! arrows point to.
 //!
 //! A quality gate checks imports written as `crate::` paths against that rule. A relative
 //! path, an alias of the crate and a re-export are outside its sight, and review has to
@@ -346,14 +346,14 @@
 //! </svg>
 //! </div>
 //!
-//! *An arrow runs from a module to one it may import. Nothing imports `board` or
-//! `generation`, and no player model imports another. The generator that is built today
+//! *An arrow runs from a module to one it may import. Nothing imports [`board`] or
+//! [`generation`], and no player model imports another. The generator that is built today
 //! uses the rules, the solver and the draws; `technique` and `reach` are what its
 //! specification lets it stand on later.*
 //!
 //! ## Level 2: the components
 //!
-//! ### `sudoku`, the rules
+//! ### [`sudoku`], the rules
 //!
 //! The rules hold one puzzle and its digits. A [`Puzzle`] can be made only from a
 //! [`WellPosed`] proof that its givens have exactly one solution, so a puzzle with no
@@ -414,7 +414,7 @@
 //! *The solution enters with the proof and stays inside the puzzle. Solved means every cell
 //! is full and none conflicts. It is never a comparison with the stored solution.*
 //!
-//! ### `solver`, the search
+//! ### [`solver`], the search
 //!
 //! There is one search and two ways to ask it. [`search`] reports on any givens and never
 //! fails. [`solve`] turns the same search into the proof a puzzle needs, or refuses. The
@@ -483,7 +483,7 @@
 //! every other waiting branch out. The guess count is part of the answer, so the order of
 //! splits is fixed and documented.*
 //!
-//! ### `board`, the puzzle in play
+//! ### [`board`], the puzzle in play
 //!
 //! The [`Board`] is what a consumer plays on, and the only thing in the engine that changes
 //! as a game goes on. It owns its puzzle and never hands it out, and everything it returns
@@ -563,7 +563,7 @@
 //! play, only [`Board::check`] consults the stored solution. Reopening consults it too, to
 //! answer a record's checks again. Neither tells a digit of it.*
 //!
-//! ### `generation`, puzzles from draws
+//! ### [`generation`], puzzles from draws
 //!
 //! [`generate`] makes a puzzle from a [`Tier`] and a stream of draws, by a published
 //! method: draw a full grid, then take givens away while the solver's verdict stays one.
@@ -616,11 +616,13 @@
 //! </svg>
 //! </div>
 //!
-//! *The tier and the draws decide the puzzle, and nothing else does. `Stream` is a stream
-//! with no draw to give, and `GridAttemptsSpent` is a hundred failed tries at a grid. No
-//! tier and no stream reaches `NotProved`: it is there so that a defect would be a refusal.*
+//! *The tier and the draws decide the puzzle, and nothing else does. [`Stream`] is the
+//! stream's own [`RandomError`], passed on unchanged; from the crate's own streams that
+//! means a script that ran out. [`GridAttemptsSpent`] is a hundred failed tries at a grid.
+//! No tier and no stream reaches [`NotProved`]: it is there so that a defect would be a
+//! refusal.*
 //!
-//! ### `random`, the one effect
+//! ### [`random`], the one effect
 //!
 //! Randomness is the only thing the engine needs from outside, and it never fetches it.
 //! The caller hands in a stream of numbers. The same seed and the same version give the
@@ -756,32 +758,32 @@
 //!
 //! | Operation | Refuses with the first of these that applies |
 //! | --- | --- |
-//! | [`place`] | `NoSuchCell`, `Solved`, `GivenCell`, `DigitOutOfRange`, `DigitAlreadyStands` |
-//! | [`erase`] | `NoSuchCell`, `Solved`, `NoPlayersDigit` |
-//! | [`write_mark`] | `NoSuchCell`, `Solved`, `MarksNotAccepted`, `DigitOutOfRange`, `MarkAlreadyWritten` |
-//! | [`strike_mark`] | `NoSuchCell`, `Solved`, `MarksNotAccepted`, `MarkNotThere` |
-//! | [`check`] | `NoSuchCell`, `Solved`, `NoPlayersDigit` |
-//! | [`undo`] | `Solved`, `NothingToUndo` |
-//! | [`redo`] | `Solved`, `NothingToRedo` |
+//! | [`place`] | [`NoSuchCell`], [`Solved`], [`GivenCell`], [`DigitOutOfRange`], [`DigitAlreadyStands`] |
+//! | [`erase`] | [`NoSuchCell`], [`Solved`], [`NoPlayersDigit`] |
+//! | [`write_mark`] | [`NoSuchCell`], [`Solved`], [`MarksNotAccepted`], [`DigitOutOfRange`], [`MarkAlreadyWritten`] |
+//! | [`strike_mark`] | [`NoSuchCell`], [`Solved`], [`MarksNotAccepted`], [`MarkNotThere`] |
+//! | [`check`] | [`NoSuchCell`], [`Solved`], [`NoPlayersDigit`] |
+//! | [`undo`] | [`Solved`], [`NothingToUndo`] |
+//! | [`redo`] | [`Solved`], [`NothingToRedo`] |
 //!
 //! The first two guards are shared by every operation on a cell: a position off the grid,
 //! then a solved puzzle. Together these are the eleven kinds of [`PlayError`]:
 //!
 //! | Kind | The rule that failed |
 //! | --- | --- |
-//! | `NoSuchCell` | the position is off the grid |
-//! | `Solved` | the puzzle is solved, and solved is final |
-//! | `GivenCell` | the cell holds a given |
-//! | `DigitOutOfRange` | the digit is not from 1 to 9 |
-//! | `DigitAlreadyStands` | the cell already holds that digit |
-//! | `NoPlayersDigit` | the cell is empty or holds a given |
-//! | `MarksNotAccepted` | the cell holds a digit, so it takes no marks |
-//! | `MarkAlreadyWritten` | the mark is already in the note |
-//! | `MarkNotThere` | the mark is not in the note |
-//! | `NothingToUndo` | no move stands |
-//! | `NothingToRedo` | no move is undone |
+//! | [`NoSuchCell`] | the position is off the grid |
+//! | [`Solved`] | the puzzle is solved, and solved is final |
+//! | [`GivenCell`] | the cell holds a given |
+//! | [`DigitOutOfRange`] | the digit is not from 1 to 9 |
+//! | [`DigitAlreadyStands`] | the cell already holds that digit |
+//! | [`NoPlayersDigit`] | the cell is empty or holds a given |
+//! | [`MarksNotAccepted`] | the cell holds a digit, so it takes no marks |
+//! | [`MarkAlreadyWritten`] | the mark is already in the note |
+//! | [`MarkNotThere`] | the mark is not in the note |
+//! | [`NothingToUndo`] | no move stands |
+//! | [`NothingToRedo`] | no move is undone |
 //!
-//! #### What `place` does
+//! #### What [`place`] does
 //!
 //! <div class="pg-fig">
 //! <svg class="pg" viewBox="0 0 960 300" role="img" aria-label="Placing a digit in five steps: guard, find which peers' notes hold the digit, write the move down with what it displaces, perform it on the puzzle and the notes, and record it in the journal. An example shows a peer's note losing the mark 4 when 4 is placed beside it.">
@@ -1025,6 +1027,12 @@
 //! [layering page]: https://github.com/steven-cutting/libpawdoku/blob/main/docs/explanation/layering.md
 //! [Architecture]: https://github.com/steven-cutting/libpawdoku/blob/main/docs/explanation/architecture.md
 //! [Purpose and scope]: https://github.com/steven-cutting/libpawdoku/blob/main/docs/project/purpose-and-scope.md
+//! [`pawdoku`]: crate
+//! [`sudoku`]: crate::sudoku
+//! [`solver`]: crate::solver
+//! [`board`]: crate::board
+//! [`generation`]: crate::generation
+//! [`random`]: crate::random
 //! [`Board`]: crate::board::Board
 //! [`Board::open`]: crate::board::Board::open
 //! [`Board::reopen`]: crate::board::Board::reopen
@@ -1039,6 +1047,17 @@
 //! [`redo`]: crate::board::Board::redo
 //! [`Record`]: crate::board::Record
 //! [`PlayError`]: crate::board::PlayError
+//! [`NoSuchCell`]: crate::board::PlayError::NoSuchCell
+//! [`Solved`]: crate::board::PlayError::Solved
+//! [`GivenCell`]: crate::board::PlayError::GivenCell
+//! [`DigitOutOfRange`]: crate::board::PlayError::DigitOutOfRange
+//! [`DigitAlreadyStands`]: crate::board::PlayError::DigitAlreadyStands
+//! [`NoPlayersDigit`]: crate::board::PlayError::NoPlayersDigit
+//! [`MarksNotAccepted`]: crate::board::PlayError::MarksNotAccepted
+//! [`MarkAlreadyWritten`]: crate::board::PlayError::MarkAlreadyWritten
+//! [`MarkNotThere`]: crate::board::PlayError::MarkNotThere
+//! [`NothingToUndo`]: crate::board::PlayError::NothingToUndo
+//! [`NothingToRedo`]: crate::board::PlayError::NothingToRedo
 //! [`ReopenError`]: crate::board::ReopenError
 //! [`Puzzle`]: crate::sudoku::Puzzle
 //! [`WellPosed`]: crate::sudoku::WellPosed
@@ -1050,6 +1069,9 @@
 //! [`SearchResult`]: crate::solver::SearchResult
 //! [`generate`]: crate::generation::generate
 //! [`Tier`]: crate::generation::Tier
+//! [`Stream`]: crate::generation::GenerateError::Stream
+//! [`GridAttemptsSpent`]: crate::generation::GenerateError::GridAttemptsSpent
+//! [`NotProved`]: crate::generation::GenerateError::NotProved
 //! [`SeededStream`]: crate::random::SeededStream
 //! [`ReplayStream`]: crate::random::ReplayStream
 //! [`RandomError`]: crate::random::RandomError

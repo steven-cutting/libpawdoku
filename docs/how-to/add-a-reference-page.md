@@ -30,9 +30,12 @@ with it, and anything it needs from the handbook it links to and does not repeat
 5. Give the page at least one example that compiles and asserts. `just test-doc` runs it.
 6. Name every item in the prose through an intra-doc link whose target is the item's
    path, such as `crate::board::Board`, inline or as a reference definition at the foot
-   of the page, so a renamed item fails `just doc`. Link to a handbook page by its
-   address on GitHub, `https://github.com/steven-cutting/libpawdoku/blob/main/docs/...`:
-   a relative path means nothing on the hosted site or on docs.rs.
+   of the page, so a renamed item fails `just doc`. A heading may hold the link; rustdoc
+   keeps the heading's anchor. Only two kinds of name stay plain text: a module not
+   built yet, which has no item to link, and a name inside a figure. Link to a handbook
+   page by its address on GitHub,
+   `https://github.com/steven-cutting/libpawdoku/blob/main/docs/...`: a relative path
+   means nothing on the hosted site or on docs.rs.
 7. Run `just doc`, `just test-doc`, `just lint` and `just fmt-check`, then
    `just check`. A heading inside the page is one level below rustdoc's own, so start at
    `##`.

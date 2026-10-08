@@ -50,9 +50,10 @@ code. Its figures are inline SVG, styled by a `style` block the page itself carr
 through rustdoc's own colour variables, so they follow the light, dark and ayu themes
 and render the same on the hosted site, on docs.rs and in a consumer's own `cargo doc`
 of the crate, which passes rustdoc no flag of ours. The page's prose names
-every item through an intra-doc link, and it carries one example, so a renamed item or
-a changed call fails gate 12 or gate 10. The names inside a figure are plain text, and
-keeping them true is review's work.
+every item that exists through an intra-doc link, headings included, and it carries one
+example, so a renamed item or a changed call fails gate 12 or gate 10. Two kinds of name
+are plain text: a module not built yet, which has no item to link, and the names inside
+a figure. Keeping those true is review's work.
 
 The rule for what such a page may hold (decision 0017): a page in the reference is for
 someone using the crate, and shows how the public API fits together or how to do
