@@ -94,7 +94,9 @@ figure are added, and a decision record says what a page in the reference may ho
 | `crates/pawdoku/src/guide.rs` | new | The page, its figures and their `style` block |
 | `crates/pawdoku/src/lib.rs` | engine | `#[cfg(doc)] pub mod guide;` and one sentence of the crate's documentation |
 | `crates/pawdoku/rustdoc/header.html` | new, then removed | The figures' stylesheet and the Mermaid loader, built for the comparison and taken out after the adversarial review (hand-back notes) |
-| `crates/pawdoku/Cargo.toml`, `Justfile` | edited, then restored | The header's flag in the docs.rs table and the `doc` recipe, with its probe; both files are as `main` has them |
+| `crates/pawdoku/Cargo.toml` | edited, then restored | The header's flag in the docs.rs table; the file is as `main` has it |
+| `Justfile` | edited, then restored, then two recipes added | The `doc` recipe's probe, taken out with the header; then `doc-serve` and `doc-plain`, in answer to the Copilot review (hand-back notes) |
+| `docs/reference/commands.md` | reference | Rows for `doc-serve` and `doc-plain` |
 | `docs/reference/api.md` | reference | A new section on pages and figures, and the docs.rs sentence |
 | `docs/how-to/add-a-reference-page.md` | how-to | New |
 | `docs/decisions/0017-guide-pages-in-the-api-reference.md` | decision | New |
@@ -229,7 +231,8 @@ figure are added, and a decision record says what a page in the reference may ho
 - `cargo package --list -p pawdoku --allow-dirty` lists the guide's source, so the
   packaged crate carries what docs.rs would build.
 - One guide page is committed, not two, and `lib.rs` declares it under `cfg(doc)`.
-- The `Justfile` and `crates/pawdoku/Cargo.toml` are unchanged from `main`.
+- `crates/pawdoku/Cargo.toml` is unchanged from `main`, and the `Justfile` differs from
+  it only by the `doc-serve` and `doc-plain` recipes.
 - `git status --porcelain` is empty after the commits.
 
 ## Verification
@@ -245,8 +248,8 @@ git status --porcelain
 ```
 
 Expected: exit 0; one line naming the guide's example as `ok`; one `cfg(doc)` line; a
-count of one; no output, because neither file differs from `main`; the guide's source;
-nothing.
+count of one; the `Justfile` alone, with thirteen lines added for the two recipes; the
+guide's source; nothing.
 
 ## Hand-back notes
 
@@ -413,6 +416,56 @@ $ cargo package --list -p pawdoku --allow-dirty --offline | rg 'src/guide'
 src/guide.rs
 $ git status --porcelain
 ```
+
+### Copilot review round 1, 2026-10-08
+
+One review from Copilot on PR #41, on 2026-10-06, at `c689ca8`, with three inline
+findings. Each was checked against the code and found right.
+
+1. **Medium: the prose did not link every item it named.** The page said it did, but the
+   five module headings, `random` in Level 1's prose, `board` and `generation` in its
+   caption, `place` in a heading, the eleven `PlayError` kinds in both tables and the
+   three `GenerateError` kinds in the generation caption were code spans, so a rename
+   would not have failed gate 12. Each is now an intra-doc link, and so is `pawdoku` in
+   the first paragraph. The rule stays, with its two exemptions stated exactly in the API
+   reference page, decision 0017 and the how-to: a module not built yet (`technique` and
+   `reach`), which has no item to link, and a name inside a figure. A link inside a
+   heading leaves the heading's anchor as it was.
+2. **Low: `Stream` was described more narrowly than its type.** `GenerateError::Stream`
+   carries whatever `RandomError` the stream returns, and the trait is public. The caption
+   now calls it the stream's own `RandomError`, passed on unchanged, which from the
+   crate's own streams means a script that ran out. The variant's own documentation in
+   `generation.rs` already said as much and is unchanged.
+3. **Low: the how-to called commands the `Justfile` does not hold.** `just doc-serve`
+   and `just doc-plain` now do what the two raw commands did, and the how-to calls them.
+   They sit beside `site` in the `Justfile`'s check section and the commands page's Check
+   table, where the plan had put them under Develop, because that is where `doc` and
+   `site` are. Neither is a gate or reaches the network. The leave for the frozen
+   `Justfile` given on 2026-10-03 is used after all; the acceptance criterion, the
+   Verification block, the files-touched table and decision 0017's consequence say so.
+   The dated notes above are left as they were written.
+
+**Verification**, run on 2026-10-08 in this worktree:
+
+```text
+$ just doc
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.80s
+$ just test-doc 2>&1 | rg 'guide'
+test crates/pawdoku/src/guide.rs - guide (line 216) ... ok
+$ just doc-plain
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.27s
+$ just doc-serve   # in the background
+$ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8734/pawdoku/guide/index.html
+200
+$ just check
+...
+All checks passed and the worktree is unchanged.
+```
+
+A sweep of the page's prose, without the figures and the example, finds four code spans
+outside a link: `technique`, `reach`, `docs/specs/` and `crate::`. In the built page the
+twenty-one heading ids are as they were, `sudoku-the-rules` and `what-place-does` among
+them, and every variant link resolves to its anchor on `PlayError` or `GenerateError`.
 
 ### Deviations, and why
 

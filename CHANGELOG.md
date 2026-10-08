@@ -14,6 +14,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   three calls followed through the code. It is documentation only, built under
   `cfg(doc)`, and it carries its figures' styles, which take their colours from
   rustdoc's themes, so it renders the same wherever rustdoc builds it (decision 0017).
+- `just doc-serve`, which serves the built reference on the loopback address so its
+  theme switcher works, and `just doc-plain`, which builds it as a consumer's own
+  `cargo doc` would, with none of the gate's flags.
 - The API reference hosted on GitHub Pages at
   <https://steven-cutting.github.io/libpawdoku/>, republished from `main` on every push
   by a workflow of its own. `just site` builds what is served: `just doc`, and a root
