@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gc
 import importlib.util
 import io
 import json
@@ -38,7 +39,7 @@ from smoltest.cli import (
 )
 from smoltest.cli.main import main
 from smoltest.config import Settings
-from smoltest.errors import BootError, CacheError, InvalidConfig
+from smoltest.errors import BootError, CacheError, InvalidConfig, SmoltestError
 from smoltest.testing import FakeEngine, FakeMachine
 
 UNAVAILABLE = (False, "KVM_UNAVAILABLE", "no /dev/kvm")
@@ -231,6 +232,16 @@ def test_doctor_reports_a_usable_local_target(
     assert "ok: machines can boot on local" in out
     assert "SMOL_CLOUD_TOKEN absent" in out
     assert not cache_dir.exists(), "doctor must not create the cache directory"
+
+
+def test_target_option_beats_a_malformed_target_variable(
+    fake_engine: FakeEngine, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("SMOLTEST_TARGET", "docker")
+    assert run("doctor", "--json") == EXIT_USAGE
+    assert "SMOLTEST_TARGET" in capsys.readouterr().err
+    assert run("--target", "local", "doctor", "--json") == EXIT_OK
+    assert json.loads(capsys.readouterr().out)["target"]["requested"] == "local"
 
 
 def test_doctor_json_shape(fake_engine: FakeEngine, capsys: pytest.CaptureFixture[str]) -> None:
@@ -491,6 +502,31 @@ def test_warm_fails_when_a_boot_stays_uncached(
     capsys.readouterr()
     assert warm(1, "--seed-sql", str(seed_file)) == EXIT_OK
     assert CheckpointCache(cache_dir).ls().variant_count == 2
+
+
+def test_warm_fails_when_a_machine_cannot_be_deleted(
+    fake_engine: FakeEngine, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A machine left running (on the cloud, billed) must not end in a successful warm."""
+    real_delete = FakeMachine.delete
+    refused: list[str] = []
+
+    def refuse_once(self: FakeMachine) -> None:
+        if not refused:
+            refused.append(self.name)
+            raise SmoltestError("API said 503")
+        real_delete(self)
+
+    monkeypatch.setattr(FakeMachine, "delete", refuse_once)
+    assert warm(2) == EXIT_FAILURE
+    err = capsys.readouterr().err
+    assert "warning: could not delete" in err and "API said 503" in err
+    assert "could not delete 1 machine(s)" in err
+    assert len(refused) == 1
+    # The refused machine stayed registered, so its finalizer retried the delete once
+    # warm let go of it: nothing is left running.
+    gc.collect()
+    assert fake_engine.live_machines == set()
 
 
 def test_warm_fails_when_the_key_lock_is_busy(

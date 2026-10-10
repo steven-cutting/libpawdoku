@@ -1272,7 +1272,16 @@ class CheckpointCache:
                 "exported checkpoints contain a copy of guest RAM, including any "
                 "credentials and data the guest held; keep them private",
             )
-            written = engine.export_checkpoint(str(chosen.paths.checkpoint), str(out))
+            try:
+                written = engine.export_checkpoint(str(chosen.paths.checkpoint), str(out))
+            except BaseException:
+                # A partial copy is guest RAM too; ``out`` did not exist before (checked above).
+                if out.exists() or out.is_symlink():
+                    try:
+                        remove_path_strict(out)
+                    except CacheError as left:  # the engine's own error stays the cause
+                        logger.warning("failed export left %s behind: %s", out, left)
+                raise
             _private_or_removed(out, out)  # the engine writes with the default umask
             return written
 

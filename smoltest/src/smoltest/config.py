@@ -158,31 +158,40 @@ class Settings:
     def from_env(cls, env: Mapping[str, str] | None = None, /, **overrides: Any) -> Settings:
         """Build settings from ``env`` (default ``os.environ``) with ``overrides`` on top.
 
-        Precedence is overrides > environment > defaults. The testcontainers
-        variables ``TC_MAX_TRIES`` and ``TC_POOLING_INTERVAL`` set the readiness
-        timeout when ``SMOLTEST_READY_TIMEOUT`` is absent. The default cache
+        Precedence is overrides > environment > defaults. A field given a
+        non-``None`` override is not read from the environment at all, so an
+        explicit value (``smoltest --target local``) also wins over a malformed
+        variable (``SMOLTEST_TARGET=docker``). The testcontainers variables
+        ``TC_MAX_TRIES`` and ``TC_POOLING_INTERVAL`` set the readiness timeout when
+        neither an override nor ``SMOLTEST_READY_TIMEOUT`` does. The default cache
         directory is derived from ``env`` too (see :func:`default_cache_dir`),
         never from the process environment when a mapping is supplied.
         """
         env = os.environ if env is None else env
+        unknown = set(overrides) - {f.name for f in dataclasses.fields(cls)}
+        if unknown:
+            raise InvalidConfig(f"unknown settings: {', '.join(sorted(unknown))}")
+        explicit = {k: v for k, v in overrides.items() if v is not None}
         values: dict[str, Any] = {}
         for var in ENV_VARS:
             raw = env.get(var.name)
-            if raw is None:
+            if raw is None or var.field in explicit:
                 continue
             try:
                 values[var.field] = var.parse(raw)
             except InvalidConfig as exc:
                 raise InvalidConfig(f"{var.name}: {exc}") from None
-        values.setdefault("cache_dir", default_cache_dir(env))
-        if "ready_timeout_s" not in values and "TC_MAX_TRIES" in env:
-            tries = _parse_int(env["TC_MAX_TRIES"])
-            interval = _parse_float(env.get("TC_POOLING_INTERVAL", "1"))
+        if "cache_dir" not in explicit:
+            values.setdefault("cache_dir", default_cache_dir(env))
+        tc_fallback = "ready_timeout_s" not in values and "ready_timeout_s" not in explicit
+        if tc_fallback and "TC_MAX_TRIES" in env:
+            try:
+                tries = _parse_int(env["TC_MAX_TRIES"])
+                interval = _parse_float(env.get("TC_POOLING_INTERVAL", "1"))
+            except InvalidConfig as exc:
+                raise InvalidConfig(f"TC_MAX_TRIES / TC_POOLING_INTERVAL: {exc}") from None
             values["ready_timeout_s"] = tries * interval
-        unknown = set(overrides) - {f.name for f in dataclasses.fields(cls)}
-        if unknown:
-            raise InvalidConfig(f"unknown settings: {', '.join(sorted(unknown))}")
-        values.update({k: v for k, v in overrides.items() if v is not None})
+        values.update(explicit)
         return cls(**values)
 
     def replace(self, **changes: Any) -> Settings:

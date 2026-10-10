@@ -79,11 +79,21 @@ def register(
     postgres.set_defaults(func=run_warm)
 
 
-def _stop_quietly(machine: PostgresMachine) -> None:
+def _stopped(machine: PostgresMachine) -> bool:
+    """Stop and delete ``machine``; ``False`` (with a warning) when the engine refused."""
     try:
         machine.stop()
     except SmoltestError as exc:
-        print_err(f"warning: could not stop {machine.name}: {exc}")
+        print_err(f"warning: could not delete {machine.name}: {exc}")
+        return False
+    return True
+
+
+def _stop_all(machines: Sequence[PostgresMachine]) -> list[str]:
+    """Stop every machine, most recent first; the names of those that could not be deleted."""
+    return [
+        machine.name or repr(machine) for machine in reversed(machines) if not _stopped(machine)
+    ]
 
 
 def warm_postgres(
@@ -94,9 +104,15 @@ def warm_postgres(
     seed: Seed | None,
     env: Mapping[str, str],
 ) -> list[BootInfo]:
-    """Boot ``variants`` machines, keeping each alive until the last is up, then stop all."""
+    """Boot ``variants`` machines, keeping each alive until the last is up, then stop all.
+
+    A machine that cannot be deleted is an error, raised after every other
+    machine was stopped: on the cloud it is still billed, and the caller must not
+    report a successful warm. (A boot failure, if one happened, wins.)
+    """
     machines: list[PostgresMachine] = []
     infos: list[BootInfo] = []
+    booted = False
     try:
         for index in range(1, variants + 1):
             machine = PostgresMachine(settings=settings, engine=engine, seed=seed)
@@ -110,9 +126,15 @@ def warm_postgres(
             infos.append(info)
             port = "-" if info.variant_port is None else info.variant_port
             note(f"[{index}/{variants}] {info.via} on port {port} in {info.elapsed_s:.2f}s")
+        booted = True
     finally:
-        for machine in reversed(machines):
-            _stop_quietly(machine)
+        failed = _stop_all(machines)
+    if booted and failed:
+        raise SmoltestError(
+            f"could not delete {len(failed)} machine(s): {', '.join(failed)}; they may still be "
+            "running (and, on the cloud, billed)",
+            code="DELETE_FAILED",
+        )
     return infos
 
 

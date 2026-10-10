@@ -1191,6 +1191,30 @@ def test_populate_removes_a_checkpoint_the_engine_reports_wrongly(
     machine.delete()
 
 
+def test_export_removes_a_partial_copy_when_the_engine_fails(
+    cache: CheckpointCache,
+    fake_engine: FakeEngine,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    claim, _ = populate(cache, fake_engine)
+    claim.release()
+    out = tmp_path / "partial.smolcheckpoint"
+
+    def half_then_fail(source: str, output: str) -> int:
+        Path(output).write_bytes(b"half of the guest ram")
+        raise SmoltestError("connection reset during export")
+
+    monkeypatch.setattr(fake_engine, "export_checkpoint", half_then_fail)
+    reset_warn_once()
+    with (
+        pytest.warns(SmoltestWarning, match="guest RAM"),
+        pytest.raises(SmoltestError, match="connection reset"),
+    ):
+        cache.export(KEY, None, out, fake_engine)
+    assert not out.exists(), "a partial export is guest RAM too"
+
+
 def test_remove_path_strict_reports_what_it_could_not_remove(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1339,6 +1363,27 @@ def test_cloud_index_backend_interface_with_fake_engine(
     assert index.get(KEY) is None and index.claim_variant(KEY) is None
     with pytest.raises(CacheError, match="not"):
         index.populate(KEY2, claim, machine)
+
+
+def test_cloud_index_keeps_an_index_repaired_while_it_waited(
+    index: CloudCheckpointIndex,
+) -> None:
+    """A corruption seen before taking the lock must not discard another writer's repair."""
+    index.set(KEY, "ckpt-good")
+    good = index.path.read_bytes()
+    index.path.write_text("{not json")
+    with pytest.raises(CacheCorrupt) as stale:
+        index._load()
+    index.path.write_bytes(good)  # another process repaired the index meanwhile
+    with index._lock():
+        index._quarantine(stale.value)
+    assert index.get(KEY) == "ckpt-good", "the repaired index was moved aside"
+    assert not index.path.with_name(f"{index.path.name}.corrupt").exists()
+    index.path.write_text("{still not json")
+    with index._lock():
+        index._quarantine(stale.value)
+    assert not index.path.exists()  # a file that is still corrupt is moved aside
+    assert index.path.with_name(f"{index.path.name}.corrupt").exists()
 
 
 def test_cloud_index_prune_and_corruption(index: CloudCheckpointIndex) -> None:

@@ -194,8 +194,9 @@ smoltest [--cache-dir DIR] [--target {auto,local,cloud}] [-v] COMMAND
   each alive until the last is up so each lands on its own host port, then deletes them. Run it
   before `pytest -n K` so every worker restores. Prints one row per boot (via, key, port, size,
   populate time (checkpoint write and cache bookkeeping), elapsed, seed state). Exit 0 only when
-  every requested variant is in the cache, populated and intact; a boot that finished uncached
-  (busy key lock, failed capture) is reported on stderr and the exit status is 1.
+  every requested variant is in the cache, populated and intact, and every warmed machine was
+  deleted; a boot that finished uncached (busy key lock, failed capture) or a machine the engine
+  would not delete is reported on stderr and the exit status is 1.
 - `smoltest cache ls [--json]`, `smoltest cache prune [--older-than 14d] [--keep-latest N]
   [--max-bytes 2G] [--stale] [-y]`, `smoltest cache clear [-y]` and
   `smoltest cache export KEY[:PORT] OUT` manage the local store; `--target cloud` switches to the
@@ -242,7 +243,9 @@ seeded variant on the same port. A cold boot with a seed writes both checkpoints
 **The cache key** is the SHA-256 (32 hex chars) of canonical JSON holding: a format number,
 smoltest's major version, the SDK version, the target, the host signature (OS, kernel major,
 architecture, a hash of the CPU feature flags, libc) for local or the cloud base URL for cloud,
-the image, the full workload argv, the guest environment (credentials included, sorted), the
+the image, the full workload argv, the guest environment (credentials included, sorted; the
+`inputs.json` written next to the checkpoint stores the argv and every env value other than the
+image's documented non-secret settings as hashes, never in clear), the
 guest ports, the pinned host ports of extra guest ports (`extra_ports=(PortMapping(29080,
 9080),)` restores on host port 29080, so it is part of the shape; an engine-chosen extra port
 is not), cpus, memory, storage and network, and the seed key or `None`. The PostgreSQL host

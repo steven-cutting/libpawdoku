@@ -145,10 +145,10 @@ All notable changes to smoltest are recorded here. The format follows
   value except the PostgreSQL image's documented non-secret settings (`POSTGRES_USER`,
   `POSTGRES_DB`, `POSTGRES_INITDB_ARGS`, `TZ`, `LANG`, `PG*`, ...); previously only names
   containing `PASSWORD`, `PASSWD`, `SECRET` or `TOKEN` were redacted, so an `API_KEY` or
-  `DATABASE_URL` passed through `with_env` was persisted in clear. Strings in lists (the argv of
-  `with_command`, such as `-c primary_conninfo=... password=...`) are hashed when they name a
-  secret, and the secret names now also cover `PASSPHRASE`, `CREDENTIAL`, `API_KEY` and
-  `PRIVATE_KEY`.
+  `DATABASE_URL` passed through `with_env` was persisted in clear. Every string of the workload
+  argv is hashed as well (a command line can carry a secret no keyword finds: `--password` and
+  its value, `postgresql://user:pw@host/db`, `Authorization: Bearer ...`), and the secret names
+  now also cover `PASSPHRASE`, `CREDENTIAL`, `API_KEY` and `PRIVATE_KEY`.
 - `PostgresMachine.stop()` raises when the engine refuses to delete the machine, and keeps
   everything needed to try again: the machine stays registered and `is_running`, its cache claim
   stays held and its exit-time cleanup stays armed, so a second `stop()` (or interpreter exit)
@@ -166,6 +166,20 @@ All notable changes to smoltest are recorded here. The format follows
 - `SqlWaitStrategy` and `PortWaitStrategy` reject a non-finite or non-positive
   `connect_timeout_s` with `InvalidConfig` (they also accept a `timedelta`): an infinite
   per-attempt timeout kept a stalled probe from ever returning to the readiness deadline.
+- An engine that writes part of a checkpoint and then fails no longer leaves that copy of guest
+  RAM behind: `PostgresMachine.checkpoint(path)` removes what it wrote to a path that did not
+  exist before (an existing file is never touched), and `smoltest cache export` removes a
+  partial destination.
+- The cloud checkpoint index re-reads itself under its lock before quarantining a corrupt file,
+  so a process that saw the corruption before another one repaired the index no longer moves the
+  repaired index aside.
+- `smoltest warm` exits 1 when a warmed machine cannot be deleted, after stopping all the others;
+  the failure was printed as a warning and the warm reported success while the machine (on the
+  cloud, billed) kept running.
+- An explicit setting (`smoltest --target local`, `--smoltest-target`, `Settings.from_env(...,
+  target=...)`) no longer fails because the environment variable it replaces is malformed: an
+  overridden field is not read from the environment at all, and the `TC_MAX_TRIES` fallback is
+  skipped when the readiness timeout is overridden.
 
 ### Added
 

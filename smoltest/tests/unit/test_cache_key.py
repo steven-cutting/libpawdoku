@@ -271,15 +271,25 @@ def test_from_inputs_round_trip() -> None:
     assert CacheKey.from_inputs({**key.inputs, "image": "other"}).key != key.key
 
 
-def test_redaction_hashes_argv_strings_that_name_a_secret() -> None:
-    conninfo = "primary_conninfo=host=h user=r password=pw"
-    spec = PostgresSpec(command=("postgres", "-c", conninfo, "-c", "fsync=off"))
-    key = key_for(spec)
-    redacted = key.redacted_inputs()
-    argv = redacted["argv"]
-    assert conninfo in key.inputs["argv"], "the key itself still sees the real argv"
-    assert f"sha256:{digest(conninfo, 8)}" in argv
-    assert conninfo not in argv and "fsync=off" in argv and "postgres" in argv
-    assert "pw" not in json.dumps(redacted["argv"])
+def test_redaction_hashes_every_argv_string() -> None:
+    """No keyword finds every secret a command line can carry, so argv is hashed whole."""
+    argv = (
+        "pg-wrapper",
+        "--password",
+        "demo",
+        "-c",
+        "primary_conninfo=postgresql://user:demo@host/db",
+        "--auth=abc",
+        "Authorization: Bearer xyz",
+        "fsync=off",
+    )
+    key = key_for(PostgresSpec(command=argv))
+    assert set(argv) <= set(key.inputs["argv"]), "the key itself sees the real argv"
+    redacted = key.redacted_inputs()["argv"]
+    assert len(redacted) == len(key.inputs["argv"])
+    assert redacted == [f"sha256:{digest(a, 8)}" for a in key.inputs["argv"]]
+    dumped = json.dumps(redacted)
+    for secret in ("demo", "abc", "xyz", "user:"):
+        assert secret not in dumped, secret
     for name in ("API_KEY", "apikey", "PRIVATE_KEY", "DB_CREDENTIALS", "SSH_PASSPHRASE"):
         assert _SENSITIVE.search(name), name

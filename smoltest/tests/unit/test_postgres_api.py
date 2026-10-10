@@ -671,6 +671,30 @@ def test_checkpoint_that_can_neither_be_protected_nor_removed_says_so(
         out.unlink()
 
 
+def test_checkpoint_removes_what_a_failing_engine_wrote_but_not_an_older_file(
+    fake_boot: BootLog, settings: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    out = tmp_path / "late-failure.smolcheckpoint"
+    with PostgresMachine(settings=settings) as m:
+        handle = m._require().handle
+
+        def write_then_fail(output: str | None = None, store: str | None = None) -> Any:
+            assert output is not None
+            Path(output).write_bytes(b"guest ram")
+            raise SmoltestError("SDK failed after writing")
+
+        with monkeypatch.context() as patched:
+            patched.setattr(handle, "checkpoint", write_then_fail)
+            with pytest.raises(SmoltestError, match="after writing"):
+                m.checkpoint(out)
+        assert not out.exists(), "a partial snapshot of guest RAM must not stay behind"
+        existing = tmp_path / "users-file.smolcheckpoint"
+        existing.write_bytes(b"not ours")
+        with pytest.raises(InvalidConfig, match="already exists"):
+            m.checkpoint(existing)  # the engine refuses an existing output
+        assert existing.read_bytes() == b"not ours", "a file that existed before is never removed"
+
+
 def test_from_boot_classmethod(
     fake_boot: BootLog, fake_engine: FakeEngine, settings: Settings
 ) -> None:

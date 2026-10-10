@@ -481,6 +481,16 @@ def test_settings_precedence_cli_env_ini_defaults(
     assert plugin.settings_from_config(config).cache_dir == Path("/elsewhere")
 
 
+def test_an_option_beats_a_malformed_variable_it_replaces(
+    pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("SMOLTEST_TARGET", "docker")
+    config = pytester.parseconfig("--smoltest-target", "local")
+    assert plugin.settings_from_config(config).target == "local"
+    with pytest.raises(pytest.UsageError, match="SMOLTEST_TARGET"):
+        plugin.settings_from_config(pytester.parseconfig())
+
+
 def test_every_option_reaches_settings(pytester: pytest.Pytester, tmp_path: Path) -> None:
     config = pytester.parseconfig(
         "--smoltest-target",

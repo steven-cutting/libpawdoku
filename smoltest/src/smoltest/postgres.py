@@ -635,10 +635,22 @@ class PostgresMachine:
         that fails (a filesystem or path whose modes cannot be changed) the
         checkpoint is removed again and :class:`~smoltest.errors.SmoltestError`
         with code ``CHECKPOINT_PERMISSIONS`` is raised: a readable snapshot is
-        never handed out.
+        never handed out. The same goes for an engine that writes part of a new
+        ``output`` and then fails: what it wrote is removed before the error
+        propagates (a path that existed before the call is never touched).
         """
         target = None if output is None else os.fspath(output)
-        info = self._require().handle.checkpoint(output=target, store=None)
+        handle = self._require().handle
+        fresh = target is not None and not os.path.lexists(target)
+        try:
+            info = handle.checkpoint(output=target, store=None)
+        except BaseException:
+            if fresh and target is not None and os.path.lexists(target):
+                try:
+                    remove_path_strict(Path(target))
+                except CacheError as left:  # the engine's own error stays the cause
+                    logger.warning("failed checkpoint left %s behind: %s", target, left)
+            raise
         if info.ref.kind == "file":
             written = Path(info.ref.locator)
             try:

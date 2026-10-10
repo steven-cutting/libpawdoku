@@ -108,9 +108,12 @@ def redact_inputs(inputs: Mapping[str, Any]) -> dict[str, Any]:
     in full. Elsewhere a value is hashed when its key names a secret
     (``PASSWORD``, ``PASSWD``, ``PASSPHRASE``, ``SECRET``, ``TOKEN``,
     ``CREDENTIAL``, ``API_KEY``, ``PRIVATE_KEY``; any case), at any depth, and a
-    string inside a list (``argv``, for example ``-c primary_conninfo=...
-    password=...``) is hashed when its own text contains one of those words. The
-    digest lets two redacted files be compared without exposing the value.
+    string inside any other list is hashed when its own text contains one of those
+    words. Every string of ``argv`` is hashed: a command line can carry a secret
+    in a form no keyword finds (``--password`` followed by the value,
+    ``postgresql://user:pw@host/db``, ``Authorization: Bearer ...``). The digest
+    lets two redacted files be compared without exposing the value; the cache key
+    itself is computed from the real inputs.
     """
     return _redact_mapping(inputs)
 
@@ -124,6 +127,8 @@ def _redact_mapping(value: Mapping[Any, Any], *, env: bool = False) -> dict[str,
             out[key] = f"sha256:{digest(v, 8)}"
         elif key == "env" and isinstance(v, Mapping):
             out[key] = _redact_mapping(v, env=True)
+        elif key == "argv" and isinstance(v, (list, tuple)):
+            out[key] = [f"sha256:{digest(a, 8)}" if isinstance(a, str) else a for a in v]
         else:
             out[key] = _redact_value(v)
     return out

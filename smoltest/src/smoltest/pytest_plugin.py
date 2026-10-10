@@ -209,8 +209,9 @@ def settings_from_config(config: pytest.Config, env: Mapping[str, str] | None = 
     try:
         ini = _ini_values(config)
         below_env = {f: v for f, v in ini.items() if ENV_BY_FIELD[f].name not in env}
-        settings = Settings.from_env(env, **below_env)
-        return settings.replace(**_option_values(config))
+        # Command-line values go in as overrides, so a malformed SMOLTEST_* variable
+        # they replace is never parsed.
+        return Settings.from_env(env, **{**below_env, **_option_values(config)})
     except InvalidConfig as exc:
         raise pytest.UsageError(f"smoltest: {exc}") from exc
 

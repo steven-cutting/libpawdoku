@@ -211,3 +211,27 @@ def test_non_finite_timeouts_are_rejected(raw: str) -> None:
     for name in ("ready_timeout_s", "poll_interval_s", "exec_timeout_s"):
         with pytest.raises(InvalidConfig, match="finite"):
             Settings(**{name: float(raw)})
+
+
+@pytest.mark.parametrize(
+    ("env", "override"),
+    [
+        ({"SMOLTEST_TARGET": "docker"}, {"target": "local"}),
+        ({"SMOLTEST_READY_TIMEOUT": "soon"}, {"ready_timeout_s": 5.0}),
+        ({"TC_MAX_TRIES": "many"}, {"ready_timeout_s": 5.0}),
+        ({"SMOLTEST_CPUS": "lots"}, {"cpus": 2}),
+    ],
+)
+def test_an_explicit_override_skips_the_malformed_variable_it_replaces(
+    env: dict[str, str], override: dict[str, object]
+) -> None:
+    settings = Settings.from_env(env, **override)
+    for name, value in override.items():
+        assert getattr(settings, name) == value
+    with pytest.raises(InvalidConfig, match=next(iter(env))):
+        Settings.from_env(env)  # without the override the variable still fails loudly
+
+
+def test_a_none_override_does_not_shield_a_malformed_variable() -> None:
+    with pytest.raises(InvalidConfig, match="SMOLTEST_TARGET"):
+        Settings.from_env({"SMOLTEST_TARGET": "docker"}, target=None)

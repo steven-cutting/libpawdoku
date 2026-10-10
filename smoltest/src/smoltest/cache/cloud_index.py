@@ -134,6 +134,19 @@ class CloudCheckpointIndex:
         write_private(self.path, (json.dumps(payload, sort_keys=True, indent=1) + "\n").encode())
 
     def _quarantine(self, exc: CacheCorrupt) -> None:
+        """Move a corrupt index aside; the caller holds the index lock.
+
+        ``exc`` may be stale: a caller that read the file before taking the lock
+        can find it repaired by another process by now. The file is re-read under
+        the lock and only moved aside when it is still corrupt.
+        """
+        try:
+            self._load()
+        except CacheCorrupt as current:
+            exc = current
+        else:
+            logger.debug("cloud index %s was repaired meanwhile; keeping it", self.path)
+            return
         logger.warning("resetting corrupt cloud index %s: %s", self.path, exc)
         aside = self.path.with_name(f"{self.path.name}.corrupt")
         remove_path(aside)
