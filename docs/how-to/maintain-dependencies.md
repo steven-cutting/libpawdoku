@@ -182,7 +182,7 @@ commit that moves the pin — but only after `just install-allium` has actually 
 
 ## Actions in the workflows
 
-`ci.yml`, `audit.yml` and the composite `setup` action pin every remote action in a
+`ci.yml`, `audit.yml`, `pages.yml` and the composite `setup` action pin every remote action in a
 `uses:` line to a full commit SHA with its version comment, never to a tag. The one
 exception is the local `uses: ./.github/actions/setup`, a path in this repository that
 moves with the commit that calls it. The same `gh api` line resolves a tag to

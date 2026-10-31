@@ -22,7 +22,8 @@ Very little, and that is the point.
   has nowhere to send anything.
 - **There are no credentials in the repository.** No file here carries a token.
   Continuous integration uses the token GitHub mints for each run and discards with it,
-  and the workflows need nothing more. Publishing to crates.io, when ticket S02 decides
+  and the workflows need nothing more: the Pages deployment proves itself with the run's
+  own identity token, so it stores no credential either. Publishing to crates.io, when ticket S02 decides
   it, will use trusted publishing, so no registry token will be stored here either.
 
 ## What is deliberately not secure
@@ -59,9 +60,12 @@ used where unpredictability matters.
   workspace lint table. `forbid`, not `deny`: no member and no item can opt back in.
 - **No network at runtime.** The core is `no_std`, so it cannot name a socket, and no
   dependency it ships with can open one on its behalf.
-- **Workflow permissions.** Every workflow runs with `contents: read` and nothing else.
-  The release workflow S02 designs will be the only one to hold more, and it will live in
-  a file of its own rather than widen `ci.yml`.
+- **Workflow permissions.** `ci.yml` and `audit.yml` hold `contents: read` and nothing
+  else. `pages.yml` holds more, `pages: write` and `id-token: write`, on its deploy job
+  alone, which checks nothing out and runs no code from the repository
+  ([decision 0016](../decisions/0016-api-reference-on-github-pages.md)). The release
+  workflow S02 designs will be the second to hold more, and it will live in a file of
+  its own rather than widen `ci.yml`.
 - **Credential leakage.** `ripsecrets` scans every commit, and its output is suppressed so
   a match never copies the matched value into a log.
 

@@ -47,7 +47,7 @@ under `crates/` as siblings, each depending on the engine and none on another.
 ├── scripts/                The first-run script
 ├── .agents/skills/         Canonical agent procedures
 ├── allium-skill-reference/ Reference material the Allium skills link to
-├── .github/                CI, the audit workflow and the composite setup action
+├── .github/                CI, the audit and Pages workflows and the composite setup action
 ├── AGENTS.md               Engineering conventions and the agent working agreement
 ├── Justfile                Every supported command
 ├── pyproject.toml          The pixi manifest: every other tool, Python and prek
