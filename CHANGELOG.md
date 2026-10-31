@@ -9,6 +9,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- The API reference hosted on GitHub Pages at
+  <https://steven-cutting.github.io/libpawdoku/>, republished from `main` on every push
+  by a workflow of its own. `just site` builds what is served: `just doc`, and a root
+  page that sends a reader to the crate (decision 0016).
 - The basic generator, `pawdoku::generation`, from the basic way of `generation.allium`.
   `generate(tier, stream)` makes a puzzle from a `Tier`, one of five construction
   settings, and a stream of draws, and gives the solver's proof of it or a
@@ -67,8 +71,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   they cite, and an eighth, `board.allium`, for a puzzle as it is being played.
 - A handbook of twenty-five pages under `docs/`, held to the documentation contract and
   reachable from its map.
-- Fifteen architecture decision records, from the engine as a library of its own to the
-  basic generator.
+- Sixteen architecture decision records, from the engine as a library of its own to the
+  API reference on GitHub Pages.
 - A `metrics` gate, seventh in `just check`: rustqual, built from source from its pin in
   `tools-source.txt`, holds thresholds for complexity, cohesion and coupling and the
   module boundaries of the layering table, with a probe that proves the boundary rules

@@ -36,6 +36,7 @@ as `open question` blocks — see [Specifications](../explanation/specifications
 | [0013](0013-metrics-gate.md) | The metrics gate |
 | [0014](0014-board-imports-solver.md) | The board imports the solver, and well-posedness is a proof value |
 | [0015](0015-basic-generator.md) | A basic generator from a published method, as the yardstick |
+| [0016](0016-api-reference-on-github-pages.md) | The API reference on GitHub Pages |
 
 Decision 0004 is superseded in part by decision 0011, which names the consequences of
 0004 it replaces and the ones that stand. Decision 0013 reopens the gate list decision
@@ -48,7 +49,7 @@ Pawdoku's decision records at `78d03cdf` when the engine moved here (0002, 0003,
 0005); each says so under its heading and keeps the topic slug it had, because the slug
 is what a cross-repository reference names, and the game restates the engine's clauses
 and cites these records by slug. Nothing here is rendered from a template, so no frozen
-inventory of numbers applies. The next decision this repository takes is 0016.
+inventory of numbers applies. The next decision this repository takes is 0017.
 
 ## Writing a new one
 

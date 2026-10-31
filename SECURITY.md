@@ -48,8 +48,10 @@ crates.io, so there are no backports: a fix lands on `main`.
   - cargo-hack, from its GitHub release over TLS, which publishes no checksum to verify.
 - Every GitHub Action and every remote hook pinned to a commit SHA rather than a mutable
   tag.
-- Continuous integration runs with `contents: read` and holds no stored secret, only the
-  token GitHub mints for each run.
+- The gate's workflows, `ci.yml` and `audit.yml`, run with `contents: read`. The Pages
+  deployment holds two publishing scopes, `pages: write` and `id-token: write`, on the
+  one job that deploys. No workflow holds a stored secret, only the token GitHub mints
+  for each run.
 - `ripsecrets` scans every commit, with its output suppressed so a match never copies the
   matched value into a log.
 

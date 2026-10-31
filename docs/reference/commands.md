@@ -19,7 +19,7 @@ checkout), and is the one command a fresh clone needs the network for. Nothing i
 `just check` reaches it once `just sync` has fetched the registry index: `lock-check` and
 `deny` then answer from that cache, and `lint` finds every hook environment already
 prepared, because `install-hooks` prepared it. On a cold Cargo cache, `lock-check` fails
-rather than fetching the index. `build`, `test`,
+rather than fetching the index. `build`, `test`, `site`,
 `audit` and `check-links-online` are outside `just check`, and so is every recipe that
 writes.
 
@@ -68,6 +68,7 @@ writes.
 | `just wasm-check` | The core compiles for `wasm32-unknown-unknown` and for `wasm32v1-none`, which has no standard library, under every feature combination. Gate 9. |
 | `just coverage` | Every nextest test under instrumentation with `INSTA_UPDATE=no`, with the floor of 90 per cent of lines enforced; a snapshot mismatch fails without writing pending files. Writes `target/llvm-cov/lcov.info`. Gate 11. |
 | `just doc` | rustdoc over the workspace with warnings as errors and `--cfg docsrs`. Gate 12. |
+| `just site` | What GitHub Pages serves: empties `target/doc`, runs `just doc`, and writes a root `index.html` that sends a reader to the crate's page. Writes only under `target/`. Outside `just check`; the Pages workflow runs it on every push to `main`. |
 | `just deny` | cargo-deny's licence, ban and source checks over every dependency that ships, offline once `just sync` has run. Gate 13. |
 | `just audit` | cargo-deny's advisory check against the RustSec database. Over the network, so outside `just check`; CI runs it weekly in its own workflow. |
 | `just deps-unused` | cargo-shear: a dependency a crate declares and never uses. Gate 14. |

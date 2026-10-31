@@ -154,6 +154,13 @@ nothing in CI runs a command that does not exist in the `Justfile`.
 hand. It is never a required check: a fetch of the advisory database can fail for reasons
 that have nothing to do with the diff.
 
+`.github/workflows/pages.yml` runs on every push to `main`, and by hand. Its `build` job
+runs `check-toolchain` and `site` after the same setup action and uploads `target/doc`;
+its `deploy` job publishes that to GitHub Pages, and only from `main`. It is not a gate:
+neither job is among `check`'s `needs`, so it is never a required check, and a
+deployment that fails blocks no merge. [Deploy to GitHub Pages](../how-to/deploy-to-github-pages.md)
+has the procedure.
+
 ## On `main`
 
 `main` is protected, and one check, `check`, must pass before a branch merges into it.
@@ -167,7 +174,8 @@ refused. Administrators are not bound by the rule, so the direct push remains av
 when it is genuinely wanted; the protection is there to stop an unproved merge, not to stop
 the author.
 
-There is no deployment: nothing publishes on a push to `main`.
+A push to `main` publishes the API reference through `pages.yml`. That deployment is not
+a gate and not a required check.
 
 ## Related pages
 
