@@ -47,6 +47,11 @@ authoritative; this table is a snapshot.
 | T37 | Specification: a layout filled by search, and the run without guessing that checks it | `T37-layout-spec.md` | T32 | none | open |
 | T38 | The run without guessing in Rust: a kept grid, the four techniques and solved or stalled | `T38-technique-run.md` | T37 | none | open |
 | T39 | A layout filled in Rust: trials over drawn grids, the check, and the figures beside the paper's | `T39-layout-fill.md` | T38 | none | open |
+| T13 | Release: cargo-release, release.yml with trusted publishing, the release guards, pawdoku 0.1.0 | `T13-release.md` | S02 | S12, T40 | open |
+| T15 | WebAssembly bindings: the pawdoku-wasm crate, and @steven-cutting/pawdoku-wasm with specs/ inside | `T15-wasm-bindings.md` | S04, T13 (its first pull request) | S12, T40, T41 | open |
+| T40 | Specification: play from a record, a board's operations on a record handed over and handed back | `T40-play-from-a-record-spec.md` | T28 | T13, T15, S12 | open |
+| T41 | Play from a record in Rust, and the plain values every binding hands out | `T41-play-from-a-record.md` | T40, S12 | T13, T15 | open |
+| T42 | The engine in TypeScript: the Board class, play from a record, search and generation in @steven-cutting/pawdoku-wasm | `T42-typescript-surface.md` | T15, T41, S12 | none | open |
 
 Spike tickets. Each weighs options and ends in a recommendation; none blocks the build and
 none is picked up before T11.
@@ -63,6 +68,7 @@ none is picked up before T11.
 | S09 | Spike: code-quality metrics as a gate, module boundaries, complexity, coupling and cohesion | `S09-code-quality-metrics.md` | T11 | done |
 | S10 | Spike: prose pages, diagrams and raw HTML inside rustdoc | `S10-pages-and-diagrams-in-rustdoc.md` | T11 | done |
 | S11 | Spike: the chain techniques, ranks 23 to 27: what a chain is, what is listed and what capacity hides | `S11-chain-techniques.md` | S06 | open |
+| S12 | Spike: the engine's TypeScript surface, typed plain values, errors, tests, size and lifetime | `S12-typescript-surface.md` | S04 | open |
 
 Centralisation recommendations. Each is written to be picked up on its own and touches
 another repository, so every step in it is separately authorised.
@@ -94,6 +100,11 @@ T32 ── T37 ── T38 ── T39   (Nishikawa and Toda by search: the layout
 T11 ──┬── T33   (the API reference on GitHub Pages)
       └── S10   (pages and diagrams inside rustdoc; its follow-up needs T33)
 S06 ── S11   (the chain techniques S06 could not argue; beside S07 and S08)
+
+S02 ── T13 ─(first pull request)─┐
+S04 ─────────────────────────────┴── T15 ──┐
+S04 ── S12 ──────────────────────┬─────────┼── T42   (the engine in TypeScript)
+T28 ── T40 ──────────────────────┴── T41 ──┘
 ```
 
 The graph is acyclic: D01, then D02, then T00, then nine parallel lanes, then T11 and T10
@@ -149,6 +160,29 @@ paper's figures. T37 writes `layout.allium`, a module of its own that imports
 check; T39 builds the filling and measures it. They follow T32 in strict sequence. The
 ids skip T34, S10's follow-up on its own branch, T35, the spec change S06 drafted, and
 T36, which S11's amendments may take; the tickets' open points say so.
+
+T13, T15 and S12, T40 to T42 take the engine to the browser. T13 and T15 were drafted
+by the spikes S02 and S04 and are opened here from those drafts, brought up to date:
+T13 is the release machinery and the first crates.io release, and T15 the
+`pawdoku-wasm` crate and the npm package that ships the specifications. T15 waits for
+T13's first pull request only, which lands the shared release machinery, and not for
+`pawdoku` on crates.io. The maintainer decided on 2026-10-31 that the game drives the
+engine both ways: a long-lived `Board` object, and stateless functions with plain
+values in and out, implemented in Rust so that TypeScript and Python share them. The
+stateless way is new behaviour, so T40 states it in `board.allium` before T41 builds it
+in the core. S12 is a spike because the shape of the typed TypeScript declarations, the
+errors, the tests of the published package, the size and a board's lifetime need
+evidence from a probe first; T41 and T42 take its amendments. T40 and S12 may run
+beside T13 and T15, and T41 beside T15; T42 needs all of them.
+
+The ids: T13 and T15 are the numbers their drafts reserved. T14 is S03's mutants
+follow-up, T16 and T17 S04's CLI and Python drafts, T18 S01's dependency-updates
+follow-up and T20 and T21 T19's drafts; none is opened here. T34 is S10's follow-up on
+its branch, T35 S06's draft and T36 S11's possible amendments, and T37 to T39 are taken,
+so the next free ids on 2026-10-31 were T40 and S12, checked with `git ls-tree` over
+every remote branch and against the open pull requests. The decision records these
+tickets add take the next free number on the day; 0017 is T34's and 0018 T37's, so
+0019 to 0021 are projected for T13, T15 and T40.
 
 ## How to pick up a ticket
 

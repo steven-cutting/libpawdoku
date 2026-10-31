@@ -1,0 +1,350 @@
+---
+id: T42
+title: "The engine in TypeScript: the Board class, play from a record, search and generation in @steven-cutting/pawdoku-wasm"
+status: open
+depends_on: [T15, T41, S12]
+parallel_with: []
+branch: ticket/t42-typescript-surface
+estimated_size: L
+---
+
+# T42: The engine in TypeScript: the Board class, play from a record, search and generation in @steven-cutting/pawdoku-wasm
+
+## Context
+
+T15 built `crates/pawdoku-wasm` and published `@steven-cutting/pawdoku-wasm 0.1.0` to
+GitHub Packages with one class, `RandomStream`, the random version, and the engine's
+specification modules under `specs/`. This ticket gives the package the engine itself,
+so the game can play: the board, play from a record, the solver's search and the basic
+generator.
+
+**How the game drives the engine: both ways** (the maintainer, 2026-10-31). Asked to
+choose between a long-lived `Board` object with methods, stateless functions with plain
+values in and out and the game holding the record, or both, the maintainer chose both,
+with the stateless functions implemented in Rust so that TypeScript and Python share
+them. So:
+
+- **The `Board` class** wraps `pawdoku::board::Board`. The game opens one from givens or
+  reopens one from a record, holds it for as long as the puzzle is in play, calls its
+  seven operations, reads its view, and writes its record to keep the game between
+  visits. One solver run per puzzle opened.
+- **Play from a record**, `board.allium`'s `PlayingFromARecord` (T40), built in the core
+  as free functions in `pawdoku::board` (T41). Each call is handed a record and gives
+  back a record and a view; nothing is held. Each call reopens the record, which costs a
+  search and a replay of every move (S12 measured it).
+- **Both return the same plain values**, the core's wire shape (T41), so a value read
+  from a held board equals the one play from a record gives, and a Python binding
+  will give the same.
+
+**What the surface exposes, and what it does not.** Exactly what the specifications'
+surfaces expose: `Playing` and `PlayingFromARecord` for the board, `SearchResult` for
+the search, `GenerationResult` for the generator. Not the solution grid: the board's
+`TheSolutionIsNeverShown` forbids it, and `GenerationResult` does not expose it even
+though the Rust `generate` returns a `WellPosed` that holds it. Not `Puzzle`, `WellPosed`
+or `solve`: a `Board` is the playable abstraction (decision 0014), and `Board.open` puts
+the givens to the solver itself. `search` does expose solutions, because `solver.allium`'s
+`SearchResult` does: it is a setter's tool, and the game decides where it uses it.
+
+**What S12 decided.** This ticket depends on S12's hand-back for: how plain values are
+typed in the declarations (wasm-bindgen's own `typescript_custom_section` with
+`unchecked_return_type` and `unchecked_param_type`, which need no new dependency, or
+tsify, which would have gone to T02 with a decision-0007 note); how errors cross (an
+`Error` with the `Display` text as its message, and whether its `name` is the Rust
+error type, which needs `js-sys`); the record's TypeScript name (proposed `BoardRecord`,
+because `Record` shadows TypeScript's built-in `Record<K, V>`); whether the published
+package gets a Node test of its own and a `tsc` check of a typed consumer; whether
+`wasm-opt` is turned on; and how the game frees a `Board`. Where S12's "Amendments to
+T41 and T42" says otherwise than this ticket, follow S12 and say so under Deviations.
+
+**Seeds and draws.** As S04 settled for every binding: a seed is a `bigint`; a
+`RandomStream` is passed to `generate` and advanced in place; the generation result
+carries what replays it (T41, from S12's question 3): the tier, the seed when there is
+one, the stream's start index, `draws_taken`, both versions and the givens. `Draw`
+records are `human-solving.allium`'s and are carried by its results when they are built;
+nothing built today returns them.
+
+**Where puzzles are made is still open.** `generation.allium`'s first open question and
+decision 0012 leave open whether puzzles are generated on the device, ahead of time, or
+both. This ticket exports `generate` and generation from a seed because the core has
+them and a page, a test or a build step can use them; exporting them answers nothing.
+The game calling them on the device would be an answer, and it is the maintainer's to
+record in the specification first.
+
+Read first: `AGENTS.md`; T15 and its hand-back notes; S12's hand-back notes; T40 and T41
+and their "Names" sections; `docs/specs/board.allium` (`Playing`, `PlayingFromARecord`,
+`Reopening`), `docs/specs/solver.allium` (`SearchResult`), `docs/specs/generation.allium`
+(`GenerationResult`); `crates/pawdoku-wasm/src/lib.rs`; `crates/pawdoku/src/board.rs`,
+`board/from_record.rs`, `board/view.rs`, `generation.rs`; `docs/decisions/0020-webassembly-package.md`
+(or the number T15 took) and the play-from-a-record record (T40's).
+
+## Goal
+
+`@steven-cutting/pawdoku-wasm 0.2.0` exports a typed `Board` class, the stateless
+functions of play from a record, `search`, `generate` and generation from a seed, and
+the two versions; every plain value it returns is the core's wire shape with a named
+TypeScript type; every refusal throws an `Error` whose message is the core's `Display`
+text; a value read from a held board equals the one play from a record gives; and the
+game can install it and play. `just check` is green.
+
+## Non-goals
+
+- Any behaviour the specifications do not state. If one is found missing, stop and hand
+  it to T40's successor as a specification change.
+- The solution, `Puzzle`, `WellPosed`, `solve`, hints, rating.
+- A live randomness callback (S04 Step 4).
+- npm provenance (undocumented for GitHub Packages, S04 question (d)).
+- The game's side: drafted below, separately authorised.
+- Python: T17 mirrors this surface on the same core values.
+
+## Files touched
+
+| Path | Class | Change |
+| --- | --- | --- |
+| `crates/pawdoku-wasm/Cargo.toml` | crate manifest | `pawdoku` with `features = ["serde"]`; `serde-wasm-bindgen`; `js-sys` if S12 chose named errors; version `0.2.0` by the release run, not by hand |
+| `crates/pawdoku-wasm/src/lib.rs` | crate | `mod` lines; the crate documentation, with a `js` example of each way |
+| `crates/pawdoku-wasm/src/board.rs` | crate | New: the `Board` class (step 4) |
+| `crates/pawdoku-wasm/src/from_record.rs` | crate | New: the stateless functions (step 5) |
+| `crates/pawdoku-wasm/src/solver.rs` | crate | New: `search` (step 6) |
+| `crates/pawdoku-wasm/src/generation.rs` | crate | New: `generate`, generation from a seed, the generation version (step 6) |
+| `crates/pawdoku-wasm/src/error.rs` | crate | New: one conversion from each core error to a thrown value (step 3) |
+| `crates/pawdoku-wasm/src/types.rs` | crate | New: the TypeScript declarations of the plain values, if S12 chose wasm-bindgen's own attributes (step 3) |
+| `crates/pawdoku-wasm/tests/web.rs` | crate tests | The tests of step 7, or new `tests/*.rs` beside it, each `#![cfg(target_arch = "wasm32")]` |
+| `crates/pawdoku-wasm/tests/package/` | crate tests | If S12 recommended it: a Node module that loads `pkg/` with `initSync` and plays, and a strict TypeScript consumer with its `tsconfig.json` (step 8) |
+| `crates/pawdoku-wasm/README.md` | crate | How to load the module, both ways, a seed, errors, freeing a board |
+| `crates/pawdoku-wasm/CHANGELOG.md` | crate | Under `[Unreleased]`, if T13's Open point chose one per crate; otherwise the root file's row carries it |
+| `Cargo.toml` | workspace manifest | `serde-wasm-bindgen = "0.6.5"`, and `js-sys = "0.3.107"` if needed, each with its decision-0007 note (step 2); a tsify line only if T02 accepted it |
+| `Cargo.lock` | generated | The resolution |
+| `Justfile` | T00 follow-up | `wasm-package-test`, if S12 recommended the package test (step 8). Frozen; step 1 |
+| `pyproject.toml` | T00 follow-up | `typescript = "==6.0.2"` if the consumer is type-checked; `binaryen = "==121"` if `wasm-opt` is turned on; each with a comment |
+| `pixi.lock` | generated | `pixi lock` after the pins |
+| `.github/workflows/ci.yml` | workflow | The `wasm` job runs `just wasm-package-test` after `just wasm-build`, if added |
+| `docs/explanation/architecture.md` | explanation | "What crosses each boundary": the WebAssembly row names both ways, the plain values and the errors |
+| `docs/reference/testing.md` | reference | Where this crate's new tests live, and the package test |
+| `docs/reference/commands.md` | reference | A row for `just wasm-package-test`, outside `just check`, if added |
+| `docs/reference/quality-gates.md` | reference | The `wasm` job's new step, if added |
+| `README.md` | maintainer docs | "How the game will use it": both ways, in two sentences |
+| `CHANGELOG.md` | maintainer docs | Under `[Unreleased]`, Added, if the root file carries the crate's entries |
+| `tickets/README.md` | ticket index | T42's row set `done` |
+| `tickets/T42-typescript-surface.md` | ticket | `status:`, hand-back notes, the G ticket as handed back |
+
+## Steps
+
+1. Create the worktree on `ticket/t42-typescript-surface` from `main` after T15, T41 and
+   S12 have merged, and after T02 has accepted any dependency S12 handed it. Run
+   `just initialize` and `just install-tools` if needed (network, authorised here) and
+   `just check`, quoted. Confirm with the maintainer that the `Justfile` may be edited
+   here if step 8 adds a recipe. Write S12's decisions, and T41's names, at the top of
+   the hand-back notes before any code.
+
+2. **Dependencies**, a T02 hand-back carried here: `serde-wasm-bindgen = "0.6.5"` in
+   `[workspace.dependencies]`, with its decision-0007 note (it ships; `MIT`, already
+   allowed; one maintainer and no release since 2024-02-27, which is the risk the note
+   names, and the alternative of `JsValue` built by hand), and `js-sys = "0.3.107"` only
+   if S12 chose named errors. Re-check both versions on crates.io on the day and quote
+   them. The crate's `pawdoku` dependency gains `features = ["serde"]`.
+
+3. **Errors and types.** In `src/error.rs`, one conversion per core error type
+   (`PlayError`, `ReopenError`, `SolveError`, `GenerateError`, `RandomError`, and T41's
+   error for play from a record) to the thrown value S12 chose, whose message is always
+   `error.to_string()`. In `src/types.rs`, if S12 chose wasm-bindgen's own attributes,
+   the TypeScript interfaces of every plain value in one `typescript_custom_section`,
+   each field as the core's wire shape writes it, each with a doc comment; and the
+   record's interface under the name S12 chose. Every export that takes or returns a
+   plain value names its interface with `unchecked_param_type` or
+   `unchecked_return_type`.
+
+4. **The `Board` class**, in `src/board.rs`: `#[wasm_bindgen] #[non_exhaustive]
+   #[derive(Clone, Debug)]` around `pawdoku::board::Board`, with the in-crate bounds
+   assertion T15's `RandomStream` has. Methods, camelCase through `js_name`:
+   `Board.open(givens)` and `Board.reopen(record)`, static, throwing the solver's or
+   reopening's refusal; `view()`, the core's view of the board; `readingAfter(index)`;
+   `write()`, the record; and the seven operations, `place(position, digit)`,
+   `erase(position)`, `writeMark(position, digit)`, `strikeMark(position, digit)`,
+   `check(position)`, which returns the check, `undo()` and `redo()`, each throwing the
+   board's refusal and changing nothing when it does. Values cross through
+   `serde_wasm_bindgen` both ways. A `js` example on every method.
+
+5. **Play from a record**, in `src/from_record.rs`: one export for each of T41's
+   functions, under the camelCase of T41's names, taking and returning plain values and
+   throwing the refusal. If T41 offers one function that takes the operation value, this
+   crate offers that one export, and the operation's TypeScript type is a union with one
+   member per kind.
+
+6. **Search and generation.** `search(givens)` returns the core's search result.
+   `generate(tier, stream)` takes the `RandomStream` class by `&mut` and returns T41's
+   generation result from a stream; generation from a seed takes a tier and a `bigint`
+   and returns T41's generation result from a seed. The generation version crosses as
+   the random version did in T15 (a constant if wasm-bindgen exported one there,
+   otherwise a function).
+
+7. **Tests**, wasm-bindgen-test in Node, `#![cfg(target_arch = "wasm32")]`: the
+   scripted game played on a held `Board` and played from records gives equal views,
+   records and readings at every step, compared as JavaScript values; every refusal's
+   message equals the core's `Display` text for that refusal, and a refused operation
+   leaves the board as it was; `search` on the fixture gives one solution and the
+   guesses the core gives; generation from seed 0 in tier 3 equals the core's snapshot
+   of it, and its `draws_taken` is 23 when its first grid attempt succeeds; a seed of
+   `2n ** 63n` survives the round trip; `generate` advances the `RandomStream` it is
+   handed by `draws_taken`. Plant one wrong expected value, see it fail, and quote it.
+
+8. **The published package**, if S12 recommended it: `crates/pawdoku-wasm/tests/package/`
+   holds a Node module that imports `pkg/pawdoku_wasm.js`, calls `initSync` with the
+   bytes of `pkg/pawdoku_wasm_bg.wasm`, opens a board, plays two moves, writes and
+   reopens it, and plays the same from records; and a TypeScript consumer type-checked
+   with `tsc --noEmit --strict` against `pkg/pawdoku_wasm.d.ts`, which uses every export
+   with its declared types. A `wasm-package-test` recipe after `wasm-build` runs both
+   with the pinned `nodejs` and `typescript`; CI's `wasm` job runs it after `just
+   wasm-build`. If `wasm-opt` is turned on, set it under
+   `[package.metadata.wasm-pack.profile.release]` at S12's level with the `binaryen`
+   pin, and quote the `.wasm`'s size before and after.
+
+9. **Pages and README**, as Files touched lists: the crate's README is what a consumer
+   reads on the package page, so it shows `init()` in the browser and `initSync` in a
+   test, both ways of playing, a seed as a `bigint`, a caught refusal, and freeing a
+   board as S12 recommended.
+
+10. **The pull request.** `just check-docs`, then `just check`, quoted; the `wasm` job's
+    artefact inspected, quoting the declarations of `Board`, one function and one value.
+    Commit; ask before pushing and opening it.
+
+11. **Release 0.2.0**, after the merge, as T15 released 0.1.0 (T13's "Cut a release"):
+    `cargo release minor -p pawdoku-wasm` on a `release/pawdoku-wasm-v0.2.0` branch, the
+    pull request, the tag on `main`, the push, the approval. Quote
+    `gh api /users/steven-cutting/packages/npm/pawdoku-wasm/versions`.
+
+12. **Hand back the G ticket.** Update the draft below with what this ticket built, the
+    names as exported and the version published, and copy it into "The G ticket" under
+    Hand-back notes. Set `status: done` and the index row in a closing pull request.
+
+**Authorisation**, each asked for on its own (CONVENTIONS.md §11): each push and pull
+request; the tag push; approving the release deployment. Editing the game's repository
+is never this ticket's.
+
+**The G ticket, drafted for the game's `tickets/` and separately authorised.** Updated
+on 2026-10-31 from S04's Step 6 draft to the surface above. It was read against the
+game's clone at `add73be` (HEAD on 2026-10-31, the same commit S04 found on
+2026-09-28); whoever opens it re-reads every path at the game's HEAD on the day.
+
+> **Title.** "Consume the engine: `@steven-cutting/pawdoku-wasm` pinned, its
+> specifications held equal by test, and a puzzle played through it."
+>
+> **Part A, after `pawdoku-wasm` 0.1.0 (T15)**, which ships the specifications:
+>
+> - `package.json` and `package-lock.json`: `"@steven-cutting/pawdoku-wasm":
+>   "<exact version>"`, an exact pin as `@steven-cutting/biscuit-games` is. The scope's
+>   registry line is already in `.npmrc`, and `.github/workflows/ci.yml` already grants
+>   `packages: read`; the package must grant the game's repository Read (T15 step 12).
+> - `tests/engine.ts` (new), shaped like `tests/platform.ts`: `PACKAGE`,
+>   `enginePath(subpath)` and `engineFile(subpath)` through the same `createRequire`
+>   resolver and the same assertion that the path is inside `node_modules`.
+> - `tests/engineRestated.ts` (new): `ENGINE_RESTATED`, empty until `pawdoku.allium`
+>   restates an engine clause, with `tests/restated.ts`'s header adapted.
+> - `tests/engineSpecs.test.ts` (new): one assertion per module the game restates from,
+>   resolved through `specs/<module>.allium`, never a fixed count of modules, because
+>   the engine adds modules (T37 adds a tenth); one test per restated clause holding the
+>   flattened text equal; and the pin equal to the installed version. The `clauses` and
+>   `flatten` helpers move from `tests/platformSpecs.test.ts` into a shared
+>   `tests/allium.ts`, or are duplicated if the game prefers self-contained files.
+> - The engine's modules leave the game's `docs/specs/` (at `add73be` it still holds
+>   eight of them beside `pawdoku.allium`), with their manifest entries and links, as
+>   libpawdoku's T06 hand-back lists; `docs/explanation/specifications.md`,
+>   `docs/how-to/work-with-the-specs.md` and `.agents/skills/spec-change/SKILL.md` say
+>   the engine's text is held by test to what the package ships.
+>
+> **Part B, after `pawdoku-wasm` 0.2.0 (T42)**, which ships the engine:
+>
+> - `src/lib/engine/` (new): one module that calls the package's `init()` once, in the
+>   browser only (from `onMount`, or behind `browser` from `$app/environment`), never
+>   during prerender, because adapter-static prerenders with SSR on; and an adapter that
+>   holds one `Board` per puzzle in play and frees it when the puzzle is left, as the
+>   package's README says.
+> - Keeping a game: `JSON.stringify(board.write())` through the existing `StoragePort`
+>   (`src/lib/ports/storage.ts`), and `Board.reopen(JSON.parse(stored))` on return. A
+>   refused reopen throws the core's `ReopenError` text; until libpawdoku answers its
+>   open question on records across versions, the game discards a record that does not
+>   reopen and says so to the player, and that behaviour is stated in `pawdoku.allium`
+>   first.
+> - A new puzzle: a seed drawn from the platform's cryptographic source in the range
+>   the specifications give a seed, as a `bigint`, handed to generation from a seed; the
+>   game keeps the seed, the tier and both versions with the puzzle, which is what
+>   replays it. Whether the game generates on the device at all is libpawdoku's
+>   `generation.allium` open question and decision 0012's; the game asks before it
+>   ships this, and the answer is recorded there first.
+> - The stateless functions are there for a caller that holds no board (a web worker,
+>   a test, a resumed game rendered before it is reopened); the game says where it uses
+>   them, if anywhere.
+> - Tests: a vitest file per adapter, loading the module in `beforeAll` by reading
+>   `pawdoku_wasm_bg.wasm` through `enginePath` and calling `initSync`, as S04
+>   question (c) found the vitest maintainers recommend; the browser path is proved by a
+>   built preview (`vite build`, then `vite preview`) in which a puzzle is played, the
+>   page reloaded, and the puzzle found as it was left.
+> - `pawdoku.allium`: whatever the game now does with the engine (keeping a game,
+>   discarding a record that does not reopen, where a puzzle comes from) is stated there
+>   before it is built, under the game's own spec-first rule.
+>
+> **Its proof.** `npm ci` resolves the package from `npm.pkg.github.com`; `npm test` is
+> green; a one-word edit to a restated clause in a scratch branch fails the restatement
+> test; a puzzle played in the preview survives a reload. It closes libpawdoku's T06
+> item 12, CONVENTIONS.md §1 fact 6 and §13, and makes the shared-truth paragraph of
+> libpawdoku's `docs/explanation/specifications.md` past tense, which is a one-line
+> follow-up in this repository once the game's test lands.
+
+## Acceptance criteria
+
+- The package's declarations name a type for every parameter and return value; no
+  export returns `any`.
+- A held board and play from records give equal values at every step of the scripted
+  game, through JavaScript.
+- Every refusal throws with the core's `Display` text, and changes nothing.
+- Nothing exported returns a digit read from the solution except a check's answer and
+  `search`'s solutions.
+- `just check` green; `@steven-cutting/pawdoku-wasm 0.2.0` published by
+  `release-npm.yml` with no token beyond the run's own.
+- The G ticket is in the hand-back notes, updated to what was published.
+- `git status --porcelain` lists only paths in Files touched.
+
+## Verification
+
+```sh
+just wasm-check
+just wasm-test
+just wasm-build
+rg -n ': any\b|=> any\b' crates/pawdoku-wasm/pkg/pawdoku_wasm.d.ts
+rg -n 'export (class|function|interface|type)' crates/pawdoku-wasm/pkg/pawdoku_wasm.d.ts
+ls -l crates/pawdoku-wasm/pkg/pawdoku_wasm_bg.wasm
+just check-docs
+just check
+gh api /users/steven-cutting/packages/npm/pawdoku-wasm/versions --jq '.[].name'
+git status --porcelain
+```
+
+Expected: the checks and tests green; no `any` in the declarations; the class, the
+functions and the interfaces listed; the `.wasm`'s size, quoted; `All checks passed and
+the worktree is unchanged.`; `0.2.0` and `0.1.0`; only paths in Files touched.
+
+## Hand-back notes
+
+### Decisions fixed by S12, T40 and T41
+
+### What was verified, and how
+
+### Deviations, and why
+
+### Handed back
+
+### The G ticket
+
+### Open points settled
+
+## Open points
+
+- **Whether `Board`'s operations return the view.** Proposed: no; each returns nothing
+  (or the check, for `check`), and the game calls `view()` when it redraws, which on a
+  held board costs no search. Play from a record returns the view with the record
+  because a second call would reopen again.
+- **A `Board` from a record that does not reopen.** It throws the core's refusal. What
+  the game does then is the game's, and depends on libpawdoku's open question on
+  records across versions (T40).
+- **Package version.** 0.2.0 is a minor bump before 1.0, as T13's policy allows for an
+  addition. If T15's 0.1.0 has not been published when this ticket is done, this
+  release is the first, at 0.1.0, and the notes say so.
