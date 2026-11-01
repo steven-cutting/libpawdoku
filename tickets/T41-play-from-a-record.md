@@ -2,7 +2,7 @@
 id: T41
 title: "Play from a record in Rust, and the plain values every binding hands out"
 status: open
-depends_on: [T40, S12]
+depends_on: [T40, S12, T43]
 parallel_with: [T13, T15]
 branch: ticket/t41-play-from-a-record
 estimated_size: L
@@ -22,6 +22,17 @@ bindings crates depend on the engine and never on one another
 (`docs/project/repository-map.md` lines 11 to 13), so the core is the one place both can
 reach. T42 exposes them, and the `Board` class, to TypeScript; T17 will expose them to
 Python.
+
+**Settled by the maintainer, 2026-10-31**, on T40's questions: the contract and the
+surface are named `PlayingFromARecord`; an operation on a record hands back the record
+after it **and** the view of the board after it, and for `CheckCell` the check it added
+as well; and opening from givens is one of the stateless functions. T40 states them and
+this ticket builds them as stated. The maintainer also answered what a saved record
+promises across versions of the engine: a record names its format version, a record of
+another version is refused with a clear message, and no compatibility is promised. T43
+(`tickets/T43-record-version.md`) builds that before this ticket, so the record every
+function here takes and hands back is the versioned one, and a record of another
+version is refused by `Board::reopen` like any record that does not reopen.
 
 **One set of plain values for both ways and both languages.** A binding hands out what
 `Playing` exposes as plain values: a JavaScript object, a Python `dict`. Today only
@@ -60,7 +71,10 @@ submodule of `board`, which `rustqual.toml`'s rule for `crate::board` already co
 **Paths other open tickets edit.** T38 and T39, open, edit `crates/pawdoku/src/lib.rs`,
 `docs/explanation/architecture.md`, `docs/reference/testing.md` and `CHANGELOG.md`; T39
 may edit `crates/pawdoku/src/generation.rs` or `generation/grid.rs`, depending on the
-answer to T37's Open point on the grid attempt. Each shared edit here is a section, a
+answer to T37's Open point on the grid attempt. T43, which merges before this ticket
+starts, edits `crates/pawdoku/src/board.rs`, `board/record.rs`, `tests/board.rs`,
+`tests/snapshots.rs`, the record's snapshots, `docs/explanation/architecture.md`,
+`docs/reference/testing.md` and `CHANGELOG.md`; this ticket starts from its result. Each shared edit here is a section, a
 paragraph or a few items; whichever pull request merges second merges `main` first, the
 deviation from CONVENTIONS.md §11 that T31 and T33 recorded.
 
@@ -87,7 +101,7 @@ never the solution. `just check` is green and the coverage floor holds.
 ## Non-goals
 
 - Any binding: T42 for TypeScript, T17 for Python.
-- A format crate, a format, or a version field in `Record` (T40's open question).
+- A format crate, a format, or a version field in `Record` (T43 adds it).
 - Serialising a `Board`, a `Puzzle` or a `WellPosed`.
 - Any change to what a board does: every operation is `Board`'s own.
 - `Draw` records: `human-solving.allium`'s, built when that module is.
@@ -121,8 +135,8 @@ never the solution. `just check` is green and the coverage floor holds.
 
 ## Steps
 
-1. Create the worktree on `ticket/t41-play-from-a-record` from `main` after T40 and S12
-   have merged. Run `just initialize` and `just install-tools` if `.pixi/` or
+1. Create the worktree on `ticket/t41-play-from-a-record` from `main` after T40, S12
+   and T43 have merged. Run `just initialize` and `just install-tools` if `.pixi/` or
    `.tools/bin` is incomplete; each uses the network and this ticket authorises it. Run
    `just check` and quote its last line. Read S12's "Amendments to T41 and T42" and
    T40's "Names T41 needs", and write the decisions they fix at the top of your
@@ -159,11 +173,12 @@ never the solution. `just check` is green and the coverage floor holds.
    `Playing`'s seven (place a digit, erase, write a mark, strike a mark, check a cell,
    undo, redo), each carrying the position and digit it needs and nothing else, with
    `Serialize` and `Deserialize`; what a call hands back, the record after it and the
-   view of the board after it, with `Serialize`; and the error, a `thiserror` enum,
-   `#[non_exhaustive]`, with stable `Display` text: one variant wrapping `ReopenError`
-   and one wrapping `PlayError`, each `#[error(transparent)]` or with a sentence that
-   says which stage refused, and one for a move index that names no move. A unit test
-   pins each variant's text, as `board/error.rs` does.
+   view of the board after it, and for a check the check it added, with `Serialize`;
+   and the error, a `thiserror` enum, `#[non_exhaustive]`, with stable `Display` text:
+   one variant wrapping `ReopenError` and one wrapping `PlayError`, each
+   `#[error(transparent)]` or with a sentence that says which stage refused, and one
+   for a move index that names no move. A unit test pins each variant's text, as
+   `board/error.rs` does.
 
 5. **The functions**, free functions in `board/from_record.rs`, re-exported from
    `pawdoku::board`, each with a doc example: open from givens, giving the record and
@@ -278,5 +293,7 @@ is unchanged.`; only paths in Files touched.
   implementer's call, recorded in the notes; it changes no clause.
 - **Paths other open tickets edit.** See Context: T38 and T39 share `lib.rs`,
   `architecture.md`, `testing.md` and `CHANGELOG.md`, and T39 may share
-  `generation.rs`. T15, if open at the same time, shares `architecture.md`,
+  `generation.rs`. T43 edits `board.rs`, `board/record.rs`, the test files, the
+  record's snapshots and the same three pages, and has merged before this ticket
+  starts. T15, if open at the same time, shares `architecture.md`,
   `testing.md` and `CHANGELOG.md`.

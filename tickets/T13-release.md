@@ -3,7 +3,7 @@ id: T13
 title: "Release: cargo-release, release.yml with trusted publishing, the release guards, pawdoku 0.1.0"
 status: open
 depends_on: [S02]
-parallel_with: [S12, T40]
+parallel_with: [S12, T40, T43]
 branch: ticket/t13-release
 estimated_size: M
 ---
@@ -60,9 +60,34 @@ the design below:
    package name; the tag prefix is `<package>-v`.
 3. **Each binding crate carries its own `[package.metadata.release]`.** This ticket
    writes the workspace table and `pawdoku`'s; T15 writes `pawdoku-wasm`'s.
-4. **One root CHANGELOG with a heading per crate.** S04 recommended it; this ticket
-   finds that the replacements S02 proved cannot serve it, and makes it an Open point
-   (below). It does not block this ticket, which releases `pawdoku` alone.
+4. **One CHANGELOG per binding crate, not one root file with a heading per crate.**
+   S04 recommended the single root file. The replacements S02 proved cannot serve it:
+   each rewrites the file's one `## [Unreleased]` heading and its one `[Unreleased]:`
+   link, so cutting `pawdoku-wasm` would move every unreleased entry, the core's
+   included, under the wasm release, and point the one compare link at the wasm tag.
+   So the root `CHANGELOG.md` stays the core's and the repository's, and its
+   replacements are `pawdoku`'s (step 3, unchanged). Each binding crate keeps its own
+   `crates/<crate>/CHANGELOG.md`, which its own `[package.metadata.release]` rewrites
+   with the same two replacements and its own tag prefix, and which its package can
+   ship. The maintainer settled it (below); `pawdoku-wasm`'s file is T15's, and
+   `pawdoku-py`'s and `pawdoku-cli`'s are T17's and T16's.
+
+**Settled by the maintainer, 2026-10-31.** Three questions this ticket raised were put
+to the maintainer, each with the ticket writer's proposal, and each proposal was taken:
+
+- **One changelog per binding crate**, as item 4 above says.
+- **When to publish 0.1.0: soon after the first pull request merges.** The crate holds
+  the rules, the solver, the board with its record, and the basic generator, which is
+  something a consumer can use, and publishing secures the name. 0.1.0 does not wait
+  for T43, which makes a record name its format version: that changes the record's
+  serialised shape, and if it lands after 0.1.0 it ships as 0.2.0, which semver allows
+  before 1.0.
+- **The full setup in the privileged job.** The `id-token: write` job runs the
+  composite setup action (the pixi environment, the tools, the hooks) before
+  `cargo publish`, as step 4 writes it, and not crates.io's leaner checkout, auth and
+  publish. It is the one tested path to `just` and the pinned toolchain, and the guards
+  need `cargo metadata --locked`; the token is minted after every setup step has run
+  and lives thirty minutes at most.
 
 **Why T15 depends on this ticket, and on what part of it.** T15 publishes
 `@steven-cutting/pawdoku-wasm` to GitHub Packages, not to crates.io, so it does not need
@@ -70,8 +95,8 @@ the design below:
 cargo-release pin, the `release` environment and the tag ruleset, and the guards'
 composite action. So this ticket lands in two pull requests, as T33 did: the first
 lands the machinery and the record, and T15 may start once it has merged; the second
-carries the 0.1.0 release and its proof, whenever the maintainer chooses to publish
-(Open points).
+carries the 0.1.0 release and its proof, and follows soon after the first merges
+(settled above).
 
 Four files this ticket edits are frozen under CONVENTIONS.md §11: the `Justfile`,
 `tools.txt`, `rust-toolchain.toml`, and, for the record's entry, `docs/manifest.yml`.
@@ -106,7 +131,9 @@ is published to crates.io.
   without one, so `release.yml` needs no `contents: write`.
 - An MSRV CI job: the maintainer declined one (S02, "Open points settled"), and clippy's
   `incompatible_msrv` lint reads `rust-version` as a partial guard.
-- Settling the CHANGELOG question for the binding crates beyond asking it (Open points).
+- The binding crates' changelogs: one per crate (settled above), and each is written by
+  the ticket that makes the crate, `crates/pawdoku-wasm/CHANGELOG.md` by T15 and the
+  others by T16 and T17.
 
 ## Files touched
 
@@ -282,11 +309,14 @@ is published to crates.io.
    hand, CI publishing through trusted publishing; independent versions,
    `<crate>-v<version>` tags; one workflow per registry sharing the `release`
    environment, its four tag patterns and the guards; `rust-version` decoupled at the
-   first publish. Consequences, including the ones that hurt: the first token, a
-   `tools.txt` binary with no checksum, a CHANGELOG question left open. What would
-   reopen it: crates.io offering pending publishers; a second maintainer. Register it in
-   `docs/decisions/README.md` and `docs/manifest.yml`, and change "The next decision
-   this repository takes is" to the number after it.
+   first publish; one changelog per crate, the root file the core's and the
+   repository's; the full setup in the privileged job. Consequences, including the ones
+   that hurt: the first token, a `tools.txt` binary with no checksum, a changelog per
+   binding crate because the two replacements rewrite one `[Unreleased]`, and more code
+   beside the token than a lean job would run. What would reopen it: crates.io offering
+   pending publishers; a second maintainer. Register it in `docs/decisions/README.md`
+   and `docs/manifest.yml`, and change "The next decision this repository takes is" to
+   the number after it.
 
 8. **The prose.** `AGENTS.md`'s paragraph at 129 to 136 names two publishing workflows:
    `pages.yml` (decision 0016) and `release.yml`, which publishes `pawdoku` to crates.io
@@ -302,8 +332,8 @@ is published to crates.io.
    separately authorised: ask. The hand-back notes of this pull request record steps 1
    to 8. After it merges, T15 may start; say so in the notes.
 
-10. **The second pull request: prepare 0.1.0**, when the maintainer says to publish (Open
-    points). On `release/pawdoku-v0.1.0` from `main`, run `cargo release -p pawdoku`
+10. **The second pull request: prepare 0.1.0**, soon after the first has merged (settled
+    above). On `release/pawdoku-v0.1.0` from `main`, run `cargo release -p pawdoku`
     (a dry run, quoted), then `cargo release -p pawdoku --no-tag --execute`. Push and
     open the pull request (each authorised separately) and merge it once `check` is
     green.
@@ -392,36 +422,15 @@ unchanged.`; only paths in Files touched.
 
 ## Open points
 
-- **When to publish 0.1.0.** The crate now holds the rules, the solver, the board with
-  its record, and the basic generator, which is something a consumer can use; publishing
-  also secures the name. It is the maintainer's call, and only the second pull request
-  waits on it: T15 needs the first alone.
-- **One CHANGELOG or one per crate.** S04 recommended one root `CHANGELOG.md` with a
-  heading per crate. The replacements S02 proved cannot serve that: each rewrites the
-  file's one `## [Unreleased]` heading and its one `[Unreleased]:` link, so cutting
-  `pawdoku-wasm` would move every unreleased entry, the core's included, under the
-  wasm release, and point the one compare link at the wasm tag. Proposed: the root
-  `CHANGELOG.md` stays the core's and the repository's, and each binding crate keeps its
-  own `crates/<crate>/CHANGELOG.md`, which its `[package.metadata.release]` rewrites
-  with the same two replacements and which its package can ship. The other choice keeps
-  one file and writes each crate's entries under its own `### <crate>` sub-heading,
-  moved by hand at each release. The maintainer decides before T15's release; T15's
-  Files touched follows the answer.
-- **How lean the privileged job is.** As written, the `id-token: write` job runs the
-  full composite setup (the pixi environment, the tools, the hooks) before
-  `cargo publish`. crates.io's example is checkout, auth, publish. A leaner job installs
-  only rustup's toolchain, so less code runs beside the token. S02 left this to this
-  ticket and T33 took the same question for `pages.yml`'s build job, which holds no
-  publishing scope. Proposed: the full setup, because it is the one tested path to
-  `just` and the pinned toolchain and the guards need `cargo metadata --locked`; the
-  token is minted after every setup step has run and lives thirty minutes at most. The
-  maintainer may prefer the lean job.
 - **Paths later tickets also edit.** T15 edits `.github/workflows/ci.yml`, `AGENTS.md`,
   `docs/operations/maintenance.md`, `docs/project/repository-map.md`,
   `docs/reference/quality-gates.md`, `docs/reference/commands.md`, `CHANGELOG.md` and
-  `docs/explanation/security-model.md` after this ticket. They are never open together
-  (T15 starts once this ticket's first pull request has merged), so this is not two
-  owners of one path in CONVENTIONS.md §11's sense; T37 to T39 and T34 may be open at
-  the same time and share `CHANGELOG.md`, `docs/manifest.yml` and
-  `docs/decisions/README.md`; whichever merges second merges `main` first and takes the
-  next decision number.
+  `docs/explanation/security-model.md` after this ticket's first pull request. T15
+  starts once that pull request has merged, so the two never overlap it; but the second
+  pull request follows soon after (settled above), so T15 may be open beside it, and
+  then both edit the root `CHANGELOG.md` (whose `[Unreleased]` the 0.1.0 release run
+  rewrites) and `README.md`. T37 to T39, T34, T40 and T43 may be open at the same time
+  as either pull request and share `CHANGELOG.md`, `docs/manifest.yml` and
+  `docs/decisions/README.md`. Each shared edit is an entry or a sentence; whichever
+  merges second merges `main` first and takes the next decision number, the deviation
+  from CONVENTIONS.md §11 that T31 and T33 recorded.

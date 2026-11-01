@@ -29,12 +29,28 @@ them. So:
   seven operations, reads its view, and writes its record to keep the game between
   visits. One solver run per puzzle opened.
 - **Play from a record**, `board.allium`'s `PlayingFromARecord` (T40), built in the core
-  as free functions in `pawdoku::board` (T41). Each call is handed a record and gives
-  back a record and a view; nothing is held. Each call reopens the record, which costs a
-  search and a replay of every move (S12 measured it).
+  as free functions in `pawdoku::board` (T41). The maintainer settled on 2026-10-31 that
+  an operation hands back the record after it **and** the view, and for a check the
+  check it added, and that opening from givens is one of the functions. Each call is
+  handed a record or givens and gives back a record and a view; nothing is held. Each
+  call on a record reopens it, which costs a search and a replay of every move (S12
+  measured it).
 - **Both return the same plain values**, the core's wire shape (T41), so a value read
   from a held board equals the one play from a record gives, and a Python binding
   will give the same.
+
+**A record names its format version** (the maintainer, 2026-10-31; T43 builds it in the
+core before T41). Every record the package hands out names `RECORD_VERSION`, which
+crosses as `RANDOM_VERSION` did in T15 (a constant if wasm-bindgen exported one there,
+otherwise a function), and a record of another version, or of none, is refused by
+reopening: `Board.reopen` throws the core's `ReopenError` `Display` text for it, and
+every function of play from a record throws the text of T41's error, which carries that
+refusal; either way the message names both versions. No promise is made that a later
+package reads a record an earlier one wrote. What the game does with a refused record
+is the game's: the G ticket below discards it and tells the player. Whether this crate
+reads a record's version before the rest of it, so that a record of a later shape is
+refused with the version text rather than a deserialisation error, is T43's Open point;
+step 1 reads its answer and steps 4, 5 and 7 carry it.
 
 **What the surface exposes, and what it does not.** Exactly what the specifications'
 surfaces expose: `Playing` and `PlayingFromARecord` for the board, `SearchResult` for
@@ -71,19 +87,20 @@ The game calling them on the device would be an answer, and it is the maintainer
 record in the specification first.
 
 Read first: `AGENTS.md`; T15 and its hand-back notes; S12's hand-back notes; T40 and T41
-and their "Names" sections; `docs/specs/board.allium` (`Playing`, `PlayingFromARecord`,
-`Reopening`), `docs/specs/solver.allium` (`SearchResult`), `docs/specs/generation.allium`
-(`GenerationResult`); `crates/pawdoku-wasm/src/lib.rs`; `crates/pawdoku/src/board.rs`,
-`board/from_record.rs`, `board/view.rs`, `generation.rs`; `docs/decisions/0020-webassembly-package.md`
-(or the number T15 took) and the play-from-a-record record (T40's).
+and their "Names" sections; T43 and its "Open points settled"; `docs/specs/board.allium`
+(`Playing`, `PlayingFromARecord`, `Reopening`, `Recording`), `docs/specs/solver.allium`
+(`SearchResult`), `docs/specs/generation.allium` (`GenerationResult`);
+`crates/pawdoku-wasm/src/lib.rs`; `crates/pawdoku/src/board.rs`, `board/from_record.rs`,
+`board/view.rs`, `board/record.rs`, `generation.rs`;
+`docs/decisions/0020-webassembly-package.md` (or the number T15 took) and the play-from-a-record record (T40's).
 
 ## Goal
 
 `@steven-cutting/pawdoku-wasm 0.2.0` exports a typed `Board` class, the stateless
 functions of play from a record, `search`, `generate` and generation from a seed, and
-the two versions; every plain value it returns is the core's wire shape with a named
-TypeScript type; every refusal throws an `Error` whose message is the core's `Display`
-text; a value read from a held board equals the one play from a record gives; and the
+the three versions: the record's, the generation's and the random stream's; every plain
+value it returns is the core's wire shape with a named TypeScript type; every refusal
+throws an `Error` whose message is the core's `Display` text; a value read from a held board equals the one play from a record gives; and the
 game can install it and play. `just check` is green.
 
 ## Non-goals
@@ -103,7 +120,7 @@ game can install it and play. `just check` is green.
 | `crates/pawdoku-wasm/Cargo.toml` | crate manifest | `pawdoku` with `features = ["serde"]`; `serde-wasm-bindgen`; `js-sys` if S12 chose named errors; version `0.2.0` by the release run, not by hand |
 | `crates/pawdoku-wasm/src/lib.rs` | crate | `mod` lines; the crate documentation, with a `js` example of each way |
 | `crates/pawdoku-wasm/src/board.rs` | crate | New: the `Board` class (step 4) |
-| `crates/pawdoku-wasm/src/from_record.rs` | crate | New: the stateless functions (step 5) |
+| `crates/pawdoku-wasm/src/from_record.rs` | crate | New: the stateless functions and the record version (step 5) |
 | `crates/pawdoku-wasm/src/solver.rs` | crate | New: `search` (step 6) |
 | `crates/pawdoku-wasm/src/generation.rs` | crate | New: `generate`, generation from a seed, the generation version (step 6) |
 | `crates/pawdoku-wasm/src/error.rs` | crate | New: one conversion from each core error to a thrown value (step 3) |
@@ -111,7 +128,7 @@ game can install it and play. `just check` is green.
 | `crates/pawdoku-wasm/tests/web.rs` | crate tests | The tests of step 7, or new `tests/*.rs` beside it, each `#![cfg(target_arch = "wasm32")]` |
 | `crates/pawdoku-wasm/tests/package/` | crate tests | If S12 recommended it: a Node module that loads `pkg/` with `initSync` and plays, and a strict TypeScript consumer with its `tsconfig.json` (step 8) |
 | `crates/pawdoku-wasm/README.md` | crate | How to load the module, both ways, a seed, errors, freeing a board |
-| `crates/pawdoku-wasm/CHANGELOG.md` | crate | Under `[Unreleased]`, if T13's Open point chose one per crate; otherwise the root file's row carries it |
+| `crates/pawdoku-wasm/CHANGELOG.md` | crate | Under `[Unreleased]`, Added: the package's new exports; the file is the crate's own, which T15 created |
 | `Cargo.toml` | workspace manifest | `serde-wasm-bindgen = "0.6.5"`, and `js-sys = "0.3.107"` if needed, each with its decision-0007 note (step 2); a tsify line only if T02 accepted it |
 | `Cargo.lock` | generated | The resolution |
 | `Justfile` | T00 follow-up | `wasm-package-test`, if S12 recommended the package test (step 8). Frozen; step 1 |
@@ -123,7 +140,7 @@ game can install it and play. `just check` is green.
 | `docs/reference/commands.md` | reference | A row for `just wasm-package-test`, outside `just check`, if added |
 | `docs/reference/quality-gates.md` | reference | The `wasm` job's new step, if added |
 | `README.md` | maintainer docs | "How the game will use it": both ways, in two sentences |
-| `CHANGELOG.md` | maintainer docs | Under `[Unreleased]`, Added, if the root file carries the crate's entries |
+| `CHANGELOG.md` | maintainer docs | Under `[Unreleased]`: this ticket's repository entries only, the `wasm-package-test` recipe and the CI step if added; the package's entries are in the crate's own file |
 | `tickets/README.md` | ticket index | T42's row set `done` |
 | `tickets/T42-typescript-surface.md` | ticket | `status:`, hand-back notes, the G ticket as handed back |
 
@@ -133,8 +150,9 @@ game can install it and play. `just check` is green.
    S12 have merged, and after T02 has accepted any dependency S12 handed it. Run
    `just initialize` and `just install-tools` if needed (network, authorised here) and
    `just check`, quoted. Confirm with the maintainer that the `Justfile` may be edited
-   here if step 8 adds a recipe. Write S12's decisions, and T41's names, at the top of
-   the hand-back notes before any code.
+   here if step 8 adds a recipe. Write S12's decisions, T41's names, and T43's answer on
+   whether a binding reads a record's version before the rest of it, at the top of the
+   hand-back notes before any code.
 
 2. **Dependencies**, a T02 hand-back carried here: `serde-wasm-bindgen = "0.6.5"` in
    `[workspace.dependencies]`, with its decision-0007 note (it ships; `MIT`, already
@@ -157,7 +175,10 @@ game can install it and play. `just check` is green.
    #[derive(Clone, Debug)]` around `pawdoku::board::Board`, with the in-crate bounds
    assertion T15's `RandomStream` has. Methods, camelCase through `js_name`:
    `Board.open(givens)` and `Board.reopen(record)`, static, throwing the solver's or
-   reopening's refusal; `view()`, the core's view of the board; `readingAfter(index)`;
+   reopening's refusal (if T43 settled that a binding reads a record's version first,
+   `Board.reopen` reads the version field alone before deserialising the rest and throws
+   the version refusal's text when it differs; otherwise it deserialises the whole
+   record); `view()`, the core's view of the board; `readingAfter(index)`;
    `write()`, the record; and the seven operations, `place(position, digit)`,
    `erase(position)`, `writeMark(position, digit)`, `strikeMark(position, digit)`,
    `check(position)`, which returns the check, `undo()` and `redo()`, each throwing the
@@ -166,9 +187,13 @@ game can install it and play. `just check` is green.
 
 5. **Play from a record**, in `src/from_record.rs`: one export for each of T41's
    functions, under the camelCase of T41's names, taking and returning plain values and
-   throwing the refusal. If T41 offers one function that takes the operation value, this
-   crate offers that one export, and the operation's TypeScript type is a union with one
-   member per kind.
+   throwing the refusal; opening from givens is one of them, and an operation's export
+   returns the record and the view, with the check it added for a check. Every export
+   that takes a record reads it as `Board.reopen` does (step 4), version first if T43
+   settled so. If T41 offers one function that takes the operation value, this crate
+   offers that one export, and the operation's TypeScript type is a union with one
+   member per kind. The record version crosses here, as step 6 says the generation
+   version does.
 
 6. **Search and generation.** `search(givens)` returns the core's search result.
    `generate(tier, stream)` takes the `RandomStream` class by `&mut` and returns T41's
@@ -181,11 +206,16 @@ game can install it and play. `just check` is green.
    scripted game played on a held `Board` and played from records gives equal views,
    records and readings at every step, compared as JavaScript values; every refusal's
    message equals the core's `Display` text for that refusal, and a refused operation
-   leaves the board as it was; `search` on the fixture gives one solution and the
-   guesses the core gives; generation from seed 0 in tier 3 equals the core's snapshot
-   of it, and its `draws_taken` is 23 when its first grid attempt succeeds; a seed of
-   `2n ** 63n` survives the round trip; `generate` advances the `RandomStream` it is
-   handed by `draws_taken`. Plant one wrong expected value, see it fail, and quote it.
+   leaves the board as it was; a record naming another version is refused by
+   `Board.reopen` and by play from a record with the text naming both versions, and,
+   if T43 settled that the version is read first, so is a record of another version
+   with a field renamed, with that text and not a deserialisation error; the record
+   version equals `pawdoku::board::RECORD_VERSION`; `search` on the fixture gives one
+   solution and the guesses the core gives; generation from seed 0 in tier 3 equals the
+   core's snapshot of it, and its `draws_taken` is 23 when its first grid attempt
+   succeeds; a seed of `2n ** 63n` survives the round trip; `generate` advances the
+   `RandomStream` it is handed by `draws_taken`. Plant one wrong expected value, see it
+   fail, and quote it.
 
 8. **The published package**, if S12 recommended it: `crates/pawdoku-wasm/tests/package/`
    holds a Node module that imports `pkg/pawdoku_wasm.js`, calls `initSync` with the
@@ -260,10 +290,10 @@ game's clone at `add73be` (HEAD on 2026-10-31, the same commit S04 found on
 >   package's README says.
 > - Keeping a game: `JSON.stringify(board.write())` through the existing `StoragePort`
 >   (`src/lib/ports/storage.ts`), and `Board.reopen(JSON.parse(stored))` on return. A
->   refused reopen throws the core's `ReopenError` text; until libpawdoku answers its
->   open question on records across versions, the game discards a record that does not
->   reopen and says so to the player, and that behaviour is stated in `pawdoku.allium`
->   first.
+>   record names its format version, and a record of another version is refused with a
+>   message naming both, the core's `ReopenError` text; libpawdoku promises nothing
+>   across versions. The game discards a record that does not reopen and tells the
+>   player, and that behaviour is stated in `pawdoku.allium` first.
 > - A new puzzle: a seed drawn from the platform's cryptographic source in the range
 >   the specifications give a seed, as a `bigint`, handed to generation from a seed; the
 >   game keeps the seed, the tier and both versions with the puzzle, which is what
@@ -324,7 +354,7 @@ the worktree is unchanged.`; `0.2.0` and `0.1.0`; only paths in Files touched.
 
 ## Hand-back notes
 
-### Decisions fixed by S12, T40 and T41
+### Decisions fixed by S12, T40, T41 and T43
 
 ### What was verified, and how
 
@@ -342,9 +372,6 @@ the worktree is unchanged.`; `0.2.0` and `0.1.0`; only paths in Files touched.
   (or the check, for `check`), and the game calls `view()` when it redraws, which on a
   held board costs no search. Play from a record returns the view with the record
   because a second call would reopen again.
-- **A `Board` from a record that does not reopen.** It throws the core's refusal. What
-  the game does then is the game's, and depends on libpawdoku's open question on
-  records across versions (T40).
 - **Package version.** 0.2.0 is a minor bump before 1.0, as T13's policy allows for an
   addition. If T15's 0.1.0 has not been published when this ticket is done, this
   release is the first, at 0.1.0, and the notes say so.

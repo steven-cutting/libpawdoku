@@ -3,7 +3,7 @@ id: T15
 title: "WebAssembly bindings: the pawdoku-wasm crate, and @steven-cutting/pawdoku-wasm with specs/ inside"
 status: open
 depends_on: [S04, T13]
-parallel_with: [S12, T40, T41]
+parallel_with: [S12, T40, T41, T43]
 branch: ticket/t15-wasm-bindings
 estimated_size: L
 ---
@@ -44,6 +44,13 @@ out, implemented in Rust so that TypeScript and Python share them. Nothing of th
 this ticket's, but two things here are shaped for it: the crate is a library with a
 `src/lib.rs` that T42 grows, and the package and its release are the ones T42 ships a
 second version through.
+
+**Settled by the maintainer, 2026-10-31.** Two questions that bear on this ticket were
+answered, each with the ticket writer's proposal: the package is **public**, made so
+after its first publish (step 12); and each binding crate keeps **its own changelog**,
+so this crate has `crates/pawdoku-wasm/CHANGELOG.md` and the package ships it (steps 3
+and 6), while the root `CHANGELOG.md` stays the core's and the repository's. Neither is
+asked again.
 
 **Versions, re-verified on 2026-10-31 at 20:41 UTC.** Sources: the crates.io API
 (`https://crates.io/api/v1/crates/<name>`, newest non-yanked version), the npm registry
@@ -114,9 +121,11 @@ it at `v0.15.1`.
   and the panic hook's `console.error` is an import block; neither needs `js-sys`, and
   nothing here serialises. cargo-shear fails the gate on a dependency nothing uses, so
   each is added by the ticket whose code first uses it (T42, if S12 recommends it).
-- **The CHANGELOG question is T13's Open point.** If the maintainer chose a CHANGELOG
-  per crate, this crate gets `crates/pawdoku-wasm/CHANGELOG.md`; if one root file with a
-  sub-heading per crate, the root file gains the heading. Step 1 reads T13's answer.
+- **One changelog per binding crate** (the maintainer, 2026-10-31, on T13's question).
+  The root `CHANGELOG.md` stays the core's and the repository's, so this crate gets its
+  own `crates/pawdoku-wasm/CHANGELOG.md`, which its `[package.metadata.release]`
+  rewrites with the two replacements T13's step 3 writes for the core, and which the
+  npm package ships. The root file takes only this ticket's repository entries.
 - **Decision records.** 0019 is projected for T13's; this ticket's is the next free
   number after it on the day, 0020 if nothing else has landed.
 
@@ -179,13 +188,13 @@ seed and, more to the point, to read the specification modules it ships.
 | `crates/pawdoku-wasm/README.md` | crate | New: what the package is, how to install it from GitHub Packages, `init()`, and the `specs/` subpath; wasm-pack copies it into `pkg/` |
 | `crates/pawdoku-wasm/src/lib.rs` | crate | New: `RandomStream`, the random version, the panic hook, the bounds assertion (step 4) |
 | `crates/pawdoku-wasm/tests/web.rs` | crate tests | New, mandatory: wasm-bindgen-test in Node (step 5) |
-| `crates/pawdoku-wasm/CHANGELOG.md` | crate | New, only if T13's Open point chose one CHANGELOG per crate; otherwise the root file's row carries the heading |
+| `crates/pawdoku-wasm/CHANGELOG.md` | crate | New: the crate's own, in the Keep a Changelog shape of the root file, with `[Unreleased]` holding the crate and the package, and an `[Unreleased]` link that each release rewrites to compare from its `pawdoku-wasm-v*` tag (step 3) |
 | `Cargo.toml` | workspace manifest | `wasm-bindgen = "0.2.130"` and `wasm-bindgen-test = "0.3.80"` in `[workspace.dependencies]`, each with the decision-0007 note (step 2) |
 | `Cargo.lock` | generated | The resolution of the two |
 | `Justfile` | T00 follow-up | `wasm-check`'s third line; `coverage -p pawdoku`; the `wasm-build` and `wasm-test` recipes (step 6). Frozen; step 1 |
 | `pyproject.toml` | T00 follow-up | `wasm-pack = "==0.15.1"`, `wasm-bindgen-cli = "==0.2.130"`, `nodejs = "==26.12.1"`, each with a comment; `wasm-test` appended to the recipe list (step 6) |
 | `pixi.lock` | generated | `pixi lock` after the pins |
-| `scripts/wasm_pkg.py` | script | New: copies the specifications into `pkg/specs/` and amends `pkg/package.json` (step 6) |
+| `scripts/wasm_pkg.py` | script | New: copies the specifications into `pkg/specs/` and the crate's `CHANGELOG.md` into `pkg/`, and amends `pkg/package.json` (step 6) |
 | `.gitignore` | dotfile | `crates/pawdoku-wasm/pkg/` |
 | `.github/workflows/ci.yml` | workflow | The `wasm` job: `wasm-test` and `wasm-build` after `wasm-check`, the `pkg/` artefact, `timeout-minutes: 20` (step 7) |
 | `.github/workflows/release-npm.yml` | workflow | New: publish on a `pawdoku-wasm-v*` tag (step 8) |
@@ -199,11 +208,11 @@ seed and, more to the point, to read the specification modules it ships.
 | `docs/reference/commands.md` | reference | Rows for `wasm-build` and `wasm-test`; `wasm-test` among `just check`'s recipes, `wasm-build` outside it |
 | `docs/reference/testing.md` | reference | "Layout": where this crate's tests live, the `cfg` gate on `tests/web.rs`, and the `js`-fence exception to doctests |
 | `docs/reference/quality-gates.md` | reference | Gate 20, `wasm-test`; `check-clean` becomes 21; the `wasm` job's row at 140 |
-| `docs/operations/maintenance.md` | operations | Under T13's "Cut a release", a wasm release; the package settings (visibility, Actions access); the rule that `wasm-bindgen-cli`'s pin moves with `Cargo.lock`'s `wasm-bindgen` |
+| `docs/operations/maintenance.md` | operations | Under T13's "Cut a release", a wasm release, which rewrites `crates/pawdoku-wasm/CHANGELOG.md`; the package settings: public, and the game's repository granted Read under Actions access; the rule that `wasm-bindgen-cli`'s pin moves with `Cargo.lock`'s `wasm-bindgen` |
 | `docs/explanation/security-model.md` | explanation | The publishing bullets: `release-npm.yml`, `packages: write`, the run's own token |
 | `AGENTS.md` | agent contract | Line 67 ("its only member today"); the publishing paragraph T13 rewrote gains `release-npm.yml` |
 | `README.md` | maintainer docs | Lines 86 to 89, "How the game will use it": the package exists |
-| `CHANGELOG.md` | maintainer docs | Under `[Unreleased]`: the crate and the package |
+| `CHANGELOG.md` | maintainer docs | Under `[Unreleased]`: this ticket's repository entries only, the recipes, the CI job, `release-npm.yml` and `scripts/wasm_pkg.py`; the package's entries are in the crate's own file |
 | `tickets/README.md` | ticket index | T15's row set `done`, in the closing pull request |
 | `tickets/T15-wasm-bindings.md` | ticket | Hand-back notes; `status:` |
 
@@ -217,8 +226,7 @@ seed and, more to the point, to read the specification modules it ships.
 
    Confirm with the maintainer that the two frozen files, the `Justfile` and
    `docs/manifest.yml`, may be edited here; the recipes are what CI runs and the record
-   needs its entry in the same commit, so without leave for both, stop and say so. Read
-   T13's answer to its CHANGELOG Open point and keep the matching row of Files touched.
+   needs its entry in the same commit, so without leave for both, stop and say so.
 
    Re-check every row of the Context's version table on the day, with the same sources,
    and quote each. A version that moved is the one this ticket pins, and the move is
@@ -246,9 +254,19 @@ seed and, more to the point, to read the specification modules it ships.
    `[target.'cfg(target_arch = "wasm32")'.dev-dependencies] wasm-bindgen-test = {
    workspace = true }`; `[package.metadata.wasm-pack.profile.release] wasm-opt = false`,
    with a comment that S12 measures whether it is worth turning on; and
-   `[package.metadata.release]` with the replacements T13's answer calls for and the tag
-   `pawdoku-wasm-v{{version}}`. The workspace's `[profile.release]` (`lto = "fat"`,
-   `codegen-units = 1`) applies to the wasm build too.
+   `[package.metadata.release]` with the two replacements of T13's step 3, on
+   `CHANGELOG.md` relative to the crate (the crate's own file, not `../../CHANGELOG.md`)
+   and with the tag prefix `pawdoku-wasm-v` in the compare and tag links in place of
+   `pawdoku-v`. Write `crates/pawdoku-wasm/CHANGELOG.md` in the root file's shape: the
+   same header, a bare `## [Unreleased]` holding this crate's and this package's
+   entries, and the link line
+   `[Unreleased]: https://github.com/steven-cutting/libpawdoku/commits/main/crates/pawdoku-wasm/`,
+   the crate's history until its first tag, as the root file's
+   `[Unreleased]: …/commits/main/` was the repository's; the first release rewrites it to
+   a compare link from `pawdoku-wasm-v0.1.0`. Quote `cargo release -p pawdoku-wasm` (a
+   dry run) showing its replacements on that file and none on the root `CHANGELOG.md`.
+   The workspace's `[profile.release]` (`lto = "fat"`, `codegen-units = 1`) applies to
+   the wasm build too.
 
 4. **The crate**, `src/lib.rs`, from S04's Step 4:
 
@@ -315,8 +333,10 @@ seed and, more to the point, to read the specification modules it ships.
    into `crates/pawdoku-wasm/pkg/specs/` (every module the directory holds on the day,
    not a fixed list); amend `pkg/package.json` so `files` gains `specs`, and `exports`
    is `"."` with `types` and `default`, `"./pawdoku_wasm_bg.wasm"`, and `"./specs/*"`;
-   and if GitHub Packages refused the inherited `repository` at the first publish
-   (S04 question (d)), rewrite it with `.git`. It writes inside `pkg/` only, which Git
+   copy `crates/pawdoku-wasm/CHANGELOG.md` into `pkg/` and add `CHANGELOG.md` to
+   `files`, so the package ships its own changelog; and if GitHub Packages refused the
+   inherited `repository` at the first publish (S04 question (d)), rewrite it with
+   `.git`. It writes inside `pkg/` only, which Git
    ignores, so `check-clean` is unchanged.
 
 7. **CI.** The `wasm` job gains `just wasm-test` and `just wasm-build` after `just
@@ -368,10 +388,18 @@ seed and, more to the point, to read the specification modules it ships.
     pawdoku-wasm --no-tag --execute`, a pull request, then `cargo release tag -p
     pawdoku-wasm --execute` on `main` and the push of the tag. Approve the deployment.
 
-12. **After the first publish**: make the package public or keep it private (Open
-    points), add the game's repository under the package's "Manage Actions access" with
-    the Read role, and read both settings back with `gh api`. Set `status: done` and the
-    row in `tickets/README.md` in a closing pull request with the proof.
+12. **After the first publish**: make the package **public** (the maintainer,
+    2026-10-31), and add the game's repository under the package's "Manage Actions
+    access" with the Read role, as S04 drafted it. The maintainer changes the
+    visibility in the package's settings on GitHub, under "Danger Zone", as GitHub's
+    page "Configuring a package's access control and visibility" describes. That page
+    is understood to warn that a package made public cannot be made private again; it
+    was not re-read on 2026-10-31, so re-read it on the day, quote the steps and the
+    warning, and say so when asking. Read both settings back (`gh api
+    /users/steven-cutting/packages/npm/pawdoku-wasm --jq .visibility` gives `public`),
+    and record in `docs/operations/maintenance.md` that the package is public. Set
+    `status: done` and the row in `tickets/README.md` in a closing pull request with the
+    proof.
 
 **Authorisation**, each asked for on its own (CONVENTIONS.md §11): each push and pull
 request; the tag push; approving the `release` environment's deployment, which is the
@@ -388,8 +416,9 @@ publish; the package's visibility; granting the game's repository access.
   workspace compiles it to nothing.
 - Both `wasm-build` refusals fail as stated, and the resolver check finds both subpaths
   inside `node_modules`.
-- `gh api /users/steven-cutting/packages/npm/pawdoku-wasm/versions` lists 0.1.0, and
-  the `release-npm.yml` run is green with no token beyond the run's own.
+- `gh api /users/steven-cutting/packages/npm/pawdoku-wasm/versions` lists 0.1.0, the
+  `release-npm.yml` run is green with no token beyond the run's own, and the package's
+  visibility reads back `public`.
 - The record is in the manifest and the index; no page says the WebAssembly crate does
   not exist yet.
 - `git status --porcelain` lists only paths in Files touched.
@@ -406,6 +435,7 @@ just wasm-test
 just wasm-build
 ls crates/pawdoku-wasm/pkg crates/pawdoku-wasm/pkg/specs
 python3 -I -c 'import json; p=json.load(open("crates/pawdoku-wasm/pkg/package.json")); print(p["name"], p["version"], p["files"], p["exports"], p["repository"])'
+cargo release -p pawdoku-wasm
 just coverage
 rg -n 'only member|None exists yet|one member today' AGENTS.md docs README.md
 just check-docs
@@ -416,8 +446,11 @@ git status --porcelain
 Expected: the two workspace pins; the three pixi pins and `wasm-test` last in the
 recipe list; `@0.2.130` from both; three finished checks; the tests passing; a `pkg/`
 holding `pawdoku_wasm.js`, `pawdoku_wasm_bg.wasm`, `pawdoku_wasm.d.ts`, `package.json`,
-`README.md` and every module under `specs/`; `@steven-cutting/pawdoku-wasm 0.1.0` with
-`specs` in `files` and the three `exports` keys; the floor met; no stale sentence;
+`README.md`, `CHANGELOG.md` and every module under `specs/`;
+`@steven-cutting/pawdoku-wasm 0.1.0` with `specs` and `CHANGELOG.md` in `files` and the
+three `exports` keys; a dry run whose replacements touch
+`crates/pawdoku-wasm/CHANGELOG.md` and not the root file, ending "aborting release due
+to dry run"; the floor met; no stale sentence;
 `All checks passed and the worktree is unchanged.`; only paths in Files touched.
 
 ## Hand-back notes
@@ -432,12 +465,6 @@ holding `pawdoku_wasm.js`, `pawdoku_wasm_bg.wasm`, `pawdoku_wasm.d.ts`, `package
 
 ## Open points
 
-- **Public or private package.** GitHub Packages' default visibility is private (S04
-  question (d)). Private, the game's CI reads it once its repository is granted Read,
-  and a developer installs it with a classic token holding `read:packages`, as the
-  game's `develop-locally.md` already says for its other scoped package. Public, any
-  workflow anywhere can read it with its own token. The source is public and Apache-2.0,
-  so the ticket writer proposes public; the maintainer decides at step 12.
 - **Whether the inherited `repository` is accepted.** wasm-pack copies Cargo's
   `https://github.com/steven-cutting/libpawdoku`, without `.git`; GitHub's page shows
   both forms. Verified at the first publish; `scripts/wasm_pkg.py` rewrites it if not.
@@ -453,8 +480,9 @@ holding `pawdoku_wasm.js`, `pawdoku_wasm_bg.wasm`, `pawdoku_wasm.d.ts`, `package
 - **Paths later tickets also edit.** T42 edits `crates/pawdoku-wasm/**`, `Cargo.toml`,
   the `Justfile`, `pyproject.toml`, `docs/explanation/architecture.md`,
   `docs/reference/testing.md` and `CHANGELOG.md` after this ticket, never at the same
-  time. T41 edits `docs/explanation/architecture.md`, `docs/reference/testing.md` and
-  `CHANGELOG.md` and may be open at the same time; T13 edits `AGENTS.md`, `ci.yml` and
+  time. T41 and T43 edit `docs/explanation/architecture.md`, `docs/reference/testing.md`
+  and `CHANGELOG.md`, and T43 `docs/decisions/README.md` and `docs/manifest.yml`, and
+  either may be open at the same time; T13 edits `AGENTS.md`, `ci.yml` and
   several pages before it. Each shared edit is a row, a sentence or a recipe, and
   whichever pull request merges second merges `main` first, the deviation from
   CONVENTIONS.md §11 that T31 and T33 recorded.

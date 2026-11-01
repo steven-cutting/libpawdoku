@@ -3,7 +3,7 @@ id: S12
 title: "Spike: the engine's TypeScript surface, typed plain values, errors, tests, size and lifetime"
 status: open
 depends_on: [S04]
-parallel_with: [T13, T15, T40]
+parallel_with: [T13, T15, T40, T43]
 branch: ticket/s12-typescript-surface
 estimated_size: M
 ---
@@ -50,6 +50,12 @@ below.
   `draws_taken` and, once finished, the givens; not the solution grid, though the Rust
   `generate` returns `WellPosed`, which holds it. `TheSolutionIsNeverShown` holds for
   the board.
+- **What a record promises across versions** (the maintainer, 2026-10-31). A record
+  names its format version, a record of another version is refused with a clear
+  message, and no compatibility is promised. T43 (`tickets/T43-record-version.md`)
+  states it in `board.allium` and builds it in the core; it is not this spike's to
+  weigh. The record this spike's probe serialises may not carry the field yet, and no
+  question below depends on it.
 
 **What is known without a probe.** A value returned through `serde_wasm_bindgen` is a
 `JsValue`, which the generated declarations type as `any`, so plain values lose their
@@ -258,8 +264,3 @@ Expected: the two files; the hand-back sections below, filled.
 - **A browser gate.** If question 5 recommends one, it brings a webdriver pin and a CI
   job; the maintainer decides whether the cost is worth it here or the game's tests
   carry it.
-- **What is said about versions of a record.** The stateless functions make the record
-  the game's state between calls. `Record`'s documentation says no promise is made yet
-  that a record written by one version of the engine reopens in another, and a record
-  carries no version. That is T40's open question to raise, not this spike's to
-  answer.
