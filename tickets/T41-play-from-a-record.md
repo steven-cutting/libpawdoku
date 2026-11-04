@@ -240,8 +240,10 @@ never the solution. `just check` is green and the coverage floor holds.
 - Holding a board and playing from records give equal records, views and readings at
   every step of every scripted game and of the proptest.
 - Every refusal is a `Result`, never a panic, with a pinned `Display` text.
-- Under `serde`, every value the three surfaces expose serialises in one shape, and no
-  serialised value holds a digit read from the solution except a check's yes or no.
+- Under `serde`, every value the three surfaces expose serialises in one shape. No
+  serialised value of the board or of the generation result holds a digit read from the
+  solution except a check's answer; a search result's solutions do, because
+  `solver.allium`'s `SearchResult` exposes them.
 - `Board` still has at most twenty methods, `just metrics` is green, and the coverage
   floor holds.
 - `just check` green; `git status --porcelain` lists only paths in Files touched.

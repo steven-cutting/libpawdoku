@@ -189,6 +189,7 @@ seed and, more to the point, to read the specification modules it ships.
 | `crates/pawdoku-wasm/src/lib.rs` | crate | New: `RandomStream`, the random version, the panic hook, the bounds assertion (step 4) |
 | `crates/pawdoku-wasm/tests/web.rs` | crate tests | New, mandatory: wasm-bindgen-test in Node (step 5) |
 | `crates/pawdoku-wasm/CHANGELOG.md` | crate | New: the crate's own, in the Keep a Changelog shape of the root file, with `[Unreleased]` holding the crate and the package, and an `[Unreleased]` link that each release rewrites to compare from its `pawdoku-wasm-v*` tag (step 3) |
+| `crates/pawdoku-wasm/LICENSE` | crate | New: a symlink to `../../LICENSE`, as T13's `crates/pawdoku/LICENSE`; wasm-pack copies it into `pkg/` (step 3) |
 | `Cargo.toml` | workspace manifest | `wasm-bindgen = "0.2.130"` and `wasm-bindgen-test = "0.3.80"` in `[workspace.dependencies]`, each with the decision-0007 note (step 2) |
 | `Cargo.lock` | generated | The resolution of the two |
 | `Justfile` | T00 follow-up | `wasm-check`'s third line; `coverage -p pawdoku`; the `wasm-build` and `wasm-test` recipes (step 6). Frozen; step 1 |
@@ -203,7 +204,7 @@ seed and, more to the point, to read the specification modules it ships.
 | `docs/manifest.yml` | T00 follow-up | The record's entry. Frozen; step 1 |
 | `docs/explanation/architecture.md` | explanation | Line 27 ("today the only member"); lines 36 to 39 ("Three siblings join … None exists yet."); the table "What crosses each boundary" at 323 to 336, its WebAssembly row in the boundary's names |
 | `docs/explanation/specifications.md` | explanation | Lines 85 to 89: the shared-truth paragraph says the package ships the modules and the game's test can hold its restatements to them; past tense once the G ticket lands is the G ticket's note, not this edit |
-| `docs/project/repository-map.md` | project | Lines 11 to 13 ("one member today"); the tree (the crate, `scripts/wasm_pkg.py`, `release-npm.yml`); the responsibility table |
+| `docs/project/repository-map.md` | project | Lines 11 to 13 ("one member today"); the tree (the crate, `crates/pawdoku-wasm/LICENSE`, `scripts/wasm_pkg.py`, `release-npm.yml`); the responsibility table |
 | `docs/project/purpose-and-scope.md` | project | Lines 63 to 65: the WebAssembly crate exists |
 | `docs/reference/commands.md` | reference | Rows for `wasm-build` and `wasm-test`; `wasm-test` among `just check`'s recipes, `wasm-build` outside it |
 | `docs/reference/testing.md` | reference | "Layout": where this crate's tests live, the `cfg` gate on `tests/web.rs`, and the `js`-fence exception to doctests |
@@ -265,8 +266,14 @@ seed and, more to the point, to read the specification modules it ships.
    `[Unreleased]: …/commits/main/` was the repository's; the first release rewrites it to
    a compare link from `pawdoku-wasm-v0.1.0`. Quote `cargo release -p pawdoku-wasm` (a
    dry run) showing its replacements on that file and none on the root `CHANGELOG.md`.
-   The workspace's `[profile.release]` (`lto = "fat"`, `codegen-units = 1`) applies to
-   the wasm build too.
+   Create `crates/pawdoku-wasm/LICENSE` as a symlink to `../../LICENSE`, as T13 does for
+   `crates/pawdoku`: wasm-pack 0.15.1 copies `LICENSE*` from the crate directory alone
+   into `pkg/` (its `src/license.rs`), and when it finds none it logs a line and goes
+   on, so the build passes without one. Apache-2.0 asks a redistributor to pass the
+   licence on, and the `license` field wasm-pack writes into `package.json` is a name,
+   not the text. A plain `LICENSE` stays out of `files`: npm packs one whatever `files`
+   says. The workspace's `[profile.release]` (`lto = "fat"`, `codegen-units = 1`)
+   applies to the wasm build too.
 
 4. **The crate**, `src/lib.rs`, from S04's Step 4:
 
@@ -345,7 +352,7 @@ seed and, more to the point, to read the specification modules it ships.
    `timeout-minutes` goes from 10 to 20, because a release build with fat LTO now runs in
    it. Permissions stay `contents: read`. Quote the job green on the pull request, and
    inspect the artefact: `package.json` carries `files`, `exports` and `repository`;
-   `specs/` holds every module.
+   `specs/` holds every module; `LICENSE` is there.
 
 8. **`release-npm.yml`.** `on: push: tags: ['pawdoku-wasm-v*']`; top-level
    `permissions: contents: read`; one job, `publish`, with `environment: release` and
@@ -356,10 +363,21 @@ seed and, more to the point, to read the specification modules it ships.
    a step that writes `pkg/.npmrc` with `@steven-cutting:registry=https://npm.pkg.github.com`
    and `//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}` (the variable stays a
    literal for npm to expand; it is never written out); an existence check (`npm view
-   @steven-cutting/pawdoku-wasm@<version> version`) that skips the publish when the
-   version is there; then `npm publish` in `crates/pawdoku-wasm/pkg` with
-   `NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}` on that step only. No `id-token`, no
-   `--provenance`. `actionlint` green through `just lint`.
+   @steven-cutting/pawdoku-wasm@<version> version`); then `npm publish`. Both run in
+   `crates/pawdoku-wasm/pkg`, because npm reads a project `.npmrc` only at the root of
+   the project it runs in, the nearest directory up that holds a `package.json` (npm's
+   `npmrc` page), and the checkout root holds none: from there the scope resolves to
+   `registry.npmjs.org`, which answers `E404` for this package whatever is published.
+   Both carry `NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}`, on those two steps and
+   never on the job, because GitHub Packages needs a token to read a package as well
+   as to publish one; `packages: write` includes the read. The check skips the publish
+   when the lookup prints the version, and lets it run only on npm's `E404`, which
+   `npm view` gives both for a package never published (the registry's 404, which npm
+   passes on) and for a version it lacks (`No match found for version`, in npm's
+   `lib/commands/view.js`, read in 11.17.0 and the same in 11.20.0, the npm that
+   `nodejs` 26.12.1 bundles). Any other failure of the lookup (a refused token, `E401`
+   or `E403`, or no network) fails the job rather than falling through to the publish.
+   No `id-token`, no `--provenance`. `actionlint` green through `just lint`.
 
 9. **The record and the pages.** The record, `docs/decisions/0020-webassembly-package.md`
    in the shape of 0016 with `canonical_for: [decision_webassembly_package]` (next free
@@ -386,7 +404,10 @@ seed and, more to the point, to read the specification modules it ships.
 11. **Release 0.1.0**, after the first pull request has merged, as T13's "Cut a
     release" says: a `release/pawdoku-wasm-v0.1.0` branch, `cargo release -p
     pawdoku-wasm --no-tag --execute`, a pull request, then `cargo release tag -p
-    pawdoku-wasm --execute` on `main` and the push of the tag. Approve the deployment.
+    pawdoku-wasm --execute` on `main` and the push of the tag. Approve the deployment,
+    and quote the existence check's `E404` before the publish. Then re-run that run's
+    `publish` job, approve the deployment again, and quote the check finding `0.1.0`,
+    the publish skipped and the job green: the re-run is the only proof of the skip.
 
 12. **After the first publish**: make the package **public** (the maintainer,
     2026-10-31), and add the game's repository under the package's "Manage Actions
@@ -403,7 +424,8 @@ seed and, more to the point, to read the specification modules it ships.
 
 **Authorisation**, each asked for on its own (CONVENTIONS.md §11): each push and pull
 request; the tag push; approving the `release` environment's deployment, which is the
-publish; the package's visibility; granting the game's repository access.
+publish; the re-run of `publish` and its approval (step 11); the package's visibility;
+granting the game's repository access.
 
 ## Acceptance criteria
 
@@ -417,8 +439,9 @@ publish; the package's visibility; granting the game's repository access.
 - Both `wasm-build` refusals fail as stated, and the resolver check finds both subpaths
   inside `node_modules`.
 - `gh api /users/steven-cutting/packages/npm/pawdoku-wasm/versions` lists 0.1.0, the
-  `release-npm.yml` run is green with no token beyond the run's own, and the package's
-  visibility reads back `public`.
+  `release-npm.yml` run is green with no token beyond the run's own, its re-run is
+  green with the publish skipped by the existence check, and the package's visibility
+  reads back `public`.
 - The record is in the manifest and the index; no page says the WebAssembly crate does
   not exist yet.
 - `git status --porcelain` lists only paths in Files touched.
@@ -435,6 +458,7 @@ just wasm-test
 just wasm-build
 ls crates/pawdoku-wasm/pkg crates/pawdoku-wasm/pkg/specs
 python3 -I -c 'import json; p=json.load(open("crates/pawdoku-wasm/pkg/package.json")); print(p["name"], p["version"], p["files"], p["exports"], p["repository"])'
+npm pack --dry-run ./crates/pawdoku-wasm/pkg 2>&1 | grep -w LICENSE
 cargo release -p pawdoku-wasm
 just coverage
 rg -n 'only member|None exists yet|one member today' AGENTS.md docs README.md
@@ -446,9 +470,10 @@ git status --porcelain
 Expected: the two workspace pins; the three pixi pins and `wasm-test` last in the
 recipe list; `@0.2.130` from both; three finished checks; the tests passing; a `pkg/`
 holding `pawdoku_wasm.js`, `pawdoku_wasm_bg.wasm`, `pawdoku_wasm.d.ts`, `package.json`,
-`README.md`, `CHANGELOG.md` and every module under `specs/`;
+`README.md`, `LICENSE`, `CHANGELOG.md` and every module under `specs/`;
 `@steven-cutting/pawdoku-wasm 0.1.0` with `specs` and `CHANGELOG.md` in `files` and the
-three `exports` keys; a dry run whose replacements touch
+three `exports` keys; `LICENSE` in the packed contents, though `files` does not name
+it; a dry run whose replacements touch
 `crates/pawdoku-wasm/CHANGELOG.md` and not the root file, ending "aborting release due
 to dry run"; the floor met; no stale sentence;
 `All checks passed and the worktree is unchanged.`; only paths in Files touched.

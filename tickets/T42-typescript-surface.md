@@ -214,8 +214,12 @@ game can install it and play. `just check` is green.
    solution and the guesses the core gives; generation from seed 0 in tier 3 equals the
    core's snapshot of it, and its `draws_taken` is 23 when its first grid attempt
    succeeds; a seed of `2n ** 63n` survives the round trip; `generate` advances the
-   `RandomStream` it is handed by `draws_taken`. Plant one wrong expected value, see it
-   fail, and quote it.
+   `RandomStream` it is handed by `draws_taken`; and `generate` in tier 3, handed
+   `RandomStream.replay` of five zeros, throws
+   `the replay stream is exhausted at draw 5` and leaves that stream's `index` at `5n`,
+   because the draws given before the refusal stay taken (`generation.allium`'s
+   `AStreamThatRunsOut`; the core's doctest on `GenerateError`). Plant one wrong
+   expected value, see it fail, and quote it.
 
 8. **The published package**, if S12 recommended it: `crates/pawdoku-wasm/tests/package/`
    holds a Node module that imports `pkg/pawdoku_wasm.js`, calls `initSync` with the
@@ -325,7 +329,11 @@ game's clone at `add73be` (HEAD on 2026-10-31, the same commit S04 found on
   export returns `any`.
 - A held board and play from records give equal values at every step of the scripted
   game, through JavaScript.
-- Every refusal throws with the core's `Display` text, and changes nothing.
+- Every refusal throws with the core's `Display` text. A refusal by the `Board` class
+  or by play from a record changes nothing. A refused `generate(tier, stream)` leaves
+  the `RandomStream` past the draws it was given, because they stay taken:
+  `generation.allium`'s `AStreamThatRunsOut` when the stream runs out, and its
+  `DrawsInOrder` for every other refusal.
 - Nothing exported returns a digit read from the solution except a check's answer and
   `search`'s solutions.
 - `just check` green; `@steven-cutting/pawdoku-wasm 0.2.0` published by
