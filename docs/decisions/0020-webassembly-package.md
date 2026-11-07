@@ -48,7 +48,10 @@ pins `wasm-bindgen-cli` and `wasm-pack`, and `just wasm-guard`, which `wasm-buil
 `cargo install`, and prefers a matching one on `PATH`: wasm-pack 0.15.1's
 `InstallMode::install_permitted` is false for that mode, and both the download and the
 `cargo install` return before fetching anything when it is false. `-- --locked` reaches
-cargo.
+cargo, but it is not what holds the lockfile: wasm-pack 0.15.1 runs `cargo metadata`
+without `--locked` before it builds, which rewrites a `Cargo.lock` that disagrees with a
+manifest, so the build then finds the two agreeing. `wasm-build` therefore depends on
+`lock-check` and stops on a stale lockfile before wasm-pack runs.
 
 **What crosses.** This first version exports the randomness boundary alone: a
 `RandomStream` class with `seeded(seed)`, `replay(draws)`, `nextDraw()` and a read-only

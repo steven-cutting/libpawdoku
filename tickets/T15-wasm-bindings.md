@@ -488,8 +488,10 @@ to dry run"; the floor met; no stale sentence;
 
 ### What was verified, and how
 
-Segment 1 of this run: the stop check, then steps 1 to 9. Step 10 onwards is not yet
-done; R1 reads this checkpoint.
+Segment 1 of this run: the stop check, then steps 1 to 9, the R1 checkpoint `03a6f30`
+and the dry run on it, `83651ed`. Segment 2: R1, then step 10 locally, with no pull
+request. The CI proof of step 7, steps 11 and 12 and every push and pull request are
+left (Handed back).
 
 **The stop check, step 1's last paragraph.** wasm-pack's installer was read at the tag
 `v0.15.1` (commit `b9ac5e48`) with `gh api`: `src/install/mode.rs`,
@@ -573,6 +575,47 @@ and nine modules under `specs/`; `package.json` has `files` with `specs` and
 `npm pack --dry-run` lists sixteen files, `LICENSE` among them. `just wasm-test` and
 `just wasm-check` are green.
 
+**Step 10**, locally; no pull request was opened. Each planted change was reverted and
+the tree read back clean.
+
+- `just clippy` green (exit 0). With `unsafe {}` planted in `RandomStream::index` in
+  `src/lib.rs` it failed, exit 101: "error: usage of an `unsafe` block ... note:
+  requested on the command line with `-F unsafe-code`", then "could not compile
+  `pawdoku-wasm` (lib) due to 2 previous errors".
+- `just wasm-test` green: "test result: ok. 6 passed; 0 failed". With the last golden
+  bit planted one low (`0x3FE8_B082_6759_22D4`) it failed: "test
+  seed_zero_draws_the_golden_stream ... FAIL", "left: Ok(4605124693112464085) right:
+  Ok(4605124693112464084)", "test result: FAILED. 5 passed; 1 failed", "Error: Node
+  failed with exit_code 1".
+- The guard. A shim `wasm-bindgen` printing `wasm-bindgen 0.2.129`, first on `PATH`,
+  stopped `just wasm-build` before wasm-pack ran, exit 1: "wasm-guard: wasm-bindgen
+  0.2.129 on PATH, Cargo.lock resolves wasm-bindgen 0.2.130; pin wasm-bindgen-cli to it
+  in pyproject.toml", "error: recipe `wasm-guard` failed with exit code 1". The
+  `Justfile` puts the pixi environment first on `PATH`, so the shim went first through
+  `just --set PATH "<shim>:<pixi env bin>:<.tools/bin>:$PATH" wasm-build`.
+- The lockfile. **As the step wrote it, this proof failed.** With `cfg-if = "1.0.5"`
+  added to `crates/pawdoku-wasm/Cargo.toml`, `just wasm-build` built the package, exit
+  0, and left `Cargo.lock` rewritten with `cfg-if` under `pawdoku-wasm`. wasm-pack
+  0.15.1 reads the crate through `cargo_metadata::MetadataCommand` in
+  `CrateData::new` (`src/manifest/mod.rs`), without `--locked`, before it builds, and
+  `cargo metadata` rewrites a stale lockfile; `-- --locked` then reached a lock already
+  made to agree. The guard's `cargo pkgid --locked --offline` passed on the stale lock;
+  `cargo build --locked` alone refused it. So `wasm-build` now depends on `lock-check`
+  after the guard (Deviations). With that, the same edit stopped the recipe before
+  wasm-pack, exit 101: "error: cannot update the lock file ... because --locked was
+  passed to prevent this", "error: recipe `lock-check` failed on line 80 with exit code
+  101", and `Cargo.lock` unchanged. The setup action runs `just sync`, so the offline
+  `lock-check` has its cache in the `wasm` job and in `release-npm.yml`.
+- The resolver. In a scratch directory outside the repository, with Node 26.13.0 and
+  npm 11.20.0, `npm install --ignore-scripts --no-audit --no-fund --install-links
+  <worktree>/crates/pawdoku-wasm/pkg` ("added 1 package"), then a module of two
+  `import.meta.resolve` lines printed
+  `file:///.../resolver/node_modules/@steven-cutting/pawdoku-wasm/specs/sudoku.allium`
+  and `file:///.../resolver/node_modules/@steven-cutting/pawdoku-wasm/pawdoku_wasm_bg.wasm`,
+  both inside `node_modules`. `--install-links` makes npm copy the directory as a
+  registry install would; without it, tried too, npm made a symbolic link and both
+  resolved through it to `crates/pawdoku-wasm/pkg/` in the worktree.
+
 ### Deviations, and why
 
 - **One branch.** This ticket ran on `implement-typescript-surface-fullsend` as the
@@ -592,12 +635,61 @@ and nine modules under `specs/`; `package.json` has `files` with `specs` and
   item's example runs, which the WebAssembly crate's do not.
 - **`release-npm.yml` writes the `npm view` error to `$RUNNER_TEMP`**, not to `pkg/`,
   so nothing of the check can be packed, and publishes with `--ignore-scripts`.
+- **`wasm-build` depends on `lock-check`**, after the guard, and step 10's second
+  refusal is proved there rather than on `-- --locked`. wasm-pack 0.15.1 runs `cargo
+  metadata` without `--locked` before it builds, which rewrote the stale lockfile in
+  step 10's first try, so `-- --locked` alone holds nothing (What was verified). The
+  recipe's comment, decision 0020, the `wasm-build` row of
+  `docs/reference/commands.md` and the root `CHANGELOG.md` entry say so. `-- --locked`
+  stays: it still stops a build whose lockfile something rewrites between the two.
+- **Step 10's shim went first through `just --set PATH`**, because the `Justfile`
+  exports a `PATH` that puts the pixi environment ahead of the caller's.
+- **The resolver check installed with `--install-links`**, so that npm copies the
+  package as a registry install would; a plain `npm install <dir>` links it, and Node
+  then resolves into the worktree, not `node_modules`.
 
 ### Handed back
 
+- **Left by this run, not authorised:** the push and the first pull request (step 10's
+  "ask before pushing"); the CI proof of step 7, the `wasm` job green on the pull
+  request with the artefact's `package.json`, `specs/` and `LICENSE` inspected; R2,
+  before step 11; step 11, the release of 0.1.0, its tag, the deployment approval, the
+  existence check's `E404` and the re-run's skip; step 12, the package made public, the
+  game's repository granted Read, `docs/operations/maintenance.md` recording it, and
+  `status: done` with the index row. `status` stays `open`.
+- **For T42**, which edits this crate next: `wasm-build` is `wasm-guard` then
+  `lock-check` then wasm-pack, and `wasm-test` is the guard then `cargo test --locked`,
+  which needs no `lock-check` because no wasm-pack runs before it. Doc comments on an
+  export are copied onto wasm-bindgen's wrapper, so examples stay in `js` fences, never
+  Rust doctests. The type is `RandomStream` and the core trait is imported as
+  `CoreStream`.
+- **For the G ticket:** the package resolves `./specs/*` and `./pawdoku_wasm_bg.wasm`
+  through its `exports` from inside `node_modules` (step 10's resolver check).
+
 ### Adversarial review
 
+- **R1, round 1**, before step 10, on the range from the start (`c0481c2`) to the
+  checkpoint `03a6f30` with the dry run's `83651ed`, focus what the package promises
+  against what the recipes prove: approved with no findings, model `gpt-6-astra`
+  (Codex's log, the thread's rows). The reviewer found the licence, the nine modules
+  and the declarations in the package. Its note that its read-only sandbox could not run
+  `just check` is an environment note, not a finding; `just check` ran here. The one
+  defect of this ticket's promise against its recipes, `wasm-build`'s lockfile, was
+  found by step 10's proof, not by the review.
+- **R2** has not run: it reads `release-npm.yml` before step 11, which this run does not
+  reach.
+
 ### Open points settled
+
+- **Whether T15 should wait on T13.** By order on the run's one branch: T13's release
+  guards' composite action and the cargo-release pin were committed before this ticket
+  began, and `release-npm.yml` uses them, so they keep one owner. The `release`
+  environment and the tag ruleset are T13's step 6, which the run left, so step 11
+  still waits on them.
+- **`metrics` over the binding.** Left on the core, as Context says; nothing here asked
+  for more.
+- **The inherited `repository`** is not settled: it is verified only at the first
+  publish, step 11.
 
 ## Open points
 

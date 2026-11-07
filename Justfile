@@ -223,10 +223,13 @@ wasm-guard:
 # @steven-cutting/pawdoku-wasm into crates/pawdoku-wasm/pkg/, which Git ignores.
 # Not a gate and outside `just check`: a release build with fat LTO, run by CI's
 # wasm job and by release-npm.yml. --mode no-install forbids wasm-pack to fetch
-# a wasm-bindgen of its own, so it uses the guarded one on PATH (decision 0020);
-# `-- --locked` reaches cargo. Then the specification modules and the crate's
-# changelog go into the package, and package.json gains files and exports.
-wasm-build: wasm-guard
+# a wasm-bindgen of its own, so it uses the guarded one on PATH (decision 0020).
+# lock-check follows the guard because wasm-pack's own `cargo metadata`, run
+# before the build and without --locked, would rewrite a stale Cargo.lock, and
+# `-- --locked` would then reach cargo with a lock already made to agree. Then
+# the specification modules and the crate's changelog go into the package, and
+# package.json gains files and exports.
+wasm-build: wasm-guard lock-check
     wasm-pack build crates/pawdoku-wasm --mode no-install --target web --scope steven-cutting --release -- --locked
     python -I scripts/wasm_pkg.py
 
