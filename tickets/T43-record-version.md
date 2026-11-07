@@ -357,9 +357,60 @@ only paths in Files touched.
 
 ### What was verified, and how
 
+Run on 2026-11-07 on the branch `implement-typescript-surface-fullsend`, from
+`a3cb5db6baee0a456cec93bbd6d59a1dbc8df6b3`, with allium 3.6.1 from `.tools/bin`.
+
+- **Before any clause.** `just check`: "All checks passed and the worktree is
+  unchanged." `just check-specs`: "allium check: 9 specifications, no diagnostics and
+  no findings." `just analyse-specs`: "allium analyse: 9 specifications, no diagnostics
+  and no findings." `just plan-spec board`: 88 obligations.
+- **After the clause.** Both specification gates read as before, every module clean,
+  with no waiver; each was run after the config line, after `Recording`, and after the
+  three comments. `just plan-spec board`: 89 obligations. The one added is
+  `config-default.record_version`. `allium plan` derives nothing from a prose
+  `@invariant`, so `ARecordNamesItsVersion` reaches the test list from its text.
+- `external entity Record` is still `{}`; no rule, top-level invariant, surface or
+  `use` line changed, and `contract PlayingFromARecord` is untouched.
+
 ### The test list
 
+Written before any Rust, from the clause and the obligations; revisited after every
+red-green loop.
+
+1. `config-default.record_version`: `RECORD_VERSION` is `"record-1"` (a doctest).
+2. `ARecordNamesItsVersion`, the write half: every record `write` gives names
+   `RECORD_VERSION`.
+3. `ARecordNamesItsVersion`, the refusal: a record of another version is refused through
+   `Board::reopen` with `ReopenError::Version`, naming both versions.
+4. `ARecordNamesItsVersion`, the order: that refusal comes first when the record also
+   fails in another way.
+5. Under `serde`, a record's serialised form with the version field removed, handed over
+   by name through a hand-written `MapAccess`, deserialises and is refused naming no
+   version.
+6. Under `serde`, a record's serialised form with another version deserialises and is
+   refused naming that version.
+7. Under `serde`, the version-only value reads a record's form with its other fields
+   renamed or missing and gives the version refusal naming what it read, or none; given
+   this engine's version it gives no refusal.
+8. `ReopeningIsExact` and `WritingChangesNothing` stand: the round trip through `write`
+   and `reopen`, and through the serialised form, still holds.
+9. Each `Display` text of the new variant is pinned.
+10. `ReopenError` and the version-only value are `Send + Sync + 'static`, `Clone` and
+    `Debug` (`tests/api_bounds.rs`).
+
 ### Deviations, and why
+
+- **One branch.** The work is on `implement-typescript-surface-fullsend`, after S12 and
+  T40, not on `ticket/t43-record-version` from `main`; step 1's worktree and the merge
+  condition are met by order on that branch. `.pixi/` and `.tools/bin` were present, so
+  no install ran.
+- **The refusal in `reopen`'s comment comes first.** The version sentence opens
+  `reopen`'s comment, ahead of `SetPuzzle`, so the text reads in the order of the
+  refusals.
+- **`PlayingFromARecord`'s preamble is unchanged.** Its "It names no form, as Recording
+  names none" still holds: a version is not a form, and `Recording`'s preamble now says
+  beyond the version it names no form. Its refusal invariant already sends a record that
+  does not reopen to `reopen`'s refusal, which now begins with the version.
 
 ### Handed back
 

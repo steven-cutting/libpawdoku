@@ -50,8 +50,9 @@
 --     in play consults the solution.
 --   - The record: a board written down whole, and reopened from what was
 --     written to the same board, moves, undone moves and checks included.
---     Recording says what that must satisfy and nothing of the form a record
---     takes or where one is kept.
+--     Recording says what that must satisfy and, beyond the format version
+--     a record names, nothing of the form a record takes or where one is
+--     kept.
 --   - Play from a record: a board's operations put to a record a caller
 --     hands over, with the record after the operation handed back and what
 --     Playing shows of the board after it, less the readings after its
@@ -133,9 +134,10 @@ enum OperationKind { place | erase | write_mark | strike_mark | check_cell | und
 -- External Entities
 ------------------------------------------------------------
 
--- A board written down. What a record is made of is nobody's here: Recording
--- below says what writing one and reopening it must satisfy, and the caller
--- it is handed to decides the rest, where it is kept included.
+-- A board written down. Beyond the format version Recording requires it to
+-- name, what a record is made of is nobody's here: Recording below says what
+-- writing one and reopening it must satisfy, and the caller it is handed to
+-- decides the rest, where it is kept included.
 external entity Record {}
 
 ------------------------------------------------------------
@@ -287,6 +289,13 @@ config {
     -- sudoku.allium's figure under its name, as solver.allium restates it,
     -- so that no clause below carries a bare number.
     side: Integer = sudoku/config.side
+
+    -- The format version a record names: what a record holds and what
+    -- reopening reads from it, and no form. This module's own, as
+    -- generation.allium's generation_version is that module's: raised
+    -- whenever either changes, in this module or in the core, so that a
+    -- record of one version is never read as another.
+    record_version: String = "record-1"
 }
 
 ------------------------------------------------------------
@@ -666,22 +675,31 @@ invariant ACheckIsOnAPlayersCell {
 -- Contracts
 ------------------------------------------------------------
 
--- What writing a board down and having it again must satisfy. It names no
--- form and no place: a record is whatever a caller is handed, and where it
--- is kept is the caller's.
+-- What writing a board down and having it again must satisfy. Beyond the
+-- format version a record names, it names no form and no place: a record is
+-- whatever a caller is handed, and where it is kept is the caller's.
 contract Recording {
+    -- The record written names config.record_version, the format version
+    -- this engine writes.
     write: (board: Board) -> Record
 
-    -- Reopening puts the record's givens to sudoku/SetPuzzle, so a record of
-    -- a puzzle the rules would not pose is refused, and the board OpenBoard
-    -- opens on the puzzle so set is made whole from the record: every digit,
-    -- every note shown or waiting, every move with its index and whether it
-    -- is undone, and every check as written. The moves and checks the board
-    -- then holds are the record's own, with the indices they had and the
-    -- same moves undone: reopening adds none and discards none. How the
-    -- board is made whole is not said here. A record that no board could
-    -- have been written to is refused. The puzzle is a new one with the one
-    -- board OpenBoard gives it, so OneBoardToAPuzzle stands.
+    -- A record that names a format version other than config.record_version,
+    -- or names none, is refused before anything else in it is read, and the
+    -- refusal names both: the version the record names, or that it names
+    -- none, and config.record_version. Nothing else in such a record can be
+    -- trusted to mean what this engine reads.
+    --
+    -- Reopening a record of this version puts its givens to
+    -- sudoku/SetPuzzle, so a record of a puzzle the rules would not pose is
+    -- refused, and the board OpenBoard opens on the puzzle so set is made
+    -- whole from the record: every digit, every note shown or waiting,
+    -- every move with its index and whether it is undone, and every check
+    -- as written. The moves and checks the board then holds are the
+    -- record's own, with the indices they had and the same moves undone:
+    -- reopening adds none and discards none. How the board is made whole is
+    -- not said here. A record that no board could have been written to is
+    -- refused. The puzzle is a new one with the one board OpenBoard gives
+    -- it, so OneBoardToAPuzzle stands.
     reopen: (record: Record) -> Board
 
     @invariant ReopeningIsExact
@@ -695,6 +713,18 @@ contract Recording {
     @invariant WritingChangesNothing
         -- Writing a board down leaves it exactly as it was, and can be done
         -- at any point, solved or not.
+
+    @invariant ARecordNamesItsVersion
+        -- Every record write gives names config.record_version, and reopen
+        -- refuses a record that names another format version, or none,
+        -- before it reads anything else in it, with a refusal that names
+        -- config.record_version and the version the record names, or says
+        -- it names none. A record is a consumer's state between calls, kept
+        -- between visits and perhaps handed to a later engine, and a
+        -- consumer told which version it holds can say so to a player. No
+        -- promise is made that an engine reads a record of an earlier
+        -- version: a record of another version is refused, and nothing in
+        -- it is read.
 }
 
 -- Play from a record: what a caller that holds no board may do with a
