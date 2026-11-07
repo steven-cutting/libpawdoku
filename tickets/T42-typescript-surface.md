@@ -473,7 +473,7 @@ wrote a `.wasm` of 351,425 bytes, 100,666 gzipped at `-9`; after it, 231,591 byt
 and `Optimizing wasm binaries with wasm-opt`. `just wasm-package-test` closed with
 `snapshots: 10 snapshots written to target/wasm-package-test/snapshots.ts`, a silent
 `tsc`, and `package test: 16 checks passed`. Planted in a copy of `pkg/` and the package
-test under `ai_tmp/`, each widening or narrowing of the declarations failed `tsc` (first
+test in a scratch copy outside the tree, each widening or narrowing of the declarations failed `tsc` (first
 error quoted):
 
 | Planted in the `.d.ts` | First error |
@@ -507,7 +507,7 @@ holds 20 tests and the package test 19 checks: `just wasm-test` passed 20 and 6,
 **Step 10, locally.** The `wasm` job's artefact is CI's (Handed back), so the
 declarations were read from the `pkg/` that `just wasm-build` wrote from `8cfb839`'s
 source; the one later change to the crate, the module documentation of `types.rs`,
-writes nothing into `pkg/`. The `.wasm` is 232,932 bytes, 86,331 gzipped at `-9`. With
+writes nothing into `pkg/`. After R1's fixes the `.wasm` is 232,932 bytes, 86,331 gzipped at `-9`. With
 `InitOutput` and what follows it removed, the declarations hold no `any`. The class
 `Board`, its documentation left out:
 
@@ -559,7 +559,9 @@ export interface GenerationResult {
 ```
 
 `just check-docs` closed with `Validated 48 pages and 49 canonical topics.` before the
-step's commit, and `just check` ran on that commit.
+step's commit. `just check` on that commit, `f9a04ac`, passed 20 tests in
+`surface.rs` and 6 in `web.rs` among the rest and closed with `All checks passed and the
+worktree is unchanged.`, exit 0; the commit that quotes it changed this ticket alone.
 
 ### Deviations, and why
 
@@ -581,8 +583,8 @@ step's commit, and `just check` ran on that commit.
   `generate_from_seed`. One `play` taking the operation value, as T41 offers one.
 - **Tests after the code.** Steps 3 to 6 were written before `tests/surface.rs`, against
   the brief's tests-first rule; each test arrived green and was then made to bite by the
-  planted changes quoted above, as T41 did for its second segment. The test list is in
-  `ai_tmp/t42/progress.md` for the next segment.
+  planted changes quoted above, as T41 did for its second segment. The test list is
+  `tests/surface.rs`'s 20 tests and the package test's 19 checks (Verification).
 - **One test file, `tests/surface.rs`**, rather than one per module: each `tests/*.rs` is
   its own wasm binary, and the tests share the fixture and the script.
 - **`RandomStream` throws `RandomError` by name.** T15's class threw a `JsError`, named
