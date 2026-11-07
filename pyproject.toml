@@ -40,6 +40,13 @@ wasm-pack = "==0.15.1"
 wasm-bindgen-cli = "==0.2.130"
 # Node runs `just wasm-test`, and its npm is the one release-npm.yml publishes with.
 nodejs = "==26.13.0"
+# `just wasm-build` optimises the .wasm with binaryen's wasm-opt at -O3. wasm-pack in
+# --mode no-install skips the step and succeeds when wasm-opt is missing, so
+# wasm-build's guard requires this version first (T42).
+binaryen = "==121"
+# `just wasm-package-test` type-checks a strict consumer and the declaration
+# module against the package's pawdoku_wasm.d.ts with tsc (T42).
+typescript = "==6.0.2"
 
 [tool.pixi.pypi-dependencies]
 biscuit-games-tooling = { git = "https://github.com/steven-cutting/biscuit_games_tooling", tag = "v0.3.0" }

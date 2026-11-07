@@ -1,29 +1,61 @@
 //! WebAssembly bindings for [`pawdoku`], the classic-sudoku engine, packed by wasm-pack
 //! as the npm package `@steven-cutting/pawdoku-wasm` (decision 0020).
 //!
-//! This first version exports the engine's randomness boundary alone: the
-//! [`RandomStream`] class, which gives the engine's own seeded generator or replays a
-//! script of draws, and [`random_version`], the name of that generator. A seed and the
-//! name are what replay a puzzle in a browser, in Python and on the command line alike.
-//! The package also ships the engine's specification modules under `specs/`, so a
-//! consumer can hold the clauses it restates equal to this repository's text.
+//! The package gives a game the engine two ways, which hand back the same plain values:
 //!
-//! Errors cross as a JavaScript `Error` whose `message` is the engine's `Display` text.
-//! The examples below are JavaScript: a Rust doctest runs on the host, where a
-//! wasm-bindgen import panics, so the crate's behaviour is proved in Node by
-//! `tests/web.rs` instead.
+//! - **A held board.** The [`Board`] class opens on givens or reopens from a record, is
+//!   held for as long as the puzzle is in play, makes the seven operations, shows its
+//!   view and writes its record. Free it once when the puzzle is left.
+//! - **Play from a record.** [`open`], [`play`], [`read`] and [`reading_after`] are each
+//!   handed a record or givens and give back a record and a view; nothing is held, and
+//!   each call on a record reopens it.
+//!
+//! Beside them: [`search`], the solver's setter's tool; [`generate`] from a
+//! [`RandomStream`] and [`generate_from_seed`]; and the three versions a kept game or a
+//! seed needs, [`record_version`], [`generation_version`] and [`random_version`]. The
+//! package also ships the engine's specification modules under `specs/`, so a consumer
+//! can hold the clauses it restates equal to this repository's text.
+//!
+//! A plain value is the core's wire shape, with a TypeScript interface of the same name
+//! (the record's is `BoardRecord`). A refusal throws a JavaScript `Error` whose `name`
+//! is the engine's error type and whose `message` is the engine's `Display` text; a
+//! value of the wrong shape throws an `Error` named `Error`. The examples below are
+//! JavaScript: a Rust doctest runs on the host, where a wasm-bindgen import panics, so
+//! the crate's behaviour is proved in Node by its tests instead.
 //!
 //! ```js
-//! import init, { RandomStream, randomVersion } from "@steven-cutting/pawdoku-wasm";
+//! import init, { Board, play, generateFromSeed } from "@steven-cutting/pawdoku-wasm";
 //!
 //! await init();
-//! const stream = RandomStream.seeded(2024n);
-//! const draw = stream.nextDraw(); // a number in [0, 1)
-//! console.log(randomVersion(), stream.index); // "seeded-stream-1" 1n
+//! const { givens, seed } = generateFromSeed("Three", 2024n);
+//!
+//! // Held: one board for the puzzle's life.
+//! const board = Board.open(givens);
+//! board.place({ row: 1, column: 3 }, 4);
+//! const kept = JSON.stringify(board.write());
+//! board.free();
+//!
+//! // From a record: values in, values out.
+//! const { record, view } = play(JSON.parse(kept), { kind: "Undo" });
 //! ```
 
+mod board;
+mod error;
+mod from_record;
+mod generation;
+mod solver;
+mod types;
+
+pub use board::Board;
+pub use from_record::{open, play, read, reading_after, record_version};
+pub use generation::{generate, generate_from_seed, generation_version};
+pub use solver::search;
+
 use pawdoku::random::{RandomStream as CoreStream, ReplayStream, SeededStream};
-use wasm_bindgen::{JsError, prelude::wasm_bindgen};
+use wasm_bindgen::JsValue;
+use wasm_bindgen::prelude::wasm_bindgen;
+
+use crate::error::thrown;
 
 /// The stream a [`RandomStream`] holds: one of the two the engine ships, so the class is
 /// `Send`, `Sync`, `Clone` and `Debug`, which a boxed trait object could not be. Closed
@@ -77,6 +109,13 @@ const _: () = {
     assert_bounds::<RandomStream>();
 };
 
+impl RandomStream {
+    /// The stream as the engine's trait, for [`generate`] to draw from in place.
+    pub(crate) fn as_dyn(&mut self) -> &mut dyn CoreStream {
+        self.stream.as_dyn()
+    }
+}
+
 #[wasm_bindgen]
 impl RandomStream {
     /// The engine's own generator, started from `seed` at index zero. In JavaScript the
@@ -102,28 +141,28 @@ impl RandomStream {
     ///
     /// # Errors
     ///
-    /// Throws an `Error` whose message is `RandomError::OutOfRange`'s text for the
+    /// Throws a `RandomError` whose message is `RandomError::OutOfRange`'s text for the
     /// first value outside `[0, 1)`, `NaN` included.
     ///
     /// ```js
     /// const stream = RandomStream.replay(new Float64Array([0.25, 0.5]));
     /// stream.nextDraw(); // 0.25
     /// RandomStream.replay([0.5, 1]);
-    /// // throws Error: draw 1 of the replay script is 1, outside [0, 1)
+    /// // throws RandomError: draw 1 of the replay script is 1, outside [0, 1)
     /// ```
-    pub fn replay(draws: Vec<f64>) -> Result<Self, JsError> {
+    pub fn replay(draws: Vec<f64>) -> Result<Self, JsValue> {
         ReplayStream::new(draws)
             .map(|stream| Self {
                 stream: Stream::Replay(stream),
             })
-            .map_err(|error| JsError::new(&error.to_string()))
+            .map_err(|refusal| thrown(&refusal))
     }
 
     /// The next draw, a number in `[0, 1)`; the index moves on by one.
     ///
     /// # Errors
     ///
-    /// Throws an `Error` whose message is `RandomError::Exhausted`'s text when a replay
+    /// Throws a `RandomError` whose message is `RandomError::Exhausted`'s text when a replay
     /// script has no draw left; the index stays where it was. A seeded stream never
     /// throws.
     ///
@@ -131,14 +170,14 @@ impl RandomStream {
     /// const stream = RandomStream.replay([0.25]);
     /// stream.nextDraw(); // 0.25
     /// stream.nextDraw();
-    /// // throws Error: the replay stream is exhausted at draw 1
+    /// // throws RandomError: the replay stream is exhausted at draw 1
     /// ```
     #[wasm_bindgen(js_name = nextDraw)]
-    pub fn next_draw(&mut self) -> Result<f64, JsError> {
+    pub fn next_draw(&mut self) -> Result<f64, JsValue> {
         self.stream
             .as_dyn()
             .next_draw()
-            .map_err(|error| JsError::new(&error.to_string()))
+            .map_err(|refusal| thrown(&refusal))
     }
 
     /// The index the next draw will carry, which is how many draws were taken; a

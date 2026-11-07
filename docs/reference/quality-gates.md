@@ -34,7 +34,7 @@ is ignored.
 | 17 | `check-specs` | Every specification reports an empty `diagnostics` array. |
 | 18 | `analyse-specs` | Every specification reports an empty `findings` array too. |
 | 19 | `snapshots-check` | Every snapshot matches, and no `.snap` file is unreferenced. Runs all tests through cargo-insta and nextest, with every feature, without writing snapshots or pending files. |
-| 20 | `wasm-test` | The WebAssembly crate's tests pass in Node: `crates/pawdoku-wasm/tests/web.rs`, compiled for `wasm32-unknown-unknown` and run by `wasm-bindgen-test-runner`, after the guard that the CLI is the version `Cargo.lock` resolves for `wasm-bindgen`. |
+| 20 | `wasm-test` | The WebAssembly crate's tests pass in Node: `crates/pawdoku-wasm/tests/web.rs` and `tests/surface.rs`, compiled for `wasm32-unknown-unknown` and run by `wasm-bindgen-test-runner`, after the guard that the CLI is the version `Cargo.lock` resolves for `wasm-bindgen`. |
 | 21 | `check-clean` | The run changed nothing. |
 
 Gates 4 and 5 also run inside `lint`, as two of its hooks. The duplication is deliberate:
@@ -138,7 +138,7 @@ environments.
 | --- | --- |
 | `rust` | `check-toolchain`, `lock-check`, `fmt-check`, `toml-check`, `clippy`, `metrics`, `features`, `test`, `snapshots-check`, `doc`, `deps-unused` |
 | `coverage` | `coverage`, then uploads `lcov.info` as an artifact kept for seven days |
-| `wasm` | `wasm-check`, `wasm-test`, then `wasm-build`, and uploads the package in `crates/pawdoku-wasm/pkg/` as an artifact kept for seven days |
+| `wasm` | `wasm-check`, `wasm-test`, then `wasm-build` and `wasm-package-test`, and uploads the package in `crates/pawdoku-wasm/pkg/` as an artifact kept for seven days |
 | `deny` | `deny` |
 | `documents` | `install-allium`, `lint`, `check-docs`, `check-agents`, `check-specs`, `analyse-specs` |
 

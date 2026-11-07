@@ -22,16 +22,20 @@ crate-type = ["cdylib", "rlib"]
 workspace = true
 
 [dependencies]
-pawdoku = { path = "../pawdoku", version = "0.1.0" }
+js-sys = { workspace = true }
+pawdoku = { path = "../pawdoku", version = "0.1.0", features = ["serde"] }
+serde = { workspace = true }
+serde-wasm-bindgen = { workspace = true }
 wasm-bindgen = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen-test = { workspace = true }
 
-# Off until a measurement says the size is worth binaryen's pass; S12 measured it,
-# and T42 turns it on with the guard that makes a missing wasm-opt fail.
+# binaryen's pass at -O3, which S12 measured at 12.9% smaller gzipped for no loss
+# of speed. wasm-pack in --mode no-install skips it, and succeeds, when wasm-opt is
+# missing, so `just wasm-build` first requires the pinned wasm-opt (T42).
 [package.metadata.wasm-pack.profile.release]
-wasm-opt = false
+wasm-opt = ["-O3"]
 
 # Moves this crate's own CHANGELOG.md entries under the new version and points its
 # links at the pawdoku-wasm-v tag; the root CHANGELOG.md is the core's and is left

@@ -36,6 +36,13 @@ thiserror = { version = "2.0.17", default-features = false }
 # tests only, as a wasm32-only dev-dependency of crates/pawdoku-wasm.
 wasm-bindgen = "0.2.130"
 wasm-bindgen-test = "0.3.80"
+# The engine's plain values cross through serde-wasm-bindgen (T42), MIT, which
+# deny.toml allows. It ships. One maintainer and no release since 2024-02-27 is
+# its risk; the alternative is every value built by hand as a JsValue, which
+# would restate the core's wire shape a second time. js-sys (MIT OR Apache-2.0)
+# names the errors the package throws; serde-wasm-bindgen already builds it.
+js-sys = "0.3.107"
+serde-wasm-bindgen = "0.6.5"
 
 # Every level here is `warn` so a local build never breaks mid-edit; `just clippy`
 # passes `-D warnings`, which is where a warning becomes a failure.

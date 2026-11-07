@@ -226,12 +226,35 @@ wasm-guard:
 # a wasm-bindgen of its own, so it uses the guarded one on PATH (decision 0020).
 # lock-check follows the guard because wasm-pack's own `cargo metadata`, run
 # before the build and without --locked, would rewrite a stale Cargo.lock, and
-# `-- --locked` would then reach cargo with a lock already made to agree. Then
-# the specification modules and the crate's changelog go into the package, and
+# `-- --locked` would then reach cargo with a lock already made to agree. The
+# crate's metadata turns wasm-opt on, which --mode no-install skips with success
+# when wasm-opt is missing, so the pinned binaryen is required first. Then the
+# specification modules and the crate's changelog go into the package, and
 # package.json gains files and exports.
 wasm-build: wasm-guard lock-check
+    #!/bin/sh
+    set -eu
+    have=$(wasm-opt --version 2>/dev/null || true)
+    if [ "$have" != "wasm-opt version 121" ]; then
+        printf 'wasm-build: wasm-opt says "%s"; want "wasm-opt version 121", the binaryen pyproject.toml pins\n' "${have:-missing}" >&2
+        exit 1
+    fi
     wasm-pack build crates/pawdoku-wasm --mode no-install --target web --scope steven-cutting --release -- --locked
     python -I scripts/wasm_pkg.py
+
+# The package wasm-build wrote, as a consumer meets it; not a gate and outside
+# `just check`, because it needs that release build: CI's wasm job runs it after
+# wasm-build. It does not depend on wasm-build, so CI builds once; locally, run
+# wasm-build first. snapshots.mjs writes each JSON snapshot of the core as a
+# TypeScript literal into target/, which Git ignores; tsc holds the declarations to
+# them, to a strict consumer and to a declaration module; then play.mjs loads
+# pkg/ through initSync and plays. typescript's tsc script finds itself through
+# CONDA_PREFIX, which pixi sets only inside `pixi run`.
+wasm-package-test:
+    test -f crates/pawdoku-wasm/pkg/pawdoku_wasm.d.ts || { printf '%s\n' 'wasm-package-test: no crates/pawdoku-wasm/pkg/; run just wasm-build first' >&2; exit 1; }
+    node crates/pawdoku-wasm/tests/package/snapshots.mjs
+    CONDA_PREFIX="{{justfile_directory()}}/.pixi/envs/default" tsc -p crates/pawdoku-wasm/tests/package/tsconfig.json --noEmit --strict
+    node crates/pawdoku-wasm/tests/package/play.mjs
 
 # Gate 20: crates/pawdoku-wasm/tests/web.rs, compiled for the wasm-bindgen target
 # and run in Node by wasm-bindgen-test-runner, which cargo calls as the target's

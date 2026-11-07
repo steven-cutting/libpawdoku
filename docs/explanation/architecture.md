@@ -36,8 +36,10 @@ specification imports, in the direction
 `crates/pawdoku-wasm` is the WebAssembly binding, built with wasm-bindgen and packed by
 wasm-pack as the npm package `@steven-cutting/pawdoku-wasm`, which also ships the
 specification modules under `specs/`
-([decision 0020](../decisions/0020-webassembly-package.md)). Today it exports the
-randomness boundary alone, as a `RandomStream` class and `randomVersion()`. Two
+([decision 0020](../decisions/0020-webassembly-package.md)). It exports the engine two
+ways, a `Board` class held for a puzzle's life and the stateless functions of play from
+a record, beside `search`, generation from a seed or a `RandomStream`, and the three
+versions. Two
 siblings join later: `crates/pawdoku-cli` and `crates/pawdoku-py` (pyo3, built with
 maturin). Every decision below is taken so that each binding stays a thin wrapper.
 
@@ -381,7 +383,7 @@ above it; `Tier::most_givens` says which.
 
 | Consumer | Crosses | Through |
 | --- | --- | --- |
-| WebAssembly | Values and the seed, a `bigint`; errors as an `Error` | wasm-bindgen, in `pawdoku-wasm` |
+| WebAssembly | Both ways of playing, a held `Board` and play from a record; plain values in the core's wire shape, each with a TypeScript interface, the record as `BoardRecord`; a seed and a generation result's counts as `bigint`s; errors as an `Error` named for the engine's error type, its message the `Display` text | wasm-bindgen and serde-wasm-bindgen, in `pawdoku-wasm` |
 | Python | Values and the seed; errors as exceptions | pyo3 |
 | Command line | Values, and the one source of entropy | `pawdoku-cli` |
 

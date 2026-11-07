@@ -55,15 +55,28 @@ through the fake, and the tests that pin what seeds give;
 record, the wire shape and the generator, and no test that asserts. The randomness boundary's one snapshot test stays in
 `tests/random.rs`, beside the tests of the values it pictures.
 
-The WebAssembly crate, `crates/pawdoku-wasm`, is tested in one place of its own,
-`crates/pawdoku-wasm/tests/web.rs`, run in Node by `wasm-bindgen-test-runner` as gate 20,
-`just wasm-test`. The file starts `#![cfg(target_arch = "wasm32")]`, so the host build of
-the workspace compiles it to nothing, and `wasm-bindgen-test` is a dependency of the
-`wasm32` target alone. It holds the class as the engine's randomness boundary: seed zero
-gives the golden draws `tests/random.rs` pins, the index starts at zero and moves by one
-per draw, a replay gives its script and then throws `RandomError::Exhausted`'s text, a
-script value outside `[0, 1)` throws `RandomError::OutOfRange`'s, and `randomVersion()` is
-`RANDOM_VERSION`. The crate departs from the doctest on every public item: a Rust
+The WebAssembly crate, `crates/pawdoku-wasm`, is tested in two places of its own. Its
+integration tests, `crates/pawdoku-wasm/tests/web.rs` and `tests/surface.rs`, run in Node
+by `wasm-bindgen-test-runner` as gate 20, `just wasm-test`. Each file starts
+`#![cfg(target_arch = "wasm32")]`, so the host build of the workspace compiles it to
+nothing, and `wasm-bindgen-test` is a dependency of the `wasm32` target alone.
+`web.rs` holds the class as the engine's randomness boundary: seed zero gives the golden
+draws `tests/random.rs` pins, the index starts at zero and moves by one per draw, a
+replay gives its script and then throws `RandomError::Exhausted`'s text, a script value
+outside `[0, 1)` throws `RandomError::OutOfRange`'s, and `randomVersion()` is
+`RANDOM_VERSION`. `surface.rs` holds the rest of the package to the core: a held board
+and play from a record, the refusals, the record's version, the search and the
+generator.
+
+The package test, `crates/pawdoku-wasm/tests/package/`, is the package as a consumer
+meets it, run by `just wasm-package-test` after `just wasm-build`, outside `just check`
+and in CI's `wasm` job. `snapshots.mjs` writes each JSON snapshot of the core as a
+TypeScript literal that `satisfies` its interface; `tsc --noEmit --strict` checks those,
+`consumer.ts`, which uses every export as a game would, and `declarations.ts`, which
+holds every union by a table and every interface by its shape written out, so that a
+declaration made wider than the engine fails too; and `play.mjs` loads `pkg/` through
+`initSync`, plays held and from records, and holds each snapshot equal to the live value
+the package gives. The crate departs from the doctest on every public item: a Rust
 doctest runs on the host, where a wasm-bindgen import panics with "cannot call
 wasm-bindgen imported functions on non-wasm targets", so its examples are JavaScript in
 `js` fences, which rustdoc shows and does not run, and `tests/web.rs` is what proves them
@@ -435,7 +448,9 @@ explains the commands in order.
 | `tests/snapshots.rs`: six `snapshot_` tests | Show the search result for the fixture, for the puzzle that needs a guess, for the givens with two solutions and for malformed givens; the proof `solve` gives for the fixture, givens and solution; and the `Display` text of the three refusals. For review and change detection; they prove no clause. Their files are under `tests/snapshots/`. |
 | `tests/random.rs` | The same seed draws the same stream bit for bit; seed zero draws the golden stream; the fake replays its script and is then exhausted, directly and behind a trait object; every draw is in the unit interval. |
 | `tests/random.rs`: `snapshot_the_randomness_boundary` | Shows seed zero's first eight draws and each error's `Display` text for review and change detection; proves no clause. Its file is under `tests/snapshots/`. |
-| `crates/pawdoku-wasm/tests/web.rs`, in Node | The `RandomStream` class: seed zero draws the golden stream `tests/random.rs` pins; the index starts at zero and moves by one per draw; a replay gives its script in order and then throws `RandomError::Exhausted`'s text, its index unmoved; a script value outside `[0, 1)`, NaN included, throws `RandomError::OutOfRange`'s; a clone draws on from where it was taken; and `randomVersion()` is `RANDOM_VERSION`. Each thrown text is read from the JavaScript `Error`'s `message`. |
+| `crates/pawdoku-wasm/tests/web.rs`, in Node | The `RandomStream` class: seed zero draws the golden stream `tests/random.rs` pins; the index starts at zero and moves by one per draw; a replay gives its script in order and then throws `RandomError::Exhausted`'s text, its index unmoved; a script value outside `[0, 1)`, NaN included, throws `RandomError::OutOfRange`'s; a clone draws on from where it was taken; and `randomVersion()` is `RANDOM_VERSION`. Each thrown error is read for its `name`, `RandomError`, and its `message`. |
+| `crates/pawdoku-wasm/tests/surface.rs`, in Node | The scripted game played on a held `Board` and from records gives equal views, records and readings at every step, as `JSON.stringify` writes them; `open` both ways; each refusal named for the engine's error type with the core's text, the board unchanged and play from a record throwing the same; a digit of 260 and an index of 1.5 or 2^32 + 1 refused as a shape, not wrapped; an index that names no move; a record of another version, or none, with a field renamed or not, refused by `Board.reopen`, `read`, `play` and `readingAfter` with the version's text naming both; a record of the wrong shape; `recordVersion()`; a record through `JSON` reopening with numbers, never `bigint`s; `search` on the fixture as the core gives it; generation from seed 0 in tier 3 equal to the core's snapshot, with 23 draws and `bigint` counts; a seed of 2^63 kept; `generate` advancing its stream by `draws_taken` and replaying; a stream that runs out, and a hundred failed attempts, refused as `GenerateError` with `tier`, `draws_taken` and the stream's index; and a `RandomError`'s name. |
+| `crates/pawdoku-wasm/tests/package/`, by `just wasm-package-test` | The package `wasm-build` wrote: each JSON snapshot of the core `satisfies` its interface, a strict consumer and the declaration module type-check, and in Node a game played held and from records agrees, every snapshot equals the live value, each operation and tier of the declarations' tables reaches the engine, and a refusal carries its name and text. |
 
 ## Related pages
 

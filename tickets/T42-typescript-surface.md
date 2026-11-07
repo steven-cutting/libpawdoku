@@ -373,17 +373,203 @@ the worktree is unchanged.`; `0.2.0` and `0.1.0`; only paths in Files touched.
 
 ### Decisions fixed by S12, T40, T41 and T43
 
+Written before any code, from S12's "The recommendations" and "Amendments to T41 and
+T42", T41's "Names T42 and T17 need" and T43's "Open points settled". Where they say
+otherwise than this ticket's steps, they are followed, and Deviations says so.
+
+- **Types (S12, 1):** wasm-bindgen's own `typescript_custom_section`, with
+  `unchecked_param_type` and `unchecked_return_type` on every export that takes or
+  returns a plain value; no tsify, nothing for T02. A TypeScript name is the core's Rust
+  name, except `Record`, which is `BoardRecord`, written out in full with `version:
+  string`. A `u64` field is `bigint`, an `Option` is `| null`, a cell's note is
+  `note?: number[]`.
+- **Errors (S12, 2):** a `js_sys::Error` whose `name` is the Rust type's and whose
+  message is always `error.to_string()`, for `PlayError`, `ReopenError`, `SolveError`,
+  `GenerateError` and `RandomError`. `FromRecordError` throws the name of the stage that
+  refused: `ReopenError` from its reopening variant, `PlayError` from its playing one,
+  `FromRecordError` for the index that names no move and any later variant.
+  `GenerationRefused` always throws `name` `GenerateError`, with `tier` (a string) and
+  `draws_taken` (a `bigint`) as own properties that are not enumerable. `types.rs`
+  exports `type EngineErrorName` and `interface GenerationRefused extends Error`. A
+  value of the wrong shape throws `name` `Error` with serde's text.
+- **Two serialisers (S12, step 3):** board values and the search through
+  `serialize_missing_as_null(true).serialize_maps_as_objects(true)`; the generation
+  result adds `serialize_large_number_types_as_bigints(true)`. The default `to_value`
+  is used nowhere.
+- **Numbers in (S12, step 4):** `digit` and `index` parameters are `JsValue`, read
+  through `serde_wasm_bindgen::from_value` to `u8` and `usize`, declared `number`,
+  never a Rust `u8` or `usize` parameter, which wraps. A seed stays a `u64` and so a
+  `bigint`, which reduces modulo 2^64 silently.
+- **Tests (S12, 5):** wasm-bindgen-test in Node, and a package test: a Node module over
+  `pkg/` through `initSync`, a strict `tsc` consumer, the snapshots against the
+  interfaces and the live values, and a declaration module (`declarations.ts`). No
+  browser gate.
+- **Size (S12, 6):** `wasm-opt = ['-O3']`, `binaryen = "==121"`, and `wasm-build`'s
+  guard requires `wasm-opt version 121`; `opt-level` stays the default.
+- **Lifetime (S12, 7):** one `Board` held for the life of a puzzle in play, `free()`
+  called once when it is left.
+- **Play from a record (T41):** `pawdoku::board::{open, play, read, reading_after}`;
+  `Operation` tagged by `kind` with `position` and `digit`; `Played { record, view,
+  check }`, `check` absent unless the operation was `CheckCell`; `BoardView::of`,
+  `ReadingAfter::of(&Board, move_index)`, `CellReading`; `FromRecordError::{Reopen,
+  Play, NoSuchMove}`, the first two transparent; `open` refuses with `SolveError`,
+  `read` with `ReopenError`. Only `Operation` and `Record` deserialise.
+- **Generation (T41):** `pawdoku::generation::{generate_from_seed,
+  generate_from_stream}`, each `-> Result<GenerationResult, GenerationRefused>`;
+  `GenerationResult { tier, seed, start_index, draws_taken, generation_version,
+  random_version, givens }`; `GenerationRefused` read through `tier()` and
+  `draws_taken()`, with no `match`.
+- **The record's version (T43):** `pawdoku::board::RecordVersion`, under the core's
+  `serde` feature, read from a record before the rest of it; `readable()` refuses with
+  `ReopenError::Version`, naming both versions. This crate writes no reading of its own.
+  `RECORD_VERSION` is `"record-1"`.
+
 ### What was verified, and how
+
+Segment 1 of this run: steps 1 to 9, from `4023b35`, ending at the R1 checkpoint. Step
+10, R1 and R2, and everything after are left (Handed back).
+
+**Step 1.** `.pixi/` and `.tools/bin` were present, so neither install ran. `just check`
+at the start (`4023b35`) closed with `All checks passed and the worktree is unchanged.`
+The frozen files are edited under the run's leave. The decisions above were written
+before any code.
+
+**Step 2.** On crates.io on 2026-11-07: `serde-wasm-bindgen` 0.6.5, last released
+2024-02-27, and `js-sys` 0.3.107, released 2026-10-30. `cargo update --workspace` added
+`serde-wasm-bindgen` alone; `js-sys` was already in `Cargo.lock` under `wasm-bindgen`.
+The crate also names `serde`, a workspace dependency already, for the two serialisers'
+`Serialize` bound. On conda-forge, `binaryen` 121 and `typescript` 6.0.2, as S12 read
+them; `pixi lock` added both and moved nothing else. `just lock-check` passed.
+
+**Steps 3 to 6.** `src/error.rs`, `src/types.rs`, `src/board.rs`, `src/from_record.rs`,
+`src/solver.rs` and `src/generation.rs`, as Decisions says. `cargo clippy` over the crate
+with the workspace's lints is clean, with two `#[expect]`s beyond T15's (Deviations). The generated
+declarations name a type for every parameter and return: `sed '/export interface
+InitOutput/,$d' crates/pawdoku-wasm/pkg/pawdoku_wasm.d.ts | rg -n ': any\b|=> any\b'`
+prints nothing, while the ticket's own grep counts 15 lines, all in `InitOutput`, as S12
+said. `rg -n 'export (class|function|interface|type)'` lists the 21 interfaces and types,
+`Board`, `RandomStream`, and the functions `generate`, `generateFromSeed`,
+`generationVersion`, `open`, `play`, `randomVersion`, `read`, `readingAfter`,
+`recordVersion`, `search`, `initSync` and T15's `start`.
+
+**Step 7.** `tests/surface.rs`, 17 tests in Node beside `web.rs`'s 6: `just wasm-test`
+ended `test result: ok. 17 passed; 0 failed` and `ok. 6 passed; 0 failed`. The code of
+steps 3 to 6 was written before these tests (Deviations), so each was made to bite by a
+planted change, each reverted:
+
+- A wrong expected value, `draws_taken` 24 for seed 0 in tier 3:
+  `test generation_from_seed_zero_in_tier_3_is_the_cores_snapshot ... FAIL`,
+  `left: JsValue(23n)`, `right: JsValue(24n)`, `16 passed; 1 failed`.
+- The version-first read removed from `board::record`, so a record went to `Record`'s
+  deserialiser whole: `a_record_of_another_version_is_refused_naming_both_either_way`
+  failed with ``left: Err(("Error", "missing field `undone`"))`` against
+  `right: Err(("ReopenError", "the record is of format version \"record-9\", and this
+  engine reads \"record-1\""))`.
+
+**Step 8.** `wasm-opt = ["-O3"]` replaces T15's `false`. `just wasm-build` before it
+wrote a `.wasm` of 351,425 bytes, 100,666 gzipped at `-9`; after it, 231,591 bytes and
+85,804 gzipped, 14.8% smaller gzipped, with `[INFO]: found wasm-opt at ".../.pixi/envs/default/bin/wasm-opt"`
+and `Optimizing wasm binaries with wasm-opt`. `just wasm-package-test` closed with
+`snapshots: 10 snapshots written to target/wasm-package-test/snapshots.ts`, a silent
+`tsc`, and `package test: 16 checks passed`. Planted in a copy of `pkg/` and the package
+test under `ai_tmp/`, each widening or narrowing of the declarations failed `tsc` (first
+error quoted):
+
+| Planted in the `.d.ts` | First error |
+| --- | --- |
+| `Place`'s `digit?: number` | `declarations.ts(183,69): error TS2322: Type 'true' is not assignable to type 'false'.` |
+| `{ kind: "Fly" }` added to `Operation` | `declarations.ts(55,3): error TS1360`, the table of operations |
+| `"Six"` added to `Tier` | `declarations.ts(64,3): error TS1360`, the table of tiers |
+| `is_given?: boolean` | `declarations.ts(183,15): error TS2322`, the shapes line |
+| `undone: number \| string` | `declarations.ts(183,63): error TS2322` |
+| `undone?: number` | `declarations.ts(183,63): error TS2322` |
+| `Position`'s `column?: number` | `declarations.ts(183,3): error TS2322` |
+| `BoardCell`'s `note` removed | `consumer.ts(92,52): error TS2339: Property 'note' does not exist on type 'BoardCell'.`, and the snapshots' excess property among 100 |
+| `draws_taken: number` | `consumer.ts(61,27): error TS2365: Operator '+' cannot be applied to types 'number' and 'bigint'.` |
+
+With the `.d.ts` restored, `tsc` exited 0. A wrong live value planted in the copy of
+`play.mjs`, the reading after move 5 for the snapshot's move 6, failed:
+`package test: the live value of the_reading_after_a_move is its snapshot:
+AssertionError: Expected values to be strictly equal`.
+
+**Step 9.** The crate's README, the root README's "How the game will use it",
+`architecture.md`, `testing.md`, `commands.md`, `quality-gates.md` and both changelogs.
+`just check-docs`: `Validated 48 pages and 49 canonical topics.`; `just lint` passed every
+hook. Before the R1 checkpoint commit, `just check` over the staged tree closed with
+`All checks passed and the worktree is unchanged.`, exit 0; its first run had stopped
+at `clippy` on the two `@throws` lines (Deviations).
 
 ### Deviations, and why
 
+- **One branch.** This ticket runs on `implement-typescript-surface-fullsend` as the
+  run's brief sets, not on `ticket/t42-typescript-surface`, and no worktree was created.
+  Step 1's conditions are satisfied by order on this branch.
+- **The package stays at 0.1.0.** 0.2.0 comes from a release run (step 11), which is not
+  authorised here, and 0.1.0 has not been published (T15 is open), so, as the second
+  Open point allows, the first release would carry this surface at 0.1.0.
+- **S12's amendments over the ticket's text:** named errors through `js-sys`; two
+  serialisers; numbers read through serde; `wasm-opt` on with its guard; the package test
+  and its declaration module; and the Verification grep replaced by S12's, since the
+  ticket's matches `InitOutput` always.
+- **T43's version-only reader.** `Board.reopen` and every function of play from a record
+  read a record through `pawdoku::board::RecordVersion` first, in one place,
+  `board::record`; this crate writes no reading of a version.
+- **T41's names.** The exports are the camelCase of T41's: `open`, `play`, `read`,
+  `readingAfter`; generation from a seed is `generateFromSeed`, the core's
+  `generate_from_seed`. One `play` taking the operation value, as T41 offers one.
+- **Tests after the code.** Steps 3 to 6 were written before `tests/surface.rs`, against
+  the brief's tests-first rule; each test arrived green and was then made to bite by the
+  planted changes quoted above, as T41 did for its second segment. The test list is in
+  `ai_tmp/t42/progress.md` for the next segment.
+- **One test file, `tests/surface.rs`**, rather than one per module: each `tests/*.rs` is
+  its own wasm binary, and the tests share the fixture and the script.
+- **`RandomStream` throws `RandomError` by name.** T15's class threw a `JsError`, named
+  `Error`; S12's step 3 lists `RandomError` among the named errors, so `web.rs` now holds
+  the name too, and the crate's changelog entry for `RandomStream`, unreleased, says so.
+- **The record's moves and checks are `RecordMove` and `RecordCheck`.** The core's types
+  for them, `Written` and `Asked`, are private, so no Rust name exists to keep.
+- **An operation of the wrong shape is refused before the record is reopened.** `play`
+  reads the operation through serde before the core reopens the record, so a record that
+  would not reopen and an operation of the wrong shape together throw serde's `Error`.
+  T41's order, a record refused first, holds among the engine's refusals.
+- **`view()`, `write()` and the other value returns are `Result`s** for the serialiser's
+  error, which the core's values never raise; a panic would be the alternative.
+- **The declaration module holds each interface by its whole shape**, `Same<Interface,
+  { ...fields }>`, rather than S12's optional-keys line and a read-back per field: one
+  equality catches a field added, removed, made optional or widened, which the planted
+  table shows. The union tables and `@ts-expect-error` lines are as S12 wrote them.
+- **`play.mjs` imports `declarations.ts`** through Node 26's type stripping, so the tables
+  `tsc` checks are the values put to the engine; every type import there is `import type`.
+- **`wasm-package-test` does not depend on `wasm-build`**, so CI builds once; it stops,
+  saying so, when `pkg/` is absent. **The `wasm-opt` guard is in `wasm-build`'s body**,
+  not in `wasm-guard`, so `wasm-test` in `just check` needs no binaryen. **`tsc` runs with
+  `CONDA_PREFIX` set** to the pixi environment, because conda-forge's `tsc` script finds
+  itself through it.
+- **Two `#[expect(clippy::doc_markdown)]`**, on `generate` and `generate_from_seed`, whose
+  `@throws {GenerationRefused}` lines S12 asks for: the JSDoc type takes no backticks.
+- **T00 follow-ups:** the `Justfile` (`wasm-package-test`, `wasm-build`'s guard) and
+  `pyproject.toml` (`binaryen`, `typescript`), under the run's leave.
+
 ### Handed back
+
+- **Left for segment 2:** R1, before step 10; step 10's `just check-docs` and
+  `just check`, quoted, on the reviewed commit.
+- **Left by this run, not authorised:** step 10's CI artefact inspection, the push and the
+  pull request; step 11, the release, its tag and the deployment approval; step 12, the G
+  ticket handed back against what was published, and `status: done` with the index row.
+  `status` stays `open`.
 
 ### The G ticket
 
 ### Adversarial review
 
 ### Open points settled
+
+- **Whether `Board`'s operations return the view:** no, as proposed. Each returns nothing,
+  `check` the check it added, and the game calls `view()` to redraw, which costs no search
+  on a held board.
+- **Package version:** 0.1.0 here, and 0.1.0 at a first release if T15's has not been
+  published by then (Deviations).
 
 ## Open points
 

@@ -7,20 +7,25 @@
 
 use pawdoku::random::RandomError;
 use pawdoku_wasm::{RandomStream, random_version};
-use wasm_bindgen::{JsCast, JsError, JsValue, prelude::wasm_bindgen};
+use wasm_bindgen::{JsCast, JsValue, prelude::wasm_bindgen};
 use wasm_bindgen_test::wasm_bindgen_test;
 
 #[wasm_bindgen]
 extern "C" {
-    /// JavaScript's `Error`, read for its message, the one thing a caller sees.
+    /// JavaScript's `Error`, read for its name and message, what a caller sees.
     type Error;
     #[wasm_bindgen(method, getter)]
     fn message(this: &Error) -> String;
+    #[wasm_bindgen(method, getter)]
+    fn name(this: &Error) -> String;
 }
 
-/// The message a thrown error carries, as `error.message` reads it in JavaScript.
-fn message_of(error: JsError) -> String {
-    JsValue::from(error).unchecked_into::<Error>().message()
+/// The message a thrown error carries, as `error.message` reads it in JavaScript,
+/// after holding its `name` to the engine's error type, `RandomError`.
+fn message_of(error: JsValue) -> String {
+    let error = error.unchecked_into::<Error>();
+    assert_eq!(error.name(), "RandomError");
+    error.message()
 }
 
 /// The first eight draws of seed zero, `crates/pawdoku/tests/random.rs`'s golden bits.

@@ -21,6 +21,12 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   runs both recipes and keeps the package as an artifact, and `release-npm.yml`
   publishes it to GitHub Packages on a `pawdoku-wasm-v*` tag, after the release guards.
   `just coverage` now measures `pawdoku` alone, which is what its floor is over.
+- `just wasm-package-test`, which checks the package `just wasm-build` wrote as a
+  consumer meets it: the core's JSON snapshots, a strict consumer and a declaration
+  module type-checked by `tsc` against its declarations, and a game played in Node.
+  CI's `wasm` job runs it after `wasm-build`. `just wasm-build` now runs `wasm-opt` at
+  `-O3` and first requires the pinned binaryen. `pyproject.toml` pins `binaryen` and
+  `typescript`.
 - Play from a record, `pawdoku::board::{open, play, read, reading_after}`, from
   `board.allium`'s `PlayingFromARecord`: a caller that holds no board hands each call a
   record and one `Operation`, and is handed back a `Played`, the record after it, a

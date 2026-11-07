@@ -87,9 +87,11 @@ Engineering conventions and the agent working agreement are in [AGENTS.md](AGENT
 The game will consume the engine through the WebAssembly package
 `@steven-cutting/pawdoku-wasm`, built from `crates/pawdoku-wasm` and published to
 GitHub Packages. The package also ships the specification text under `specs/`, so the
-game can hold the clauses it restates equal to this repository's by test. Today it
-exports the randomness boundary; the board, the solver and the generator follow. A
-command line and Python bindings are planned as sibling crates in this workspace.
+game can hold the clauses it restates equal to this repository's by test. The game
+holds one `Board` for each puzzle in play and keeps its record between visits; a caller
+that holds no board plays from the record instead, each call handed a record and giving
+back a record and a view. A command line and Python bindings are planned as sibling
+crates in this workspace.
 
 ## Boundaries
 
