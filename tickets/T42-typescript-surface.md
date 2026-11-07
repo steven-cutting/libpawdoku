@@ -746,6 +746,23 @@ Part A is the draft under Steps, unchanged. Part B, as built:
     a valid `generate` match a fresh stream.
   - Not a finding: `types.rs`'s module documentation still named one reader for every
     export; corrected in step 10's commit.
+- **R1, round 3**, model `gpt-6-astra` (thread `01a1b790-d149-7651-b3af-bc06945d8a1c`),
+  over the branch against `main`: needs attention, one finding. Its fix is not yet
+  reviewed by Codex.
+  - [medium] `play` deserialises the operation, not the position it validated
+    (`crates/pawdoku-wasm/src/types.rs`, lines 325 to 330). Valid; reproduced red in
+    `tests/surface.rs`. `Object.assign([1, 4], { row: 1, column: 3 })` was placed at
+    column 3 by a held `place` and at column 4 by `play`, and an operation whose
+    `position` getter answered an object and then `[1, 4]`, or whose `digit` getter
+    answered 4 and then 5, was played as its second answer. Fixed in `40530a8`:
+    `read_operation` reads the operation's own fields once, its `position` through
+    `read_held_position` and its `digit` through `read_held`, and serde reads a plain
+    copy of `kind`, `position` and `digit`. Left: a `digit` or `position` the operation's
+    kind does not take, which serde ignored, is now read and may be refused; no
+    declared `Operation` carries one.
+  - The reviewer's note that its read-only sandbox blocked the recipes is an environment
+    note, not a finding; `just wasm-test`, `just wasm-build` and `just wasm-package-test`
+    ran here.
 - **R2** is not run (Deviations).
 
 ### Open points settled
