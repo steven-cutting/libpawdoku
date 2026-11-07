@@ -294,7 +294,7 @@ The same strict consumer (open, place, undo, read the cells, write the record) u
 
 | Way | `tsc` | What it costs |
 | --- | --- | --- |
-| (a) `typescript_custom_section` with `unchecked_return_type` and `unchecked_param_type` | clean, no output | Interfaces written by hand; held equal below |
+| (a) `typescript_custom_section` with `unchecked_return_type` and `unchecked_param_type` | clean, no output | Interfaces written by hand; held below, within the limit stated there |
 | (b) tsify 0.5.8 over the core's `Record` | `pawdoku_wasm.d.ts(83,27): error TS2314: Generic type 'Record' requires 2 type argument(s).` | A new dependency, and the wire values have to be declared twice, or the core has to take it on |
 | (c) a class per value | clean, no output | 81 `free()` calls per read, and a value nothing can store |
 
@@ -310,14 +310,15 @@ a-wrong.ts(9,32): error TS2322: Type '"Fly"' is not assignable to type '"Place" 
 a-wrong.ts(10,30): error TS2345: Argument of type '{ kind: "Place"; position: { row: number; column: number; }; }' is not assignable to parameter of type 'Operation'.
 ```
 
-**Holding (a)'s interfaces equal to the serde shape, run rather than proposed.** Two links,
-which together put the interface and the live value on the same text:
+**Holding (a)'s interfaces to the serde shape, run rather than proposed.** Three links. The
+first two put the interface and the live value on the same text, and hold one direction only;
+the third holds the other:
 
 1. **The interface against the snapshot.** A small script strips the insta header from
    `snapshots__tests__snapshot_the_record_of_the_scripted_game_as_json.snap` and writes
    `export const record = <the JSON> satisfies BoardRecord;`. `satisfies` on a literal does
-   the excess-property check, so drift shows both ways. As written it is clean. With the
-   interface's `undone` renamed:
+   the excess-property check, so a field the interface has lost, or the JSON has gained, shows.
+   As written it is clean. With the interface's `undone` renamed:
 
    ```text
    record-drift1.ts(315,3): error TS2353: Object literal may only specify known properties, and '"undone"' does not exist in type 'BoardRecord'.
@@ -345,10 +346,65 @@ type Wire<T> = { [K in keyof T]: T[K] extends bigint ? number : T[K] extends big
 gen-snapshot.ts(4,162): error TS2353: Object literal may only specify known properties, and 'solution' does not exist in type 'Wire<GenerationOutcome>'.
 ```
 
-That line is the planted `solution` field; the same literal without it is clean. **The
-remaining gap:** the guard sees only what a snapshot shows, so an optional field or a union
-member no snapshot exercises is not held. T41's step 8 therefore has to show every member
-(the amendments say how).
+That line is the planted `solution` field; the same literal without it is clean.
+
+**Those two links are one-way.** `satisfies` refuses an interface narrower than the value and
+never one wider, and showing every member in a snapshot does not change that. Seven widenings
+were planted in the declarations, with the record's snapshot and a literal of all seven
+operations satisfying them. The snapshot guard stayed clean on all seven, and a consumer could
+then type-check a call serde refuses. The third link, a module type-checked against the same
+declarations, stopped each:
+
+| Planted in the `.d.ts` | Snapshot guard | Declaration module, first error |
+| --- | --- | --- |
+| `Place`'s `digit?: number` | clean | `TS2322`, the optional-keys line |
+| `\| { kind: "Fly" }` added to `Operation` | clean | `TS1360`, the table of operations |
+| `"Six"` added to `Tier` | clean | `TS1360`, the table of tiers |
+| `is_given?: boolean` | clean | `TS2322`, the optional-keys line |
+| `undone: number \| string` | clean | `TS2322`, the read-back line |
+| `undone?: number` | clean | `TS2322`, the optional-keys line |
+| `Position`'s `column?: number` | clean | `TS2322`, the optional-keys line |
+
+**The third link, the declarations against the engine.** The module has four parts, each run above:
+
+```ts
+type OptionalKeys<T> = { [K in keyof T]-?: {} extends Pick<T, K> ? K : never }[keyof T];
+type Same<A, B> = (<X>() => X extends A ? 1 : 2) extends (<X>() => X extends B ? 1 : 2) ? true : false;
+
+// One value per declared member: a new member is a missing key.
+export const operations = { Place: { kind: "Place", position: here, digit: 4 }, /* the other six */ }
+  satisfies { [K in Operation["kind"]]: Extract<Operation, { kind: K }> };
+// Optionality stated exactly.
+export const optional: [Same<OptionalKeys<BoardCell>, "note">, Same<OptionalKeys<BoardRecord>, never>] = [true, true];
+// A field read back into its narrow type.
+const undone: number = record.undone;
+// What must not type-check; an unused directive is itself an error.
+// @ts-expect-error a Place needs its digit
+export const noDigit: Operation = { kind: "Place", position: here };
+// @ts-expect-error no such operation
+export const fly: Operation = { kind: "Fly" };
+```
+
+```text
+guard.ts(25,24): error TS2322: Type 'true' is not assignable to type 'false'.
+guard.ts(36,1): error TS2578: Unused '@ts-expect-error' directive.
+```
+
+That is `Place`'s `digit?: number`. The Node module then puts each table value to the engine,
+which is what ties a declared member to the engine: the seven operations each reached it and
+came back as a result or a `PlayError`, and the two the declarations must not allow did not:
+
+```text
+op Fly Error | unknown variant `Fly`, expected one of `Place`, `Erase`, `WriteMark`, `StrikeMark`, `CheckCell`, `Undo`, `Redo`
+op PlaceNoDigit Error | missing field `digit`
+tier Six Error unknown variant `Six`, expected one of `One`, `Two`, `Three`, `Four`, `Five`
+```
+
+**What is still not held.** The third link holds what it names: an interface with no optional-keys
+line or read-back is as open as before, so T42's module has one for every exported value and its
+list is reviewed by hand. A type says nothing of a range, so `digit: number` admits 260, which serde
+refuses at run time (question 4). So these interfaces are guarded rather than proved equal: drift
+in a listed field, member or optionality fails the gate.
 
 **(b) tsify's record since 2024.** `madonoharu/tsify`, `MIT OR Apache-2.0`, not archived, 515
 stars, 33 open issues, last pushed 2026-11-01 (`gh api repos/madonoharu/tsify`, read 2026-11-07). The newest 100 commits
@@ -446,6 +502,37 @@ the same seed by drawing `start_index` times and generating, gave the same given
 (`2n ** 64n` reads `0n`, `-1n` reads `18446744073709551615n`), as wasm-bindgen does for a
 `u64`; the result carries the wrapped seed, so replay still holds. A `number` for a seed
 throws `expected a bigint argument, found number`.
+
+**A refused generation, and its `draws_taken`.** `GenerationResult` exposes `generation.draws_taken`
+with no `when`, where its givens each carry `when generation.status = finished`. A caller holding a
+stream reads the figure from `index`. A caller of generation from a seed cannot: the stream is
+private and dropped on the refusal, and the thrown error's own properties were `stack`, `message` and
+`name`. Nor does the text stand in for it, since `GridAttemptsSpent` counts attempts, and an attempt
+takes 22 draws or, stopping short after k givens, 2k + 1 (`DrawsInOrder`). Three scripts through `RandomStream.replay`, each with the same message:
+
+```text
+100 short seedings             | GenerateError | no solution grid was found in 100 grid attempts | index 1900n
+100 full seedings, no solution | GenerateError | no solution grid was found in 100 grid attempts | index 2200n
+50 and 50                      | GenerateError | no solution grid was found in 100 grid attempts | index 2050n
+```
+
+No seed was found that refuses. Tier 3, seeds 0 to 99,999: no refusal, the first grid attempt failed
+for 617 and the most draws taken was 67. So the seed path's refusal has not been seen, and at that
+rate it is out of practical reach (an inference from one rate, not a proof). The clause is the
+clause all the same, so a second probe carried the figure on the refusal: a stand-in holding
+`draws_taken` and the `GenerateError`, built by the helper both exports share, and thrown with the
+figure as an own property of the `Error`:
+
+```text
+spent, 1900             | GenerateError | no solution grid was found in 100 grid attempts | draws_taken 1900n bigint | index 1900n
+exhausted, 5 zeros      | GenerateError | the replay stream is exhausted at draw 5 | draws_taken 5n bigint | index 5n
+exhausted, from index 3 | GenerateError | the replay stream is exhausted at draw 5 | draws_taken 2n bigint | index 5n
+JSON.stringify(e), by Reflect.set            TypeError: Do not know how to serialize a BigInt
+JSON.stringify(e), by Object.defineProperty  {"name":"GenerateError"}
+```
+
+`JsValue::from(u64)` crosses as a `bigint` with no serialiser. The text is the core's unchanged, and
+the `.wasm` grew 826 bytes (336,697 to 337,523, `opt-level = 3`, `wasm-opt` off).
 
 #### 4. Casing, and what the serialiser has to be
 
@@ -710,7 +797,8 @@ begins, and none before. Under the workspace's lints, `cargo clippy --target was
 ### The recommendations
 
 1. **Typing: (a), wasm-bindgen's own attributes, with no new dependency.** The interfaces are held by
-   the two-link guard above. tsify is not recommended, because the values are the core's and it cannot
+   the three links above, within the limit stated there: the snapshots hold what the live values show,
+   and a declaration module holds members and optionality, which the snapshots cannot. tsify is not recommended, because the values are the core's and it cannot
    see them. Nothing goes to T02 for it. The record's TypeScript name is **`BoardRecord`, confirmed**:
    `TS2315` is what `Record` does. Every other value keeps the core's Rust name; `BoardMove` and `BoardCheck` above are the probe's stand-ins.
 2. **Errors: `js_sys::Error` named for the Rust type**, message always `error.to_string()`. The game can
@@ -721,7 +809,9 @@ begins, and none before. Under the workspace's lints, `cargo clippy --target was
    start index, `draws_taken`, both versions and the givens, never the solution. A seedless path exists
    because a `SeededStream` holds its state and not its seed. No `status` field: a refusal is thrown,
    which is what `SearchResult` already does with its status, and a result exists only once finished.
-   **`Draw` records are needed by nothing built today.** Nothing further is handed to the specification.
+   **A refusal carries `draws_taken`**, on both paths, because `GenerationResult` exposes it with no
+   `when` and generation from a seed has no stream left to read. That is a core change for T41, and no
+   change to the specification. **`Draw` records are needed by nothing built today.**
 4. **Casing: snake_case fields and camelCase methods, confirmed**, with one addition the writer did not
    state: enum values stay PascalCase, serde's default, because `Record`'s moves and `Tier` already are
    and a change would move the record's snapshot for no consumer. **And two serialiser settings**,
@@ -782,7 +872,15 @@ the generation result as 3.
 neither stream knows one. `draws_taken` is `index` after `wrapping_sub` `index` before, as the index wraps. There is no
 `status`: `Err` is the refusal.
 
-**T41, step 8, the snapshots**, because T42's guard sees only what they show. The view's snapshot must show all four move
+That `Err` is a new public `#[non_exhaustive]` value, on both paths, so a refusal has one shape: `{ draws_taken: u64, error:
+GenerateError }`, its `Display` by `#[error("{error}")]`, since `#[error(transparent)]` takes one field, so the text stays the
+core's. Both paths are built on one function that takes a stream and reads the index on `Err` as on `Ok`. `generate` is unchanged.
+No seed is known to reach the refusal (question 3), so it is tested through that function with a script, and step 7 gains: a hundred short
+seedings give `draws_taken` 1900; a hundred full seedings with no solution, 2200, with the same text; five zeros, 5; and a stream
+drawn three times first counts only its own, 2 of a script of five. `tests/api_bounds.rs` takes the new type under step 9.
+
+**T41, step 8, the snapshots**, because T42's live comparison and `satisfies` see only what they show, and neither of those
+catches a widened declaration, which is T42 step 8's declaration module. The view's snapshot must show all four move
 kinds, an undone move, a cell with a note, a cell without one, an absent digit and a check. Add a snapshot of the JSON of all
 seven operations, and of a generation result from a stream (where `seed` is `null`) beside the one from a seed. Show a search
 result of each verdict.
@@ -803,6 +901,10 @@ test and the `tsc` check, both yes; `wasm-opt` on at `-O3`; a board freed once w
   variant and `PlayError` from its playing one, with its own type's name for the index that names no move and for any variant
   added later. So a game branches the same way on either way of driving the board.
 - `src/types.rs` also exports `type EngineErrorName`, the union of those names, so a branch on `e.name` is checked.
+- A generation's refusal is named `GenerateError`, with T41's `draws_taken` an own property of the `Error`, a `bigint` by
+  `JsValue::from(u64)`, set with `Object.defineProperty` and so not enumerable: set with `Reflect.set`, `JSON.stringify(e)` throws
+  on it. `src/types.rs` exports `interface GenerationRefused extends Error { name: "GenerateError"; draws_taken: bigint }`, and the
+  `@throws` lines of both generation exports name it. `tsc` checks neither, as question 2 says of every throw.
 - **Two serialisers**, in one helper each. Board values and the search use `Serializer::new().serialize_missing_as_null(true)
   .serialize_maps_as_objects(true)`. The generation result adds `.serialize_large_number_types_as_bigints(true)`, and nothing
   else may, because it turns a `usize` into a `bigint` and `JSON.stringify(board.write())` would then throw. The default `to_value`
@@ -819,8 +921,8 @@ put a 4 on the board in the probe. Each export returning `Result` needs its `# E
 **T42, step 5.** The operation's type is the discriminated union on `kind`. T41's reading after a move crosses as an export taking
 a record and an index, with the index read through serde as in step 4.
 
-**T42, step 6.** `generate` and generation from a seed use the bigint serialiser. The README states that a seed reduces modulo
-2^64 silently.
+**T42, step 6.** `generate` and generation from a seed use the bigint serialiser, and both throw T41's refusal as step 3 says. The
+README states that a seed reduces modulo 2^64 silently.
 
 **T42, step 7, added tests:**
 
@@ -831,6 +933,11 @@ a record and an index, with the index read through serde as in step 4.
 - A generation result's `seed`, `start_index` and `draws_taken` are `bigint`, `seed` null from a stream, and its `index`
   replay holds: a stream advanced by `start_index` draws from the same seed gives the same givens.
 - `typeof` for a view's `index`, `after_move` and the record's `undone` is `number`.
+- A refused `generate`: `RandomStream.replay` of five zeros throws with `draws_taken` `5n` and `index` `5n`; of a hundred short
+  seedings (the script of `generation/grid.rs`'s `a_hundred_failed_attempts_are_a_refusal`), with `name` `GenerateError`, the core's
+  text, `draws_taken` `1900n` and `index` `1900n`; a stream drawn three times first gives `draws_taken` `2n` and `index` `5n`.
+  `JSON.stringify` of each refusal does not throw. No test throws from generation from a seed, because no seed is known to refuse;
+  T41 tests the function the two share.
 
 A comparison of generation results "as JavaScript values" needs a replacer, because `JSON.stringify` throws on a `bigint`.
 
@@ -840,6 +947,13 @@ A comparison of generation results "as JavaScript values" needs a replacer, beca
   writes a scratch `.ts` of `export const value = <JSON> satisfies <Interface>;`, one per snapshot, with `Wire<T>` (question 1) for the
   generation result; and the Node module checks each snapshot's live value against that JSON, by `JSON.stringify` for the board's values
   and through a replacer for the generation's. Files touched gains the script.
+- `crates/pawdoku-wasm/tests/package/declarations.ts`, in Files touched, is question 1's third link, because the snapshots hold no
+  widening: a table keyed by every exported union (`Operation["kind"]`, `Tier`, `Status`, `MoveKind`, `Verdict`) with one value per
+  member, an `OptionalKeys` equality for every exported value naming exactly its optional fields, each field read back into its
+  narrow type, and `@ts-expect-error` lines for a missing required field and an unknown member of each union that a game passes in.
+  The Node module puts the table of operations and of tiers to the engine and fails on a `name` of `Error`, serde's refusal of the
+  shape; an engine refusal such as `PlayError` passes, since the shape was read. Plant a widening of each kind, as question 1's table
+  did, see `tsc` fail on each, and quote them.
 - `tsc` runs with `--target es2022 --lib esnext,dom --module esnext --moduleResolution bundler`, in the `tsconfig.json`.
 - `[package.metadata.wasm-pack.profile.release] wasm-opt = ['-O3']`, replacing T15's `false`. No feature flag is needed.
 - **`wasm-build`'s guard gains `wasm-opt --version`**, which must say `wasm-opt version 121`, because wasm-pack in `--mode no-install`
@@ -847,7 +961,7 @@ A comparison of generation results "as JavaScript values" needs a replacer, beca
 - Quote the `.wasm` before and after; this probe's were 336,697 and 229,788 bytes, T41's values will differ.
 
 **T42, step 9, the README** says also: a generation result holds `bigint`s, so `JSON.stringify` throws on it, and a game stores
-`String(seed)` and reads back with `BigInt(...)`; `using` needs `esnext` in `lib`; `free()` once, a second throws
+`String(seed)` and reads back with `BigInt(...)`; a refused generation has `e.draws_taken` on either path; `using` needs `esnext` in `lib`; `free()` once, a second throws
 `null pointer passed to rust`; a thrown `name` of `Error` means a value of the wrong shape, whose text is serde's and not stable.
 
 **T42, Verification.** `rg -n ': any\b|=> any\b' crates/pawdoku-wasm/pkg/pawdoku_wasm.d.ts` matches `InitOutput` always (15 lines in the
@@ -880,12 +994,17 @@ once when the puzzle is left. The vitest and preview proofs stand, and the previ
   this run's rule. The `wasm-opt = false` metadata stays until T42 changes it.
 - **To T00 follow-ups, carried by T42.** `typescript = "==6.0.2"`, `binaryen = "==121"`, the `wasm-package-test` recipe and `wasm-build`'s guard.
 - **To T02.** Nothing new. `serde-wasm-bindgen` and `js-sys` are already T42's step 2, each with its decision-0007 note, and tsify is not added.
-- **To T17.** One exception class per error type under one base, with the `Display` text. The same core values in snake_case. A `dict` has no
+- **To T17.** One exception class per error type under one base, with the `Display` text, and `draws_taken` an attribute of the
+  generation refusal's. The same core values in snake_case. A `dict` has no
   bigint problem, since Python's `int` is exact, but T17 should still read a `u8` through a checked conversion rather than a wrapping one, and a test
   should hold that a digit of 260 is refused the same both ways.
-- **To the specifications, beyond T40.** Nothing. `generation.allium`'s `GenerationResult` exposes `status` and `draws_taken` of a refused generation,
-  and the comment above it says a refused one shows only that it was; a thrown refusal does the first, and the stream's `index` the second. That wording
-  is not a question for this spike and no change is proposed.
+- **To T41, a core change the specification already asks for.** `generation.allium`'s `GenerationResult` exposes `status` and `draws_taken` with no `when`,
+  a thrown refusal gives the first, and the stream's `index` gives the second only to a caller who holds the stream. T41 step 6 above closes that on the seed
+  path. Context says a need here is a spec change and a core change, handed back; this one needs the core change alone.
+- **To the specifications, beyond T40: a wording, and no behaviour.** The comment above `GenerationResult` says "A refused generation shows nothing but that it
+  was refused", which reads tighter than the `exposes` beneath it. T41 follows `exposes`, which is the clause, and takes the comment to mean no givens and no grid.
+  This spike changes no specification, so the comment stays until whoever next edits that module, or the maintainer, says which is meant; if it is the comment,
+  T41's new value goes and `draws_taken` leaves the surface's refused case. No `open question` is touched.
 
 ### Deviations, and why
 
