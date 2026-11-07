@@ -230,14 +230,16 @@ never the solution. `just check` is green and the coverage floor holds.
 
 10. Run `just fmt-check`, `just clippy`, `just metrics`, `just test` and
     `just snapshots-check`, then `just check`, and quote each closing line, with the
-    coverage figure. Set `status: done` and the index row. Commit, and ask before
-    pushing.
+    coverage figure.
+
+11. If R2 changed anything, run step 10's recipes again and quote them. Set
+    `status: done` and the index row. Commit, and ask before pushing.
 
 **Adversarial review**, by the procedure in `tickets/README.md`, "Adversarial
 review":
 
 - **R1**, after steps 3 to 6 and before step 7's proptests: the public values and their wire shape. Focus: what a binding would be stuck with.
-- **R2**, after step 10 and before `status: done`: the ticket whole.
+- **R2**, after step 10 and before step 11: the ticket whole.
 
 ## Acceptance criteria
 

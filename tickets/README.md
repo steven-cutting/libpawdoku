@@ -218,10 +218,14 @@ it; a ticket cites the moment and its focus and does not restate the rest.
    ```
 
    `<plugin>` is the installed plugin's directory, `<ref>` the commit the ticket started
-   from, so that a round reviews one ticket, and `<focus>` the moment's focus. For
-   uncommitted work, `--scope working-tree` in place of `--base`. The model is
-   `gpt-6-astra` where it is available; where it is not, the configured default, and the
-   notes say so. The run's log is read to confirm which model answered.
+   from, so that a round reviews one ticket, and `<focus>` the moment's focus. `--base`
+   reads commits alone and `--scope working-tree` uncommitted changes alone, so neither
+   sees a ticket that is part committed: the work is committed first, as a checkpoint,
+   and every round uses `--base`. The model is `gpt-6-astra` where it is available; where
+   it is not, the configured default, and the notes say so. The review's job log does not
+   name the model, so the confirmation comes from Codex's own log,
+   `~/.codex/logs_2.sqlite`, table `logs`, read-only, where the thread's rows carry
+   `model=<name>`.
 2. **The output** goes verbatim to `ai_tmp/<id>/codex-round-N.md`, and the sub-agent
    returns its path, not its text.
 3. **A separate triage sub-agent**, given the report and not the implementer's
