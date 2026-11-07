@@ -699,3 +699,83 @@ fn a_random_refusal_is_named_random_error() {
     .to_string();
     assert_eq!(refused, Err((String::from("RandomError"), text)));
 }
+
+/// The value `body` returns, built in JavaScript: an object whose getter or trap throws.
+fn hostile(body: &str) -> JsValue {
+    Function::new_no_args(body)
+        .call0(&JsValue::NULL)
+        .unwrap_or_else(|e| panic!("{:?}", named(&e)))
+}
+
+#[wasm_bindgen_test]
+fn a_value_that_throws_as_it_is_read_comes_back_as_itself_and_changes_nothing() {
+    let (mut board, _) = played(&THE_SCRIPTED_GAME);
+    let (view, written) = (
+        text(&board.view().unwrap_or_default()),
+        text(&board.write().unwrap_or_default()),
+    );
+    let getter = || hostile("return { get row() { throw new RangeError('row'); }, column: 3 };");
+    let proxy = || {
+        hostile(
+            "const trap = () => { throw new RangeError('trap'); }; \
+                return new Proxy({}, { get: trap, has: trap, ownKeys: trap, getPrototypeOf: trap });",
+        )
+    };
+    let tagged = || {
+        hostile(
+            "return { get [Symbol.toStringTag]() { throw new RangeError('tag'); }, \
+                toJSON() { throw new RangeError('json'); } };",
+        )
+    };
+    let row = (String::from("RangeError"), String::from("row"));
+    let trap = (String::from("RangeError"), String::from("trap"));
+    let json = (String::from("RangeError"), String::from("json"));
+    let digit = JsValue::from(4);
+    let asked = [
+        (
+            board.place(getter(), digit.clone()).map_err(|e| named(&e)),
+            &row,
+        ),
+        (board.erase(getter()).map_err(|e| named(&e)), &row),
+        (
+            board
+                .write_mark(proxy(), digit.clone())
+                .map_err(|e| named(&e)),
+            &trap,
+        ),
+        (
+            board
+                .strike_mark(proxy(), digit.clone())
+                .map_err(|e| named(&e)),
+            &trap,
+        ),
+        (board.check(getter()).map(drop).map_err(|e| named(&e)), &row),
+        (
+            board.place(position(FREE), tagged()).map_err(|e| named(&e)),
+            &json,
+        ),
+        (
+            board.place(position(FREE), proxy()).map_err(|e| named(&e)),
+            &trap,
+        ),
+        (
+            board
+                .reading_after(tagged())
+                .map(drop)
+                .map_err(|e| named(&e)),
+            &json,
+        ),
+    ];
+    for (at, (refused, thrown)) in asked.into_iter().enumerate() {
+        assert_eq!(refused, Err(thrown.clone()), "call {at}");
+    }
+    let function = board
+        .place(position(FREE), hostile("return function digit() {};"))
+        .map_err(|e| named(&e));
+    assert_eq!(
+        function.map_err(|(name, _)| name),
+        Err(String::from("Error"))
+    );
+    assert_eq!(text(&board.view().unwrap_or_default()), view);
+    assert_eq!(text(&board.write().unwrap_or_default()), written);
+}

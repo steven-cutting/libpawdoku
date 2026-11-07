@@ -8,6 +8,7 @@
 //! TypeScript's own `Record<K, V>`. `tests/package/` holds them to the core's snapshots
 //! and to the engine (S12, question 1).
 
+use js_sys::JSON;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_wasm_bindgen::Serializer;
@@ -257,4 +258,30 @@ pub(crate) fn generation<T: Serialize + ?Sized>(value: &T) -> Result<JsValue, Js
 /// than wrapped.
 pub(crate) fn read<T: DeserializeOwned>(value: JsValue) -> Result<T, JsValue> {
     serde_wasm_bindgen::from_value(value).map_err(JsValue::from)
+}
+
+/// `value` read as a `T` while a `Board` is borrowed, which no JavaScript of the
+/// caller's may throw through: an exception that crosses Rust there skips the borrow's
+/// release and leaves the board unusable. So an object is first copied as
+/// `JSON.stringify` writes it, inside a call that catches, and serde reads the plain
+/// copy: a getter, a trap or a `toJSON` that throws comes back as its own exception. A
+/// primitive is read as it is; a function, and an object that writes no JSON, are
+/// refused unread.
+pub(crate) fn read_held<T: DeserializeOwned>(value: JsValue) -> Result<T, JsValue> {
+    if value.is_function() {
+        return Err(unread("function"));
+    }
+    if !value.is_object() {
+        return read(value);
+    }
+    let copy = JsValue::from(JSON::stringify(&value)?).as_string();
+    let copy = copy.ok_or_else(|| unread("an object that writes no JSON"))?;
+    read(JSON::parse(&copy)?)
+}
+
+/// serde's refusal of a value it was not given to read, an `Error` named `Error`.
+fn unread(what: &str) -> JsValue {
+    let refusal: serde_wasm_bindgen::Error =
+        serde::de::Error::invalid_type(serde::de::Unexpected::Other(what), &"a value");
+    refusal.into()
 }

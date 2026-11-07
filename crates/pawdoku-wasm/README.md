@@ -157,7 +157,9 @@ Play from a record throws the name of the stage that refused, `ReopenError` or
 `GenerateError` with `error.tier` and `error.draws_taken` (a `bigint`); a stream keeps
 the draws it gave before the refusal. A thrown `name` of `Error` means a value of the
 wrong shape, such as a digit of `260` or a missing field; its text is serde's and is
-not stable.
+not stable. A value handed to a board's method is read as `JSON.stringify` writes it,
+so a getter, a `Proxy` trap or a `toJSON` that throws comes back as its own exception,
+and the board is unchanged and still usable.
 
 ## The specifications
 

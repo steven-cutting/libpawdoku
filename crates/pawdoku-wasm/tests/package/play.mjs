@@ -141,4 +141,20 @@ step("a refusal is named for the engine's error and carries its text", () => {
   strictEqual(stream.index, 5n);
 });
 
+step("a value that throws as it is read leaves the board usable", () => {
+  const board = Board.open(givens);
+  board.place(here, 4);
+  const kept = JSON.stringify(board.write());
+  const getter = { get row() { throw new RangeError("row"); }, column: 3 };
+  const trap = () => { throw new RangeError("trap"); };
+  const proxy = new Proxy({}, { get: trap, has: trap, ownKeys: trap, getPrototypeOf: trap });
+  deepStrictEqual(thrown(() => board.erase(getter)), ["RangeError", "row"]);
+  deepStrictEqual(thrown(() => board.place(here, proxy)), ["RangeError", "trap"]);
+  deepStrictEqual(thrown(() => board.readingAfter(proxy)), ["RangeError", "trap"]);
+  strictEqual(JSON.stringify(board.write()), kept);
+  board.erase(here);
+  strictEqual(board.view().can_undo, true);
+  board.free();
+});
+
 console.log(`package test: ${passed} checks passed`);

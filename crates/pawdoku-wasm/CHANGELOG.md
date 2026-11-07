@@ -28,7 +28,9 @@ repository's, are in the root `CHANGELOG.md`.
 - The `Board` class: `Board.open(givens)` and `Board.reopen(record)`, `view()`,
   `readingAfter(index)`, `write()`, and the seven operations `place`, `erase`,
   `writeMark`, `strikeMark`, `check`, `undo` and `redo`. A board is freed once, with
-  `free()`, when its puzzle is left.
+  `free()`, when its puzzle is left. A value handed to a method is read as
+  `JSON.stringify` writes it, so a getter or `Proxy` trap that throws comes back as its
+  own exception and leaves the board usable.
 - Play from a record: `open(givens)`, `play(record, operation)`, `read(record)` and
   `readingAfter(record, moveIndex)`, which hold nothing between calls and hand back the
   values a held board gives; and `recordVersion()`, `"record-1"`.

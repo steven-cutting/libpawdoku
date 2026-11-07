@@ -3,7 +3,9 @@
 //!
 //! Every value crosses through [`crate::types`]: positions, digits and indices are read
 //! through serde, so a digit of `260` is refused rather than wrapped to a `4`, and the
-//! view, the reading, the record and a check come back as the core's wire shape.
+//! view, the reading, the record and a check come back as the core's wire shape. A
+//! method reads its arguments with [`types::read_held`], so a getter that throws while
+//! the board is borrowed comes back as its own exception and leaves the board usable.
 
 use pawdoku::board::{Board as CoreBoard, BoardView, ReadingAfter, Record, RecordVersion};
 use pawdoku::sudoku::{Given, Position};
@@ -139,7 +141,7 @@ impl Board {
         &self,
         #[wasm_bindgen(unchecked_param_type = "number")] index: JsValue,
     ) -> Result<JsValue, JsValue> {
-        let index: usize = types::read(index)?;
+        let index: usize = types::read_held(index)?;
         let reading = ReadingAfter::of(&self.board, index).map_err(|refusal| thrown(&refusal))?;
         types::board(&reading)
     }
@@ -193,7 +195,7 @@ impl Board {
         &mut self,
         #[wasm_bindgen(unchecked_param_type = "Position")] position: JsValue,
     ) -> Result<(), JsValue> {
-        let position: Position = types::read(position)?;
+        let position: Position = types::read_held(position)?;
         self.board
             .erase(position)
             .map_err(|refusal| thrown(&refusal))
@@ -259,7 +261,7 @@ impl Board {
         &mut self,
         #[wasm_bindgen(unchecked_param_type = "Position")] position: JsValue,
     ) -> Result<JsValue, JsValue> {
-        let position: Position = types::read(position)?;
+        let position: Position = types::read_held(position)?;
         let check = self
             .board
             .check(position)
@@ -299,5 +301,5 @@ impl Board {
 /// A position and a digit read from JavaScript, the digit through serde so that it is
 /// refused rather than wrapped when it is not a `u8`.
 fn cell_and_digit(position: JsValue, digit: JsValue) -> Result<(Position, u8), JsValue> {
-    Ok((types::read(position)?, types::read(digit)?))
+    Ok((types::read_held(position)?, types::read_held(digit)?))
 }
