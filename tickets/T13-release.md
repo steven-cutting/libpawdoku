@@ -420,13 +420,187 @@ unchanged.`; only paths in Files touched.
 
 ### What was verified, and how
 
+Run on 2026-11-07 on the branch `implement-typescript-surface-fullsend`, from
+`8949b4fa69f8b6ea4468f1f852909e92713cd1a1`, in two segments: steps 1 to 5 to the R1
+checkpoint, then steps 7 to 9 after R1. This records the first pull request's work.
+
+**Step 1.** `just check` before any edit: "All checks passed and the worktree is
+unchanged." The Context's table, re-checked on the day; no row moved:
+
+- crates.io API with a User-Agent: `pawdoku`, `pawdoku-wasm`, `pawdoku-cli` and
+  `pawdoku-py` each answer "crate `<name>` does not exist".
+- cargo-release 1.1.7 (2026-10-21T14:00:01Z, `rust_version` 1.97). `pixi search -p
+  linux-64` and `-p osx-arm64 cargo-release`: "No packages found matching
+  'cargo-release'".
+- cargo-semver-checks 0.51.0 (2026-10-03, `rust_version` 1.93) on crates.io; on
+  conda-forge as `0.51.0-hf19af3b_0` (linux-64) and `0.51.0-hc2d82ec_0` (osx-arm64).
+- `rust-lang/crates-io-auth-action`: latest v1.0.6, published 2026-10-21T16:28:32Z;
+  `git/ref/tags/v1.0.6` is of type `commit`, sha
+  `3268eb413133e2960fa4ae0e963ca76380c54cd9`.
+- `actions/checkout`: latest v7.0.1, the tag a commit,
+  `3d3c42e5aac5ba805825da76410c181273ba90b1`.
+- Environments: `copilot` (policy null) and `github-pages` (`custom_branch_policies:
+  true`, `protected_branches: false`); rulesets: `[]`.
+- The record's number: 0019, as the run's brief fixes it; 0021 and 0022 are present and
+  the "next decision" sentence stays at 0023.
+
+**Step 2, the pins.** `tools.txt` gains `cargo-release@1.1.7`, its header dated
+2026-11-07, its comment saying cargo-binstall verifies no checksum for either line.
+`pyproject.toml` gains `cargo-semver-checks = "==0.51.0"`. The relocked `pixi.lock` adds
+only cargo-semver-checks 0.51.0, `hc2d82ec_0` for osx-arm64 and `hf19af3b_0` for
+linux-64, so both platforms solved. pixi 0.81.0 says "lock file would not change" and
+0.84.1's `pixi lock --check --offline --dry-run` says "Lock-file was already up-to-date".
+`just install-tools`: "cargo-release v1.1.7 (aarch64-apple-darwin) has been downloaded
+from github.com"; `cargo release --version`: `cargo-release 1.1.7`; `cargo semver-checks
+--version`: `cargo-semver-checks 0.51.0`.
+
+**Step 3, the configuration.** `[workspace.metadata.release]` in the root `Cargo.toml`
+and `[package.metadata.release]` in `crates/pawdoku/Cargo.toml` as the step writes them;
+`publish.workspace = true` deleted from the crate; `crates/pawdoku/LICENSE` a symlink to
+`../../LICENSE`. `just toml-check` green. `cargo package -p pawdoku --list --locked`:
+exit 0, sixty-four entries, `LICENSE` among them. The dry run `cargo release -p pawdoku`
+on this branch refuses it: "error: cannot release from branch
+`implement-typescript-surface-fullsend` as it doesn't match `main`, `release/*`", which
+shows `allow-branch` working. With `--allow-branch` naming this branch it shows the
+CHANGELOG diff (`## [0.1.0] - 2026-11-07`, `[Unreleased]:
+.../compare/pawdoku-v0.1.0...HEAD`, `[0.1.0]: .../releases/tag/pawdoku-v0.1.0`),
+"Publishing pawdoku", and "warning: aborting release due to dry run; re-run with
+`--execute`", exit 0. Its `-vv` trace names only `git commit -am Release pawdoku 0.1.0`
+and `git tag pawdoku-v0.1.0 -a -m Release pawdoku 0.1.0`; no `cargo publish` and no `git
+push`. "Publishing pawdoku" is a label: `cargo release config` in the crate reads
+`publish = false`, `push = false`. `git status --porcelain` after both runs: empty.
+
+**Step 4, the guards and the workflow.** The auth action's `action.yml` at `3268eb4`:
+one input, `url`, optional, defaulting to `https://crates.io`; one output, `token`;
+`runs` on node24 with a `post` step, which its README says "automatically revokes the
+token when the job completes". The guards were run locally from their scripts,
+shellcheck clean, the test list below:
+
+1. A tag on a commit of `main` (`49cde45`): exit 0, "pawdoku-v0.1.0 names 49cde45...,
+   which is on main".
+2. A tag on a commit off `main` (`a43a0e3`): exit 1, "refused tag pawdoku-v0.1.0: commit
+   a43a0e3... is not on main".
+3. A ref that is not a tag: exit 1.
+4. `pawdoku-v0.1.0` against the manifest's 0.1.0: exit 0, "pawdoku-v0.1.0 is pawdoku
+   0.1.0".
+5. `pawdoku-v0.1.1`: exit 1, "the manifest of pawdoku says 0.1.0, so the tag must be
+   pawdoku-v0.1.0".
+6. `pawdoku-v0.1.0-rc`: exit 1, the same message.
+7. Package `pawdoku-wasm`: exit 1, "no package named pawdoku-wasm in the workspace".
+8. The existence check: pawdoku 0.1.0 gives "not on crates.io yet" and `exists=false`;
+   with the URL pointed at serde 1.0.228, `exists=true`. crates.io answers 404 for an
+   unknown API path too, so a wrong URL fails toward publishing, where `cargo publish`
+   refuses a version that exists.
+
+`just lint`: "Lint GitHub Actions workflow files....Passed". actionlint reads the
+composite `action.yml` for the `uses:` inputs and does not lint it on its own.
+
+**Step 5, the semver job.** `cargo semver-checks --help` (0.51.0) lists no `--locked`,
+`--offline` or `--frozen` and passes nothing through, so the recipe carries none and its
+comment says so. `just semver`: "semver: no pawdoku-v* tag yet, nothing to compare",
+exit 0. A probe that is not a gate, `cargo semver-checks -p pawdoku --baseline-rev
+49cde45`: "202 checks: 201 pass, 1 fail", `enum_no_repr_variant_discriminant_changed` on
+`ReopenError`, whose new first variant `Version` (T43) shifts the others; exit 100. So
+the job turns red on such a change and blocks nothing. The `semver` job in `ci.yml` is
+not in `check`'s `needs`.
+
+**The R1 checkpoint.** `just check` at `7aef24a`: "All checks passed and the worktree is
+unchanged."
+
+**Step 6 was not run** (Handed back): no `gh api` read of a `release` environment or a
+tag ruleset is quoted, because neither exists.
+
+**Step 7, the record.** `docs/decisions/0019-releases.md`, with its row in
+`docs/decisions/README.md` and its entry in `docs/manifest.yml`, in one commit. The
+index's held numbers now read 0017, 0018 and 0020; the next decision stays 0023.
+
+**Step 8, the prose.** `AGENTS.md` names two publishing workflows; `just check-agents`:
+"Validated AGENTS.md, 2 adapters, and 14 skills." `docs/operations/maintenance.md` gains
+"Cut a release" (steps 10 to 14 as a procedure, the UTC date, the 1.0 trigger), and
+"Per toolchain release" and "Secrets" are rewritten. The security model, quality gates,
+commands, configuration and repository map pages, decision 0007, `rust-toolchain.toml`'s
+comment and the CHANGELOG follow.
+
+**Step 9.** `just check-docs`: "Validated 47 pages and 48 canonical topics." `just
+check` after the commit `c5aa796`: "All checks passed and the worktree is unchanged.".
+
+`rg -n 'S02|later decision' AGENTS.md docs README.md SECURITY.md` still finds two lines,
+both in files Files touched gives to the second pull request: `README.md:97` and
+`docs/reference/api.md:57`.
+
 ### Deviations, and why
+
+- **One branch, no worktree.** Everything is on `implement-typescript-surface-fullsend`
+  (the run's brief); `branch: ticket/t13-release` is not used, and "after the first pull
+  request merges" is read as order on this branch.
+- **The frozen files.** Leave to edit the `Justfile`, `tools.txt`,
+  `rust-toolchain.toml` and `docs/manifest.yml` came with the run's brief, not from a
+  question asked in session. Each edit is a T00 follow-up carried here.
+- **pixi on the day was 0.84.1**, not the 0.83.0 the table names, for `pixi search`.
+- **`pixi.lock` was relocked with pixi 0.81.0.** 0.84.1's `pixi lock` rewrote
+  `__unix=0=0` to `__unix=0` in two places, and pixi 0.81.0, which CI's setup-pixi pins
+  with `locked: true`, refused that lock ("lock file not up-to-date with the
+  workspace"). So the lock was regenerated from HEAD's with `pixi exec --spec
+  'pixi==0.81.0' -- pixi lock`, which adds only cargo-semver-checks, and both versions
+  accept it.
+- **The dry run needed `--allow-branch`**, because this branch is neither `main` nor
+  `release/*`; the bare refusal is quoted above.
+- **The first guard also refuses a ref that is not a tag**, beyond the step's text: a
+  cheap belt for a run not started by a tag.
+- **`README.md` and `docs/reference/api.md` still name S02.** The acceptance criteria say
+  no page names S02 as a decision still to come after the first pull request, while
+  Files touched gives both files to the second. The per-file rows were followed.
+- **Two pages outside Files touched are stale**: `docs/how-to/maintain-dependencies.md`
+  line 98 says `rust-version` moves with the toolchain, and
+  `docs/how-to/deploy-to-github-pages.md` line 11 says the library publishes one thing.
+  Neither was edited, so the change touches only Files touched paths (Handed back).
 
 ### Handed back
 
+- **Left for the maintainer**, none of it authorised in this run: step 6 (the `release`
+  environment with its reviewer and four tag policies, and the tag ruleset, read back
+  with `gh api`); steps 10 to 14 (the 0.1.0 release pull request, the tag, the token
+  publish, the trusted publisher, revoking the token, pushing the tag, docs.rs, and the
+  second pull request's pages, `docs/reference/api.md`, `SECURITY.md` and `README.md`);
+  every push, pull request, tag, token and setting. `status:` stays `open` and the index
+  row is unchanged.
+- **Until step 6 is done**, `release.yml` names an environment that does not exist, and
+  no trusted publisher is configured, so no tag can publish.
+- **R2**, before step 10, falls after the first pull request merges and was not run.
+- **T15** may start once the first pull request has merged; on this branch it follows.
+- **Two stale how-to sentences** for a later ticket: `maintain-dependencies.md` line 98
+  and `deploy-to-github-pages.md` line 11, above.
+- **A T00 follow-up**: CI pins pixi 0.81.0 with `locked: true`, and a newer pixi writes a
+  lock it refuses; relock with `pixi exec --spec 'pixi==0.81.0' -- pixi lock`.
+- **The semver job** turns red once a `pawdoku-v*` tag exists and the API breaks, as
+  T43's `ReopenError` change would; designed to report and not block before 1.0.
+
 ### Adversarial review
 
+**R1 round 1** (Codex adversarial review, over `8949b4f..7aef24a`; the guards and
+`release.yml`, focus the token, the tag and the trust boundary). One finding.
+
+- **[high] OIDC authority is available before the release guards run**
+  (`release.yml` lines 42 to 55). Fact accepted: `id-token: write` is granted to the
+  whole `publish` job, so every step, the setup action and the guards included, could
+  request an identity token; ordering the steps orders the mint, not the capability.
+  The proposed restructuring, a read-only validation job and then a lean OIDC job, was
+  not taken: it reopens "The full setup in the privileged job", which the maintainer
+  settled on 2026-10-31, and it would not close the hole, because a tag push runs the
+  workflow file of the tagged commit, so an off-main tag can carry a `release.yml` with
+  no validation job at all. What stops a malicious tag is step 6, the tag ruleset and
+  the environment's required reviewer; the guards stop a mistaken tag. Fixed in
+  `d0428e1`: the workflow's comments, which read the step order as a security property,
+  now say `id-token` is job-wide, that ordering does not narrow it, and which control
+  stops which tag. `just lint` green. Decision 0019's Consequences say the same. The
+  negative test Codex suggested, an off-main tag reaching no OIDC-enabled job, needs a
+  live tag push and was not run.
+
+R2 was not run (Handed back).
+
 ### Open points settled
+
+None in this segment; the three questions of 2026-10-31 are in the Context.
 
 ## Open points
 
