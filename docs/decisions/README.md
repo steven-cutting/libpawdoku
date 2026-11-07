@@ -38,6 +38,7 @@ as `open question` blocks — see [Specifications](../explanation/specifications
 | [0015](0015-basic-generator.md) | A basic generator from a published method, as the yardstick |
 | [0016](0016-api-reference-on-github-pages.md) | The API reference on GitHub Pages |
 | [0021](0021-play-from-a-record.md) | Play from a record, beside the board |
+| [0022](0022-a-record-names-its-version.md) | A record names its format version, and nothing is promised across versions |
 
 Decision 0004 is superseded in part by decision 0011, which names the consequences of
 0004 it replaces and the ones that stand. Decision 0013 reopens the gate list decision
@@ -51,7 +52,7 @@ Pawdoku's decision records at `78d03cdf` when the engine moved here (0002, 0003,
 is what a cross-repository reference names, and the game restates the engine's clauses
 and cites these records by slug. Nothing here is rendered from a template, so no frozen
 inventory of numbers applies. Numbers 0017 to 0020 are held for records still to land,
-and are not free. The next decision this repository takes is 0022.
+and are not free. The next decision this repository takes is 0023.
 
 ## Writing a new one
 

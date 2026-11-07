@@ -19,7 +19,7 @@
 #[cfg(test)]
 mod tests {
     use core::fmt::Write;
-    use pawdoku::board::{Board, BoardCell, MoveKind, PlayError, ReopenError};
+    use pawdoku::board::{Board, BoardCell, MoveKind, PlayError, RECORD_VERSION, ReopenError};
     use pawdoku::generation::{GenerateError, Tier, generate};
     use pawdoku::random::{RandomError, SeededStream};
     use pawdoku::solver::{SearchResult, SolveError, search, solve};
@@ -393,12 +393,26 @@ mod tests {
         insta::assert_snapshot!(render_board(&Board::reopen(&record).unwrap()));
     }
 
+    /// The refusal of a record that names `named`, or no format version.
+    fn of_version(named: Option<&str>) -> ReopenError {
+        let named = named.map(String::from);
+        ReopenError::Version {
+            named,
+            reads: RECORD_VERSION,
+        }
+    }
+
     /// Each refusal is made by hand here, which is shorter than deserialising a
     /// malformed record for each; the record's unit tests show a record that earns each.
     #[test]
     fn snapshot_the_reopening_refusals() {
         let given = Position::new(1, 1);
         let refusals = [
+            (
+                "a record of another format version",
+                of_version(Some("record-0")),
+            ),
+            ("a record that names no format version", of_version(None)),
             (
                 "more moves undone than moves",
                 ReopenError::TooManyUndone {

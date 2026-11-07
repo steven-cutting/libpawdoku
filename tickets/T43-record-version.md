@@ -398,6 +398,86 @@ red-green loop.
 10. `ReopenError` and the version-only value are `Send + Sync + 'static`, `Clone` and
     `Debug` (`tests/api_bounds.rs`).
 
+**The Rust, test first (steps 3 to 5).** Each item of the list above was written red
+and turned green, and the list revisited after each loop; it gained no item. Where each
+is proved:
+
+1. `RECORD_VERSION`'s doctest.
+2. `every_record_written_names_this_version` (`record.rs`): fresh, in play and solved.
+3. `a_record_of_another_version_is_refused` (`record.rs`), on a record sound in every
+   other way; `a_record_of_another_version_is_refused_first` (`tests/board.rs`, under
+   `serde`) through the public API.
+4. `refusals_come_in_a_fixed_order` (`record.rs`) now opens with a record naming none,
+   then `"record-0"`; the public-API test's record also fails its count and its givens.
+5. `a_record_with_no_version_field_deserialises_and_is_refused` (`record.rs`), through a
+   hand-written `MapAccess`, `Named`, which hands fields over by name.
+6. `a_serialised_record_of_another_version_is_refused_naming_it` (`record.rs`), with
+   the same fields naming this engine's version reaching the givens.
+7. `the_version_alone_is_read_from_any_shape` (`record.rs`): a later shape a `Record`
+   cannot be read from, a record naming none, and this engine's version; and
+   `RecordVersion`'s doctest.
+8. The existing round trips through `write` and `reopen` stand unchanged
+   (`tests/board.rs`, the record section and the exactness property). No test
+   round-trips the serialised form: that needs a format crate, which the core's tests do
+   not take, so the JSON snapshot shows it and the deserialising tests above hold the
+   by-name and positional readings.
+9. `reopening_refusal_texts_are_stable` gains both texts; `Record`'s "# Across versions"
+   doctest pins the first.
+10. `public_types_are_send_sync_and_static` and `public_types_are_clone_and_debug`
+    (`tests/api_bounds.rs`) still name `ReopenError`, green; the new
+    `the_version_reading_is_send_sync_clone_and_debug` holds `RecordVersion` to the
+    same bounds and to `DeserializeOwned`.
+
+The two existing tests the ticket names changed as it says:
+`a_record_holds_what_it_states_and_no_answer` lists `version` first among the stated
+fields; the `Fields` sequence helper hands over five fields, the version first, and
+`a_malformed_record_deserialises_and_is_refused_at_reopening` reads it twice: with
+`RECORD_VERSION`, refused for its own fault, `TooManyUndone`; with `"record-0"`, refused
+for the version.
+
+**Step 5's gates**, on 2026-11-07. `just fmt-check`: `cargo fmt --all --check`, no
+output. `just clippy`: "Finished `dev` profile [unoptimized + debuginfo] target(s)".
+`just metrics`: "::notice::Quality score: 100.0% (724 functions analyzed)", the probe
+passing. `just test`: "316 tests run: 316 passed, 0 skipped", and the doctests "124
+passed; 0 failed".
+
+**Step 6, the snapshots.** `just snapshots-accept` accepted three, and each was read
+whole. `snapshot_the_record_of_the_scripted_game` gains `version: "record-1",` as the
+first field of `Record { ... }`; `snapshot_the_reopening_refusals` gains two lines at
+its head:
+
+```text
+a record of another format version: the record is of format version "record-0", and this engine reads "record-1"
+a record that names no format version: the record names no format version, and this engine reads "record-1"
+```
+
+The JSON one, `snapshot_the_record_of_the_scripted_game_as_json`, changes in one line:
+the record's serialised shape gains a first field, `version`, and nothing else in it
+moves. Its head:
+
+```json
+{
+  "version": "record-1",
+  "givens": [
+    {
+      "position": {
+        "row": 1,
+        "column": 1
+      },
+      "digit": 5
+    },
+```
+
+and the rest, thirty givens, eleven moves, `"undone": 1` and two checks, is as it was.
+
+**Step 7.** `rg -n 'RANDOM_VERSION|GENERATION_VERSION' docs/reference/api.md` finds
+nothing on 2026-11-07, so `api.md` is unchanged. `pawdoku 0.1.0` is not published (T13
+has not run on this branch), so the changelog entry carries no 0.2.0 sentence.
+`just check-docs`: "Validated 46 pages and 47 canonical topics."
+
+**Step 8.** Decision 0022, as the brief projects it; the index row, the manifest entry
+(a T00 follow-up, confirmed), and "The next decision this repository takes is 0023."
+
 ### Deviations, and why
 
 - **One branch.** The work is on `implement-typescript-surface-fullsend`, after S12 and
@@ -411,6 +491,22 @@ red-green loop.
   names none" still holds: a version is not a form, and `Recording`'s preamble now says
   beyond the version it names no form. Its refusal invariant already sends a record that
   does not reopen to `reopen`'s refusal, which now begins with the version.
+
+- **The variant's fields.** `ReopenError::Version { named: Option<String>, reads:
+  &'static str }`. `named` is `None` when the record names none, so a binding tells the
+  two texts apart without parsing; an empty `version` string reads as none, which is
+  what `#[serde(default)]` gives a missing field. `reads` is always `RECORD_VERSION`.
+  The `Display` text quotes both with `{:?}`, so a hostile version string prints
+  escaped.
+- **`require` in `record.rs` is no longer a `const fn`.** `ReopenError` now holds a
+  `String`, whose destructor cannot run in a constant function.
+- **`RecordVersion`** derives `Debug`, `Clone`, `PartialEq`, `Eq` and `Deserialize`, not
+  `Serialize`: it only reads. Two methods: `named()`, the version or `None`, and
+  `readable()`, `Ok` or the same refusal `Board::reopen` gives. Both go through one
+  private function, `versioned`, so the refusal is the same code path.
+- **The public-API test is under `serde`.** A record's fields are private, so a record of
+  another version reaches `Board::reopen` from outside the crate only by deserialising.
+  Its helper, `Arriving`, is a second hand-written `MapAccess`, smaller than `Named`.
 
 ### Handed back
 

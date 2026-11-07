@@ -71,8 +71,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   they cite, and an eighth, `board.allium`, for a puzzle as it is being played.
 - A handbook of twenty-five pages under `docs/`, held to the documentation contract and
   reachable from its map.
-- Seventeen architecture decision records, from the engine as a library of its own to
-  play from a record.
+- Eighteen architecture decision records, from the engine as a library of its own to a
+  record that names its format version.
 - A `metrics` gate, seventh in `just check`: rustqual, built from source from its pin in
   `tools-source.txt`, holds thresholds for complexity, cohesion and coupling and the
   module boundaries of the layering table, with a probe that proves the boundary rules
@@ -93,5 +93,12 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   keeps nothing and hands back the record with what `Playing` shows, the readings after
   a move on asking. It adds no rule: each call is reopening, one of `Playing`'s
   operations and writing, composed (decision 0021).
+- Every record names its format version, `pawdoku::board::RECORD_VERSION`, `"record-1"`,
+  and `Board::reopen` refuses a record of another version, or of none, with
+  `ReopenError::Version`, before any other refusal; no compatibility across versions is
+  promised. A record's serialised shape gains a first field, `version`. Under the
+  `serde` feature, `RecordVersion` reads a record's version alone, for the bindings
+  (decision 0022). `board.allium`'s `config` gains `record_version`, and `Recording`
+  the invariant `ARecordNamesItsVersion`.
 
 [Unreleased]: https://github.com/steven-cutting/libpawdoku/commits/main/

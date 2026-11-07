@@ -7,7 +7,27 @@ use super::journal::{Journal, Made};
 use crate::solver::SolveError;
 use crate::sudoku::{Given, Position, Puzzle, Status, in_range};
 use alloc::collections::BTreeSet;
+use alloc::string::String;
 use alloc::vec::Vec;
+use core::fmt;
+
+/// The format version every record names: what a record holds and what reopening
+/// reads from it, and no format, since a record's form is the caller's.
+///
+/// It equals the specification's default `config.record_version`. Every record
+/// [`Board::write`] gives names it, and [`Board::reopen`] refuses a record that names
+/// another, or none, with [`ReopenError::Version`] before it reads anything else. No
+/// promise is made that an engine reads a record of an earlier version.
+///
+/// The name changes whenever what a record holds changes, or what reopening reads
+/// from it, so that a record of one version is never read as another. The snapshot of
+/// a record as JSON, in `tests/snapshots.rs`, shows a reviewer such a change, and
+/// whoever changes what a record holds changes this constant in the same commit.
+///
+/// ```
+/// assert_eq!(pawdoku::board::RECORD_VERSION, "record-1");
+/// ```
+pub const RECORD_VERSION: &str = "record-1";
 
 /// A board written down: what [`Board::write`] hands a caller, and what
 /// [`Board::reopen`] makes the same board from.
@@ -18,7 +38,8 @@ use alloc::vec::Vec;
 ///
 /// # What a record holds
 ///
-/// The least that says which board it was:
+/// The format version it was written under, [`RECORD_VERSION`], and the least that
+/// says which board it was:
 ///
 /// - the givens;
 /// - the moves in the order made, each with its kind, its target and its digit;
@@ -50,8 +71,25 @@ use alloc::vec::Vec;
 ///
 /// # Across versions
 ///
-/// No promise is made yet that a record written by one version of the engine reopens
-/// in another. A record carries no version.
+/// A record names its format version, [`RECORD_VERSION`], and under the `serde`
+/// feature that is its first field, `version`. Reopening refuses a record that names
+/// another version, or none, before it reads anything else: nothing else in such a
+/// record can be trusted to mean what this engine reads. No promise is made that a
+/// later engine reads a record of an earlier version; a game that keeps records
+/// between visits discards one that is refused, and can tell the player why.
+///
+/// ```
+/// use pawdoku::board::{RECORD_VERSION, ReopenError};
+///
+/// // What a record of another version is refused with: both versions, by name.
+/// let refusal = ReopenError::Version { named: Some("record-0".into()), reads: RECORD_VERSION };
+/// assert_eq!(
+///     refusal.to_string(),
+///     r#"the record is of format version "record-0", and this engine reads "record-1""#
+/// );
+/// ```
+///
+/// A record of this version reads back whole:
 ///
 /// ```
 /// use pawdoku::board::{Board, Record};
@@ -85,6 +123,10 @@ use alloc::vec::Vec;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub struct Record {
+    /// The format version the record was written under. A record serialised without
+    /// one reads as naming none, and is refused.
+    #[cfg_attr(feature = "serde", serde(default))]
+    version: String,
     givens: BTreeSet<Given>,
     moves: Vec<Written>,
     undone: usize,
@@ -97,6 +139,7 @@ impl Record {
     pub(super) fn of(puzzle: &Puzzle, journal: &Journal, checks: &[Check]) -> Self {
         let made = journal.made();
         Self {
+            version: String::from(RECORD_VERSION),
             givens: puzzle.givens().clone(),
             moves: made.iter().map(Written::from).collect(),
             undone: made.len().saturating_sub(journal.standing()),
@@ -221,6 +264,15 @@ impl Asked {
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
 pub enum ReopenError {
+    /// The record names a format version other than [`RECORD_VERSION`], or none.
+    /// Nothing else in it is read.
+    #[error("{}", Unread { named: named.as_deref(), reads })]
+    Version {
+        /// The format version the record names, or `None` when it names none.
+        named: Option<String>,
+        /// The format version this engine reads, [`RECORD_VERSION`].
+        reads: &'static str,
+    },
     /// The record says more moves are undone than it holds.
     #[error("the record's undone count, {undone}, exceeds its move count, {moves}")]
     TooManyUndone {
@@ -287,9 +339,98 @@ pub enum ReopenError {
     },
 }
 
+/// The text of [`ReopenError::Version`]: the version a record names, or that it names
+/// none, and the version this engine reads.
+struct Unread<'a> {
+    named: Option<&'a str>,
+    reads: &'a str,
+}
+
+impl fmt::Display for Unread<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let reads = self.reads;
+        match self.named {
+            Some(named) => write!(
+                f,
+                "the record is of format version {named:?}, and this engine reads {reads:?}"
+            ),
+            None => write!(
+                f,
+                "the record names no format version, and this engine reads {reads:?}"
+            ),
+        }
+    }
+}
+
+/// Passes when a record naming `version` is one this engine reads, and refuses it
+/// naming both versions when it is not. An empty version is none. The one reading of
+/// a version, for [`Board::reopen`] and for [`RecordVersion`] alike.
+fn versioned(version: &str) -> Result<(), ReopenError> {
+    if version == RECORD_VERSION {
+        return Ok(());
+    }
+    let named = (!version.is_empty()).then(|| String::from(version));
+    Err(ReopenError::Version {
+        named,
+        reads: RECORD_VERSION,
+    })
+}
+
+/// A record's format version read alone, every other field of it ignored, so that a
+/// record of any shape, a later one included, is refused with the text
+/// [`Board::reopen`] gives and not with a format's error. A binding reads a record
+/// through this before the rest of it.
+///
+/// It is a reading, not a second check: [`Board::reopen`] still checks the record it
+/// is handed. It deserialises only, under the `serde` feature; a record that names no
+/// version reads as naming none.
+///
+/// ```
+/// use pawdoku::board::{RECORD_VERSION, RecordVersion, ReopenError};
+/// use serde::Deserialize;
+/// use serde::de::value::{Error, MapDeserializer};
+///
+/// // A record of a later shape, its other fields named as this engine never wrote them.
+/// let fields = [("version", "record-9"), ("puzzle", "unread")];
+/// let read = RecordVersion::deserialize(MapDeserializer::<_, Error>::new(fields.into_iter()))?;
+/// assert_eq!(read.named(), Some("record-9"));
+/// assert_eq!(
+///     read.readable(),
+///     Err(ReopenError::Version { named: Some("record-9".into()), reads: RECORD_VERSION })
+/// );
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+#[cfg(feature = "serde")]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
+#[non_exhaustive]
+pub struct RecordVersion {
+    #[serde(default)]
+    version: String,
+}
+
+#[cfg(feature = "serde")]
+impl RecordVersion {
+    /// The format version the record names, or `None` when it names none.
+    #[must_use]
+    pub fn named(&self) -> Option<&str> {
+        Some(self.version.as_str()).filter(|version| !version.is_empty())
+    }
+
+    /// Whether this engine reads a record of this version: it does when the record
+    /// names [`RECORD_VERSION`].
+    ///
+    /// # Errors
+    ///
+    /// [`ReopenError::Version`] when the record names another version, or none: the
+    /// refusal [`Board::reopen`] gives such a record.
+    pub fn readable(&self) -> Result<(), ReopenError> {
+        versioned(&self.version)
+    }
+}
+
 /// Passes when what reopening requires of a record `holds`, and refuses with `refusal`
 /// when it does not.
-const fn require(holds: bool, refusal: ReopenError) -> Result<(), ReopenError> {
+fn require(holds: bool, refusal: ReopenError) -> Result<(), ReopenError> {
     if holds { Ok(()) } else { Err(refusal) }
 }
 
@@ -345,6 +486,7 @@ fn ask_again(board: &mut Board, checks: &[Asked]) -> Result<(), ReopenError> {
 
 /// `Recording.reopen`: the board `record` was written from, or why there is none.
 pub(super) fn reopened(record: &Record) -> Result<Board, ReopenError> {
+    versioned(&record.version)?;
     counted(record)?;
     let givens = record.givens.iter().copied();
     let board = Board::open(givens);
@@ -357,7 +499,7 @@ pub(super) fn reopened(record: &Record) -> Result<Board, ReopenError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Asked, Record, ReopenError, Written};
+    use super::{Asked, RECORD_VERSION, Record, ReopenError, Written};
     use crate::board::{Board, Check, PlayError};
     use crate::solver::{SolveError, solve};
     use crate::sudoku::{Given, Position, WellPosedError};
@@ -395,6 +537,7 @@ mod tests {
     /// might arrive: nothing has checked it.
     fn record(moves: &[Written], undone: usize, checks: &[Asked]) -> Record {
         Record {
+            version: RECORD_VERSION.into(),
             givens: givens(FIXTURE),
             moves: moves.to_vec(),
             undone,
@@ -405,6 +548,7 @@ mod tests {
     /// A record of no move and no check on other givens.
     fn record_of(givens: BTreeSet<Given>) -> Record {
         Record {
+            version: RECORD_VERSION.into(),
             givens,
             moves: Vec::new(),
             undone: 0,
@@ -455,6 +599,43 @@ mod tests {
 
     fn refused_check(index: usize, source: PlayError) -> ReopenError {
         ReopenError::Check { index, source }
+    }
+
+    /// The refusal of a record that names `named`, or no version.
+    fn of_version(named: Option<&str>) -> ReopenError {
+        ReopenError::Version {
+            named: named.map(String::from),
+            reads: RECORD_VERSION,
+        }
+    }
+
+    /// `ARecordNamesItsVersion`: a record of another version, or of none, is refused
+    /// naming both, whatever else it holds; a record that is sound in every other way
+    /// is refused the same.
+    #[test]
+    fn a_record_of_another_version_is_refused() {
+        let mut sound = record(&[PLACED], 0, &[SOUND]);
+        assert!(Board::reopen(&sound).is_ok());
+        for named in ["record-0", "record-2", "Record-1", " record-1"] {
+            sound.version = named.into();
+            assert_eq!(refusal(&sound), of_version(Some(named)));
+        }
+        sound.version = String::new();
+        assert_eq!(refusal(&sound), of_version(None));
+    }
+
+    /// `ARecordNamesItsVersion`, the write half: every record a board writes names this
+    /// engine's version, fresh, in play and solved.
+    #[test]
+    fn every_record_written_names_this_version() {
+        let fresh = Board::open(givens(FIXTURE)).unwrap();
+        let mut solved = Board::open(givens(FIXTURE)).unwrap();
+        for written in solving() {
+            written.make(&mut solved).unwrap();
+        }
+        for board in [fresh, played(), solved] {
+            assert_eq!(board.write().version, RECORD_VERSION);
+        }
     }
 
     #[test]
@@ -716,6 +897,7 @@ mod tests {
         let mut givens = givens(&solution());
         givens.remove(&Given::new(FREE, 4));
         Record {
+            version: RECORD_VERSION.into(),
             givens,
             moves: moves.to_vec(),
             undone: 0,
@@ -787,8 +969,8 @@ mod tests {
     }
 
     /// A record wrong in every way reports the first, in the order `Board::reopen`
-    /// documents: the two counts, the givens, the moves, the undone moves of a solved
-    /// puzzle, and the checks in their own order.
+    /// documents: the version, the two counts, the givens, the moves, the undone moves
+    /// of a solved puzzle, and the checks in their own order.
     #[test]
     fn refusals_come_in_a_fixed_order() {
         let bad_check = Asked {
@@ -797,11 +979,16 @@ mod tests {
             digit: 0,
         };
         let mut wrong = Record {
+            version: String::new(),
             givens: BTreeSet::new(),
             moves: Vec::new(),
             undone: 1,
             checks: [bad_check].into(),
         };
+        assert_eq!(refusal(&wrong), of_version(None));
+        wrong.version = "record-0".into();
+        assert_eq!(refusal(&wrong), of_version(Some("record-0")));
+        wrong.version = RECORD_VERSION.into();
         let (undone, moves) = (1, 0);
         assert_eq!(
             refusal(&wrong),
@@ -892,6 +1079,14 @@ mod tests {
                 ReopenError::CheckAfterNoMove { index: 4 },
                 "check 4 of the record was asked after no move",
             ),
+            (
+                of_version(Some("record-0")),
+                "the record is of format version \"record-0\", and this engine reads \"record-1\"",
+            ),
+            (
+                of_version(None),
+                "the record names no format version, and this engine reads \"record-1\"",
+            ),
         ];
         for (error, text) in texts {
             assert_eq!(error.to_string(), text);
@@ -962,6 +1157,7 @@ mod tests {
     fn a_record_holds_what_it_states_and_no_answer() {
         let record = played().write();
         let stated = [
+            "version",
             "givens",
             "position",
             "row",
@@ -996,11 +1192,14 @@ mod tests {
         }
     }
 
-    /// The four fields of a serialised record, handed to a deserialiser one at a time
-    /// as the elements of a sequence: no givens, no moves, one move undone, no checks.
-    /// It counts the fields handed over.
+    /// The five fields of a serialised record, handed to a deserialiser one at a time
+    /// as the elements of a sequence: the version, no givens, no moves, one move
+    /// undone, no checks. It counts the fields handed over.
     #[cfg(feature = "serde")]
-    struct Fields(u8);
+    struct Fields {
+        version: &'static str,
+        handed: u8,
+    }
 
     #[cfg(feature = "serde")]
     impl<'de> serde::de::SeqAccess<'de> for Fields {
@@ -1013,32 +1212,187 @@ mod tests {
             use serde::de::IntoDeserializer;
             use serde::de::value::SeqDeserializer;
 
-            // The derived visitor asks for a struct's four fields and no more: the
-            // third is the undone count, and the others are sequences, here empty.
-            self.0 += 1;
-            if self.0 == 3 {
-                return seed.deserialize(1_usize.into_deserializer()).map(Some);
+            // The derived visitor asks for a struct's five fields and no more: the
+            // first is the version, the fourth the undone count, and the others are
+            // sequences, here empty.
+            self.handed += 1;
+            match self.handed {
+                1 => seed.deserialize(self.version.into_deserializer()).map(Some),
+                4 => seed.deserialize(1_usize.into_deserializer()).map(Some),
+                _ => {
+                    let nothing = SeqDeserializer::new(core::iter::empty::<u8>());
+                    seed.deserialize(nothing).map(Some)
+                }
             }
-            let nothing = SeqDeserializer::new(core::iter::empty::<u8>());
-            seed.deserialize(nothing).map(Some)
         }
     }
 
     /// Deserialising checks nothing, and reopening checks everything: a record no
     /// board wrote arrives through serde's own value deserialisers, with no format
-    /// crate, as it could from any caller, and is refused when it is reopened.
+    /// crate, as it could from any caller, and is refused when it is reopened. Of this
+    /// engine's version it is refused for its own fault; of another, for the version.
     #[cfg(feature = "serde")]
     #[test]
     fn a_malformed_record_deserialises_and_is_refused_at_reopening() {
         use serde::Deserialize;
         use serde::de::value::SeqAccessDeserializer;
 
-        let arrived = Record::deserialize(SeqAccessDeserializer::new(Fields(0))).unwrap();
+        let arrive = |version| {
+            let fields = Fields { version, handed: 0 };
+            Record::deserialize(SeqAccessDeserializer::new(fields)).unwrap()
+        };
+        let arrived = arrive(RECORD_VERSION);
         let (undone, moves) = (1, 0);
         assert_eq!(arrived.undone, undone);
         assert_eq!(
             refusal(&arrived),
             ReopenError::TooManyUndone { undone, moves }
         );
+        let arrived = arrive("record-0");
+        assert_eq!(refusal(&arrived), of_version(Some("record-0")));
+    }
+
+    /// One value of a serialised record's field, as a format would hand it over.
+    #[cfg(feature = "serde")]
+    #[derive(Clone, Copy)]
+    enum Wire {
+        /// A string.
+        Text(&'static str),
+        /// A count.
+        Count(usize),
+        /// An empty sequence.
+        Empty,
+    }
+
+    /// A serialised record's fields handed to a deserialiser by name, in the order
+    /// given, as a self-describing format such as JSON hands them over. Fields can be
+    /// left out or renamed, which the sequence form of [`Fields`] cannot do.
+    #[cfg(feature = "serde")]
+    struct Named {
+        fields: &'static [(&'static str, Wire)],
+        at: usize,
+    }
+
+    #[cfg(feature = "serde")]
+    impl<'de> serde::de::MapAccess<'de> for Named {
+        type Error = serde::de::value::Error;
+
+        fn next_key_seed<K: serde::de::DeserializeSeed<'de>>(
+            &mut self,
+            seed: K,
+        ) -> Result<Option<K::Value>, Self::Error> {
+            use serde::de::IntoDeserializer;
+
+            let Some((name, _)) = self.fields.get(self.at) else {
+                return Ok(None);
+            };
+            seed.deserialize(name.into_deserializer()).map(Some)
+        }
+
+        fn next_value_seed<V: serde::de::DeserializeSeed<'de>>(
+            &mut self,
+            seed: V,
+        ) -> Result<V::Value, Self::Error> {
+            use serde::de::IntoDeserializer;
+            use serde::de::value::SeqDeserializer;
+
+            let (_, value) = self.fields[self.at];
+            self.at += 1;
+            match value {
+                Wire::Text(text) => seed.deserialize(text.into_deserializer()),
+                Wire::Count(count) => seed.deserialize(count.into_deserializer()),
+                Wire::Empty => seed.deserialize(SeqDeserializer::new(core::iter::empty::<u8>())),
+            }
+        }
+    }
+
+    /// What `fields` deserialises to as `T`, handed over by name.
+    #[cfg(feature = "serde")]
+    fn by_name<T: serde::de::DeserializeOwned>(
+        fields: &'static [(&'static str, Wire)],
+    ) -> Result<T, serde::de::value::Error> {
+        use serde::de::value::MapAccessDeserializer;
+
+        T::deserialize(MapAccessDeserializer::new(Named { fields, at: 0 }))
+    }
+
+    /// A record's four fields after its version: no givens, no moves, none undone, no
+    /// checks.
+    #[cfg(feature = "serde")]
+    const AFTER_THE_VERSION: [(&str, Wire); 4] = [
+        ("givens", Wire::Empty),
+        ("moves", Wire::Empty),
+        ("undone", Wire::Count(0)),
+        ("checks", Wire::Empty),
+    ];
+
+    /// A record of a version this engine did not write: its other fields renamed and
+    /// one dropped, as a later shape might have them.
+    #[cfg(feature = "serde")]
+    const A_LATER_SHAPE: [(&str, Wire); 3] = [
+        ("version", Wire::Text("record-9")),
+        ("starting_givens", Wire::Empty),
+        ("moves", Wire::Count(3)),
+    ];
+
+    /// A record serialised before the version existed: no version field. In a format
+    /// that names its fields it deserialises, and is refused naming no version, before
+    /// its givens, which open no board, are read.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn a_record_with_no_version_field_deserialises_and_is_refused() {
+        let arrived: Record = by_name(&AFTER_THE_VERSION).unwrap();
+        assert_eq!(arrived.version, "");
+        assert_eq!(refusal(&arrived), of_version(None));
+    }
+
+    /// A record naming another version deserialises and is refused naming it; the
+    /// same fields naming this engine's version get as far as the givens.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn a_serialised_record_of_another_version_is_refused_naming_it() {
+        const OTHER: [(&str, Wire); 5] = [
+            ("version", Wire::Text("record-0")),
+            AFTER_THE_VERSION[0],
+            AFTER_THE_VERSION[1],
+            AFTER_THE_VERSION[2],
+            AFTER_THE_VERSION[3],
+        ];
+        const THIS: [(&str, Wire); 5] = [
+            ("version", Wire::Text(RECORD_VERSION)),
+            OTHER[1],
+            OTHER[2],
+            OTHER[3],
+            OTHER[4],
+        ];
+        let arrived: Record = by_name(&OTHER).unwrap();
+        assert_eq!(refusal(&arrived), of_version(Some("record-0")));
+        let arrived: Record = by_name(&THIS).unwrap();
+        let source = SolveError::ManySolutions;
+        assert_eq!(refusal(&arrived), ReopenError::Givens { source });
+    }
+
+    /// The version-only reading takes what a record names and nothing else: a later
+    /// shape whose other fields a record cannot be read from, a record that names no
+    /// version, and a record of this engine's version, which it does not refuse. Its
+    /// refusal is the one reopening gives.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn the_version_alone_is_read_from_any_shape() {
+        use super::RecordVersion;
+
+        assert!(by_name::<Record>(&A_LATER_SHAPE).is_err());
+        let later: RecordVersion = by_name(&A_LATER_SHAPE).unwrap();
+        assert_eq!(later.named(), Some("record-9"));
+        assert_eq!(later.readable(), Err(of_version(Some("record-9"))));
+
+        let none: RecordVersion = by_name(&AFTER_THE_VERSION).unwrap();
+        assert_eq!(none.named(), None);
+        let unversioned: Record = by_name(&AFTER_THE_VERSION).unwrap();
+        assert_eq!(none.readable(), Err(refusal(&unversioned)));
+
+        let this: RecordVersion = by_name(&[("version", Wire::Text(RECORD_VERSION))]).unwrap();
+        assert_eq!(this.named(), Some(RECORD_VERSION));
+        assert_eq!(this.readable(), Ok(()));
     }
 }

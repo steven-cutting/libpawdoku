@@ -240,7 +240,7 @@ record is a plain value the caller is handed and keeps wherever it likes. The en
 no storage effect, no format and no format crate; under the `serde` feature a `Record`
 serialises through whatever format a consumer brings.
 
-**A record is minimal.** It holds the givens; the moves in the order made, each with
+**A record is minimal.** Beside its format version, it holds the givens; the moves in the order made, each with
 its kind, its target and its digit; how many of them are undone; and each check's count
 of moves, target and digit. It holds nothing that can be worked out from those: no
 cell's digit, no note, nothing a move displaced or upkeep struck, no check's answer.
@@ -260,8 +260,8 @@ first time, which is what makes the reopened board exact
 **Deserialising checks nothing; reopening checks everything.** A record's fields are
 private, but a deserialised record is whatever its source held, so `Board::reopen` is
 where a record is judged. It returns a `Result` and never panics. A record that does
-not read back is refused with a `ReopenError` that says why, in a fixed order: more
-moves undone than moves, or checks and no move; givens the solver refuses; a move the
+not read back is refused with a `ReopenError` that says why, in a fixed order: a format
+version other than this engine's, or none; more moves undone than moves, or checks and no move; givens the solver refuses; a move the
 board refuses, or one that follows the move that solved the puzzle; moves undone on a
 solved puzzle; and a check no board answers. The two counts are asked before the search, so a
 record that fails them costs no search.
@@ -274,8 +274,17 @@ a move, and its digit is not the right one for a puzzle with a single cell to pl
 which would have solved the puzzle before anything could be asked. Its digit is not
 compared with any move, and its count of moves may exceed
 the moves the record holds. Its answer is never stored, so a record cannot lie about
-it. `Record`'s documentation says the same, and that no promise is made yet that a
-record written by one version of the engine reopens in another.
+it. `Record`'s documentation says the same.
+
+**A record names its format version.** Every record names `RECORD_VERSION`,
+`"record-1"`, the board's `config.record_version`, and under the `serde` feature that is
+its first field, `version`. The name is raised whenever what a record holds changes, or
+what reopening reads from it. `Board::reopen` refuses a record that names another
+version, or none, before it reads anything else, and the refusal names both versions;
+no promise is made that a later engine reads a record of an earlier one. A binding reads
+a record's version alone first, through `RecordVersion`, so that a record of a later
+shape is refused with that text and not with its format's error
+([decision 0022](../decisions/0022-a-record-names-its-version.md)).
 
 ## The generator
 

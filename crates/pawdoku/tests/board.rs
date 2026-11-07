@@ -13,6 +13,8 @@
 #[cfg(test)]
 mod tests {
     use pawdoku::board::{Board, BoardCell, Check, Move, MoveKind, PlayError};
+    #[cfg(feature = "serde")]
+    use pawdoku::board::{RECORD_VERSION, Record, ReopenError};
     use pawdoku::solver::solve;
     use pawdoku::sudoku::{Given, Position, Status};
     use proptest::prelude::*;
@@ -527,6 +529,84 @@ mod tests {
             assert_eq!(Board::reopen(&record).unwrap().write(), record);
             assert_eq!(record.clone(), record);
         }
+    }
+
+    /// A record as a caller's format hands it to serde by name: the version, when
+    /// there is one, then no givens, no moves, one move undone and no checks, so it
+    /// fails in two ways besides. The record's fields are private, so deserialising is
+    /// the one way a caller has to make a record no board wrote.
+    #[cfg(feature = "serde")]
+    struct Arriving {
+        version: Option<&'static str>,
+        at: usize,
+    }
+
+    #[cfg(feature = "serde")]
+    impl Arriving {
+        /// The fields handed over, by name.
+        const NAMES: [&'static str; 5] = ["version", "givens", "moves", "undone", "checks"];
+
+        /// The record that arrives naming `version`, or with no version field.
+        fn record(version: Option<&'static str>) -> Record {
+            use serde::Deserialize;
+            use serde::de::value::MapAccessDeserializer;
+
+            let at = usize::from(version.is_none());
+            Record::deserialize(MapAccessDeserializer::new(Self { version, at })).unwrap()
+        }
+    }
+
+    #[cfg(feature = "serde")]
+    impl<'de> serde::de::MapAccess<'de> for Arriving {
+        type Error = serde::de::value::Error;
+
+        fn next_key_seed<K: serde::de::DeserializeSeed<'de>>(
+            &mut self,
+            seed: K,
+        ) -> Result<Option<K::Value>, Self::Error> {
+            use serde::de::IntoDeserializer;
+
+            let name = Self::NAMES.get(self.at).copied();
+            name.map(|name| seed.deserialize(name.into_deserializer()))
+                .transpose()
+        }
+
+        fn next_value_seed<V: serde::de::DeserializeSeed<'de>>(
+            &mut self,
+            seed: V,
+        ) -> Result<V::Value, Self::Error> {
+            use serde::de::IntoDeserializer;
+            use serde::de::value::SeqDeserializer;
+
+            self.at += 1;
+            match Self::NAMES[self.at - 1] {
+                "version" => seed.deserialize(self.version.unwrap_or_default().into_deserializer()),
+                "undone" => seed.deserialize(1_usize.into_deserializer()),
+                _ => seed.deserialize(SeqDeserializer::new(core::iter::empty::<u8>())),
+            }
+        }
+    }
+
+    /// `ARecordNamesItsVersion` through the public API: a record of another version,
+    /// or of none, is refused naming both versions, before its undone count or its
+    /// givens; the same record naming this engine's version is refused for its count.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn a_record_of_another_version_is_refused_first() {
+        let of_version = |named: Option<&str>| ReopenError::Version {
+            named: named.map(String::from),
+            reads: RECORD_VERSION,
+        };
+        let refused = |version| Board::reopen(&Arriving::record(version)).unwrap_err();
+        assert_eq!(refused(Some("record-0")), of_version(Some("record-0")));
+        assert_eq!(refused(None), of_version(None));
+        assert_eq!(
+            refused(Some(RECORD_VERSION)),
+            ReopenError::TooManyUndone {
+                undone: 1,
+                moves: 0
+            }
+        );
     }
 
     // The property ---------------------------------------------------------------

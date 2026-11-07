@@ -87,6 +87,19 @@ fn the_boundary_is_a_trait_object() {
     assert_dyn_compatible(&mut stream);
 }
 
+/// The version-only reading of a record meets the same bounds, and deserialises: it
+/// only reads, so it does not serialise.
+#[cfg(feature = "serde")]
+#[test]
+fn the_version_reading_is_send_sync_clone_and_debug() {
+    use pawdoku::board::RecordVersion;
+
+    fn assert_deserialise<T: serde::de::DeserializeOwned>() {}
+    assert_send_sync::<RecordVersion>();
+    assert_clone_debug::<RecordVersion>();
+    assert_deserialise::<RecordVersion>();
+}
+
 #[cfg(feature = "serde")]
 #[test]
 fn streams_and_value_types_serialise_under_the_serde_feature() {

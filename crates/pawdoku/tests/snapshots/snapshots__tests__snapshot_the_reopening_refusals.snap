@@ -3,6 +3,8 @@ source: crates/pawdoku/tests/snapshots.rs
 expression: picture
 ---
 ReopenError (Display)
+a record of another format version: the record is of format version "record-0", and this engine reads "record-1"
+a record that names no format version: the record names no format version, and this engine reads "record-1"
 more moves undone than moves: the record's undone count, 3, exceeds its move count, 2
 checks and no move: the record holds no move, and its check count is 2
 givens the solver refuses: the record's givens open no board: the givens have more than one solution
