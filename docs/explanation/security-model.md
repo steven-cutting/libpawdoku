@@ -78,16 +78,19 @@ used where unpredictability matters.
   auth step alone. So the ruleset and the reviewer are what stop a malicious tag; the
   guards, which refuse a tag off `main` or one that disagrees with the manifest, stop a
   mistaken one before the token is minted
-  ([decision 0019](../decisions/0019-releases.md)). `release-npm.yml` is the third. Its
-  one job, `publish`, holds `packages: write` and no `id-token`, runs in the same
-  `release` environment and runs the same guards before it builds. The run's own
-  `GITHUB_TOKEN` reaches npm only on the two steps that need it, the existence check and
-  the publish, as an environment variable that `pkg/.npmrc` names and never holds; but
-  `packages: write` is granted to the whole job, so, as with `release.yml`, the ruleset
-  and the reviewer are what stop a malicious tag. Both exist only once configured: a
-  workflow that names a missing environment gets one GitHub creates without protection
-  rules, and `release-npm.yml` needs no trusted publisher, so until they are configured
-  a tag publishes unapproved
+  ([decision 0019](../decisions/0019-releases.md)). `release-npm.yml` is the third, in
+  three jobs. `preflight` reads the `release` environment and the tag rulesets and
+  fails closed unless the environment has a required reviewer and an active tag ruleset
+  restricts creating, updating and deleting `pawdoku-wasm-v*` tags; it names no
+  environment, because a workflow that names a missing one gets one GitHub creates
+  without protection rules. `build` runs the setup action, the same guards and the build
+  with a read-only token. `publish` alone holds `packages: write` and no `id-token`, in
+  the `release` environment, and runs none of the repository's code: no checkout, no
+  setup action, no `just`, only npm on the package `build` uploaded, with the run's own
+  `GITHUB_TOKEN` on the two steps that need it, as an environment variable that
+  `pkg/.npmrc` names and never holds. The preflight stops a skipped or drifted setting,
+  not a malicious tag, since a tagged commit can rewrite the workflow; the ruleset and
+  the reviewer are what stop that
   ([decision 0020](../decisions/0020-webassembly-package.md)).
 - **Credential leakage.** `ripsecrets` scans every commit, and its output is suppressed so
   a match never copies the matched value into a log.

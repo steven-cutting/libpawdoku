@@ -99,10 +99,12 @@ independent per crate and tagged `<crate>-v<version>`.
 cargo-release table rewrites the crate's own `crates/pawdoku-wasm/CHANGELOG.md`, which
 the npm package ships, and leaves the root `CHANGELOG.md` alone. The crate is off
 crates.io, so step 3 has no first-version publish and no trusted publisher. In step 4,
-`release-npm.yml` waits for the same `release` environment's reviewer and runs the same
-guards; it then runs `just wasm-build`, points the scope at GitHub Packages in
-`pkg/.npmrc`, and runs `npm publish` with the run's own `GITHUB_TOKEN` unless the
-version is already there. Step 5 is to read the package's page under the repository's
+`release-npm.yml` first checks that the `release` environment has a required reviewer
+and that an active tag ruleset restricts `pawdoku-wasm-v*` tags, and stops if either is
+missing; it runs the same guards and `just wasm-build` with a read-only token; then,
+after the same `release` environment's reviewer approves, a job that runs none of the
+repository's code points the scope at GitHub Packages in `pkg/.npmrc` and runs
+`npm publish` with the run's own `GITHUB_TOKEN` unless the version is already there. Step 5 is to read the package's page under the repository's
 Packages.
 
 **No `pawdoku-wasm-v*` tag is pushed until the `release` environment and the tag
@@ -111,8 +113,9 @@ lists a `required_reviewers` rule, and `gh api repos/steven-cutting/libpawdoku/r
 lists the tag ruleset. A workflow that
 names a missing environment does not wait: GitHub creates the environment with no
 protection rules and runs the job. `release.yml` would still stop, for want of a
-trusted publisher, but `release-npm.yml` needs nothing beyond its own `GITHUB_TOKEN`,
-so in that state a tag publishes with no reviewer's approval.
+trusted publisher, and `release-npm.yml`'s preflight refuses such a tag, but a refused
+tag is still a pushed tag, and the preflight is in a file the tagged commit could
+change.
 
 The package is **public**, made so after its first publish, and the game's repository
 is granted the Read role under the package's "Manage Actions access", so the game's CI

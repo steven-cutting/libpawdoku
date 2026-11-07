@@ -85,10 +85,17 @@ to decision 0009's doctest on every public item, for this crate alone.
 The binding is glue: its module boundaries are not the core's layering, and a measured
 crate would need rules of its own.
 
-**`release-npm.yml` publishes on a `pawdoku-wasm-v*` tag**, in the `release` environment
-after decision 0019's guards, with the run's own `GITHUB_TOKEN` and `packages: write`,
-and npm from the pinned Node rather than `actions/setup-node`. An existence check lets
-the publish run only on npm's `E404`, so a re-run skips a version already there.
+**`release-npm.yml` publishes on a `pawdoku-wasm-v*` tag**, in three jobs. A
+preflight, which names no environment, fails closed unless the `release` environment
+has a required reviewer and an active tag ruleset restricts the tags. A build job runs
+the setup action, decision 0019's guards and `just wasm-build` with a read-only token
+and uploads the package. The publish job alone holds `packages: write`, in the
+`release` environment, and runs no checkout, no setup action and no `just`: npm on the
+uploaded package, with the run's own `GITHUB_TOKEN`. That npm is the runner image's,
+not the pinned Node, because reaching the pinned Node means running the setup action
+with the write token, and not `actions/setup-node`, which would be a second copy of the
+Node pin. An existence check lets the publish run only on npm's `E404`, so a re-run
+skips a version already there.
 
 Turned down:
 
@@ -116,10 +123,15 @@ The ones that hurt.
   is what holds them true, and a wrong example is a review finding, not a red gate.
 - **A release build in the `wasm` job.** Fat LTO makes the job longer, so its timeout
   is twenty minutes.
-- **The approval fails open until the environment exists.** GitHub creates a missing
-  environment, with no protection rules, for any workflow that names it, and nothing
-  else stands between a tag and the run's own token. So the `release` environment and
-  the tag ruleset are a prerequisite of the first tag, read back before it is pushed.
+- **The approval would fail open without the preflight.** GitHub creates a missing
+  environment, with no protection rules, for any workflow that names it. The preflight
+  refuses a tag until the environment and the tag ruleset are in place, but it lives in
+  a file a tagged commit can change, so it stops a skipped or drifted setting, not a
+  malicious tag; the two are still a prerequisite of the first tag, read back before it
+  is pushed.
+- **npm in the publish job is unpinned.** It is whatever the runner image ships, so a
+  change in npm's error text could turn the existence check's `E404` into a refusal;
+  the job then fails rather than publishes.
 - **A token to read the package.** GitHub Packages asks for one to install even a
   public package, so the game's CI needs the repository granted read access.
 

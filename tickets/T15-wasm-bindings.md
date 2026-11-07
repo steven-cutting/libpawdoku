@@ -640,6 +640,14 @@ notes, closed with `All checks passed and the worktree is unchanged.`, exit 0.
   ticket: `docs/decisions/0009-rust-quality-gate.md` counts the gates (twenty and
   twenty-one, as T29 did for gate 19), and `docs/reference/api.md` said every public
   item's example runs, which the WebAssembly crate's do not.
+- **`release-npm.yml` is three jobs, and its npm is the runner image's** (R2 round 2),
+  not the pixi environment's as step 8 and "Two departures" planned. `preflight` fails
+  closed unless the `release` environment and the tag ruleset are in place; `build`
+  runs the setup action, the guards and `wasm-build` read-only and uploads `pkg/`;
+  `publish` alone holds `packages: write` and runs no checkout, no setup action and no
+  `just`. Reaching the pinned Node would mean running the setup action, whose install
+  step hands cargo-binstall `github.token`, with the write scope; `actions/setup-node`
+  would be a second Node pin. Decision 0020 records the unpinned npm as a consequence.
 - **`release-npm.yml` writes the `npm view` error to `$RUNNER_TEMP`**, not to `pkg/`,
   so nothing of the check can be packed, and publishes with `--ignore-scripts`.
 - **`wasm-build` depends on `lock-check`**, after the guard, and step 10's second
@@ -667,18 +675,24 @@ notes, closed with `All checks passed and the worktree is unchanged.`, exit 0.
 - **A prerequisite of step 11, from R2:** the `release` environment with its required
   reviewer, and the tag ruleset, configured (T13's step 6) and read back with the two
   `gh api` reads `docs/operations/maintenance.md` names, before any `pawdoku-wasm-v*`
-  tag is pushed. Until then a tag publishes with no approval (Adversarial review).
+  tag is pushed. Until then `release-npm.yml`'s preflight refuses the tag (R2 round 2);
+  its read of the environment with a token holding `actions: read` and `contents: read`
+  is unproved until a tag run, and a refusal there fails closed.
 - **For a T13 follow-up, outside this ticket's Files touched:**
   `docs/decisions/0019-releases.md`, lines 103 to 105, says that until the environment
   and the ruleset exist "`release.yml` waits on an environment nobody has made". GitHub
   creates the environment unprotected instead; `release.yml` stops only because no
   trusted publisher is configured. T13's own notes reach the right conclusion for
   crates.io on the same premise. The sentence wants correcting.
-- **An option for the maintainer, not taken:** a first step in `release-npm.yml` that
-  reads the environment's `protection_rules` and stops without `required_reviewers`.
-  Steps before it still run with the job's `packages: write`, so it would not close the
-  boundary R2 names, and it cannot be proved locally; the prerequisite is stated in the
-  pages instead.
+- **The release workflow's three jobs are unproved in CI.** Locally, `just lint`
+  (actionlint among its hooks) passed on the workflow, and the preflight's script, taken
+  from the file, ran against a stub `gh` with seven fixtures: a missing environment, one
+  with no protection rules, a reviewer with no ruleset, a ruleset in `evaluate`, one
+  covering `pawdoku-v*` alone, one restricting creation and update but not deletion,
+  each exit 1 with its refusal; and the environment and ruleset T13's step 6 describes,
+  exit 0. Against the live repository on 2026-11-07 it refused: "the release
+  environment cannot be read". The artefact hand-off and the publish job's npm are
+  proved only by step 11.
 - **For T42**, which edits this crate next: `wasm-build` is `wasm-guard` then
   `lock-check` then wasm-pack, and `wasm-test` is the guard then `cargo test --locked`,
   which needs no `lock-check` because no wasm-pack runs before it. Doc comments on an
