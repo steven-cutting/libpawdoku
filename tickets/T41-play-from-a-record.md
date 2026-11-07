@@ -505,6 +505,9 @@ Nothing was pushed.
   so that test is under `serde`; outside the crate there is no other way to make one.
 - **More snapshots than step 8 lists**, as S12's amendment asks: the seven operations,
   a search of each verdict and a generation result from a stream.
+- **`GenerationRefused`'s `error` field is its `source`.** The final code review found
+  that `source()` returned `None`, cutting the chain every other wrapping error in the
+  crate keeps; the field now carries `#[source]`, and the `Display` text is unchanged.
 
 ### Names T42 and T17 need
 

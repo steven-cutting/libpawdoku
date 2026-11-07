@@ -518,7 +518,8 @@ impl GenerationResult {
 ///
 /// Its `Display` text is the [`GenerateError`]'s, unchanged. The tier and the count
 /// are read through [`tier`](Self::tier) and [`draws_taken`](Self::draws_taken), so no
-/// binding has to match the enum to read them.
+/// binding has to match the enum to read them. The [`GenerateError`] is also its
+/// [`source`](core::error::Error::source), so a caller walking the error chain reaches it.
 ///
 /// ```
 /// use pawdoku::generation::{Tier, generate_from_stream};
@@ -529,6 +530,7 @@ impl GenerationResult {
 /// let refused = generate_from_stream(Tier::Two, &mut stream).unwrap_err();
 /// assert_eq!((refused.tier(), refused.draws_taken()), (Tier::Two, 5));
 /// assert_eq!(refused.to_string(), "the replay stream is exhausted at draw 5");
+/// assert!(std::error::Error::source(&refused).is_some());
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -542,7 +544,9 @@ pub enum GenerationRefused {
         /// How many draws were taken before the refusal, counted as
         /// [`GenerationResult::draws_taken`] counts them.
         draws_taken: u64,
-        /// What [`generate`] refused with.
+        /// What [`generate`] refused with, which is also its
+        /// [`source`](core::error::Error::source).
+        #[source]
         error: GenerateError,
     },
 }
@@ -867,6 +871,15 @@ mod tests {
             let GenerationRefused::Refused { error, .. } = refused;
             assert_eq!(error, spent);
         }
+    }
+
+    #[test]
+    fn the_refusal_is_the_source_of_a_failed_generation() {
+        let refused = generate_from_stream(Tier::Two, &mut replaying(vec![0.0; 5])).unwrap_err();
+        let source =
+            core::error::Error::source(&refused).and_then(|e| e.downcast_ref::<GenerateError>());
+        let expected = GenerateError::Stream(RandomError::Exhausted { index: 5 });
+        assert_eq!(source, Some(&expected));
     }
 
     #[test]
