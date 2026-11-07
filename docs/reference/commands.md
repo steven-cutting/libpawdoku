@@ -19,7 +19,7 @@ checkout), and is the one command a fresh clone needs the network for. Nothing i
 `just check` reaches it once `just sync` has fetched the registry index: `lock-check` and
 `deny` then answer from that cache, and `lint` finds every hook environment already
 prepared, because `install-hooks` prepared it. On a cold Cargo cache, `lock-check` fails
-rather than fetching the index. `build`, `test`, `site`,
+rather than fetching the index. `build`, `test`, `site`, `wasm-build`,
 `audit`, `semver` and `check-links-online` are outside `just check`, and so is every recipe that
 writes.
 
@@ -65,8 +65,11 @@ writes.
 | `just clippy` | Clippy over every crate target (the library, its tests, and any examples or benches) with every feature, for the host platform, with warnings as errors. The wasm targets are compiled by `wasm-check`, not linted. Gate 6. |
 | `just metrics` | rustqual against `rustqual.toml`: complexity, cohesion and coupling thresholds and the module boundaries of [Layering](../explanation/layering.md), with warnings as failures; then the probe, which requires the fixture under `tests/fixtures/metrics-violation/` to break every boundary rule. Gate 7. |
 | `just features` | Every feature combination compiles, through cargo-hack's powerset. Gate 8. |
-| `just wasm-check` | The core compiles for `wasm32-unknown-unknown` and for `wasm32v1-none`, which has no standard library, under every feature combination. Gate 9. |
-| `just coverage` | Every nextest test under instrumentation with `INSTA_UPDATE=no`, with the floor of 90 per cent of lines enforced; a snapshot mismatch fails without writing pending files. Writes `target/llvm-cov/lcov.info`. Gate 11. |
+| `just wasm-check` | The core compiles for `wasm32-unknown-unknown` and for `wasm32v1-none`, which has no standard library, under every feature combination; `pawdoku-wasm` compiles for `wasm32-unknown-unknown`. Gate 9. |
+| `just wasm-guard` | Stops, naming both versions, unless `wasm-bindgen --version` is the version `Cargo.lock` resolves for the `wasm-bindgen` crate. Read offline. The first step of `wasm-build` and `wasm-test`, which depend on it. |
+| `just wasm-build` | The npm package `@steven-cutting/pawdoku-wasm` into `crates/pawdoku-wasm/pkg/`, which Git ignores: the guard, `wasm-pack build` in `--mode no-install` for the web target with `-- --locked`, then `scripts/wasm_pkg.py`, which adds the specification modules under `specs/`, the crate's changelog and the `exports` map. A release build with fat LTO. Outside `just check`; CI's `wasm` job and `release-npm.yml` run it. wasm-pack asks crates.io for its own latest version as it runs, and only warns when it cannot. |
+| `just wasm-test` | The guard, then `crates/pawdoku-wasm/tests/web.rs` compiled for `wasm32-unknown-unknown` and run in Node by `wasm-bindgen-test-runner`. Gate 20. |
+| `just coverage` | Every nextest test of `pawdoku` under instrumentation with `INSTA_UPDATE=no`, with the floor of 90 per cent of lines enforced; a snapshot mismatch fails without writing pending files. Writes `target/llvm-cov/lcov.info`. Gate 11. |
 | `just doc` | rustdoc over the workspace with warnings as errors and `--cfg docsrs`. Gate 12. |
 | `just site` | What GitHub Pages serves: empties `target/doc`, runs `just doc`, and writes a root `index.html` that sends a reader to the crate's page. Writes only under `target/`. Outside `just check`; the Pages workflow runs it on every push to `main`. |
 | `just deny` | cargo-deny's licence, ban and source checks over every dependency that ships, offline once `just sync` has run. Gate 13. |
@@ -95,8 +98,8 @@ has not run `just initialize` must run `just install-allium` first.
 
 | Recipe | Purpose |
 | --- | --- |
-| `just check` | All twenty gates in order, proving the worktree is unchanged between each. |
-| `just check-clean` | Assert the worktree is clean, or matches a supplied baseline. Gate 20. |
+| `just check` | All twenty-one gates in order, proving the worktree is unchanged between each. |
+| `just check-clean` | Assert the worktree is clean, or matches a supplied baseline. Gate 21. |
 
 ## Related pages
 

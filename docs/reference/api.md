@@ -34,7 +34,9 @@ outright, and a missing crate-level doc and unescaped backticks, which warn.
 
 Every public item with a contract worth stating carries an example — today every type,
 trait, method and constant does — and `just test-doc` (gate 10) compiles and runs each
-one, so an example that stops being true stops the gate. Examples are not counted toward
+one, so an example that stops being true stops the gate. The WebAssembly crate is the
+one exception: its examples are JavaScript, which rustdoc shows and does not run, and
+`tests/web.rs` proves them ([Testing](testing.md#layout)). Examples are not counted toward
 the coverage floor, because the coverage tooling cannot measure doctests on a stable
 toolchain. The division of labour follows: an example shows the contract to a reader and
 proves it, and a unit test earns the coverage. See [Testing](testing.md).

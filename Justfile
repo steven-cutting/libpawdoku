@@ -196,18 +196,55 @@ features:
     cargo hack check --workspace --feature-powerset --locked
 
 # The wasm-bindgen target, and a target with no std at all, which is what proves
-# the core is no_std rather than merely happening to compile.
+# the core is no_std rather than merely happening to compile. pawdoku-wasm is
+# checked on the wasm-bindgen target only: wasm-bindgen needs std, so the second
+# target stays the core's proof alone.
 wasm-check:
     cargo hack check -p pawdoku --feature-powerset --target wasm32-unknown-unknown --locked
     cargo hack check -p pawdoku --feature-powerset --target wasm32v1-none --locked
+    cargo hack check -p pawdoku-wasm --feature-powerset --target wasm32-unknown-unknown --locked
 
-# Runs every nextest test under instrumentation and enforces the floor. Doctests
-# are not measured (nightly-only in llvm-cov); test-doc runs them uncovered.
+# wasm-build's and wasm-test's first step, a recipe both depend on because a
+# shell function cannot outlive the recipe that defines it. The wasm-bindgen
+# CLI must be the version Cargo.lock resolves for the wasm-bindgen crate, or
+# the glue it writes disagrees with the code the macro expanded; pyproject.toml
+# pins the CLI, and this stops on a mismatch, naming both, before anything
+# builds. cargo pkgid reads the lockfile offline and never rewrites it.
+wasm-guard:
+    #!/bin/sh
+    set -eu
+    lock=$(cargo pkgid --locked --offline -p wasm-bindgen | sed 's/.*@//')
+    cli=$(wasm-bindgen --version 2>/dev/null | sed -n 's/^wasm-bindgen //p')
+    if [ "$cli" != "$lock" ]; then
+        printf 'wasm-guard: wasm-bindgen %s on PATH, Cargo.lock resolves wasm-bindgen %s; pin wasm-bindgen-cli to it in pyproject.toml\n' "${cli:-missing}" "$lock" >&2
+        exit 1
+    fi
+
+# @steven-cutting/pawdoku-wasm into crates/pawdoku-wasm/pkg/, which Git ignores.
+# Not a gate and outside `just check`: a release build with fat LTO, run by CI's
+# wasm job and by release-npm.yml. --mode no-install forbids wasm-pack to fetch
+# a wasm-bindgen of its own, so it uses the guarded one on PATH (decision 0020);
+# `-- --locked` reaches cargo. Then the specification modules and the crate's
+# changelog go into the package, and package.json gains files and exports.
+wasm-build: wasm-guard
+    wasm-pack build crates/pawdoku-wasm --mode no-install --target web --scope steven-cutting --release -- --locked
+    python -I scripts/wasm_pkg.py
+
+# Gate 20: crates/pawdoku-wasm/tests/web.rs, compiled for the wasm-bindgen target
+# and run in Node by wasm-bindgen-test-runner, which cargo calls as the target's
+# runner. Node and the runner are the pixi environment's.
+wasm-test: wasm-guard
+    CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER=wasm-bindgen-test-runner cargo test -p pawdoku-wasm --target wasm32-unknown-unknown --locked
+
+# Runs pawdoku's nextest tests under instrumentation and enforces the floor,
+# which is over crates/pawdoku/src/** alone; the WebAssembly crate is glue, proved
+# by wasm-test. Doctests are not measured (nightly-only in llvm-cov); test-doc
+# runs them uncovered.
 # llvm-cov does not create the lcov file's directory, so the recipe does.
 # INSTA_UPDATE=no fails a mismatch without a pending file that would trip the
 # gate's worktree check.
 coverage:
-    INSTA_UPDATE=no cargo llvm-cov nextest --workspace --all-features --locked --no-report
+    INSTA_UPDATE=no cargo llvm-cov nextest -p pawdoku --all-features --locked --no-report
     cargo llvm-cov report --fail-under-lines {{coverage_floor}}
     mkdir -p target/llvm-cov
     cargo llvm-cov report --lcov --output-path target/llvm-cov/lcov.info

@@ -9,11 +9,14 @@ requires: []
 # Maintenance
 
 There is no service to operate. The library runs inside whoever calls it, nothing
-accumulates between releases, and there is no on-call. Two workflows publish. `pages.yml`
-deploys the API reference on every push to `main`; see
+accumulates between releases, and there is no on-call. Three workflows publish.
+`pages.yml` deploys the API reference on every push to `main`; see
 [Deploy to GitHub Pages](../how-to/deploy-to-github-pages.md). `release.yml` publishes
 `pawdoku` to crates.io on a `pawdoku-v*` tag; see [Cut a release](#cut-a-release) below
-and [decision 0019](../decisions/0019-releases.md). What follows is upkeep of the pins
+and [decision 0019](../decisions/0019-releases.md). `release-npm.yml` publishes
+`@steven-cutting/pawdoku-wasm` to GitHub Packages on a `pawdoku-wasm-v*` tag; see
+[A WebAssembly release](#a-webassembly-release) and
+[decision 0020](../decisions/0020-webassembly-package.md). What follows is upkeep of the pins
 that build and check it, and the release procedure.
 
 ## Routine
@@ -32,6 +35,11 @@ committed. A line in `tools.txt` or `tools-source.txt` moves by hand and takes e
 the next `just install-tools`; a `tools-source.txt` line moves one release at a time,
 with `just check` run on each, because rustqual is a gate. A hook `rev` or a GitHub
 Action SHA moves by hand, with its version comment moved beside it.
+
+**`wasm-bindgen` moves with its CLI.** The `wasm-bindgen` crate in `Cargo.lock` and
+`wasm-bindgen-cli` in `pyproject.toml` move together, in one commit: `just wasm-guard`,
+the first step of `wasm-build` and of gate 20, fails until the CLI's version is the one
+the lockfile resolves. `wasm-bindgen-test` is released with them and moves with them.
 
 **Monthly.** Run `just check-links-online`. It is not part of the gate because it needs
 the network, so external links rot silently until someone looks.
@@ -84,6 +92,24 @@ independent per crate and tagged `<crate>-v<version>`.
 5. **Watch.** docs.rs builds the version for the targets in
    `[package.metadata.docs.rs]`; check that the build is green.
 
+### A WebAssembly release
+
+`pawdoku-wasm` is released the same way, with `-p pawdoku-wasm`, on a
+`release/pawdoku-wasm-v<version>` branch, and a tag `pawdoku-wasm-v<version>`. Its
+cargo-release table rewrites the crate's own `crates/pawdoku-wasm/CHANGELOG.md`, which
+the npm package ships, and leaves the root `CHANGELOG.md` alone. The crate is off
+crates.io, so step 3 has no first-version publish and no trusted publisher. In step 4,
+`release-npm.yml` waits for the same `release` environment's reviewer and runs the same
+guards; it then runs `just wasm-build`, points the scope at GitHub Packages in
+`pkg/.npmrc`, and runs `npm publish` with the run's own `GITHUB_TOKEN` unless the
+version is already there. Step 5 is to read the package's page under the repository's
+Packages.
+
+The package is **public**, made so after its first publish, and the game's repository
+is granted the Read role under the package's "Manage Actions access", so the game's CI
+can install it with its own run's token. Both are package settings on GitHub, outside
+any file; the first is changed under the package's "Danger Zone" and cannot be undone.
+
 **The 1.0 release.** Before 1.0 a breaking change is allowed with a minor bump, so CI's
 `semver` job reports an API break against the last `pawdoku-v*` tag and blocks nothing.
 The pull request that prepares 1.0 adds `semver` to the `needs` of `ci.yml`'s `check`
@@ -92,7 +118,8 @@ job, so from then on a break fails the required check.
 ## Secrets
 
 None are stored, and there is nothing to rotate. Continuous integration uses the token
-GitHub mints for each run and discards with it. `release.yml` publishes through trusted
+GitHub mints for each run and discards with it, and so does `release-npm.yml`, whose
+`packages: write` lets that token publish to GitHub Packages. `release.yml` publishes through trusted
 publishing: the run's identity token is exchanged for a crates.io token that lives thirty
 minutes at most and is revoked when the job ends. The one exception is the token the
 first version of a crate needs, because crates.io cannot name a trusted publisher for a

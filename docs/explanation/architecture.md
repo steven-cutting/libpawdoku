@@ -10,8 +10,8 @@ requires: []
 
 This library is a library and nothing else. It has no process of its own: no `main`, no
 I/O, no clock, and nothing it can do until a consumer calls it. The game consumes it
-through WebAssembly later; a command-line tool and Python bindings consume it later
-still, as sibling crates in the same workspace.
+through WebAssembly, the sibling crate `crates/pawdoku-wasm`; a command-line tool and
+Python bindings consume it later, as sibling crates in the same workspace.
 
 That constraint is not a limitation waiting for a runtime to be added — it is the
 architecture. See [Decision 0001](../decisions/0001-engine-as-a-library.md) for why the
@@ -24,8 +24,8 @@ The root `Cargo.toml` is a virtual manifest: it names the members, the package f
 every crate inherits, the dependency table every crate draws from, and the
 `[workspace.lints]` table every crate opts into. `Cargo.lock` beside it is the pin.
 
-`crates/pawdoku` is the engine and today the only member. `src/lib.rs` is the crate
-root, `src/random.rs` is the randomness boundary, `src/sudoku.rs` with the files under
+`crates/pawdoku` is the engine, and `crates/pawdoku-wasm` its first binding. In the
+engine, `src/lib.rs` is the crate root, `src/random.rs` is the randomness boundary, `src/sudoku.rs` with the files under
 `src/sudoku/` is the rules, `src/solver.rs` with the files under `src/solver/` is the
 solver, `src/board.rs` with the files under `src/board/` is the board, and `tests/`
 holds the integration tests. Behaviour arrives
@@ -33,10 +33,13 @@ as one Rust module per specification module, and a module may use only what its
 specification imports, in the direction
 [Layering and dependency direction](layering.md) describes.
 
-Three siblings join when ticket S04 opens them: `crates/pawdoku-cli`,
-`crates/pawdoku-py` (pyo3, built with maturin) and `crates/pawdoku-wasm`
-(wasm-bindgen). None exists yet. Every decision below is taken so that each stays a thin
-wrapper when it arrives.
+`crates/pawdoku-wasm` is the WebAssembly binding, built with wasm-bindgen and packed by
+wasm-pack as the npm package `@steven-cutting/pawdoku-wasm`, which also ships the
+specification modules under `specs/`
+([decision 0020](../decisions/0020-webassembly-package.md)). Today it exports the
+randomness boundary alone, as a `RandomStream` class and `randomVersion()`. Two
+siblings join later: `crates/pawdoku-cli` and `crates/pawdoku-py` (pyo3, built with
+maturin). Every decision below is taken so that each binding stays a thin wrapper.
 
 ## The core is `no_std`
 
@@ -378,7 +381,7 @@ above it; `Tier::most_givens` says which.
 
 | Consumer | Crosses | Through |
 | --- | --- | --- |
-| WebAssembly | Values and the seed | wasm-bindgen |
+| WebAssembly | Values and the seed, a `bigint`; errors as an `Error` | wasm-bindgen, in `pawdoku-wasm` |
 | Python | Values and the seed; errors as exceptions | pyo3 |
 | Command line | Values, and the one source of entropy | `pawdoku-cli` |
 

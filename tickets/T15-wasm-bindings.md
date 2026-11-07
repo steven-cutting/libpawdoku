@@ -488,7 +488,107 @@ to dry run"; the floor met; no stale sentence;
 
 ### What was verified, and how
 
+Segment 1 of this run: the stop check, then steps 1 to 9. Step 10 onwards is not yet
+done; R1 reads this checkpoint.
+
+**The stop check, step 1's last paragraph.** wasm-pack's installer was read at the tag
+`v0.15.1` (commit `b9ac5e48`) with `gh api`: `src/install/mode.rs`,
+`src/install/mod.rs`, `src/command/build.rs`, and `src/lib.rs` of `binary-install`
+0.4.1, the crate wasm-pack 0.15.1 fetches tools through. `--mode no-install` still
+forbids a download. `InstallMode::install_permitted` returns `false` for
+`InstallMode::Noinstall`. `download_prebuilt_or_cargo_install` first takes a matching
+tool on `PATH` ("If the tool is installed globally and it has the right version, use
+that"), through `which` and `check_version`. Failing that, `download_prebuilt` calls
+`Cache::download(install_permitted, ...)`, whose `_download` returns a cached copy if
+one exists and otherwise `if !install_permitted { return Ok(None); }` before
+`download_binary`; for wasm-bindgen a `None` is `bail!("wasm-bindgen v{} is not
+installed!")`. `cargo_install` returns `Status::CannotInstall` on the same flag before
+it runs `cargo install`. The compare `v0.15.0...v0.15.1` touches `src/install/mod.rs`
+only in the prebuilt URLs, binaryen's version and the `cargo install` temporary
+directory, and `src/command/build.rs` and `src/build/wasm_target.rs` only for tier-3
+targets. Proved offline once the crate existed: with a `PATH` holding wasm-pack, rustup's
+cargo and the system, no wasm-bindgen, an empty `WASM_PACK_CACHE`, and every proxy
+variable pointed at a closed port, `wasm-pack build crates/pawdoku-wasm --mode
+no-install --target web --scope steven-cutting --release -- --locked` ended "Error: Not
+able to find or install a local wasm-bindgen.", exit 1, having written only a lock file
+in the cache; with the pixi environment's wasm-bindgen 0.2.130 first on `PATH` and the
+same proxies it built the package, exit 0.
+
+**Step 1.** `.pixi/` and `.tools/bin` were present, so neither install ran. `just check`
+at the start (`c0481c2`) closed with `All checks passed and the worktree is
+unchanged.`. The frozen files are edited under the run's leave. Versions on 2026-11-07,
+from the same sources: wasm-bindgen 0.2.130 (2026-10-30, `rust_version` 1.81), js-sys
+0.3.107, wasm-bindgen-test 0.3.80, wasm-bindgen-cli 0.2.130 (`rust_version` 1.86),
+wasm-pack 0.15.1 on crates.io and npm, serde-wasm-bindgen 0.6.5 (2024-02-27),
+console_error_panic_hook 0.1.7; on conda-forge for `linux-64` and `osx-arm64`,
+wasm-bindgen-cli 0.2.130, wasm-pack 0.15.1, binaryen 121, and nodejs **26.13.0**.
+`@steven-cutting/pawdoku-wasm` is still HTTP 404 on the public npm registry.
+
+**Step 2.** `cargo update --workspace` added the two crates and their graph and moved no
+existing entry; `cargo pkgid --locked -p wasm-bindgen` ends `@0.2.130`. `cargo tree -p
+pawdoku-wasm -e normal --target wasm32-unknown-unknown` shows `pawdoku` (with
+`thiserror`) and `wasm-bindgen` 0.2.130 with `cfg-if`, `wasm-bindgen-macro`,
+`wasm-bindgen-macro-support`, `bumpalo` and `wasm-bindgen-shared`, nothing else.
+`just deny` reports `bans ok, licenses ok, sources ok`, and `just deps-unused` no issues.
+
+**Step 3.** The manifest as the step writes it, with `keywords`, `categories` and
+`readme` too, which `clippy::cargo`'s `cargo_common_metadata` asks of every crate. The
+dry run on this branch, with `--allow-branch` naming it, rewrites
+`crates/pawdoku-wasm/CHANGELOG.md` alone (`## [0.1.0] - 2026-11-07`, the compare link
+from `pawdoku-wasm-v0.1.0`, the tag link) and touches no other file; before the
+checkpoint commit it then stopped on "uncommitted changes detected", so its closing
+line is quoted from the run after the commit, below.
+
+**Step 4.** wasm-bindgen 0.2.130 refuses a constant: "#[wasm_bindgen] will not work on
+constants unless you are defining a `#[wasm_bindgen(typescript_custom_section)]`". So the
+version is `randomVersion(): string`. It also refuses a `const fn` export ("can only
+`#[wasm_bindgen]` non-const functions"), and clippy asked for one `#[expect]`, on
+`RandomStream::seeded`. The Rust type is `RandomStream`, so rustdoc and TypeScript name
+it alike, and the core's trait is imported as `CoreStream`, the alias S12's probe used.
+The generated `pawdoku_wasm.d.ts` reads `static seeded(seed: bigint): RandomStream;`,
+`static replay(draws: Float64Array | number[]): RandomStream;`, `nextDraw(): number;`,
+`readonly index: bigint;` and `export function randomVersion(): string;`.
+
+**Step 5.** Test first: `tests/web.rs` was written against the golden bits of
+`crates/pawdoku/tests/random.rs` before `src/lib.rs` held the class, and failed to
+build; then six tests passed in Node 26.13.0. A planted wrong golden bit failed
+`seed_zero_draws_the_golden_stream` ("left: Ok(4606131375998723001) right:
+Ok(4606131375998723000)"). The doctest claim was proved in a scratch commit, dropped: a
+Rust doctest on `RandomStream::replay` unwrapping `replay(vec![0.5, 1.0])` made
+`just test-doc` fail with "cannot call wasm-bindgen imported functions on non-wasm
+targets", panicking in `wasm-bindgen-0.2.130/src/lib.rs:1271`. It ran twice, because
+wasm-bindgen copies an exported method's doc comment onto the wrapper it generates, so
+every Rust doctest on an export would run twice. The exception stands.
+
+**Step 6.** `pixi lock` solved both platforms, adding nodejs 26.13.0, wasm-bindgen-cli
+0.2.130, wasm-pack 0.15.1 and Node's libraries, and moving `libsqlite` from 3.53.4 to
+3.54.1, which nodejs 26.13.0 requires (`libsqlite >=3.54.1`). Its npm is 11.20.0.
+`just wasm-build` wrote `pkg/` with `package.json`, `pawdoku_wasm.js`,
+`pawdoku_wasm_bg.wasm`, `pawdoku_wasm.d.ts`, `README.md`, `LICENSE`, `CHANGELOG.md`
+and nine modules under `specs/`; `package.json` has `files` with `specs` and
+`CHANGELOG.md`, the three `exports` keys, and `repository` as wasm-pack copied it.
+`npm pack --dry-run` lists sixteen files, `LICENSE` among them. `just wasm-test` and
+`just wasm-check` are green.
+
 ### Deviations, and why
+
+- **One branch.** This ticket ran on `implement-typescript-surface-fullsend` as the
+  run's brief set, not on `ticket/t15-wasm-bindings`, and no worktree was created.
+  Step 1's condition, T13's first pull request, is satisfied by order on this branch.
+- **`nodejs` 26.13.0**, not 26.12.1: it moved on conda-forge, as S12 found.
+- **`pawdoku` is a path dependency with a version**, `{ path = "../pawdoku", version =
+  "0.1.0" }`. `deny.toml` sets `wildcards = "deny"`, which a path dependency with no
+  version would trip; cargo-release rewrites the requirement when it releases
+  `pawdoku`.
+- **The guard is a third recipe, `wasm-guard`,** which `wasm-build` and `wasm-test`
+  depend on: a shell function cannot outlive the recipe that defines it. `wasm-test`
+  does not depend on `wasm-build`, so `just check` runs no release build.
+- **Two files beyond Files touched**, each one sentence that went stale with this
+  ticket: `docs/decisions/0009-rust-quality-gate.md` counts the gates (twenty and
+  twenty-one, as T29 did for gate 19), and `docs/reference/api.md` said every public
+  item's example runs, which the WebAssembly crate's do not.
+- **`release-npm.yml` writes the `npm view` error to `$RUNNER_TEMP`**, not to `pkg/`,
+  so nothing of the check can be packed, and publishes with `--ignore-scripts`.
 
 ### Handed back
 

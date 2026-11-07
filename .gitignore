@@ -51,3 +51,8 @@ mutants.out*/
 # see would abort the gate's worktree check; reviewed .snap files are committed.
 *.snap.new
 *.pending-snap
+
+# What `just wasm-build` writes: wasm-pack's package for
+# @steven-cutting/pawdoku-wasm, amended by scripts/wasm_pkg.py. Ignored for the
+# same reason as target/: the gate's snapshot would see it.
+crates/pawdoku-wasm/pkg/

@@ -27,7 +27,9 @@ Very little, and that is the point.
   trusted publishing, which exchanges the run's identity token for a short-lived registry
   token, so no registry token is stored here either. The first version of a crate is the
   exception: it is published with a token the maintainer holds off the repository and
-  revokes once trusted publishing is on.
+  revokes once trusted publishing is on. Publishing the WebAssembly package to GitHub
+  Packages uses the run's own `GITHUB_TOKEN`, which GitHub mints and discards with the
+  run.
 
 ## What is deliberately not secure
 
@@ -76,7 +78,14 @@ used where unpredictability matters.
   auth step alone. So the ruleset and the reviewer are what stop a malicious tag; the
   guards, which refuse a tag off `main` or one that disagrees with the manifest, stop a
   mistaken one before the token is minted
-  ([decision 0019](../decisions/0019-releases.md)).
+  ([decision 0019](../decisions/0019-releases.md)). `release-npm.yml` is the third. Its
+  one job, `publish`, holds `packages: write` and no `id-token`, runs in the same
+  `release` environment and runs the same guards before it builds. The run's own
+  `GITHUB_TOKEN` reaches npm only on the two steps that need it, the existence check and
+  the publish, as an environment variable that `pkg/.npmrc` names and never holds; but
+  `packages: write` is granted to the whole job, so, as with `release.yml`, the ruleset
+  and the reviewer are what stop a malicious tag
+  ([decision 0020](../decisions/0020-webassembly-package.md)).
 - **Credential leakage.** `ripsecrets` scans every commit, and its output is suppressed so
   a match never copies the matched value into a log.
 

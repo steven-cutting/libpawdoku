@@ -55,6 +55,21 @@ through the fake, and the tests that pin what seeds give;
 record, the wire shape and the generator, and no test that asserts. The randomness boundary's one snapshot test stays in
 `tests/random.rs`, beside the tests of the values it pictures.
 
+The WebAssembly crate, `crates/pawdoku-wasm`, is tested in one place of its own,
+`crates/pawdoku-wasm/tests/web.rs`, run in Node by `wasm-bindgen-test-runner` as gate 20,
+`just wasm-test`. The file starts `#![cfg(target_arch = "wasm32")]`, so the host build of
+the workspace compiles it to nothing, and `wasm-bindgen-test` is a dependency of the
+`wasm32` target alone. It holds the class as the engine's randomness boundary: seed zero
+gives the golden draws `tests/random.rs` pins, the index starts at zero and moves by one
+per draw, a replay gives its script and then throws `RandomError::Exhausted`'s text, a
+script value outside `[0, 1)` throws `RandomError::OutOfRange`'s, and `randomVersion()` is
+`RANDOM_VERSION`. The crate departs from the doctest on every public item: a Rust
+doctest runs on the host, where a wasm-bindgen import panics with "cannot call
+wasm-bindgen imported functions on non-wasm targets", so its examples are JavaScript in
+`js` fences, which rustdoc shows and does not run, and `tests/web.rs` is what proves them
+([decision 0020](../decisions/0020-webassembly-package.md)). Its tests are not measured
+by `coverage`, whose floor is over `crates/pawdoku/src/**`.
+
 A helper shared between two files under `tests/` would be compiled into each, and each
 would report the functions it does not call as dead code. So each file carries the few
 helpers and fixtures it uses, and the snapshot tests share one file.
@@ -420,6 +435,7 @@ explains the commands in order.
 | `tests/snapshots.rs`: six `snapshot_` tests | Show the search result for the fixture, for the puzzle that needs a guess, for the givens with two solutions and for malformed givens; the proof `solve` gives for the fixture, givens and solution; and the `Display` text of the three refusals. For review and change detection; they prove no clause. Their files are under `tests/snapshots/`. |
 | `tests/random.rs` | The same seed draws the same stream bit for bit; seed zero draws the golden stream; the fake replays its script and is then exhausted, directly and behind a trait object; every draw is in the unit interval. |
 | `tests/random.rs`: `snapshot_the_randomness_boundary` | Shows seed zero's first eight draws and each error's `Display` text for review and change detection; proves no clause. Its file is under `tests/snapshots/`. |
+| `crates/pawdoku-wasm/tests/web.rs`, in Node | The `RandomStream` class: seed zero draws the golden stream `tests/random.rs` pins; the index starts at zero and moves by one per draw; a replay gives its script in order and then throws `RandomError::Exhausted`'s text, its index unmoved; a script value outside `[0, 1)`, NaN included, throws `RandomError::OutOfRange`'s; a clone draws on from where it was taken; and `randomVersion()` is `RANDOM_VERSION`. Each thrown text is read from the JavaScript `Error`'s `message`. |
 
 ## Related pages
 

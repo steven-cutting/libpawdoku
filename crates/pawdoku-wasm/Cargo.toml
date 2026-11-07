@@ -1,0 +1,44 @@
+[package]
+name = "pawdoku-wasm"
+version = "0.1.0"
+description = "WebAssembly bindings for the pawdoku sudoku engine, packed as @steven-cutting/pawdoku-wasm."
+keywords = ["sudoku", "wasm", "webassembly"]
+categories = ["games", "wasm"]
+readme = "README.md"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+# Off crates.io: the npm package is this crate's release (decision 0020).
+publish.workspace = true
+
+[lib]
+# cdylib is what wasm-pack packs; rlib lets tests/web.rs link the crate.
+crate-type = ["cdylib", "rlib"]
+
+[lints]
+workspace = true
+
+[dependencies]
+pawdoku = { path = "../pawdoku", version = "0.1.0" }
+wasm-bindgen = { workspace = true }
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test = { workspace = true }
+
+# Off until a measurement says the size is worth binaryen's pass; S12 measured it,
+# and T42 turns it on with the guard that makes a missing wasm-opt fail.
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+# Moves this crate's own CHANGELOG.md entries under the new version and points its
+# links at the pawdoku-wasm-v tag; the root CHANGELOG.md is the core's and is left
+# alone. The tag is named outright, as pawdoku's table does, because {{tag_name}}
+# is left unrendered under --no-tag.
+[package.metadata.release]
+pre-release-replacements = [
+  { file = "CHANGELOG.md", search = "## \\[Unreleased\\]\n", replace = "## [Unreleased]\n\n## [{{version}}] - {{date}}\n", exactly = 1 },
+  { file = "CHANGELOG.md", search = "\\[Unreleased\\]: .*", replace = "[Unreleased]: {{repository}}/compare/pawdoku-wasm-v{{version}}...HEAD\n[{{version}}]: {{repository}}/releases/tag/pawdoku-wasm-v{{version}}", exactly = 1 },
+]

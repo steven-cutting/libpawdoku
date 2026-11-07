@@ -29,6 +29,13 @@ insta = { version = "1.48.0", default-features = false, features = ["json"] }
 proptest = "1.11.0"
 serde = { version = "1.0.228", default-features = false, features = ["derive", "alloc"] }
 thiserror = { version = "2.0.17", default-features = false }
+# The WebAssembly crate's two (decision 0020), both MIT OR Apache-2.0, which
+# deny.toml already allows. wasm-bindgen ships inside @steven-cutting/pawdoku-wasm,
+# and pyproject.toml's wasm-bindgen-cli pin must equal the version Cargo.lock
+# resolves here, which the wasm-guard recipe enforces. wasm-bindgen-test serves
+# tests only, as a wasm32-only dev-dependency of crates/pawdoku-wasm.
+wasm-bindgen = "0.2.130"
+wasm-bindgen-test = "0.3.80"
 
 # Every level here is `warn` so a local build never breaks mid-edit; `just clippy`
 # passes `-D warnings`, which is where a warning becomes a failure.

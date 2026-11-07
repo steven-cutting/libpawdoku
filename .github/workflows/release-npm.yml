@@ -1,0 +1,110 @@
+name: Release to GitHub Packages
+
+# Publishes @steven-cutting/pawdoku-wasm to GitHub Packages on a
+# `pawdoku-wasm-v*` tag (decision 0020). cargo-release prepares the version on
+# the maintainer's machine and the release commit reaches main through a pull
+# request; the maintainer tags the merge commit and pushes the tag, and this
+# workflow publishes it once the `release` environment's reviewer approves, as
+# release.yml does for the core (decision 0019).
+
+on:
+  push:
+    # Quoted for the reason ci.yml gives.
+    tags: ['pawdoku-wasm-v*']
+
+# Read-only unless a job says otherwise; the publish job adds packages alone.
+permissions:
+  contents: read
+
+# One run per tag, and never cancel one: a publish stopped half way through is
+# worse than a second run waiting for the first.
+concurrency:
+  group: release-npm-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: '0'
+  CARGO_NET_RETRY: '10'
+  RUST_BACKTRACE: '1'
+
+jobs:
+  publish:
+    name: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # The environment's required reviewer approves each run, and its
+    # deployment policies admit the four release tag patterns alone.
+    environment: release
+    # packages: write lets the run's own GITHUB_TOKEN publish to and read from
+    # this repository's packages; nothing else is stored or minted. No
+    # id-token: npm provenance is undocumented for GitHub Packages. Nothing
+    # here writes to the repository.
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      # The full history, which the guards' merge-base needs.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      # The pixi environment holds the pinned wasm-pack, wasm-bindgen and
+      # Node, and Node's npm is the one that publishes, so no setup-node.
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: release-npm
+      - run: just check-toolchain
+      # A tag off main, or one that disagrees with the manifest, stops here,
+      # before anything is built or any step sees the token.
+      - uses: ./.github/actions/release-guards
+        with:
+          package: pawdoku-wasm
+      - run: just wasm-build
+      # npm reads a project .npmrc only at the root of the project it runs in,
+      # the nearest directory up holding a package.json, so the file goes in
+      # pkg/ and both npm steps run there; from the checkout root the scope
+      # would resolve to registry.npmjs.org. The token is written as a literal
+      # `${NODE_AUTH_TOKEN}` for npm to expand, never as its value. npm pack
+      # never includes an .npmrc.
+      - name: Point the scope at GitHub Packages
+        working-directory: crates/pawdoku-wasm/pkg
+        run: printf '%s\n' '@steven-cutting:registry=https://npm.pkg.github.com' "//npm.pkg.github.com/:_authToken=\${NODE_AUTH_TOKEN}" > .npmrc
+      # A re-run must not fail on a version that is already there. GitHub
+      # Packages needs a token to read a package as well as to publish one. The
+      # guards proved the tag is `pawdoku-wasm-v` and the manifest's version, so
+      # the suffix is that version. Only npm's E404, which it gives both for a
+      # package never published and for a version it lacks, lets the publish
+      # run; a refused token or no network fails the job.
+      - id: published
+        name: Is this version already on GitHub Packages
+        working-directory: crates/pawdoku-wasm/pkg
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          version=${GITHUB_REF_NAME#pawdoku-wasm-v}
+          # Outside pkg/, so nothing of this step can be packed.
+          err="$RUNNER_TEMP/npm-view.err"
+          status=0
+          found=$(npm view "@steven-cutting/pawdoku-wasm@$version" version 2> "$err") || status=$?
+          if [ "$status" -eq 0 ] && [ "$found" = "$version" ]; then
+            printf '%s\n' "@steven-cutting/pawdoku-wasm $version is already on GitHub Packages; nothing to publish"
+            echo 'exists=true' >> "$GITHUB_OUTPUT"
+          elif [ "$status" -ne 0 ] && grep -q 'E404' "$err"; then
+            printf '%s\n' "@steven-cutting/pawdoku-wasm $version is not on GitHub Packages yet"
+            echo 'exists=false' >> "$GITHUB_OUTPUT"
+          else
+            cat "$err" >&2
+            printf 'npm view exited %s and printed "%s" for @steven-cutting/pawdoku-wasm %s; refusing to guess\n' "$status" "$found" "$version" >&2
+            exit 1
+          fi
+      # Lifecycle scripts are ignored: the package has none, and a publish runs
+      # nothing it was not built with. The token is on this step and the one
+      # above alone.
+      - if: steps.published.outputs.exists == 'false'
+        name: Publish
+        working-directory: crates/pawdoku-wasm/pkg
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm publish --ignore-scripts

@@ -9,6 +9,17 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- The WebAssembly crate's place in the repository (decision 0020); the crate and the
+  npm package keep their own changelog, `crates/pawdoku-wasm/CHANGELOG.md`.
+  `just wasm-build` packs `@steven-cutting/pawdoku-wasm` with wasm-pack in
+  `--mode no-install`, then `scripts/wasm_pkg.py` adds the specification modules under
+  `specs/`, the crate's changelog and an `exports` map. `just wasm-test`, gate 20, runs
+  the crate's tests in Node; both first run `just wasm-guard`, which stops unless the
+  wasm-bindgen CLI is the version `Cargo.lock` resolves. `pyproject.toml` pins
+  wasm-pack, wasm-bindgen-cli and Node. CI's `wasm` job runs both recipes and keeps the
+  package as an artifact, and `release-npm.yml` publishes it to GitHub Packages on a
+  `pawdoku-wasm-v*` tag, after the release guards. `just coverage` now measures
+  `pawdoku` alone, which is what its floor is over.
 - Play from a record, `pawdoku::board::{open, play, read, reading_after}`, from
   `board.allium`'s `PlayingFromARecord`: a caller that holds no board hands each call a
   record and one `Operation`, and is handed back a `Played`, the record after it, a

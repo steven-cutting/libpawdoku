@@ -64,8 +64,8 @@ These hold everywhere. Breaking one is a defect, not a trade-off.
 - Rust, 2024 edition, pinned by `rust-toolchain.toml` to an exact stable
   release. The pin is honoured only by rustup's cargo proxy, and
   `just check-toolchain` refuses any other cargo.
-- A Cargo workspace with `crates/pawdoku` as its only member today. The core
-  is `#![no_std]` with `alloc`.
+- A Cargo workspace with `crates/pawdoku`, the core, and `crates/pawdoku-wasm`,
+  its WebAssembly binding, as members. The core is `#![no_std]` with `alloc`.
 - rustfmt for Rust and taplo for TOML; clippy pedantic through the workspace
   lint table, where the manifests say `warn` and `just clippy` turns warnings
   into errors; EditorConfig for whitespace; `markdownlint-cli2` for Markdown.
@@ -127,14 +127,17 @@ carry a stated reason.
   resolve one.
 
 This repository is licensed Apache-2.0 (decision 0006). The workflows that
-publish are listed here, and there are two. `pages.yml` deploys the API
+publish are listed here, and there are three. `pages.yml` deploys the API
 reference to GitHub Pages on a push to `main`, and only its deploy job holds
 a write scope (decision 0016). A deployment follows from a push to `main`,
 and pushing is itself separately authorised, so no agent action deploys on
 its own. `release.yml` publishes `pawdoku` to crates.io through trusted
 publishing on a `pawdoku-v*` tag, behind the `release` environment's
 required reviewer, and only its `publish` job holds `id-token: write`
-(decision 0019). A tag push and each deployment approval are separately
+(decision 0019). `release-npm.yml` publishes `@steven-cutting/pawdoku-wasm`
+to GitHub Packages on a `pawdoku-wasm-v*` tag, behind the same reviewer, and
+only its `publish` job holds `packages: write`, with the run's own token
+(decision 0020). A tag push and each deployment approval are separately
 authorised, and no token is stored in this repository. `ci.yml` and
 `audit.yml` stay read-only.
 

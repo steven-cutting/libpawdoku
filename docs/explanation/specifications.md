@@ -86,9 +86,14 @@ each removal only while the solver's verdict stays one
 
 The game's root module, `pawdoku.allium`, stays in the game. Allium has no
 cross-repository import, so the game restates the clauses it needs and holds them equal
-to this repository's text by a test on its own side. Until the WebAssembly package ships
-the modules inside it, that text is shared truth across two repositories and can drift
-silently: a change to a module here is a change the game has to see.
+to this repository's text by a test on its own side. The WebAssembly package,
+`@steven-cutting/pawdoku-wasm`, ships every module here under `specs/`, and its
+`exports` map makes each one reachable as
+`@steven-cutting/pawdoku-wasm/specs/<module>.allium`
+([decision 0020](../decisions/0020-webassembly-package.md)). The game's test can
+therefore read the text of the version it installed and hold its restatements to it, so
+a change to a module here is one the game sees when it takes the new version, not one
+that drifts silently.
 
 ## Open questions are a feature
 
