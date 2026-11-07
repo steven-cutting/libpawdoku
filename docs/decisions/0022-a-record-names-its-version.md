@@ -78,7 +78,10 @@ none. In a positional format, which hands a struct's fields over in order, the n
 field shifts every other, so such a record fails to deserialise in the consumer's format
 before reopening is reached; the core cannot change that. The same holds for a later
 shape in a positional format: `RecordVersion` reads the first field, which is the version
-while every later version keeps the field's name, type and place.
+while every later version keeps the field's name, type and place. It reads every later
+field past, so a format that refuses a sequence left part read does not refuse the
+record before its version is given; that needs a format that says what each value is,
+or one that hands over no more than the version.
 
 `ReopenError` gains a variant and `Record` a private field. Both are `#[non_exhaustive]`
 and the field is private, so no Rust API breaks; the serialised shape does change. The

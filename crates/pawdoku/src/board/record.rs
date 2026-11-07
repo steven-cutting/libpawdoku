@@ -383,7 +383,10 @@ fn versioned(version: &str) -> Result<(), ReopenError> {
 ///
 /// It is a reading, not a second check: [`Board::reopen`] still checks the record it
 /// is handed. It deserialises only, under the `serde` feature; a record that names no
-/// version reads as naming none.
+/// version reads as naming none. A format that hands a struct's fields over by name
+/// has every field but `version` ignored; one that hands them over in order has the
+/// first read as the version and every later one read past, which needs a format that
+/// says what each value is, or one that hands over no more than the version.
 ///
 /// ```
 /// use pawdoku::board::{RECORD_VERSION, RecordVersion, ReopenError};
@@ -401,11 +404,58 @@ fn versioned(version: &str) -> Result<(), ReopenError> {
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[cfg(feature = "serde")]
-#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct RecordVersion {
+    version: String,
+}
+
+/// A record's fields as a format hands them over by name: the version, or none, and
+/// every other field ignored.
+#[cfg(feature = "serde")]
+#[derive(serde::Deserialize)]
+struct ByName {
     #[serde(default)]
     version: String,
+}
+
+/// Reads a record's version, by name or first in order, and every other field past.
+#[cfg(feature = "serde")]
+struct VersionVisitor;
+
+#[cfg(feature = "serde")]
+impl<'de> serde::de::Visitor<'de> for VersionVisitor {
+    type Value = RecordVersion;
+
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("a record")
+    }
+
+    fn visit_map<A: serde::de::MapAccess<'de>>(self, map: A) -> Result<RecordVersion, A::Error> {
+        use serde::Deserialize;
+        use serde::de::value::MapAccessDeserializer;
+
+        let ByName { version } = ByName::deserialize(MapAccessDeserializer::new(map))?;
+        Ok(RecordVersion { version })
+    }
+
+    fn visit_seq<A: serde::de::SeqAccess<'de>>(
+        self,
+        mut seq: A,
+    ) -> Result<RecordVersion, A::Error> {
+        use serde::de::IgnoredAny;
+
+        let version = seq.next_element::<String>()?.unwrap_or_default();
+        while seq.next_element::<IgnoredAny>()?.is_some() {}
+        Ok(RecordVersion { version })
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for RecordVersion {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_struct("RecordVersion", &["version"], VersionVisitor)
+    }
 }
 
 #[cfg(feature = "serde")]
@@ -1214,7 +1264,10 @@ mod tests {
 
             // The derived visitor asks for a struct's five fields and no more: the
             // first is the version, the fourth the undone count, and the others are
-            // sequences, here empty.
+            // sequences, here empty. A sixth is not there.
+            if self.handed == 5 {
+                return Ok(None);
+            }
             self.handed += 1;
             match self.handed {
                 1 => seed.deserialize(self.version.into_deserializer()).map(Some),
@@ -1394,5 +1447,30 @@ mod tests {
         let this: RecordVersion = by_name(&[("version", Wire::Text(RECORD_VERSION))]).unwrap();
         assert_eq!(this.named(), Some(RECORD_VERSION));
         assert_eq!(this.readable(), Ok(()));
+    }
+
+    /// A format that hands a struct's fields over as a sequence, and refuses a
+    /// sequence left part read, hands the version alone over first and the rest after
+    /// it: they are read past, unread, whether the record is of this engine's version
+    /// or of a later shape.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn the_version_alone_is_read_from_a_record_handed_over_in_order() {
+        use super::RecordVersion;
+        use serde::Deserialize;
+        use serde::de::value::{Error, SeqAccessDeserializer, SeqDeserializer};
+
+        let mut fields = Fields {
+            version: RECORD_VERSION,
+            handed: 0,
+        };
+        let this = RecordVersion::deserialize(SeqAccessDeserializer::new(&mut fields)).unwrap();
+        assert_eq!(fields.handed, 5);
+        assert_eq!(this.readable(), Ok(()));
+
+        let later = ["record-9", "starting givens", "moves"];
+        let later = SeqDeserializer::<_, Error>::new(later.into_iter());
+        let later = RecordVersion::deserialize(later).unwrap();
+        assert_eq!(later.readable(), Err(of_version(Some("record-9"))));
     }
 }
