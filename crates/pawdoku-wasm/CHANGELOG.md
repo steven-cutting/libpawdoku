@@ -28,16 +28,17 @@ repository's, are in the root `CHANGELOG.md`.
 - The `Board` class: `Board.open(givens)` and `Board.reopen(record)`, `view()`,
   `readingAfter(index)`, `write()`, and the seven operations `place`, `erase`,
   `writeMark`, `strikeMark`, `check`, `undo` and `redo`. A board is freed once, with
-  `free()`, when its puzzle is left. A value handed to a method is read as
-  `JSON.stringify` writes it, so a getter or `Proxy` trap that throws comes back as its
-  own exception and leaves the board usable.
+  `free()`, when its puzzle is left. A method reads a position from its own fields,
+  as `play` does, and refuses an object for a digit or an index unread, so a getter or
+  `Proxy` trap that throws comes back as its own exception and leaves the board usable.
 - Play from a record: `open(givens)`, `play(record, operation)`, `read(record)` and
   `readingAfter(record, moveIndex)`, which hold nothing between calls and hand back the
   values a held board gives; and `recordVersion()`, `"record-1"`.
 - `search(givens)`, the solver's search with its verdict, guesses and solutions.
 - `generate(tier, stream)`, which advances a `RandomStream` in place,
   `generateFromSeed(tier, seed)`, and `generationVersion()`, `"generation-1"`. A
-  generation result carries what replays it, its counts as `bigint`s.
+  generation result carries what replays it, its counts as `bigint`s. `generate`
+  refuses a tier that is not a string unread, so the stream stays usable.
 - TypeScript interfaces for every plain value, in the engine's own field names, the
   record's named `BoardRecord`; `Operation` is a union on `kind`.
 - A refusal throws an `Error` named for the engine's error type, `EngineErrorName`, with

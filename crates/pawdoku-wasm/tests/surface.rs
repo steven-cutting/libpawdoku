@@ -700,6 +700,9 @@ fn a_random_refusal_is_named_random_error() {
     assert_eq!(refused, Err((String::from("RandomError"), text)));
 }
 
+/// serde's text for an object refused unread while a class is borrowed.
+const UNREAD: &str = "invalid type: an object, expected a value";
+
 /// The value `body` returns, built in JavaScript: an object whose getter or trap throws.
 fn hostile(body: &str) -> JsValue {
     Function::new_no_args(body)
@@ -729,7 +732,7 @@ fn a_value_that_throws_as_it_is_read_comes_back_as_itself_and_changes_nothing() 
     };
     let row = (String::from("RangeError"), String::from("row"));
     let trap = (String::from("RangeError"), String::from("trap"));
-    let json = (String::from("RangeError"), String::from("json"));
+    let unread = (String::from("Error"), String::from(UNREAD));
     let digit = JsValue::from(4);
     let asked = [
         (
@@ -752,18 +755,18 @@ fn a_value_that_throws_as_it_is_read_comes_back_as_itself_and_changes_nothing() 
         (board.check(getter()).map(drop).map_err(|e| named(&e)), &row),
         (
             board.place(position(FREE), tagged()).map_err(|e| named(&e)),
-            &json,
+            &unread,
         ),
         (
             board.place(position(FREE), proxy()).map_err(|e| named(&e)),
-            &trap,
+            &unread,
         ),
         (
             board
                 .reading_after(tagged())
                 .map(drop)
                 .map_err(|e| named(&e)),
-            &json,
+            &unread,
         ),
     ];
     for (at, (refused, thrown)) in asked.into_iter().enumerate() {
@@ -778,4 +781,49 @@ fn a_value_that_throws_as_it_is_read_comes_back_as_itself_and_changes_nothing() 
     );
     assert_eq!(text(&board.view().unwrap_or_default()), view);
     assert_eq!(text(&board.write().unwrap_or_default()), written);
+}
+
+#[wasm_bindgen_test]
+fn a_board_reads_a_position_as_play_does_from_its_own_fields() {
+    let own = "return new (class { constructor() { this.row = 1; this.column = 3; } })();";
+    let inherited = "return new (class { get row() { return 1; } get column() { return 3; } })();";
+    let elsewhere = "return { row: 1, column: 3, toJSON() { return { row: 1, column: 4 }; } };";
+    let (placed, _) = played(&[Op::Place(FREE, 4)]);
+    let placed = text(&placed.write().unwrap_or_default());
+    let asked = [(own, Some(&placed)), (inherited, None), (elsewhere, None)];
+    for (body, answer) in asked {
+        let mut board = Board::open(givens()).unwrap_or_else(|_| unreachable_fixture());
+        let held = board
+            .place(hostile(body), JsValue::from(4))
+            .map(|()| text(&board.write().unwrap_or_default()))
+            .map_err(|e| named(&e).0);
+        let place = js(r#"{"kind":"Place","digit":4}"#);
+        Reflect::set(&place, &JsValue::from_str("position"), &hostile(body)).unwrap_or_default();
+        let record = get(&open(givens()).unwrap_or_default(), "record");
+        let from_record = play(record, place)
+            .map(|played| text(&get(&played, "record")))
+            .map_err(|e| named(&e).0);
+        assert_eq!(held, from_record, "{body}");
+        let expected = answer.cloned().ok_or_else(|| String::from("Error"));
+        assert_eq!(held, expected, "{body}");
+    }
+}
+
+#[wasm_bindgen_test]
+fn a_tier_that_is_not_a_string_is_refused_unread_and_the_stream_stays_usable() {
+    let mut stream = RandomStream::seeded(2024);
+    let getter = hostile("return { get Three() { throw new RangeError('tier'); } };");
+    let refused = generate(getter, &mut stream)
+        .map(drop)
+        .map_err(|e| named(&e));
+    assert_eq!(refused, Err((String::from("Error"), String::from(UNREAD))));
+    assert_eq!(stream.index(), 0);
+    let mut fresh = RandomStream::seeded(2024);
+    let next = (stream.next_draw().ok(), fresh.next_draw().ok());
+    assert_eq!(next.0, next.1);
+    let (again, expected) = (
+        generate(JsValue::from_str("Three"), &mut stream).unwrap_or_default(),
+        generate(JsValue::from_str("Three"), &mut fresh).unwrap_or_default(),
+    );
+    assert_eq!(text_of_generation(&again), text_of_generation(&expected));
 }

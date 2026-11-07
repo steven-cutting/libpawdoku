@@ -149,12 +149,52 @@ step("a value that throws as it is read leaves the board usable", () => {
   const trap = () => { throw new RangeError("trap"); };
   const proxy = new Proxy({}, { get: trap, has: trap, ownKeys: trap, getPrototypeOf: trap });
   deepStrictEqual(thrown(() => board.erase(getter)), ["RangeError", "row"]);
-  deepStrictEqual(thrown(() => board.place(here, proxy)), ["RangeError", "trap"]);
-  deepStrictEqual(thrown(() => board.readingAfter(proxy)), ["RangeError", "trap"]);
+  deepStrictEqual(thrown(() => board.writeMark(proxy, 2)), ["RangeError", "trap"]);
+  strictEqual(thrown(() => board.place(here, proxy))?.[0], "Error");
+  strictEqual(thrown(() => board.readingAfter(proxy))?.[0], "Error");
   strictEqual(JSON.stringify(board.write()), kept);
   board.erase(here);
   strictEqual(board.view().can_undo, true);
   board.free();
+});
+
+step("a board reads a position as play does, from its own fields", () => {
+  class Own {
+    constructor() { this.row = 1; this.column = 3; }
+  }
+  class Inherited {
+    get row() { return 1; }
+    get column() { return 3; }
+  }
+  const elsewhere = { row: 1, column: 3, toJSON: () => ({ row: 1, column: 4 }) };
+  const four = { toJSON: () => 4 };
+  const asked = [[new Own(), 4], [new Inherited(), 4], [elsewhere, 4], [here, four]];
+  for (const [position, digit] of asked) {
+    const board = Board.open(givens);
+    const held = thrown(() => board.place(position, digit));
+    const fromRecord = thrown(() => play(open(givens).record, { kind: "Place", position, digit }));
+    strictEqual(held?.[0], fromRecord?.[0]);
+    if (held === null) {
+      strictEqual(JSON.stringify(board.view()), JSON.stringify(play(open(givens).record, operations.Place).view));
+    } else {
+      strictEqual(held[0], "Error");
+      strictEqual(board.view().can_undo, false);
+    }
+    board.free();
+  }
+});
+
+step("a tier that throws as it is read leaves the stream usable", () => {
+  const stream = RandomStream.seeded(2024n);
+  const getter = { get Three() { throw new RangeError("tier"); } };
+  const trap = () => { throw new RangeError("trap"); };
+  const proxy = new Proxy({}, { get: trap, has: trap, ownKeys: trap, getOwnPropertyDescriptor: trap, getPrototypeOf: trap });
+  strictEqual(thrown(() => generate(getter, stream))?.[0], "Error");
+  strictEqual(thrown(() => generate(proxy, stream))?.[0], "Error");
+  strictEqual(stream.index, 0n);
+  const fresh = RandomStream.seeded(2024n);
+  strictEqual(stream.nextDraw(), fresh.nextDraw());
+  strictEqual(json(generate("Three", stream)), json(generate("Three", fresh)));
 });
 
 console.log(`package test: ${passed} checks passed`);

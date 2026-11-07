@@ -42,7 +42,7 @@ pub fn generate(
     #[wasm_bindgen(unchecked_param_type = "Tier")] tier: JsValue,
     stream: &mut RandomStream,
 ) -> Result<JsValue, JsValue> {
-    let tier: Tier = types::read(tier)?;
+    let tier: Tier = types::read_held(tier)?;
     let result =
         generate_from_stream(tier, stream.as_dyn()).map_err(|refusal| refused(&refusal))?;
     types::generation(&result)

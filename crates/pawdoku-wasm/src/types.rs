@@ -8,12 +8,13 @@
 //! TypeScript's own `Record<K, V>`. `tests/package/` holds them to the core's snapshots
 //! and to the engine (S12, question 1).
 
-use js_sys::JSON;
+use js_sys::{Array, Object, Reflect};
+use pawdoku::sudoku::Position;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_wasm_bindgen::Serializer;
-use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::{JsCast, JsValue};
 
 #[wasm_bindgen(typescript_custom_section)]
 const DECLARATIONS: &str = r#"
@@ -260,23 +261,60 @@ pub(crate) fn read<T: DeserializeOwned>(value: JsValue) -> Result<T, JsValue> {
     serde_wasm_bindgen::from_value(value).map_err(JsValue::from)
 }
 
-/// `value` read as a `T` while a `Board` is borrowed, which no JavaScript of the
-/// caller's may throw through: an exception that crosses Rust there skips the borrow's
-/// release and leaves the board unusable. So an object is first copied as
-/// `JSON.stringify` writes it, inside a call that catches, and serde reads the plain
-/// copy: a getter, a trap or a `toJSON` that throws comes back as its own exception. A
-/// primitive is read as it is; a function, and an object that writes no JSON, are
-/// refused unread.
+/// `value` read as a `T` while a `Board` or a `RandomStream` is borrowed, which no
+/// JavaScript of the caller's may throw through: an exception that crosses Rust there
+/// skips the borrow's release and leaves the class unusable. serde runs the caller's
+/// code on an object, in getters it does not catch and in the text of its refusal, so a
+/// primitive is read as it is and an object or a function is refused unread. A digit,
+/// an index and a tier are declared primitives, so no value the declarations allow is
+/// refused.
 pub(crate) fn read_held<T: DeserializeOwned>(value: JsValue) -> Result<T, JsValue> {
     if value.is_function() {
         return Err(unread("function"));
     }
-    if !value.is_object() {
-        return read(value);
+    if value.is_object() {
+        return Err(unread("an object"));
     }
-    let copy = JsValue::from(JSON::stringify(&value)?).as_string();
-    let copy = copy.ok_or_else(|| unread("an object that writes no JSON"))?;
-    read(JSON::parse(&copy)?)
+    read(value)
+}
+
+/// A position read while a `Board` is borrowed, as `play` reads a record's position:
+/// from its own enumerable fields, so a getter on its prototype is not seen, and with
+/// a function in any field, a `toJSON` among them, refused unread. The fields are
+/// listed by a catching `Object.entries`, so a getter or a `Proxy` trap that throws
+/// comes back as its own exception. An object in `row` or `column` is refused unread,
+/// as [`read_held`] refuses one; serde reads the two from a plain copy, so a missing
+/// one is refused as missing. Other fields are ignored, as serde ignores them.
+pub(crate) fn read_held_position(value: JsValue) -> Result<Position, JsValue> {
+    if !value.is_object() {
+        return read_held(value);
+    }
+    let fields = Object::new();
+    for entry in own_entries(&value)?.iter() {
+        let entry: Array = entry.unchecked_into();
+        let (name, field) = (entry.get(0), entry.get(1));
+        if field.is_function() {
+            return Err(unread("function"));
+        }
+        if name
+            .as_string()
+            .is_some_and(|name| name == "row" || name == "column")
+        {
+            if field.is_object() {
+                return Err(unread("an object"));
+            }
+            Reflect::set(&fields, &name, &field)?;
+        }
+    }
+    read(fields.into())
+}
+
+#[wasm_bindgen]
+extern "C" {
+    /// `Object.entries`, which throws what a getter or a trap throws: js-sys's own does
+    /// not catch.
+    #[wasm_bindgen(js_namespace = Object, js_name = entries, catch)]
+    fn own_entries(object: &JsValue) -> Result<Array, JsValue>;
 }
 
 /// serde's refusal of a value it was not given to read, an `Error` named `Error`.
