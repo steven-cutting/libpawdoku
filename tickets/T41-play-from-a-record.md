@@ -585,6 +585,17 @@ Final after R2, and unreleased: no `pawdoku` release carries them yet.
   Nothing was valid, invalid or the maintainer's, so no commit answers it. Its note that
   its read-only sandbox could not run `just check` is an environment note, not a
   finding; `just check` ran here after this note's commit.
+- **Round 3** (2026-11-07, the maintainer's OK for a third round over fixes landed
+  after the two-round limit; here `64f0463`, from the final code review), Codex `gpt-6-astra` (confirmed in Codex's log, thread
+  `01a1b790-d5f6-7aa2-9028-29a273c7337b`), with `--base main`, focus the core's late
+  fixes `6177365` and `64f0463`: refusal order, the version reader on every record shape,
+  and invariant 3. Approved with no findings: it found the version refused before shape
+  and content, the reading asked for under `Record`, the public types' bounds and
+  `GenerationRefused`'s `source()` as the contracts state them. Nothing was valid,
+  invalid or the maintainer's, so no commit answers it. The run was short, about 36
+  seconds, and did not report attacking each record shape one by one. Its note that its
+  read-only sandbox could not run `just check` is an environment note; `just check` ran
+  here at `79c080b`.
 
 ### Open points settled
 
