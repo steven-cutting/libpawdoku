@@ -812,14 +812,13 @@ $ git status --porcelain
  M tickets/README.md
  M tickets/S12-typescript-surface.md
 $ rg -n '^### ' tickets/S12-typescript-surface.md
-X
-X
-X
-X
-X
-X
-X
-X
+255:### What was verified, and how
+824:### The recommendations
+868:### Amendments to T41 and T42
+1012:### Handed back
+1051:### Deviations, and why
+1058:### Adversarial review
+1072:### Open points settled
 ```
 
 ### The recommendations
