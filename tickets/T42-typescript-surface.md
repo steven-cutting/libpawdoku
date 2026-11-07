@@ -150,9 +150,9 @@ game can install it and play. `just check` is green.
    S12 have merged, and after T02 has accepted any dependency S12 handed it. Run
    `just initialize` and `just install-tools` if needed (network, authorised here) and
    `just check`, quoted. Confirm with the maintainer that the `Justfile` may be edited
-   here if step 8 adds a recipe. Write S12's decisions, T41's names, and T43's answer on
-   whether a binding reads a record's version before the rest of it, at the top of the
-   hand-back notes before any code.
+   here if step 8 adds a recipe. Write S12's decisions, T41's names, and T43's name for
+   the value that reads a record's version alone, at the top of the hand-back notes
+   before any code.
 
 2. **Dependencies**, a T02 hand-back carried here: `serde-wasm-bindgen = "0.6.5"` in
    `[workspace.dependencies]`, with its decision-0007 note (it ships; `MIT`, already
@@ -175,10 +175,10 @@ game can install it and play. `just check` is green.
    #[derive(Clone, Debug)]` around `pawdoku::board::Board`, with the in-crate bounds
    assertion T15's `RandomStream` has. Methods, camelCase through `js_name`:
    `Board.open(givens)` and `Board.reopen(record)`, static, throwing the solver's or
-   reopening's refusal (if T43 settled that a binding reads a record's version first,
-   `Board.reopen` reads the version field alone before deserialising the rest and throws
-   the version refusal's text when it differs; otherwise it deserialises the whole
-   record); `view()`, the core's view of the board; `readingAfter(index)`;
+   reopening's refusal (`Board.reopen` reads the record through T43's version-only value
+   in the core before deserialising the rest, and throws that value's refusal when the
+   version differs; this crate writes no reading of its own); `view()`, the core's view
+   of the board; `readingAfter(index)`;
    `write()`, the record; and the seven operations, `place(position, digit)`,
    `erase(position)`, `writeMark(position, digit)`, `strikeMark(position, digit)`,
    `check(position)`, which returns the check, `undo()` and `redo()`, each throwing the
@@ -189,8 +189,8 @@ game can install it and play. `just check` is green.
    functions, under the camelCase of T41's names, taking and returning plain values and
    throwing the refusal; opening from givens is one of them, and an operation's export
    returns the record and the view, with the check it added for a check. Every export
-   that takes a record reads it as `Board.reopen` does (step 4), version first if T43
-   settled so. If T41 offers one function that takes the operation value, this crate
+   that takes a record reads it as `Board.reopen` does (step 4), version first through
+   T43's value. If T41 offers one function that takes the operation value, this crate
    offers that one export, and the operation's TypeScript type is a union with one
    member per kind. The record version crosses here, as step 6 says the generation
    version does.
@@ -207,9 +207,9 @@ game can install it and play. `just check` is green.
    records and readings at every step, compared as JavaScript values; every refusal's
    message equals the core's `Display` text for that refusal, and a refused operation
    leaves the board as it was; a record naming another version is refused by
-   `Board.reopen` and by play from a record with the text naming both versions, and,
-   if T43 settled that the version is read first, so is a record of another version
-   with a field renamed, with that text and not a deserialisation error; the record
+   `Board.reopen` and by play from a record with the text naming both versions, and so
+   is a record of another version with a field renamed, with that text and not a
+   deserialisation error; the record
    version equals `pawdoku::board::RECORD_VERSION`; `search` on the fixture gives one
    solution and the guesses the core gives; generation from seed 0 in tier 3 equals the
    core's snapshot of it, and its `draws_taken` is 23 when its first grid attempt
@@ -323,6 +323,12 @@ game's clone at `add73be` (HEAD on 2026-10-31, the same commit S04 found on
 > libpawdoku's `docs/explanation/specifications.md` past tense, which is a one-line
 > follow-up in this repository once the game's test lands.
 
+**Adversarial review**, by the procedure in `tickets/README.md`, "Adversarial
+review":
+
+- **R1**, before step 10, the pull request: the surface and its declarations. Focus: where the declarations and the values can differ.
+- **R2**, before step 11, the release: the same focus over what the pull request merged.
+
 ## Acceptance criteria
 
 - The package's declarations name a type for every parameter and return value; no
@@ -371,6 +377,8 @@ the worktree is unchanged.`; `0.2.0` and `0.1.0`; only paths in Files touched.
 ### Handed back
 
 ### The G ticket
+
+### Adversarial review
 
 ### Open points settled
 

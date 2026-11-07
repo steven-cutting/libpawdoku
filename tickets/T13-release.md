@@ -367,6 +367,12 @@ approving each `release.yml` deployment in the `release` environment, which is t
 publish itself and a separate decision from the tag push (`AGENTS.md`, "Safety and
 authority").
 
+**Adversarial review**, by the procedure in `tickets/README.md`, "Adversarial
+review":
+
+- **R1**, after step 5 and before step 6, which is also before the first pull request: the guards and `release.yml`. Focus: the token, the tag and the trust boundary.
+- **R2**, before step 10: the same focus over what the first pull request merged.
+
 ## Acceptance criteria
 
 - First pull request: `just check` green; `tools.txt`, `pyproject.toml` and `pixi.lock`
@@ -417,6 +423,8 @@ unchanged.`; only paths in Files touched.
 ### Deviations, and why
 
 ### Handed back
+
+### Adversarial review
 
 ### Open points settled
 

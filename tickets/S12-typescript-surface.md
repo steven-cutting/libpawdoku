@@ -228,6 +228,11 @@ of them depends on the core by path, read-only.
 5. Set `status: done` and the row in `tickets/README.md`, and commit. Stop before
    pushing.
 
+**Adversarial review**, by the procedure in `tickets/README.md`, "Adversarial
+review":
+
+- **R1**, after step 4 and before step 5: the recommendations as drafted. Focus: evidence against claim, whether each recommendation follows from what its probe showed.
+
 ## Acceptance criteria
 
 - Each of the nine questions has a recommendation, the evidence quoted beside it, its
@@ -254,6 +259,8 @@ Expected: the two files; the hand-back sections below, filled.
 ### Amendments to T41 and T42
 
 ### Handed back
+
+### Adversarial review
 
 ### Open points settled
 

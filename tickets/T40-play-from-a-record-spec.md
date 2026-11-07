@@ -202,6 +202,11 @@ lives in the core. T41 can build the second way from this text alone.
 6. `just check-docs`, then `just check`, quoted. Set `status: done` and the index row.
    Commit, and ask before pushing.
 
+**Adversarial review**, by the procedure in `tickets/README.md`, "Adversarial
+review":
+
+- **R1**, after step 3 and before step 4: the clauses, clean under both gates, before the decision record is written. Focus: what T41 would have to guess.
+
 ## Acceptance criteria
 
 - `just check-specs` and `just analyse-specs` report no diagnostics and no findings for
@@ -240,6 +245,8 @@ question and two `use` lines; one specification file changed; the documents gate
 ### Deviations, and why
 
 ### Handed back
+
+### Adversarial review
 
 ### Open points settled
 

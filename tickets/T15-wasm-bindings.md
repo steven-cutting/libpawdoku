@@ -427,6 +427,12 @@ request; the tag push; approving the `release` environment's deployment, which i
 publish; the re-run of `publish` and its approval (step 11); the package's visibility;
 granting the game's repository access.
 
+**Adversarial review**, by the procedure in `tickets/README.md`, "Adversarial
+review":
+
+- **R1**, before step 10, the first pull request: the crate and the recipes. Focus: what the package promises against what the recipes prove.
+- **R2**, before step 11, the release: `release-npm.yml` alone. Focus: the token, the tag and the trust boundary.
+
 ## Acceptance criteria
 
 - `just check` green, running `wasm-test` as gate 20; the `wasm` job green with the
@@ -485,6 +491,8 @@ to dry run"; the floor met; no stale sentence;
 ### Deviations, and why
 
 ### Handed back
+
+### Adversarial review
 
 ### Open points settled
 
