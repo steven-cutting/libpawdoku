@@ -383,10 +383,12 @@ fn versioned(version: &str) -> Result<(), ReopenError> {
 ///
 /// It is a reading, not a second check: [`Board::reopen`] still checks the record it
 /// is handed. It deserialises only, under the `serde` feature; a record that names no
-/// version reads as naming none. A format that hands a struct's fields over by name
-/// has every field but `version` ignored; one that hands them over in order has the
-/// first read as the version and every later one read past, which needs a format that
-/// says what each value is, or one that hands over no more than the version.
+/// version reads as naming none. It asks for the record by the name a record is
+/// written under, `Record`, so a format that checks a struct's name reads it too. A
+/// format that hands a struct's fields over by name has every field but `version`
+/// ignored; one that hands them over in order has the first read as the version and
+/// every later one read past, which needs a format that says what each value is, or
+/// one that hands over no more than the version.
 ///
 /// ```
 /// use pawdoku::board::{RECORD_VERSION, RecordVersion, ReopenError};
@@ -454,7 +456,8 @@ impl<'de> serde::de::Visitor<'de> for VersionVisitor {
 #[cfg(feature = "serde")]
 impl<'de> serde::Deserialize<'de> for RecordVersion {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        deserializer.deserialize_struct("RecordVersion", &["version"], VersionVisitor)
+        // The name a record is written under, which a format may check on reading.
+        deserializer.deserialize_struct("Record", &["version"], VersionVisitor)
     }
 }
 
@@ -1471,6 +1474,77 @@ mod tests {
         let later = ["record-9", "starting givens", "moves"];
         let later = SeqDeserializer::<_, Error>::new(later.into_iter());
         let later = RecordVersion::deserialize(later).unwrap();
+        assert_eq!(later.readable(), Err(of_version(Some("record-9"))));
+    }
+
+    /// A format that writes a struct's name and checks it on reading, as some do: it
+    /// hands a struct's fields over by name only to a reading that asks for the struct
+    /// by the name it was written under, which for a record is `Record`.
+    #[cfg(feature = "serde")]
+    struct Titled {
+        fields: &'static [(&'static str, Wire)],
+    }
+
+    #[cfg(feature = "serde")]
+    impl<'de> serde::Deserializer<'de> for Titled {
+        type Error = serde::de::value::Error;
+
+        fn deserialize_any<V: serde::de::Visitor<'de>>(
+            self,
+            _: V,
+        ) -> Result<V::Value, Self::Error> {
+            Err(serde::de::Error::custom("a record is read as a struct"))
+        }
+
+        fn deserialize_struct<V: serde::de::Visitor<'de>>(
+            self,
+            name: &'static str,
+            _: &'static [&'static str],
+            visitor: V,
+        ) -> Result<V::Value, Self::Error> {
+            if name != "Record" {
+                return Err(serde::de::Error::custom(format!(
+                    "written as Record, read as {name}"
+                )));
+            }
+            visitor.visit_map(Named {
+                fields: self.fields,
+                at: 0,
+            })
+        }
+
+        serde::forward_to_deserialize_any! {
+            bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string bytes
+            byte_buf option unit unit_struct newtype_struct seq tuple tuple_struct map enum
+            identifier ignored_any
+        }
+    }
+
+    /// The version-only reading asks for a record by the name a record is written
+    /// under, so a format that checks the name reads the version of a record of this
+    /// engine's version and of a later shape alike.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn the_version_alone_is_read_from_a_format_that_checks_the_name() {
+        use super::RecordVersion;
+        use serde::Deserialize;
+
+        const THIS: [(&str, Wire); 5] = [
+            ("version", Wire::Text(RECORD_VERSION)),
+            AFTER_THE_VERSION[0],
+            AFTER_THE_VERSION[1],
+            AFTER_THE_VERSION[2],
+            AFTER_THE_VERSION[3],
+        ];
+        let written = Record::deserialize(Titled { fields: &THIS }).unwrap();
+        assert_eq!(written.version, RECORD_VERSION);
+
+        let this = RecordVersion::deserialize(Titled { fields: &THIS }).unwrap();
+        assert_eq!(this.readable(), Ok(()));
+        let later = RecordVersion::deserialize(Titled {
+            fields: &A_LATER_SHAPE,
+        })
+        .unwrap();
         assert_eq!(later.readable(), Err(of_version(Some("record-9"))));
     }
 }
