@@ -190,7 +190,9 @@ game can install it and play. `just check` is green.
    throwing the refusal; opening from givens is one of them, and an operation's export
    returns the record and the view, with the check it added for a check. Every export
    that takes a record reads it as `Board.reopen` does (step 4), version first through
-   T43's value. If T41 offers one function that takes the operation value, this crate
+   T43's value, and wraps that value's refusal in T41's error's reopening variant before
+   throwing it, so that the message is T41's error's text whichever reading refused. If
+   T41 offers one function that takes the operation value, this crate
    offers that one export, and the operation's TypeScript type is a union with one
    member per kind. The record version crosses here, as step 6 says the generation
    version does.
@@ -207,8 +209,9 @@ game can install it and play. `just check` is green.
    records and readings at every step, compared as JavaScript values; every refusal's
    message equals the core's `Display` text for that refusal, and a refused operation
    leaves the board as it was; a record naming another version is refused by
-   `Board.reopen` and by play from a record with the text naming both versions, and so
-   is a record of another version with a field renamed, with that text and not a
+   `Board.reopen` with the `ReopenError` text naming both versions, and by play from a
+   record with the `Display` text of T41's error wrapping that refusal, and so is a
+   record of another version with a field renamed, with those texts and not a
    deserialisation error; the record
    version equals `pawdoku::board::RECORD_VERSION`; `search` on the fixture gives one
    solution and the guesses the core gives; generation from seed 0 in tier 3 equals the
