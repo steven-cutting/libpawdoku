@@ -1,0 +1,91 @@
+name: Release to crates.io
+
+# Publishes pawdoku on a `pawdoku-v*` tag through crates.io trusted publishing
+# (decision 0019). cargo-release prepares the version on the maintainer's
+# machine and the release commit reaches main through a pull request; the
+# maintainer tags the merge commit and pushes the tag, and this workflow
+# publishes it once the `release` environment's reviewer approves. The
+# pattern needs `v` straight after `pawdoku-`, so `pawdoku-wasm-v0.1.0` does
+# not match it; each binding crate has a workflow of its own.
+
+on:
+  push:
+    # Quoted for the reason ci.yml gives.
+    tags: ['pawdoku-v*']
+
+# Read-only unless a job says otherwise; the publish job adds id-token alone.
+permissions:
+  contents: read
+
+# One run per tag, and never cancel one: a publish stopped half way through is
+# worse than a second run waiting for the first.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: '0'
+  CARGO_NET_RETRY: '10'
+  RUST_BACKTRACE: '1'
+
+jobs:
+  publish:
+    name: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # The environment's required reviewer approves each run, and its
+    # deployment policies admit the four release tag patterns alone.
+    environment: release
+    # id-token mints the OIDC token crates.io exchanges for a publish token.
+    # Nothing here writes to the repository.
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      # The full history, which the guards' merge-base needs.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      # The full setup, not crates.io's leaner checkout, auth and publish: it
+      # is the one tested path to `just` and the pinned toolchain, and every
+      # step of it runs before the token exists. A tag run restores caches
+      # main saved and saves none of its own.
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: release
+      - run: just check-toolchain
+      # Before any token: a tag off main, or one that disagrees with the
+      # manifest, stops here.
+      - uses: ./.github/actions/release-guards
+        with:
+          package: pawdoku
+      # Exchanges the run's OIDC token for a crates.io token that lives thirty
+      # minutes at most; the action's post step revokes it when the job ends.
+      # It runs on every tag, a re-run included, so every tag proves the
+      # exchange. Its one input, `url`, defaults to crates.io.
+      - id: auth
+        uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
+      # The first version is published by the maintainer's token before trusted
+      # publishing can be configured, and a re-run must not fail on a version
+      # that is already there. The guards proved the tag is `pawdoku-v` and the
+      # manifest's version, so the suffix is that version.
+      - id: published
+        name: Is this version already on crates.io
+        run: |
+          set -euo pipefail
+          version=${GITHUB_REF_NAME#pawdoku-v}
+          status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --user-agent 'libpawdoku release.yml (https://github.com/steven-cutting/libpawdoku)' "https://crates.io/api/v1/crates/pawdoku/$version")
+          case "$status" in
+            200) printf '%s\n' "pawdoku $version is already on crates.io; nothing to publish"; echo 'exists=true' >> "$GITHUB_OUTPUT" ;;
+            404) printf '%s\n' "pawdoku $version is not on crates.io yet"; echo 'exists=false' >> "$GITHUB_OUTPUT" ;;
+            *) printf 'crates.io answered %s for pawdoku %s; refusing to guess\n' "$status" "$version" >&2; exit 1 ;;
+          esac
+      # Plain cargo publish, not `cargo release publish`: the workspace's
+      # release table says `publish = false`, and a tag checkout is a detached
+      # HEAD, which its allow-branch refuses. The token is on this step alone.
+      - if: steps.published.outputs.exists == 'false'
+        run: cargo publish -p pawdoku --locked
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}

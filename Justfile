@@ -238,6 +238,17 @@ audit:
 deps-unused:
     cargo shear
 
+# API breaks in pawdoku against the last pawdoku-v* tag, through the pinned
+# cargo-semver-checks. Not a gate: before 1.0 a break is allowed with a minor
+# bump, so CI reports it and never blocks; at 1.0 the job joins check's needs.
+# With no tag yet there is nothing to compare, and the recipe says so.
+# cargo-semver-checks 0.51.0 has no --locked and passes none through to cargo.
+semver:
+    #!/bin/sh
+    set -eu
+    base=$(git describe --tags --match 'pawdoku-v*' --abbrev=0 2>/dev/null) || { printf '%s\n' 'semver: no pawdoku-v* tag yet, nothing to compare'; exit 0; }
+    cargo semver-checks -p pawdoku --baseline-rev "$base"
+
 # --------------------------------------------------------------- documents ---
 
 check-docs:

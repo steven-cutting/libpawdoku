@@ -138,6 +138,26 @@ jobs:
       - run: just check-specs
       - run: just analyse-specs
 
+  # API breaks in pawdoku against the last pawdoku-v* tag. Not in check's
+  # `needs`: before 1.0 a break is allowed with a minor bump, so this job
+  # reports one and never blocks a merge. It joins `needs` at 1.0, and the
+  # 1.0 release carries that change (docs/operations/maintenance.md, "Cut a
+  # release"). The full history, because the recipe finds the tag with
+  # `git describe` and builds the baseline from it.
+  semver:
+    name: semver
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: semver
+      - run: just semver
+
   # The one required check (CONVENTIONS.md §10). It needs every gate job and
   # fails if any of them failed, was cancelled or was skipped, so protection
   # names `check` alone and never changes when a job is added, renamed or

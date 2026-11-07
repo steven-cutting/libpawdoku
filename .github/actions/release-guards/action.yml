@@ -1,0 +1,61 @@
+name: Release guards
+description: >-
+  The two checks every release workflow runs before it mints a token: the
+  tagged commit is on main, and the tag is `<package>-v` followed by that
+  package's version in its manifest. Runs after the checkout and the setup
+  action. The checkout must pass `fetch-depth: 0`: on a shallow clone
+  `git merge-base` cannot see the history that joins the tag to main, and the
+  first guard refuses (decision 0019).
+
+inputs:
+  package:
+    description: >-
+      The cargo package the tag releases. The tag it expects is this name,
+      then `-v`, then the version cargo metadata reports for it.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # Only a commit that reached main through a checked pull request is
+    # published. main is fetched afresh, so a tag on a commit that was later
+    # dropped from a branch, or never merged, is refused. The repository is
+    # public, so the fetch needs no credentials, and the checkout keeps none.
+    # `^{commit}` peels an annotated tag to the commit it names.
+    - name: The tagged commit is on main
+      shell: bash
+      env:
+        PACKAGE: ${{ inputs.package }}
+      run: |
+        set -euo pipefail
+        if [ "$GITHUB_REF_TYPE" != tag ]; then
+          printf 'release-guards: refused %s: the run was started by a %s, not a tag\n' "$GITHUB_REF_NAME" "$GITHUB_REF_TYPE" >&2
+          exit 1
+        fi
+        commit=$(git rev-parse --verify "$GITHUB_SHA^{commit}")
+        git fetch --no-tags origin main
+        if ! git merge-base --is-ancestor "$commit" FETCH_HEAD; then
+          printf 'release-guards: refused tag %s: commit %s is not on main\n' "$GITHUB_REF_NAME" "$commit" >&2
+          exit 1
+        fi
+        printf 'release-guards: %s names %s, which is on main\n' "$GITHUB_REF_NAME" "$commit"
+    # The tag and the manifest agree, so a tag can never publish a version it
+    # does not name. cargo metadata reads the lockfile it is given and never
+    # rewrites it; jq is on GitHub's Ubuntu runner image.
+    - name: The tag is the manifest's version
+      shell: bash
+      env:
+        PACKAGE: ${{ inputs.package }}
+      run: |
+        set -euo pipefail
+        version=$(cargo metadata --locked --no-deps --format-version 1 | jq -r --arg name "$PACKAGE" '.packages[] | select(.name == $name) | .version')
+        if [ -z "$version" ]; then
+          printf 'release-guards: refused tag %s: no package named %s in the workspace\n' "$GITHUB_REF_NAME" "$PACKAGE" >&2
+          exit 1
+        fi
+        want="$PACKAGE-v$version"
+        if [ "$GITHUB_REF_NAME" != "$want" ]; then
+          printf 'release-guards: refused tag %s: the manifest of %s says %s, so the tag must be %s\n' "$GITHUB_REF_NAME" "$PACKAGE" "$version" "$want" >&2
+          exit 1
+        fi
+        printf 'release-guards: %s is %s %s\n' "$GITHUB_REF_NAME" "$PACKAGE" "$version"
