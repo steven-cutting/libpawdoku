@@ -750,6 +750,22 @@ notes, closed with `All checks passed and the worktree is unchanged.`, exit 0.
 
   The reviewer's note that its read-only sandbox blocked `just check` is an environment
   note, not a finding.
+- **R2, round 3**, on the branch against `main`, focus the release workflows: needs
+  attention, one finding, shared with T13, model `gpt-6-astra` (thread
+  `01a1b791-f60d-7751-a679-7a239ef109c5`).
+  - [high] Ruleset exclusions can bypass both release preflights
+    (`.github/workflows/release-npm.yml`, line 75, and `release.yml`). Valid. An
+    exclusion such as `refs/tags/pawdoku-wasm-v0.1.0` or `refs/tags/pawdoku-*` passed,
+    because only an entry equal to the pattern was refused. Reproduced red with an
+    exact-tag and an overlapping-wildcard fixture, both exiting 0. Fixed in `a95f181`:
+    a ruleset with any exclusion does not count, failing closed without evaluating
+    patterns; both fixtures now exit 1 and `protected` exits 0. Two fixtures that had
+    been pointed at the core's pattern alone (`otherpattern`, `nodelete`) were made
+    pattern-neutral, so each refuses for its own reason on both workflows. T13's notes
+    carry the detail. Not yet reviewed by Codex.
+
+  The reviewer's note that its read-only sandbox blocked `just check` is an environment
+  note, not a finding.
 
 ### Open points settled
 

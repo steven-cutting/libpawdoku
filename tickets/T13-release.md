@@ -615,6 +615,28 @@ both in files Files touched gives to the second pull request: `README.md:97` and
 
 R2 was not run (Handed back).
 
+**R1 round 3** (Codex adversarial review over the branch against `main`, model
+`gpt-6-astra`, thread `01a1b791-f60d-7751-a679-7a239ef109c5`; focus the release
+workflows). Needs attention, one finding, shared with T15.
+
+- **[high] Ruleset exclusions can bypass both release preflights** (`release.yml`
+  lines 78 to 81, and `release-npm.yml` line 75). Valid. The check refused only an
+  exclusion equal to `refs/tags/pawdoku-v*`, so a ruleset including that pattern and
+  excluding `refs/tags/pawdoku-v0.1.0` or `refs/tags/pawdoku-*` passed while GitHub,
+  which skips a ref any exclusion matches (the REST rulesets reference the reviewer
+  cites), left the tag unprotected. Reproduced red on the preflight harness: two new
+  fixtures, an exact-tag exclusion and an overlapping wildcard, exited 0 on both
+  workflows. Fixed in `a95f181`: a ruleset with any exclusion no longer counts, and the
+  preflight says so on stderr; it does not evaluate patterns (fnmatch, `~ALL`), so it
+  fails closed rather than reimplement GitHub's matching. A harmless exclusion belongs
+  in a separate ruleset, since any one qualifying ruleset passes. The two preflights
+  remain the same script apart from the pattern and the log prefix. Green: both new
+  fixtures and the six earlier refusals exit 1 and `protected` exits 0 on both
+  workflows; `split.rb` passes on `release.yml`; `just lint` and `just check-docs`
+  green. The maintenance page's readback now names the empty exclusion list. Not yet
+  reviewed by Codex. The reviewer's note that its read-only sandbox blocked `just
+  check` is an environment note, not a finding.
+
 ### Open points settled
 
 - **Split `release.yml`** (maintainer, 2026-11-07), superseding the 2026-10-31 answer
