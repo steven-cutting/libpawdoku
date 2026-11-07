@@ -620,7 +620,8 @@ the tree read back clean.
 **R2's fix, `d6dcdff`.** Three pages, no code: `docs/operations/maintenance.md`,
 `docs/decisions/0020-webassembly-package.md` and `docs/explanation/security-model.md`
 (Adversarial review). `just check-docs` after it: "Validated 48 pages and 49 canonical
-topics.", exit 0.
+topics.", exit 0. `just check` on `b754f37`, the commit that first carried these
+notes, closed with `All checks passed and the worktree is unchanged.`, exit 0.
 
 ### Deviations, and why
 
