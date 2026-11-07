@@ -557,6 +557,19 @@ unchanged."
   limit: reading past needs a format that says what each value is, or one that hands over
   no more than the version. `docs/reference/testing.md`'s `board/record.rs` row names the
   in-order case. `just check` was green at `4471852`.
+- **R2, round 2**, Codex, on the range from `a3cb5db`. One finding, medium, judged
+  valid: `RecordVersion`'s `Deserialize` asked for the struct `RecordVersion`, while a
+  record is serialised under the name `Record`, so a format that checks a struct's name
+  on reading would refuse every record, of this version or a later one, before
+  `readable()` could give the version refusal. serde's value deserialisers ignore the
+  name, which is why the tests missed it. A red test,
+  `the_version_alone_is_read_from_a_format_that_checks_the_name`, reads through a
+  deserialiser that refuses any struct name but `Record`; `Record` itself read through
+  it, and `RecordVersion` was refused. Answered in `6177365`: the reading asks for
+  `Record`, and its documentation says so; the test reads a record of this version as
+  readable and a later shape refused naming `"record-9"`. `just wasm-test` stayed
+  green. The reviewer's note that its sandbox could not run `just check` is an
+  environment note, not a finding.
 
 ### Open points settled
 
