@@ -1,7 +1,7 @@
 ---
 id: T41
 title: "Play from a record in Rust, and the plain values every binding hands out"
-status: open
+status: done
 depends_on: [T40, S12, T43]
 parallel_with: [T13, T15]
 branch: ticket/t41-play-from-a-record
@@ -415,9 +415,10 @@ Steps 3 to 6 were built test-first, a seam at a time, each test seen to fail (th
 refused the missing names) before its code was written: the view and the reading
 (T1 to T4), the functions and the error (T5 to T11), the generation result and its
 refusal (T12 to T16). One test was added to the list in these loops, T12a, for the
-reason given there; two expected counts in the tests were corrected (the scripted moves number 7 and 6, not 8 and 7).
-The wire shapes were printed once through `serde_json` in a scratch crate under
-`ai_tmp/t41/wire`, outside the workspace, and read against S12's amendments; the
+reason given there; two expected counts in the tests were corrected (the scripted
+moves number 7 and 6, not 8 and 7). The wire shapes were printed once through
+`serde_json` in a scratch crate outside the workspace, never committed, and read
+against S12's amendments; the
 tests that assert them are T21, in segment 2.
 
 Segment 2, steps 7 to 10. The tests of step 7 arrived green, since segment 1's code
@@ -468,6 +469,10 @@ functions included, and `Board` keeps nineteen methods. `just check` closed with
 `All checks passed and the worktree is unchanged.`, coverage 99.79% of lines (99.33%
 at the start, 98.21% at the R1 checkpoint).
 
+Step 11: R2 approved with no findings and changed nothing, so step 10's recipes were
+not run again before the closing commit; `just check` ran once more on that commit.
+Nothing was pushed.
+
 ### Deviations, and why
 
 - **One branch.** The work is on `implement-typescript-surface-fullsend`, after S12, T40,
@@ -503,21 +508,84 @@ at the start, 98.21% at the R1 checkpoint).
 
 ### Names T42 and T17 need
 
-Unreleased, as of segment 1 of T41 (R1 may change them):
+Final after R2, and unreleased: no `pawdoku` release carries them yet.
 
-- `pawdoku::board::{open, play, read, reading_after}`; `Operation` (tagged by `kind`,
-  fields `position`, `digit`); `Played { record, view, check? }`; `BoardView`;
-  `ReadingAfter { move_index, cells }`; `CellReading { row, column, digit, note }`;
-  `FromRecordError::{Reopen, Play, NoSuchMove { move_index }}`.
-- `BoardView::of(&Board)` and `ReadingAfter::of(&Board, usize)` for the class path.
-- `pawdoku::generation::{GenerationResult, GenerationRefused, generate_from_seed,
-  generate_from_stream}`; `GenerationRefused::tier()` and `draws_taken()`.
+- In `pawdoku::board`, re-exported from `board/from_record.rs`:
+  `open(givens: impl IntoIterator<Item = Given>) -> Result<Played, SolveError>`,
+  `play(record: &Record, operation: Operation) -> Result<Played, FromRecordError>`,
+  `read(record: &Record) -> Result<BoardView, ReopenError>` and
+  `reading_after(record: &Record, move_index: usize) -> Result<ReadingAfter,
+  FromRecordError>`.
+- `Operation`: `Place { position, digit }`, `Erase { position }`,
+  `WriteMark { position, digit }`, `StrikeMark { position, digit }`,
+  `CheckCell { position }`, `Undo`, `Redo`; `Serialize` and `Deserialize`, tagged by
+  `kind`. On the wire `position` is an object `{ "row", "column" }`, as `Position`
+  serialises everywhere.
+- `Played`, with `record()`, `view()` and `check() -> Option<&Check>`; on the wire
+  `record`, `view` and `check`, the last absent unless the operation was `CheckCell`.
+- `BoardView::of(&Board)`, with `status()`, `is_full()`, `is_consistent()`,
+  `can_undo()`, `can_redo()`, `cells() -> &[BoardCell]`, `moves() -> &[Move]` and
+  `checks() -> &[Check]`. On the wire a cell is flat (`row`, `column`, `digit`,
+  `is_given`, `is_conflicting`, `note` while shown); a move and a check name their cell
+  `target`, an object like `position`.
+- `ReadingAfter::of(&Board, move_index: usize) -> Result<ReadingAfter, FromRecordError>`,
+  with `move_index()` and `cells() -> &[CellReading]`; `CellReading` with `position()`,
+  `row()`, `column()`, `digit() -> Option<u8>` and `note() -> Note`, flat on the wire,
+  `note` always a list.
+- `FromRecordError::{Reopen(ReopenError), Play(PlayError), NoSuchMove { move_index }}`,
+  the first two transparent and each with `From`, so `FromRecordError::from(refusal)` on
+  `RecordVersion::readable()`'s refusal gives the text `ReopenError` gives. `NoSuchMove`
+  reads `no move of the board has the index {move_index}`.
+- In `pawdoku::generation`: `generate_from_seed(tier: Tier, seed: u64)` and
+  `generate_from_stream(tier: Tier, stream: &mut dyn RandomStream)`, each
+  `-> Result<GenerationResult, GenerationRefused>`. `GenerationResult` has `tier()`,
+  `seed() -> Option<u64>`, `start_index() -> u64`, `draws_taken() -> u64`,
+  `generation_version()`, `random_version()` and `givens() -> &BTreeSet<Given>`.
+  `GenerationRefused::Refused { tier, draws_taken, error: GenerateError }`, with
+  `tier()` and `draws_taken()`, and `Display` the `GenerateError`'s own text.
+- Only `Operation` and `Record` deserialise. `Played`, `BoardView`, `ReadingAfter`,
+  `CellReading`, `GenerationResult`, `Status`, `Verdict` and `MoveKind` serialise only,
+  and `GenerationRefused` does not serialise; a binding throws its text.
 
 ### Handed back
 
+- **To T42.** Three `u64` fields cross in the generation result (`seed`,
+  `start_index`, `draws_taken`), and the seed is a `u64` argument, so the binding
+  chooses how a `u64` crosses; the core does not. An operation's cell is the nested
+  `position` while the view's cells and the readings are flat: the TypeScript types
+  follow that shape as written. `read` refuses with `ReopenError` itself, not
+  `FromRecordError`; both give the same text for a reopening refusal, since the variant
+  is transparent. `Operation` is `#[non_exhaustive]`, so a binding's own `match` needs a
+  wildcard arm.
+- **To T15.** This ticket adds "Play from a record" and a paragraph in "What crosses
+  each boundary" to `architecture.md`, rows for `tests/from_record.rs`, the new unit
+  tests and the snapshots to `testing.md`, and an entry under `[Unreleased]`, Added, in
+  `CHANGELOG.md`; T15 edits the same three files after it.
+
 ### Adversarial review
 
+- **R1, round 1**, after steps 3 to 6, on the range from the start to the checkpoint
+  `3afcdc3`, focus what a binding would be stuck with: the run handed back no output,
+  so it gave no verdict and no findings, and nothing was folded in. It is not counted
+  as an approval; the wire shape it was to read was read again by R2, on the whole
+  range.
+- **R2, round 1**, after step 10, on the range from the start to the checkpoint
+  `af7b83a`, the ticket whole: approved with no findings. The reviewer found the
+  record's replay, the order of the refusals and the isolation of calls as the contract
+  states them, and the clause tests standing apart from the snapshots. Its note that
+  its read-only sandbox could not run `just check` is an environment note, not a
+  finding; `just check` ran here, as step 10 and step 11 say.
+
 ### Open points settled
+
+Settled by the implementer, each from S12's amendments or recorded above:
+
+- **Where the readings after a move live on the wire:** a separate `ReadingAfter` per
+  move index, as proposed and as S12 settled; a move never carries its reading.
+- **One function per operation, or one taking the operation value:** one, `play`,
+  taking `Operation`, as proposed. A binding may still offer one method per operation.
+- **Paths other open tickets edit:** T43 and T13 came before on the one branch; T38
+  and T39 are not on it, and T15 follows, as Handed back says.
 
 ## Open points
 
