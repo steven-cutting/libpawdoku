@@ -71,8 +71,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   they cite, and an eighth, `board.allium`, for a puzzle as it is being played.
 - A handbook of twenty-five pages under `docs/`, held to the documentation contract and
   reachable from its map.
-- Sixteen architecture decision records, from the engine as a library of its own to the
-  API reference on GitHub Pages.
+- Seventeen architecture decision records, from the engine as a library of its own to
+  play from a record.
 - A `metrics` gate, seventh in `just check`: rustqual, built from source from its pin in
   `tools-source.txt`, holds thresholds for complexity, cohesion and coupling and the
   module boundaries of the layering table, with a probe that proves the boundary rules
@@ -84,5 +84,14 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Comment sentences changed in `board.allium`, `sudoku.allium` and `solver.allium`: why
   the solver is imported, the proof a puzzle may be set with, undo and redo no longer
   said to run no rule, and a search's status, read from being handed the search.
+
+### Changed
+
+- `board.allium` states play from a record, the contract and surface
+  `PlayingFromARecord`: a board opened from givens, an operation put to a record, a
+  record read, and the board as it stood after one move of a record, each in a call that
+  keeps nothing and hands back the record with what `Playing` shows, the readings after
+  a move on asking. It adds no rule: each call is reopening, one of `Playing`'s
+  operations and writing, composed (decision 0021).
 
 [Unreleased]: https://github.com/steven-cutting/libpawdoku/commits/main/

@@ -1,7 +1,7 @@
 ---
 id: T40
 title: "Specification: play from a record, a board's operations on a record handed over and handed back"
-status: open
+status: done
 depends_on: [T28]
 parallel_with: [T13, T15, S12]
 branch: ticket/t40-play-from-a-record-spec
@@ -240,15 +240,154 @@ question and two `use` lines; one specification file changed; the documents gate
 
 ### What was verified, and how
 
+Run on 2026-11-07 on the branch `implement-typescript-surface-fullsend`, from
+`d501d180ea0ae13d10679d10d26f2955126df813`, with allium 3.6.1 from `.tools/bin`.
+
+- **Before any clause.** `just check-specs`: "allium check: 9 specifications, no
+  diagnostics and no findings." `just analyse-specs`: "allium analyse: 9 specifications,
+  no diagnostics and no findings." `just plan-spec board`: 78 obligations.
+- **The stop in step 3.** A scratch copy of the modules, with `board.allium` given an
+  empty-bodied contract `PlayingFromARecord` and a surface of the same name that
+  `fulfils` it, checked and analysed with no diagnostic and no finding. The checker takes
+  the one name for both, so no clash went to the maintainer.
+- **After the clauses, and after the review's answer.** Both gates read as before, every
+  module clean, with no waiver. `just plan-spec board`: 88 obligations.
+- `rg -n '^(contract|surface|open question|use)' docs/specs/board.allium`: two contracts
+  (`Recording`, `PlayingFromARecord`), three surfaces (`Playing`, `Reopening`,
+  `PlayingFromARecord`), one open question, the two `use` lines unchanged.
+- `just check-docs` and `just check`, run at this ticket's last commit.
+
+**The obligations the clauses add**, ten, for T41's test list:
+
+- `contract-signature.PlayingFromARecord.open`, `.play`, `.read` and `.reading_after`;
+- `entity-fields.Operation` and `value-equality.Operation`;
+- `entity-fields.Reading` and `value-equality.Reading`;
+- `enum-comparable.OperationKind`;
+- `surface-actor.PlayingFromARecord`.
+
+`allium plan` derives no obligation from a prose `@invariant` or `@guarantee`, so the
+contract's four invariants and the surface's two guarantees reach T41's test list from
+their text alone. Each is a test of its own: below.
+
 ### Names T41 needs
+
+- **`enum OperationKind`**: `place`, `erase`, `write_mark`, `strike_mark`,
+  `check_cell`, `undo`, `redo`, `Playing`'s seven.
+- **`value Operation`** `{ kind, cell: sudoku/Position?, digit: Integer? }`. A cell for
+  every kind but `undo` and `redo`; a digit for `place`, `write_mark` and `strike_mark`;
+  nothing else. Every operation is well formed: a value lacking what its kind takes is
+  no operation, and reading a value from outside as an operation comes before any call
+  and is outside the contract. T41's enum with one variant per kind, each carrying what
+  it needs and nothing else, is this value, and its tests need no malformed-operation
+  refusal.
+- **`value Reading`** `{ cell: sudoku/Position, digit: Integer?, note: Set<Integer> }`:
+  `Move`'s `digit_after` and `note_after` for one cell, the note present whether it was
+  shown or waited beneath a digit.
+- **`contract PlayingFromARecord`**, four signatures:
+  - `open(givens: Set<sudoku/Given>) -> Board`: `SetPuzzle` and `OpenBoard`;
+  - `play(record: Record, operation: Operation) -> Board`: reopen, then the operation
+    through `Playing`; the board after it;
+  - `read(record: Record) -> Board`: the board the record reopens to;
+  - `reading_after(record: Record, move_index: Integer) -> List<Reading>`: every cell in
+    row order, as the move of that index holds it; `move.index`, from 1, undone moves
+    included.
+- **What a call hands back.** The signatures return `Board`, and the contract's comment
+  names the parts: for `open` and `play`, the record `write` gives of that board, which
+  the caller keeps, and the board as `Playing` exposes it less `move.digit_after` and
+  `move.note_after`; for `play` with `check_cell`, the check it added, the last of the
+  board's checks. `read` hands back the view alone. `reading_after` hands back the
+  readings the other three leave out. The binding's value is T41's to name.
+- **The refusal order** (`ARefusalHandsBackNothingElse`). A refusal hands back the
+  refusal and no record, board or reading, and the record handed over is unchanged.
+  `open`: givens are refused as `SetPuzzle` refuses them. `play` and `reading_after`: a
+  record that does not reopen is refused first, as `reopen` refuses it; then, for `play`,
+  an operation `Playing` does not offer that board, by its guard; for `reading_after`, an
+  index that names no move. `read`: the reopen refusal alone.
+- **The invariants, one test each.** `PlayingFromARecordIsHoldingTheBoard`;
+  `ARefusalHandsBackNothingElse`; `WhatIsShownIsWhatPlayingShows`, which carries
+  `TheSolutionIsNeverShown` and `ACheckNeverTellsTheDigit`; `NothingIsKeptBetweenCalls`.
+- **`surface PlayingFromARecord`**, no context, `fulfils PlayingFromARecord`, with
+  `RecordsKeepStepWithAHeldBoard` (equal records at every step against a held board) and
+  `TheSameBoardFromEitherWay` (the same view, moves, checks, operations offered,
+  readings and refusals).
 
 ### Deviations, and why
 
+- **One branch.** The work is on `implement-typescript-surface-fullsend`, with S12
+  before it, not on `ticket/t40-play-from-a-record-spec` from `main`; step 1's
+  worktree and the merge conditions are met by order on that branch. `.pixi/` and
+  `.tools/bin/allium` were present, so neither install ran.
+- **`docs/manifest.yml`.** Frozen under CONVENTIONS.md §11; edited for the record's entry
+  in the same commit as the record, under the maintainer's confirmation of 2026-11-06 for
+  this run, as a T00 follow-up.
+- **Four signatures, not three, from S12's carry.** S12's question 8 measured the
+  readings after every move at 700,193 bytes of JSON at 200 moves against 24,099 for
+  the view. So what a call hands back excludes the readings, in the signatures and the
+  Scope's Includes bullet; a fourth signature, `reading_after`, gives them one move at a
+  time; and the refusal invariant gains a third case, an index that names no move,
+  after the record's. Step 3's "three signatures" and the Acceptance criteria's "three
+  signatures and four invariants" read four signatures. Decision 0021's Decision says
+  the readings come on asking. The generation refusal S12's rounds added is T41's, not
+  this ticket's.
+- **The hand-back as `Board`, not as a value.** A value `Played { record, board, check? }`
+  was drafted for what `open` and `play` give. allium 3.6.1 reports
+  `allium.definition.unused` for a value named only as a bare return type: `Set<Played>`
+  clears it and `Played?` does not. Rather than bend the type or waive the finding, the
+  calls return `Board`, as `Recording.reopen` does, and the contract's comment names
+  the record, the view and the check. The maintainer's lead kept this after R1.
+- **`OperationKind` and two values beside `MoveKind`.** The Non-goals forbid changing
+  any existing clause; they did not forbid new declarations the contract's signatures
+  need. `Position` is `sudoku.allium`'s, reached through the existing `use` line, since a
+  caller with no board holds no `BoardCell`.
+- **`docs/explanation/specifications.md`.** It said `board.allium` states "a
+  `contract`", which the second made untrue; the sentence now counts two and names
+  play from a record. It neither lists surfaces nor counts open questions.
+- **The decision index.** 0021 is taken out of order under this run's numbering: 0017 to
+  0020 are held for records still to land, which the index now says, and the "next
+  decision" sentence reads 0022.
+
 ### Handed back
+
+- **To T41.** The names above, and three points: the contract returns `Board`, so the
+  value a call hands back is T41's to name, holding the record, the view without the
+  readings and, for a check, the check; an operation is decoded before the call and the
+  core's enum cannot be malformed, so no malformed-operation refusal is tested; and the
+  six prose clauses carry no `plan` obligation, so the test list takes them from the
+  text.
+- **To whoever next relies on the checker for a value.** A value named only as a bare
+  return type of a contract signature reads as unused in allium 3.6.1, where the same
+  value inside `Set<>` or `List<>` does not. Not filed upstream; this run has no
+  authority to contact anyone.
+- **To T43.** `board.allium` now has two contracts. The version clause is `Recording`'s,
+  and a record of another version is refused where `reopen` refuses, so it is the first
+  refusal of `play`, `read` and `reading_after` too, with nothing to add to
+  `PlayingFromARecord`.
 
 ### Adversarial review
 
+- **R1, round 1**, after step 3, on the range from the start to the checkpoint `59d91bb`,
+  focus what T41 would have to guess. One finding, medium, judged valid: `Operation`'s
+  comment promised to refuse a value carrying more or less than its kind takes, as an
+  operation `Playing` does not offer, but no guard of `Playing` can refuse it (`Undo`
+  with a surplus digit passes its guard; `Place` with no cell cannot evaluate its own),
+  and its place in the refusal order was unstated. It also ran against S12's reading of
+  the wire, where a missing field is refused by serde before the core and a surplus one
+  is ignored. Answered in `53f58ed` by the reviewer's alternative: every `Operation` is
+  well formed, only `Playing`'s guard refuses one, and reading a value from outside as
+  an operation is outside the contract, as a record's form is. No invariant, surface or
+  signature changed. The reviewer's note that its sandbox could not run `just check` is
+  an environment note, not a finding.
+- **R1, round 2**, on the range to `53f58ed`: approved with no findings. Its residual
+  point stands as a note to T41: the value's fields stay optional, because Allium values
+  carry no invariants and sum types are for entities, so the restriction is prose.
+
 ### Open points settled
+
+- **How an operation and what a call gives back are named.** An operation is a value
+  with a kind of its own enum, a position and a digit; a call returns `Board` with the
+  hand-back in prose, for the checker reason above.
+- **Where the readings after a move live.** On asking, through `reading_after`, from
+  S12's measurement.
 
 ## Open points
 

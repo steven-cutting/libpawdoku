@@ -49,7 +49,7 @@ authoritative; this table is a snapshot.
 | T39 | A layout filled in Rust: trials over drawn grids, the check, and the figures beside the paper's | `T39-layout-fill.md` | T38 | none | open |
 | T13 | Release: cargo-release, release.yml with trusted publishing, the release guards, pawdoku 0.1.0 | `T13-release.md` | S02 | S12, T40, T43 | open |
 | T15 | WebAssembly bindings: the pawdoku-wasm crate, and @steven-cutting/pawdoku-wasm with specs/ inside | `T15-wasm-bindings.md` | S04, T13 (its first pull request) | S12, T40, T41, T43 | open |
-| T40 | Specification: play from a record, a board's operations on a record handed over and handed back | `T40-play-from-a-record-spec.md` | T28 | T13, T15, S12 | open |
+| T40 | Specification: play from a record, a board's operations on a record handed over and handed back | `T40-play-from-a-record-spec.md` | T28 | T13, T15, S12 | done |
 | T43 | A record names its format version: the clause in board.allium, then the field, the refusal and the decision | `T43-record-version.md` | T40 | T13, T15, S12 | open |
 | T41 | Play from a record in Rust, and the plain values every binding hands out | `T41-play-from-a-record.md` | T40, S12, T43 | T13, T15 | open |
 | T42 | The engine in TypeScript: the Board class, play from a record, search and generation in @steven-cutting/pawdoku-wasm | `T42-typescript-surface.md` | T15, T41, S12 | none | open |
