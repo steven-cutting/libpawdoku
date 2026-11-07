@@ -426,8 +426,9 @@ otherwise than this ticket's steps, they are followed, and Deviations says so.
 
 ### What was verified, and how
 
-Segment 1 of this run: steps 1 to 9, from `4023b35`, ending at the R1 checkpoint. Step
-10, R1 and R2, and everything after are left (Handed back).
+Two segments of this run, from `4023b35`: steps 1 to 9 to the R1 checkpoint `003c1d9`;
+then R1's two rounds (`105c2ad`, `8cfb839`) and step 10 as far as it runs without a
+push. R2, the CI artefact and everything after step 10 are left (Handed back).
 
 **Step 1.** `.pixi/` and `.tools/bin` were present, so neither install ran. `just check`
 at the start (`4023b35`) closed with `All checks passed and the worktree is unchanged.`
@@ -499,6 +500,67 @@ hook. Before the R1 checkpoint commit, `just check` over the staged tree closed 
 `All checks passed and the worktree is unchanged.`, exit 0; its first run had stopped
 at `clippy` on the two `@throws` lines (Deviations).
 
+**R1.** Two rounds, both answered (Adversarial review). After them `tests/surface.rs`
+holds 20 tests and the package test 19 checks: `just wasm-test` passed 20 and 6, and
+`just wasm-package-test` closed with `package test: 19 checks passed`, on `8cfb839`.
+
+**Step 10, locally.** The `wasm` job's artefact is CI's (Handed back), so the
+declarations were read from the `pkg/` that `just wasm-build` wrote from `8cfb839`'s
+source; the one later change to the crate, the module documentation of `types.rs`,
+writes nothing into `pkg/`. The `.wasm` is 232,932 bytes, 86,331 gzipped at `-9`. With
+`InitOutput` and what follows it removed, the declarations hold no `any`. The class
+`Board`, its documentation left out:
+
+```ts
+export class Board {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    check(position: Position): Check;
+    erase(position: Position): void;
+    static open(givens: Given[]): Board;
+    place(position: Position, digit: number): void;
+    readingAfter(index: number): ReadingAfter;
+    redo(): void;
+    static reopen(record: BoardRecord): Board;
+    strikeMark(position: Position, digit: number): void;
+    undo(): void;
+    view(): BoardView;
+    writeMark(position: Position, digit: number): void;
+    write(): BoardRecord;
+}
+```
+
+One function, `play`:
+
+```ts
+export function play(record: BoardRecord, operation: Operation): Played;
+```
+
+One value, `GenerationResult`:
+
+```ts
+export interface GenerationResult {
+    /** The tier asked for. */
+    tier: Tier;
+    /** The seed it was generated from, or `null` when it was generated from a stream. */
+    seed: bigint | null;
+    /** The stream's index when generation began. */
+    start_index: bigint;
+    /** How many draws generation took. */
+    draws_taken: bigint;
+    /** The generator's version, `generationVersion()`. */
+    generation_version: string;
+    /** The random stream's version, `randomVersion()`. */
+    random_version: string;
+    /** The puzzle's givens. The solution is never shown. */
+    givens: Given[];
+}
+```
+
+`just check-docs` closed with `Validated 48 pages and 49 canonical topics.` before the
+step's commit, and `just check` ran on that commit.
+
 ### Deviations, and why
 
 - **One branch.** This ticket runs on `implement-typescript-surface-fullsend` as the
@@ -549,19 +611,126 @@ at `clippy` on the two `@throws` lines (Deviations).
   `@throws {GenerationRefused}` lines S12 asks for: the JSDoc type takes no backticks.
 - **T00 follow-ups:** the `Justfile` (`wasm-package-test`, `wasm-build`'s guard) and
   `pyproject.toml` (`binaryen`, `typescript`), under the run's leave.
+- **Step 10 without the pull request.** The declarations were read from the local
+  `pkg/`, not from the `wasm` job's artefact, which needs a push; the commit was made,
+  and nothing was pushed.
+- **A held board reads its arguments without running the caller's code uncaught** (R1):
+  a position from its own fields, a digit, an index and `generate`'s tier as primitives,
+  an object or a function there refused unread with `Error`. The ticket's steps read
+  every value through `serde_wasm_bindgen`; that left a `Board` or a `RandomStream`
+  locked after a throwing getter.
+- **R2 is not run.** Its range is what the pull request merged, and nothing has merged.
 
 ### Handed back
 
-- **Left for segment 2:** R1, before step 10; step 10's `just check-docs` and
-  `just check`, quoted, on the reviewed commit.
-- **Left by this run, not authorised:** step 10's CI artefact inspection, the push and the
-  pull request; step 11, the release, its tag and the deployment approval; step 12, the G
-  ticket handed back against what was published, and `status: done` with the index row.
-  `status` stays `open`.
+What remains, none of it authorised in this run:
+
+- **Step 10:** the `wasm` job's artefact, inspected for the declarations of `Board`, one
+  function and one value, which needs the push; the push and the pull request.
+- **R2**, before step 11, over what the pull request merged.
+- **Step 11:** the release, by `cargo release` on its branch, its pull request, the tag
+  on `main`, the push and the deployment approval, and the `gh api` read of the package's
+  versions. No `pawdoku-wasm-v*` tag is pushed until the `release` environment, with its
+  required reviewer, and the tag ruleset exist and read back with the two `gh api` reads
+  in `docs/operations/maintenance.md` (T15's R2); until then GitHub would run
+  `release-npm.yml` in an environment it creates with no approval rule. The version is
+  0.1.0 if T15's has not been published by then, otherwise 0.2.0 (Open points settled).
+- **Step 12:** the G ticket, below, brought to the names and the version published;
+  `status: done` and the index row, in a closing pull request. `status` stays `open`.
+- **Acceptance** not yet met: the package published by `release-npm.yml`, the G ticket
+  updated to what was published.
 
 ### The G ticket
 
+**Unreleased.** Written against the names as this branch exports them, at `8cfb839`
+with the R1 fixes; nothing here has been published, and step 12 brings it to what is.
+Part A is the draft under Steps, unchanged. Part B, as built:
+
+> **Part B, after the release that carries the engine** (T42; 0.1.0 if T15's release
+> has not gone out first, otherwise 0.2.0):
+>
+> - `src/lib/engine/` (new): one module that calls the package's default export,
+>   `init()`, once, in the browser only (from `onMount`, or behind `browser` from
+>   `$app/environment`), never during prerender; and an adapter that holds one `Board`
+>   per puzzle in play, opened by `Board.open(givens)` or `Board.reopen(record)`, and
+>   calls `board.free()` once when the puzzle is left. The seven operations are
+>   `place(position, digit)`, `erase(position)`, `writeMark(position, digit)`,
+>   `strikeMark(position, digit)`, `check(position)`, which returns the `Check`,
+>   `undo()` and `redo()`; the game redraws from `view()`, a `BoardView`, and reads
+>   history through `readingAfter(index)`. A position is `{ row, column }`, each 1 to 9.
+> - Keeping a game: `JSON.stringify(board.write())`, a `BoardRecord`, through the
+>   existing `StoragePort`, and `Board.reopen(JSON.parse(stored))` on return. A record
+>   names its format version, `recordVersion()` (`"record-1"` today), and a record of
+>   another version throws an `Error` named `ReopenError` whose message names both;
+>   libpawdoku promises nothing across versions. The game discards a record that does
+>   not reopen and tells the player, stated in `pawdoku.allium` first.
+> - A new puzzle: a seed drawn from the platform's cryptographic source as a `bigint`,
+>   handed to `generateFromSeed(tier, seed)` with `tier` one of `"One"` to `"Five"`; it
+>   returns a `GenerationResult` whose `givens` open the board, and the game keeps
+>   `seed`, `tier`, `generation_version` and `random_version` with the puzzle, which is
+>   what replays it. A refusal throws a `GenerationRefused`, `name` `"GenerateError"`,
+>   with `tier` and `draws_taken`. Whether the game generates on the device at all is
+>   libpawdoku's `generation.allium` open question and decision 0012's; the game asks
+>   before it ships this.
+> - Every refusal is an `Error` whose `name` is one of `EngineErrorName` and whose
+>   message is the engine's text; a value of the wrong shape throws `name` `"Error"`.
+> - The stateless functions, `open(givens)`, `play(record, operation)`, `read(record)`
+>   and `readingAfter(record, moveIndex)`, are there for a caller that holds no board;
+>   each reopens the record it is handed. The game says where it uses them, if anywhere.
+> - Tests: a vitest file per adapter, loading the module in `beforeAll` with
+>   `initSync({ module: bytes })` over `pawdoku_wasm_bg.wasm` read through
+>   `enginePath`; the browser path is proved by a built preview in which a puzzle is
+>   played, the page reloaded, and the puzzle found as it was left.
+> - `pawdoku.allium`: keeping a game, discarding a record that does not reopen, and
+>   where a puzzle comes from, stated there before they are built.
+>
+> **Its proof**, as drafted under Steps.
+
 ### Adversarial review
+
+- **R1, round 1**, before step 10, on the range from the start (`4023b35`) to the
+  checkpoint `003c1d9`, focus where the declarations and the values can differ: needs
+  attention, one finding.
+  - [medium] A throwing position getter leaves a held `Board` unusable
+    (`crates/pawdoku-wasm/src/board.rs`, lines 171 to 176). Valid, and wider than
+    reported. Reproduced against the built package: after
+    `board.erase({ get row() { throw new RangeError("row") }, column: 3 })` threw its
+    `RangeError`, `board.write()` and `board.place(...)` threw `recursive use of an
+    object detected which would lead to unsafe aliasing in rust`. serde-wasm-bindgen
+    0.6.5 reads fields through an indexing getter that does not catch, and its refusal's
+    text formats the value through more of the caller's code, while the glue holds the
+    `Board`'s borrow, which a throw across WebAssembly never releases; so every method
+    taking an argument was reached, `readingAfter` and a hostile digit among them. Fixed
+    in `105c2ad` by `types::read_held`, which copied an object through `JSON.stringify`
+    and `JSON.parse`, both catching, and refused a function unread; tested red first in
+    `tests/surface.rs` and through the glue in `tests/package/play.mjs`.
+  - The reviewer's note that its read-only sandbox blocked the recipes is an environment
+    note, not a finding; they ran here.
+- **R1, round 2**, on the range from the start to `105c2ad`, the same focus: needs
+  attention, two findings. Round 2 is the procedure's limit.
+  - [medium] The JSON copy changes valid positions (`crates/pawdoku-wasm/src/types.rs`,
+    lines 277 to 279). Two claims, judged apart. That a class with prototype getters is
+    refused held but read by `play`: invalid; `play` reads an operation through
+    `Object.entries`, own fields only, and refuses the same instance with
+    ``missing field `row` ``, as the copy did. That a position whose `toJSON` names
+    another cell moves the held board there: valid; a held `place` of
+    `{ row: 1, column: 3, toJSON() { return { row: 1, column: 4 } } }` recorded a move at
+    column 4, while `play` refused the value. Fixed in `8cfb839`: `read_held_position`
+    reads a position from its own fields through a catching `Object.entries`, refusing a
+    function in any field, `toJSON` among them, and an object in `row` or `column`,
+    unread; a digit and an index are read only as primitives. Tested red first in both
+    places. Left: the record path also reads an array `[1, 3]` as a position and looks
+    into unknown fields, which the held path does not; neither is a value `Position`
+    declares.
+  - [medium] `generate` reads its tier while the `RandomStream` is borrowed
+    (`crates/pawdoku-wasm/src/generation.rs`, lines 41 to 45). Valid; reproduced with
+    `{ get Three() { throw new RangeError("tier") } }`. Fixed in `8cfb839`: the tier is
+    read as a primitive, an object refused unread, and the stream stays usable; tested
+    with a throwing getter and a `Proxy`, after which `index` is `0n` and `nextDraw` and
+    a valid `generate` match a fresh stream.
+  - Not a finding: `types.rs`'s module documentation still named one reader for every
+    export; corrected in step 10's commit.
+- **R2** is not run (Deviations).
 
 ### Open points settled
 

@@ -1,5 +1,7 @@
-//! The engine's plain values as they cross: the TypeScript declaration of each, and the
-//! two serialisers and the one reader every export goes through.
+//! The engine's plain values as they cross: the TypeScript declaration of each, the two
+//! serialisers, and the readers: `read` for an export that holds no borrow, and
+//! `read_held` and `read_held_position` for one that does, which run none of the
+//! caller's JavaScript uncaught.
 //!
 //! The declarations are written here by hand, in one `typescript_custom_section`, each
 //! field as the core's wire shape writes it (T41): fields in snake case, enum values in
