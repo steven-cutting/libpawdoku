@@ -150,6 +150,13 @@ The mapping is not one to one. `rust` runs `test`, where the gate runs `test-doc
 runs its recipes directly rather than through `just check`. Past the composite setup action,
 nothing in CI runs a command that does not exist in the `Justfile`.
 
+A seventh job, `semver`, runs `just semver`: cargo-semver-checks reports API breaks in
+`pawdoku` against the last `pawdoku-v*` tag, and says there is nothing to compare while
+there is none. It is not a gate and not among `check`'s `needs`, because before 1.0 a
+break is allowed with a minor bump; it reports and never blocks. The pull request that
+prepares 1.0 adds it to `check`'s `needs`
+([Maintenance](../operations/maintenance.md#cut-a-release)).
+
 `.github/workflows/audit.yml` runs `just audit` on every pull request, weekly, and by
 hand. It is never a required check: a fetch of the advisory database can fail for reasons
 that have nothing to do with the diff.
@@ -160,6 +167,16 @@ its `deploy` job publishes that to GitHub Pages, and only from `main`. It is not
 neither job is among `check`'s `needs`, so it is never a required check, and a
 deployment that fails blocks no merge. [Deploy to GitHub Pages](../how-to/deploy-to-github-pages.md)
 has the procedure.
+
+`.github/workflows/release.yml` runs on a `pawdoku-v*` tag and publishes `pawdoku` to
+crates.io through trusted publishing. Its one job, `publish`, waits for the `release`
+environment's approval, runs `check-toolchain` after the same setup action, then the
+release guards, the composite action under `.github/actions/release-guards`, which
+refuse a tag whose commit is not on `main` or that is not `pawdoku-v` and the manifest's
+version; then it exchanges the run's identity token for a crates.io token and runs
+`cargo publish` unless the version is already there. Like `pages.yml`, it is not a gate
+and never a required check. [Maintenance](../operations/maintenance.md#cut-a-release)
+has the procedure, and [decision 0019](../decisions/0019-releases.md) the reasons.
 
 ## On `main`
 

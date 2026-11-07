@@ -9,6 +9,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- The release machinery (decision 0019). cargo-release, pinned in `tools.txt`, cuts a
+  release on the maintainer's machine through `[workspace.metadata.release]` and
+  `pawdoku`'s `[package.metadata.release]`, which moves this file's unreleased entries
+  under the new version; it never publishes and never pushes. `release.yml` publishes
+  `pawdoku` to crates.io through trusted publishing on a `pawdoku-v*` tag, in the
+  `release` environment, after the release guards, a composite action every release
+  workflow shares, refuse a tag off `main` or one that disagrees with the manifest. A
+  `semver` job in CI runs `just semver`, cargo-semver-checks against the last
+  `pawdoku-v*` tag, pinned in `pyproject.toml`; it reports and never blocks before 1.0.
+  The crate ships `LICENSE`. "Cut a release" in the maintenance page has the procedure.
 - The API reference hosted on GitHub Pages at
   <https://steven-cutting.github.io/libpawdoku/>, republished from `main` on every push
   by a workflow of its own. `just site` builds what is served: `just doc`, and a root
@@ -87,6 +97,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `pawdoku` is publishable: its manifest no longer inherits the workspace's
+  `publish = false`, which stays for every crate that writes `publish.workspace = true`.
+  `rust-version` no longer follows the toolchain pin; it rises only on purpose, in a
+  minor release (decision 0019).
 - `board.allium` states play from a record, the contract and surface
   `PlayingFromARecord`: a board opened from givens, an operation put to a record, a
   record read, and the board as it stood after one move of a record, each in a call that

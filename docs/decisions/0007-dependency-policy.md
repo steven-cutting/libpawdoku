@@ -38,8 +38,8 @@ recipes depend on `lock-check` and run offline, as
 cargo-deny checks licences, bans and sources offline at gate 13 of `just check`, and
 checks advisories in `just audit`, which runs in CI only, because the RustSec fetch can
 fail for reasons unrelated to the diff. `cargo-shear` fails the gate on a dependency
-nothing uses. `rust-version` follows the toolchain pin until the crate is first
-published. There is no `.cargo/config.toml`: `RUSTFLAGS` set there changes fingerprints
+nothing uses. `rust-version` followed the toolchain pin until the crate was first
+published; [decision 0019](0019-releases.md) decoupled it then. There is no `.cargo/config.toml`: `RUSTFLAGS` set there changes fingerprints
 and thrashes the build directory against rust-analyzer.
 
 This is the one place `AGENTS.md` departs from the games' invariants, and it says so: its

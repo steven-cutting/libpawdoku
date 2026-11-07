@@ -127,13 +127,16 @@ carry a stated reason.
   resolve one.
 
 This repository is licensed Apache-2.0 (decision 0006). The workflows that
-publish are listed here, and there is one: `pages.yml` deploys the API
+publish are listed here, and there are two. `pages.yml` deploys the API
 reference to GitHub Pages on a push to `main`, and only its deploy job holds
 a write scope (decision 0016). A deployment follows from a push to `main`,
 and pushing is itself separately authorised, so no agent action deploys on
-its own. `ci.yml` and `audit.yml` stay read-only. Publishing to crates.io is
-a later decision (ticket S02); when it comes it uses trusted publishing,
-never a token in this repository.
+its own. `release.yml` publishes `pawdoku` to crates.io through trusted
+publishing on a `pawdoku-v*` tag, behind the `release` environment's
+required reviewer, and only its `publish` job holds `id-token: write`
+(decision 0019). A tag push and each deployment approval are separately
+authorised, and no token is stored in this repository. `ci.yml` and
+`audit.yml` stay read-only.
 
 ## Documentation and durable context
 

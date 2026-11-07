@@ -23,8 +23,11 @@ Very little, and that is the point.
 - **There are no credentials in the repository.** No file here carries a token.
   Continuous integration uses the token GitHub mints for each run and discards with it,
   and the workflows need nothing more: the Pages deployment proves itself with the run's
-  own identity token, so it stores no credential either. Publishing to crates.io, when ticket S02 decides
-  it, will use trusted publishing, so no registry token will be stored here either.
+  own identity token, so it stores no credential either. Publishing to crates.io uses
+  trusted publishing, which exchanges the run's identity token for a short-lived registry
+  token, so no registry token is stored here either. The first version of a crate is the
+  exception: it is published with a token the maintainer holds off the repository and
+  revokes once trusted publishing is on.
 
 ## What is deliberately not secure
 
@@ -45,10 +48,10 @@ used where unpredictability matters.
   stack arrives by accident. The ban is on what ships: development dependencies are
   outside the graph, because proptest depends on both randomness crates and the ban is
   not about the test harness. Every remote hook and every GitHub Action is pinned to a
-  commit SHA, not to a mutable tag. Two tools are the exceptions worth naming.
-  cargo-hack, the one line in `tools.txt`, is downloaded over TLS from its GitHub
-  release, and it publishes no checksum or signature, so nothing verifies it beyond the
-  transport. rustqual, the one line in `tools-source.txt`, publishes no binary at all, so
+  commit SHA, not to a mutable tag. Three tools are the exceptions worth naming.
+  cargo-hack and cargo-release, the two lines in `tools.txt`, are downloaded over TLS
+  from their GitHub releases, and neither publishes a checksum or signature, so nothing
+  verifies them beyond the transport. rustqual, the one line in `tools-source.txt`, publishes no binary at all, so
   it arrives as its crates.io source, checked against the registry index's checksum, and
   is built on the machine with `--locked`, taking the dependency versions its own
   lockfile names. Were cargo-quickinstall to publish a build of the pin, cargo-binstall
@@ -63,9 +66,17 @@ used where unpredictability matters.
 - **Workflow permissions.** `ci.yml` and `audit.yml` hold `contents: read` and nothing
   else. `pages.yml` holds more, `pages: write` and `id-token: write`, on its deploy job
   alone, which checks nothing out and runs no code from the repository
-  ([decision 0016](../decisions/0016-api-reference-on-github-pages.md)). The release
-  workflow S02 designs will be the second to hold more, and it will live in a file of
-  its own rather than widen `ci.yml`.
+  ([decision 0016](../decisions/0016-api-reference-on-github-pages.md)). `release.yml`
+  is the second, in a file of its own rather than widening `ci.yml`. Its one job,
+  `publish`, holds `id-token: write` and runs in the `release` environment, whose
+  required reviewer approves each run and whose deployment policies admit the four
+  release tag patterns alone; a tag ruleset restricts who may create those tags. Unlike
+  Pages' deploy job, it checks out the tagged commit and runs its setup action and
+  `Justfile`, and GitHub grants the identity token to every step of the job, not to the
+  auth step alone. So the ruleset and the reviewer are what stop a malicious tag; the
+  guards, which refuse a tag off `main` or one that disagrees with the manifest, stop a
+  mistaken one before the token is minted
+  ([decision 0019](../decisions/0019-releases.md)).
 - **Credential leakage.** `ripsecrets` scans every commit, and its output is suppressed so
   a match never copies the matched value into a log.
 

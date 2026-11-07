@@ -37,6 +37,7 @@ as `open question` blocks — see [Specifications](../explanation/specifications
 | [0014](0014-board-imports-solver.md) | The board imports the solver, and well-posedness is a proof value |
 | [0015](0015-basic-generator.md) | A basic generator from a published method, as the yardstick |
 | [0016](0016-api-reference-on-github-pages.md) | The API reference on GitHub Pages |
+| [0019](0019-releases.md) | Releases, cut locally and published by trusted publishing |
 | [0021](0021-play-from-a-record.md) | Play from a record, beside the board |
 | [0022](0022-a-record-names-its-version.md) | A record names its format version, and nothing is promised across versions |
 
@@ -51,8 +52,8 @@ Pawdoku's decision records at `78d03cdf` when the engine moved here (0002, 0003,
 0005); each says so under its heading and keeps the topic slug it had, because the slug
 is what a cross-repository reference names, and the game restates the engine's clauses
 and cites these records by slug. Nothing here is rendered from a template, so no frozen
-inventory of numbers applies. Numbers 0017 to 0020 are held for records still to land,
-and are not free. The next decision this repository takes is 0023.
+inventory of numbers applies. Numbers 0017, 0018 and 0020 are held for records still to
+land, and are not free. The next decision this repository takes is 0023.
 
 ## Writing a new one
 

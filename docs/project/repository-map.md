@@ -27,6 +27,7 @@ under `crates/` as siblings, each depending on the engine and none on another.
 ├── .config/nextest.toml    The test runner's profiles
 ├── crates/
 │   └── pawdoku/            The engine
+│       ├── LICENSE         A symlink to the root LICENSE, so the package ships it
 │       ├── src/
 │       │   ├── lib.rs      The crate root: no_std with alloc, every public item
 │       │   ├── board.rs    The board in play: opening, the moves, undo and redo, the check, writing and reopening
@@ -47,7 +48,7 @@ under `crates/` as siblings, each depending on the engine and none on another.
 ├── scripts/                The first-run script
 ├── .agents/skills/         Canonical agent procedures
 ├── allium-skill-reference/ Reference material the Allium skills link to
-├── .github/                CI, the audit and Pages workflows and the composite setup action
+├── .github/                CI, the audit, Pages and release workflows, and two composite actions: setup and the release guards
 ├── AGENTS.md               Engineering conventions and the agent working agreement
 ├── Justfile                Every supported command
 ├── pyproject.toml          The pixi manifest: every other tool, Python and prek
@@ -65,8 +66,9 @@ under `crates/` as siblings, each depending on the engine and none on another.
 | `scripts/` | `initialize.sh`, the first-run script. The two validators, the allium installer and runner, the gate runner and the ripsecrets wrapper are console scripts of `biscuit-games-tooling`, pinned in `pyproject.toml`. |
 | `.agents/skills/` | Canonical agent procedures. The two bridge trees, `.claude/skills/` and `.codex/skills/`, point at them and add nothing. |
 | `allium-skill-reference/` | Vendored reference material for the Allium skills, kept outside `.agents/` and ignored by every linter (decision 0010). |
+| `.github/` | The workflows and the composite actions they share. `ci.yml` runs the gate jobs and `check`, `audit.yml` the advisory check, `pages.yml` deploys the API reference (decision 0016), and `release.yml` publishes `pawdoku` to crates.io on a `pawdoku-v*` tag (decision 0019). `actions/setup` installs what every job needs; `actions/release-guards` refuses a tag off `main` or one that disagrees with the manifest, for every release workflow. |
 | `.pixi/envs/default/bin` | Every tool `pyproject.toml` pins and the tooling package's console scripts, installed from `pixi.lock`. First on `PATH` inside every recipe, and nowhere else. |
-| `.tools/bin` | cargo-hack from `tools.txt`, rustqual from `tools-source.txt`, and the Allium checker. On `PATH` inside every recipe, after the pixi environment. |
+| `.tools/bin` | cargo-hack and cargo-release from `tools.txt`, rustqual from `tools-source.txt`, and the Allium checker. On `PATH` inside every recipe, after the pixi environment. |
 | `tests/fixtures/metrics-violation/` | A directory shaped like a crate, with no manifest, that breaks every module-boundary rule once. `just metrics` requires rustqual to fail on it; nothing compiles it. |
 | `target/` | Cargo's build output. `just coverage` writes its report under `target/llvm-cov/`. |
 
