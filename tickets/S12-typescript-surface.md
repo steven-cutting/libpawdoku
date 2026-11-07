@@ -254,7 +254,7 @@ Expected: the two files; the hand-back sections below, filled.
 
 ### What was verified, and how
 
-Run on 2026-11-06 and 2026-11-07 on the branch `implement-typescript-surface-fullsend`,
+Run on the night of 2026-11-06 to 2026-11-07 on the branch `implement-typescript-surface-fullsend`,
 from `3ce08de52677812198c7edaae851841193bb72d9`, on an Apple M5 Pro under macOS. Every
 timing below is that one machine in Node, so it is an upper-end desktop figure; no phone
 was measured. The probes were throwaway crates in a scratch directory, each with the
@@ -351,9 +351,9 @@ member no snapshot exercises is not held. T41's step 8 therefore has to show eve
 (the amendments say how).
 
 **(b) tsify's record since 2024.** `madonoharu/tsify`, `MIT OR Apache-2.0`, not archived, 515
-stars, 33 open issues, last pushed 2026-11-01 (`gh api repos/madonoharu/tsify`). Commits by
-month through `gh api`, from the newest 100, show gaps in 2024-12 to 2025-01, 2025-06 to
-2025-09, 2025-11 to 2025-12 and 2026-03 to 2026-07, and 31 in 2026-08; releases 0.5.5
+stars, 33 open issues, last pushed 2026-11-01 (`gh api repos/madonoharu/tsify`, read 2026-11-07). The newest 100 commits
+reach back to 2024-01, so that count is capped and early months may be short; they show no commit in
+2025-06 to 2025-09, 2025-11 to 2025-12 or 2026-03 to 2026-07, and 31 in 2026-08. Releases 0.5.5
 (2025-04-13), 0.5.6 (2025-10-14), 0.5.7 (2026-08-20) and 0.5.8 (2026-08-23). It is
 maintained in bursts. Three things decide against it:
 
@@ -471,7 +471,7 @@ JSON.stringify(result)      TypeError: Do not know how to serialize a BigInt
 ```
 
 Four facts follow. `Option::None` is `undefined` by default where `serde_json` writes `null`.
-A `u64` above 2^53 **throws** by default. The bigint setting also turns every `usize` into a
+A `u64` above `Number.MAX_SAFE_INTEGER` **throws** by default: `2n ** 53n - 1n` crossed as a number, and `2n ** 53n` threw `9007199254740992 can't be represented as a JavaScript number`. The bigint setting also turns every `usize` into a
 `bigint`, because serde writes a `usize` as a `u64`: that would make `undone`, `index` and
 `after_move` bigints, and `JSON.stringify(board.write())` would throw. And `#[serde(flatten)]`
 yields a JavaScript `Map`. So one serialiser cannot serve both the board's values and the
@@ -531,11 +531,10 @@ hand and not as a gate, the same package was loaded in headless Chrome 156 from 
 opened with 81 cells. So the default path was seen to work once, on this date.
 
 What only a browser proves is that fetch path, and the path the game actually ships is the one
-Vite rewrites, which no browser job in this repository would exercise. On conda-forge on
-2026-11-06: `chromedriver` has no package on either platform, `chromium` none, and
+Vite rewrites, which no browser job in this repository would exercise. On conda-forge, `chromedriver` on 2026-11-06 and the others as stated: `chromedriver` has no package on either platform, `chromium` none on `linux-64` (2026-11-07), and
 `python-chromedriver-binary` 159.0.8147 (11.86 MiB, `linux-64`) brings no browser; `geckodriver`
-0.37.1 (1.79 MiB) is on both and `firefox` 159.0.1 on both (104.67 MiB `linux-64`, 170.63 MiB
-`osx-arm64`). A gate is therefore over 100 MiB per fresh environment, two more pins and a CI job;
+0.37.1 (1.79 MiB) is on both, and `firefox` 159.0.1 on both (104.67 MiB `linux-64`, 170.63 MiB
+`osx-arm64`; 2026-11-07). A gate is therefore over 100 MiB per fresh environment, two more pins and a CI job;
 its run time was not measured. The Node route costs: `tsc` over the consumer 1 s, the Node check
 under 0.1 s, `typescript` 3.13 MiB.
 
@@ -603,11 +602,12 @@ Quoted from the 0.2.130 glue, built with no flag:
 
 ```text
 const BoardFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_board_free(ptr, 1));
 if (Symbol.dispose) Board.prototype[Symbol.dispose] = Board.prototype.free;
 ```
 
-(The first line's other arm, the fallback, is elided.) The `.d.ts` declares `[Symbol.dispose](): void;`
+The `.d.ts` declares `[Symbol.dispose](): void;`
 on each class. `using held = Board.open(givens)` type-checks under the flags above and frees the board
 when its block ends: read after it, the board throws. Under `--target es2020 --lib es2020,dom` the
 declarations themselves fail, `error TS2318: Cannot find global type 'Disposable'.`, so a consumer's
