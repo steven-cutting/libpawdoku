@@ -1015,7 +1015,10 @@ once when the puzzle is left. The vitest and preview proofs stand, and the previ
 
 ### Adversarial review
 
-R1 is run by the main thread on the checkpoint commit holding these notes, and its round and triage are recorded here.
+**R1, round 1**, model `gpt-6-astra`, over `3ce08de..ee0dc08`, focus evidence against claim. The round's verdict was needs-attention, with two findings, both of medium severity and both valid. Each was answered in `7a97793`.
+
+1. **Snapshot assignability does not establish declaration equality. Valid.** The notes said drift shows both ways and that showing every member closed the gap. Seven planted widenings, among them an optional `digit` on `Place` and an added `Fly` operation, left the snapshot guard clean with every operation shown. Question 1 now says the guard is one-way, T42 step 8 gains a declaration module that stopped all seven, and the notes state what that module still does not hold.
+2. **The seed-only path cannot expose refusal draw counts. Valid.** `GenerationResult` exposes `draws_taken` with no `when`, the thrown error held only `stack`, `message` and `name`, and the same text came with 1900, 2200 and 2050 draws. No seed was found that refuses: 100,000 in tier 3, with 617 failed first attempts. Recommendation 3 and T41 step 6 now carry the figure on the refusal on both paths, with T42 steps 3, 6, 7 and 9 and T17 following, probed. The comment above `GenerationResult` reads tighter than its `exposes`, and that wording is handed back above; the finding's "no failing seed" stands as it said.
 
 ### Open points settled
 
