@@ -536,8 +536,11 @@ pawdoku-wasm -e normal --target wasm32-unknown-unknown` shows `pawdoku` (with
 dry run on this branch, with `--allow-branch` naming it, rewrites
 `crates/pawdoku-wasm/CHANGELOG.md` alone (`## [0.1.0] - 2026-11-07`, the compare link
 from `pawdoku-wasm-v0.1.0`, the tag link) and touches no other file; before the
-checkpoint commit it then stopped on "uncommitted changes detected", so its closing
-line is quoted from the run after the commit, below.
+checkpoint commit it then stopped on "uncommitted changes detected". Run again on the
+committed checkpoint (`03a6f30`), it showed the same single rewrite of
+`crates/pawdoku-wasm/CHANGELOG.md`, "Publishing pawdoku-wasm" (a label: the table says
+`publish = false`), and "warning: aborting release due to dry run; re-run with
+`--execute`", exit 0, the tree unchanged.
 
 **Step 4.** wasm-bindgen 0.2.130 refuses a constant: "#[wasm_bindgen] will not work on
 constants unless you are defining a `#[wasm_bindgen(typescript_custom_section)]`". So the
