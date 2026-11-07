@@ -490,8 +490,9 @@ to dry run"; the floor met; no stale sentence;
 
 Segment 1 of this run: the stop check, then steps 1 to 9, the R1 checkpoint `03a6f30`
 and the dry run on it, `83651ed`. Segment 2: R1, then step 10 locally, with no pull
-request. The CI proof of step 7, steps 11 and 12 and every push and pull request are
-left (Handed back).
+request. Segment 3: R2's first round on `release-npm.yml`, its fix `d6dcdff`, and these
+notes. The CI proof of step 7, steps 11 and 12 and every push and pull request are left
+(Handed back).
 
 **The stop check, step 1's last paragraph.** wasm-pack's installer was read at the tag
 `v0.15.1` (commit `b9ac5e48`) with `gh api`: `src/install/mode.rs`,
@@ -616,6 +617,11 @@ the tree read back clean.
   registry install would; without it, tried too, npm made a symbolic link and both
   resolved through it to `crates/pawdoku-wasm/pkg/` in the worktree.
 
+**R2's fix, `d6dcdff`.** Three pages, no code: `docs/operations/maintenance.md`,
+`docs/decisions/0020-webassembly-package.md` and `docs/explanation/security-model.md`
+(Adversarial review). `just check-docs` after it: "Validated 48 pages and 49 canonical
+topics.", exit 0.
+
 ### Deviations, and why
 
 - **One branch.** This ticket ran on `implement-typescript-surface-fullsend` as the
@@ -652,11 +658,26 @@ the tree read back clean.
 
 - **Left by this run, not authorised:** the push and the first pull request (step 10's
   "ask before pushing"); the CI proof of step 7, the `wasm` job green on the pull
-  request with the artefact's `package.json`, `specs/` and `LICENSE` inspected; R2,
-  before step 11; step 11, the release of 0.1.0, its tag, the deployment approval, the
-  existence check's `E404` and the re-run's skip; step 12, the package made public, the
-  game's repository granted Read, `docs/operations/maintenance.md` recording it, and
-  `status: done` with the index row. `status` stays `open`.
+  request with the artefact's `package.json`, `specs/` and `LICENSE` inspected; step 11,
+  the release of 0.1.0, its tag, the deployment approval, the existence check's `E404`
+  and the re-run's skip; step 12, the package made public, the game's repository
+  granted Read, `docs/operations/maintenance.md` recording it, and `status: done` with
+  the index row. `status` stays `open`.
+- **A prerequisite of step 11, from R2:** the `release` environment with its required
+  reviewer, and the tag ruleset, configured (T13's step 6) and read back with the two
+  `gh api` reads `docs/operations/maintenance.md` names, before any `pawdoku-wasm-v*`
+  tag is pushed. Until then a tag publishes with no approval (Adversarial review).
+- **For a T13 follow-up, outside this ticket's Files touched:**
+  `docs/decisions/0019-releases.md`, lines 103 to 105, says that until the environment
+  and the ruleset exist "`release.yml` waits on an environment nobody has made". GitHub
+  creates the environment unprotected instead; `release.yml` stops only because no
+  trusted publisher is configured. T13's own notes reach the right conclusion for
+  crates.io on the same premise. The sentence wants correcting.
+- **An option for the maintainer, not taken:** a first step in `release-npm.yml` that
+  reads the environment's `protection_rules` and stops without `required_reviewers`.
+  Steps before it still run with the job's `packages: write`, so it would not close the
+  boundary R2 names, and it cannot be proved locally; the prerequisite is stated in the
+  pages instead.
 - **For T42**, which edits this crate next: `wasm-build` is `wasm-guard` then
   `lock-check` then wasm-pack, and `wasm-test` is the guard then `cargo test --locked`,
   which needs no `lock-check` because no wasm-pack runs before it. Doc comments on an
@@ -676,8 +697,26 @@ the tree read back clean.
   `just check` is an environment note, not a finding; `just check` ran here. The one
   defect of this ticket's promise against its recipes, `wasm-build`'s lockfile, was
   found by step 10's proof, not by the review.
-- **R2** has not run: it reads `release-npm.yml` before step 11, which this run does not
-  reach.
+- **R2, round 1**, before step 11, on the range from the start (`c0481c2`) to `70c2553`,
+  focus the token, the tag and the trust boundary: needs attention, one finding.
+  - [high] A missing `release` environment fails open
+    (`.github/workflows/release-npm.yml`, lines 36 to 45). Valid for the repository's
+    text; the configuration itself is the maintainer's. GitHub's page "Manage
+    environments", read on 2026-11-07, says: "Running a workflow that references an
+    environment that does not exist will create an environment with the referenced
+    name", and "the newly created environment will not have any protection rules or
+    secrets configured". T13's notes record that neither the environment nor the
+    ruleset exists yet. `release.yml` still could not publish in that state, having no
+    trusted publisher, but `release-npm.yml` needs only its own `GITHUB_TOKEN`, so a
+    tag would publish unapproved, while the maintenance page said `release-npm.yml`
+    "waits for the same `release` environment's reviewer" with no prerequisite. Fixed
+    in `d6dcdff`: the maintenance page says no `pawdoku-wasm-v*` tag is pushed until
+    the environment and the ruleset read back, with the two `gh api` reads, and why;
+    decision 0020 gains the consequence; the security model says both stops exist only
+    once configured. Configuring them is left (Handed back).
+
+  The reviewer's note that its read-only sandbox blocked the full checks is an
+  environment note, not a finding.
 
 ### Open points settled
 
@@ -685,7 +724,7 @@ the tree read back clean.
   guards' composite action and the cargo-release pin were committed before this ticket
   began, and `release-npm.yml` uses them, so they keep one owner. The `release`
   environment and the tag ruleset are T13's step 6, which the run left, so step 11
-  still waits on them.
+  still waits on them, and no tag is pushed until both read back (R2).
 - **`metrics` over the binding.** Left on the core, as Context says; nothing here asked
   for more.
 - **The inherited `repository`** is not settled: it is verified only at the first
