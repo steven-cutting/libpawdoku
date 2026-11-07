@@ -1,7 +1,7 @@
 ---
 id: T43
 title: "A record names its format version: the clause in board.allium, then the field, the refusal and the decision"
-status: open
+status: done
 depends_on: [T40]
 parallel_with: [T13, T15, S12]
 branch: ticket/t43-record-version
@@ -478,6 +478,13 @@ has not run on this branch), so the changelog entry carries no 0.2.0 sentence.
 **Step 8.** Decision 0022, as the brief projects it; the index row, the manifest entry
 (a T00 follow-up, confirmed), and "The next decision this repository takes is 0023."
 
+**Step 9.** `just plan-spec board`: 89 obligations, as after the clause; the Rust adds
+none, as a clause's obligations come from the specification alone. `just check-docs`:
+"Validated 46 pages and 47 canonical topics." `just check`, run after the ticket's last
+commit, is quoted in the commit range's closing report rather than here, since these notes
+are part of that commit; it was green at `4471852`: "All checks passed and the worktree is
+unchanged."
+
 ### Deviations, and why
 
 - **One branch.** The work is on `implement-typescript-surface-fullsend`, after S12 and
@@ -510,7 +517,46 @@ has not run on this branch), so the changelog entry carries no 0.2.0 sentence.
 
 ### Handed back
 
+- **To T41.** A record names `RECORD_VERSION`, and `Board::reopen` refuses another, or
+  none, with `ReopenError::Version { named, reads }` before any other refusal, so it is
+  the first refusal of `play`, `read` and `reading_after` with nothing to add.
+  `ReopenError` now holds a `String`, so a function returning it cannot be `const`.
+  `Board` keeps its method count; the new code is free and associated functions.
+- **To T42 and T17.** Read a record through `pawdoku::board::RecordVersion` (under
+  `serde`) before the rest of it: `named()` gives the version or `None`, and `readable()`
+  gives `Ok` or the same refusal `Board::reopen` gives, whose `Display` text is the one to
+  throw. By name it ignores every other field; in order it takes the first element as the
+  version and reads every later one past as `IgnoredAny`, which needs a format that says
+  what each value is. A positional format that does not is the limit decision 0022
+  records. Every later version keeps the field's name, `version`, and its type, a string.
+- **To T13.** The changelog entry under `[Unreleased]`, Changed, carries no 0.2.0
+  sentence, since `pawdoku 0.1.0` was not published when it was written; if it is by the
+  time this reaches a release, the entry gains it as step 7 says.
+
 ### Adversarial review
+
+- **R1, round 1**, after step 2, on the range from the start to the checkpoint
+  `1adf64d`, focus the refusal's order and what a record must name: approved with no
+  findings. The reviewer's note that its sandbox could not run `just check` is an
+  environment note, not a finding.
+- **R2, round 1**, after step 8, on the range to the checkpoint `333dee6`, focus the
+  refusal's order and the wire shape. One finding, medium, judged valid: `RecordVersion`'s
+  derived `Deserialize` read one element of a record handed over as a sequence and left
+  the rest, so a format that refuses a sequence left part read (serde's own
+  `SeqDeserializer` does; the finding said a JSON array does too, which was not checked
+  here, as no format crate is in the workspace) refused the whole record before
+  `readable()` could give the version refusal. A red test,
+  `the_version_alone_is_read_from_a_record_handed_over_in_order`, showed one of five
+  fields read. Answered in `4471852`: `RecordVersion` gains a hand-written `Deserialize`
+  that by name defers to a private derived reading, so field names and ignored fields
+  behave as before, and in order reads the first element as the version (a missing one
+  reads as none) and every later one past as `IgnoredAny`. The test reads a full record
+  of this version through the counting `Fields` helper, all five handed over and readable,
+  and a later shape through serde's exhaustion-checking `SeqDeserializer`, refused naming
+  `"record-9"`. `RecordVersion`'s documentation and decision 0022's Consequences state the
+  limit: reading past needs a format that says what each value is, or one that hands over
+  no more than the version. `docs/reference/testing.md`'s `board/record.rs` row names the
+  in-order case. `just check` was green at `4471852`.
 
 ### Open points settled
 
