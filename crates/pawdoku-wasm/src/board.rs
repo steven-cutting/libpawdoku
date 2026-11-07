@@ -6,7 +6,7 @@
 //! view, the reading, the record and a check come back as the core's wire shape. A
 //! method reads a digit or an index with [`types::read_held`], which refuses an object
 //! unread, and a position with [`types::read_held_position`], from its own fields as
-//! `play` reads a record's, so no JavaScript of the caller's throws through Rust while
+//! `play` reads an operation's, so no JavaScript of the caller's throws through Rust while
 //! the board is borrowed: a getter that throws comes back as its own exception and
 //! leaves the board usable.
 

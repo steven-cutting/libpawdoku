@@ -1,7 +1,7 @@
 //! The engine's plain values as they cross: the TypeScript declaration of each, the two
-//! serialisers, and the readers: `read` for an export that holds no borrow, and
-//! `read_held` and `read_held_position` for one that does, which run none of the
-//! caller's JavaScript uncaught.
+//! serialisers, and the readers: `read` for an export that holds no borrow,
+//! `read_operation` for `play`'s operation, and `read_held` and `read_held_position`
+//! for one that does, which run none of the caller's JavaScript uncaught.
 //!
 //! The declarations are written here by hand, in one `typescript_custom_section`, each
 //! field as the core's wire shape writes it (T41): fields in snake case, enum values in
@@ -11,6 +11,7 @@
 //! and to the engine (S12, question 1).
 
 use js_sys::{Array, Object, Reflect};
+use pawdoku::board::Operation;
 use pawdoku::sudoku::Position;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -280,7 +281,7 @@ pub(crate) fn read_held<T: DeserializeOwned>(value: JsValue) -> Result<T, JsValu
     read(value)
 }
 
-/// A position read while a `Board` is borrowed, as `play` reads a record's position:
+/// A position read while a `Board` is borrowed, as `play` reads an operation's position:
 /// from its own enumerable fields, so a getter on its prototype is not seen, and with
 /// a function in any field, a `toJSON` among them, refused unread. The fields are
 /// listed by a catching `Object.entries`, so a getter or a `Proxy` trap that throws
@@ -309,6 +310,24 @@ pub(crate) fn read_held_position(value: JsValue) -> Result<Position, JsValue> {
         }
     }
     read(fields.into())
+}
+
+/// An operation read as `play` reads it, with its position read as a held `Board`
+/// reads one: serde would read an array `[row, column]` as a position, which no
+/// declaration allows and the held board refuses, so an array in the operation's own
+/// `position` field is refused with [`read_held_position`]'s refusal before serde reads
+/// the rest. `play` holds no borrow, so the caller's code may run here.
+pub(crate) fn read_operation(value: JsValue) -> Result<Operation, JsValue> {
+    if value.is_object() {
+        for entry in own_entries(&value)?.iter() {
+            let entry: Array = entry.unchecked_into();
+            let (name, field) = (entry.get(0), entry.get(1));
+            if name.as_string().is_some_and(|name| name == "position") && Array::is_array(&field) {
+                read_held_position(field)?;
+            }
+        }
+    }
+    read(value)
 }
 
 #[wasm_bindgen]

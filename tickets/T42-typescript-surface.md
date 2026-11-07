@@ -621,6 +621,14 @@ worktree is unchanged.`, exit 0; the commit that quotes it changed this ticket a
   an object or a function there refused unread with `Error`. The ticket's steps read
   every value through `serde_wasm_bindgen`; that left a `Board` or a `RandomStream`
   locked after a throwing getter.
+- **`play` refuses an array position as the held board does.** The final code review
+  found that `play` read an operation's `position` given as an array `[1, 3]` as a
+  cell, through serde's internally tagged reading, while `board.place([1, 3], 4)`, `open`
+  and `Board.open` refused it with ``missing field `row` ``, so a refusal differed
+  between the two ways (`TheSameBoardFromEitherWay`). `types::read_operation` now refuses
+  an array in the operation's own `position` field with `read_held_position`'s refusal;
+  tested red first as a fourth case of
+  `a_board_reads_a_position_as_play_does_from_its_own_fields`.
 - **R2 is not run.** Its range is what the pull request merged, and nothing has merged.
 
 ### Handed back
@@ -721,9 +729,9 @@ Part A is the draft under Steps, unchanged. Part B, as built:
     reads a position from its own fields through a catching `Object.entries`, refusing a
     function in any field, `toJSON` among them, and an object in `row` or `column`,
     unread; a digit and an index are read only as primitives. Tested red first in both
-    places. Left: the record path also reads an array `[1, 3]` as a position and looks
-    into unknown fields, which the held path does not; neither is a value `Position`
-    declares.
+    places. Left: the record path also read an array `[1, 3]` as a position, refused
+    since by the final code review (Deviations), and looks into unknown fields, which
+    the held path does not; neither is a value `Position` declares.
   - [medium] `generate` reads its tier while the `RandomStream` is borrowed
     (`crates/pawdoku-wasm/src/generation.rs`, lines 41 to 45). Valid; reproduced with
     `{ get Three() { throw new RangeError("tier") } }`. Fixed in `8cfb839`: the tier is

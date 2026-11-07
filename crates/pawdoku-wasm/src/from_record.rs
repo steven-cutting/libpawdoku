@@ -9,7 +9,7 @@
 //! reads it, and a version's refusal is wrapped in `FromRecordError`'s reopening
 //! variant, so the message is that error's text whichever reading refused.
 
-use pawdoku::board::{FromRecordError, Operation, RECORD_VERSION, Record};
+use pawdoku::board::{FromRecordError, RECORD_VERSION, Record};
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -63,7 +63,7 @@ pub fn play(
     #[wasm_bindgen(unchecked_param_type = "Operation")] operation: JsValue,
 ) -> Result<JsValue, JsValue> {
     let record = reopened(record)?;
-    let operation: Operation = types::read(operation)?;
+    let operation = types::read_operation(operation)?;
     let played = pawdoku::board::play(&record, operation).map_err(|refusal| thrown(&refusal))?;
     types::board(&played)
 }

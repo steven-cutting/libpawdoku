@@ -790,7 +790,12 @@ fn a_board_reads_a_position_as_play_does_from_its_own_fields() {
     let elsewhere = "return { row: 1, column: 3, toJSON() { return { row: 1, column: 4 }; } };";
     let (placed, _) = played(&[Op::Place(FREE, 4)]);
     let placed = text(&placed.write().unwrap_or_default());
-    let asked = [(own, Some(&placed)), (inherited, None), (elsewhere, None)];
+    let asked = [
+        (own, Some(&placed)),
+        (inherited, None),
+        (elsewhere, None),
+        ("return [1, 3];", None),
+    ];
     for (body, answer) in asked {
         let mut board = Board::open(givens()).unwrap_or_else(|_| unreachable_fixture());
         let held = board
