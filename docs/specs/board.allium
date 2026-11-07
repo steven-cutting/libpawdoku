@@ -52,10 +52,19 @@
 --     written to the same board, moves, undone moves and checks included.
 --     Recording says what that must satisfy and nothing of the form a record
 --     takes or where one is kept.
---   - Two boundaries: Playing, which says what a play surface can see of a
---     board and what it may ask of it, and Reopening, where a board is
+--   - Play from a record: a board's operations put to a record a caller
+--     hands over, with the record after the operation handed back and what
+--     Playing shows of the board after it, less the readings after its
+--     moves, which are given on asking, one move at a time. A board can be
+--     opened from givens the same way, and a record read. Nothing is kept
+--     between calls: the record is the caller's state, and each call
+--     reopens it.
+--   - Three boundaries: Playing, which says what a play surface can see of
+--     a board and what it may ask of it; Reopening, where a board is
 --     written down and had again and which stands whether or not a board
---     is open. Neither says how anything looks.
+--     is open; and PlayingFromARecord, where a caller plays from records
+--     and holds no board, which stands the same way. None says how
+--     anything looks.
 --
 -- Excludes
 --   - The rules: what a unit, a peer, a conflict and solved are, and what a
@@ -116,6 +125,10 @@ use "./solver.allium" as solver
 -- changes nothing and is never taken back.
 enum MoveKind { place | erase | write_mark | strike_mark }
 
+-- What may be asked of a board through a record: Playing's seven, the four
+-- moves, the check, undo and redo.
+enum OperationKind { place | erase | write_mark | strike_mark | check_cell | undo | redo }
+
 ------------------------------------------------------------
 -- External Entities
 ------------------------------------------------------------
@@ -124,6 +137,32 @@ enum MoveKind { place | erase | write_mark | strike_mark }
 -- below says what writing one and reopening it must satisfy, and the caller
 -- it is handed to decides the rest, where it is kept included.
 external entity Record {}
+
+------------------------------------------------------------
+-- Value Types
+------------------------------------------------------------
+
+-- One of Playing's operations, as a caller hands it over with a record. It
+-- names its cell by position, since a caller that holds no board holds no
+-- cell. Each kind carries what Playing's operation of that kind takes and
+-- nothing else: a cell for every kind but undo and redo, and a digit for a
+-- placement, a written mark and a struck mark. An operation carrying more
+-- or less than its kind takes names no operation Playing offers, and is
+-- refused as one.
+value Operation {
+    kind: OperationKind
+    cell: sudoku/Position?
+    digit: Integer?
+}
+
+-- One cell of the board as it stood once a move and no later one had been
+-- made: Move's digit_after and note_after for that cell. The note is the
+-- cell's note whether it was shown then or waited beneath a digit.
+value Reading {
+    cell: sudoku/Position
+    digit: Integer?
+    note: Set<Integer>
+}
 
 ------------------------------------------------------------
 -- Entities and Variants
@@ -655,6 +694,72 @@ contract Recording {
         -- at any point, solved or not.
 }
 
+-- Play from a record: what a caller that holds no board may do with a
+-- record. Every signature is a composition of clauses that stand already,
+-- SetPuzzle and OpenBoard, Recording's write and reopen, and one of
+-- Playing's operations under its guard, and adds no rule of its own. It
+-- names no form, as Recording names none.
+--
+-- What open and play hand back is the board they give, in two parts: the
+-- record write gives of it, which is what the caller keeps and hands to the
+-- next call, and the board as Playing exposes it, less move.digit_after and
+-- move.note_after, so that one call is enough to redraw. When the operation
+-- was a check, the check it added comes back too: the last of the board's
+-- checks. read hands back the second part alone, and reading_after the
+-- readings the other three leave out, one move at a time.
+contract PlayingFromARecord {
+    -- Opens a board from givens, as SetPuzzle and OpenBoard do. Givens
+    -- SetPuzzle would refuse are refused here.
+    open: (givens: Set<sudoku/Given>) -> Board
+
+    -- Reopens the record and puts the operation to the board through
+    -- Playing; the board given is the board after it.
+    play: (record: Record, operation: Operation) -> Board
+
+    -- Reopens the record and gives the board it reopens to, for reading as
+    -- Playing exposes it, less the readings after its moves.
+    read: (record: Record) -> Board
+
+    -- Reopens the record and gives, for every cell of the board in row
+    -- order, the digit and the note as the move of that index holds them:
+    -- move.digit_after and move.note_after. The index is move.index,
+    -- counted from 1, and a move undone is still one of the record's moves.
+    reading_after: (record: Record, move_index: Integer) -> List<Reading>
+
+    @invariant PlayingFromARecordIsHoldingTheBoard
+        -- What is handed back is what holding the board gives, step for
+        -- step: the record play hands back is the record write gives of the
+        -- board reopen gives of the record handed over, after the operation
+        -- made through Playing under its guards; and open's record is
+        -- write's of the board OpenBoard opens on the givens. Each part is
+        -- already a clause, so the composition is the whole of the rule.
+
+    @invariant ARefusalHandsBackNothingElse
+        -- A refused call hands back the refusal and no record, no board and
+        -- no reading. Givens SetPuzzle would not pose are refused as it
+        -- refuses them. A record that does not reopen is refused as reopen
+        -- refuses it, and that comes first, since until it reopens there is
+        -- no board to ask. Then an operation Playing does not offer that
+        -- board is refused by its guard, and an index that names no move of
+        -- the board is refused. The record handed over is a value and is
+        -- unchanged by any call, refused or not.
+
+    @invariant WhatIsShownIsWhatPlayingShows
+        -- A call shows what Playing exposes of the board and nothing more:
+        -- the board handed back is read as Playing reads it, less the
+        -- readings after its moves, and those come one move at a time from
+        -- reading_after, as Move's digit_after and note_after. So
+        -- TheSolutionIsNeverShown and ACheckNeverTellsTheDigit hold as
+        -- written: nothing here is read from the solution but the yes or no
+        -- of a check, and a reading holds no digit the board did not hold.
+
+    @invariant NothingIsKeptBetweenCalls
+        -- Nothing is held from one call to the next, and what a call hands
+        -- back depends on what is handed over and on nothing else: not on an
+        -- earlier call, not on a board already open and not on where the
+        -- record was kept. ARecordIsEnoughOnItsOwn says the record suffices.
+}
+
 ------------------------------------------------------------
 -- Surfaces
 ------------------------------------------------------------
@@ -786,6 +891,28 @@ surface Reopening {
         -- a board already open, since there need be none. The solution is
         -- not in the record: reopening puts the record's givens to the
         -- solver, as setting a puzzle does, and the solver finds it again.
+}
+
+-- Where a caller plays from records and holds no board. No board is its
+-- context, as none is Reopening's: every call reopens the record it is
+-- handed, so this surface stands whether or not a board is open.
+surface PlayingFromARecord {
+    contracts:
+        fulfils PlayingFromARecord
+
+    @guarantee RecordsKeepStepWithAHeldBoard
+        -- A caller that plays from records, handing each call the record
+        -- the last one handed back, and a caller that holds one board and
+        -- makes the same operations on it, have equal records at every
+        -- step: the record handed back is the one write gives of the held
+        -- board.
+
+    @guarantee TheSameBoardFromEitherWay
+        -- At every such step the two callers read the same: the same board
+        -- as Playing exposes it, the same moves, the same checks and the
+        -- same operations offered, and the same readings, reading_after a
+        -- move's index against that Move's digit_after and note_after on
+        -- the held board. A refusal is the same refusal either way.
 }
 
 ------------------------------------------------------------
