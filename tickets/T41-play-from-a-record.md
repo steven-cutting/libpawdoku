@@ -362,8 +362,12 @@ The functions, `board/from_record.rs`:
 The generation result, `generation.rs`:
 
 - T12 (1) `from_a_seed_is_generate_with_a_seeded_stream`: the same givens, `seed` named,
-  `start_index` 0, `draws_taken` the stream's index after; 23 for tier 3 to 5 and 104
-  for tiers 1 and 2 at seed 0 when the first grid attempt succeeds.
+  `start_index` 0, `draws_taken` the stream's index after.
+- T12a (1) `a_grid_found_at_once_takes_23_draws_or_104_where_the_order_is_drawn`: from
+  a stream of zeros, whose first grid attempt succeeds, tiers 3 to 5 take 23 draws and
+  tiers 1 and 2 take 104 (`architecture.md`, "The generator"). Added in the loop: T12
+  holds `draws_taken` to the seeded stream's index, and seed 0's first attempt is not
+  known to succeed in every tier, so the figures are held from zeros.
 - T13 (1) `from_a_stream_records_where_it_began_and_only_its_own_draws`: `seed` `None`;
   five zeros refused with `draws_taken` 5; a script of five drawn three times first,
   2 and `start_index` 3.
@@ -398,8 +402,8 @@ coverage 99.33% of lines. Step 2: `just plan-spec board` lists 89 obligations.
 Steps 3 to 6 were built test-first, a seam at a time, each test seen to fail (the build
 refused the missing names) before its code was written: the view and the reading
 (T1 to T4), the functions and the error (T5 to T11), the generation result and its
-refusal (T12 to T16). The test list needed no addition in these loops; two expected
-counts in the tests were corrected (the scripted moves number 7 and 6, not 8 and 7).
+refusal (T12 to T16). One test was added to the list in these loops, T12a, for the
+reason given there; two expected counts in the tests were corrected (the scripted moves number 7 and 6, not 8 and 7).
 The wire shapes were printed once through `serde_json` in a scratch crate under
 `ai_tmp/t41/wire`, outside the workspace, and read against S12's amendments; the
 tests that assert them are T21, in segment 2.

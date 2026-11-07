@@ -37,10 +37,10 @@
 //! A caller that holds no board plays from records instead: [`open`] opens one from
 //! givens, [`play`] reopens a record, makes one [`Operation`] and writes the board
 //! again, [`read`] gives a record's [`BoardView`], and [`reading_after`] gives the
-//! [`ReadingAfter`] one of its moves. Nothing is kept between calls, and each call is
-//! the held board's own operations composed, so the two ways give the same records,
-//! views, readings and refusals. [`BoardView::of`] and [`ReadingAfter::of`] give the
-//! same values of a held board.
+//! [`ReadingAfter`] one of its moves: the board after it. Nothing is kept between
+//! calls, and each call is the held board's own operations composed, so the two ways
+//! give the same records, views, readings and refusals. [`BoardView::of`] and
+//! [`ReadingAfter::of`] give the same values of a held board.
 //!
 //! # A board and its puzzle
 //!
