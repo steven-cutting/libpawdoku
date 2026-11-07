@@ -11,6 +11,16 @@ homepage = "https://github.com/steven-cutting/libpawdoku"
 authors = ["Steven Cutting"]
 publish = false
 
+# cargo-release, run on the maintainer's machine (decision 0019). The local step
+# never publishes and never pushes: the release commit reaches main through a pull
+# request, the tag is pushed by hand, and release.yml publishes on the tag.
+[workspace.metadata.release]
+allow-branch = ["main", "release/*"]
+pre-release-commit-message = "Release {{crate_name}} {{version}}"
+tag-message = "Release {{crate_name}} {{version}}"
+publish = false
+push = false
+
 [workspace.dependencies]
 # The four crates the workspace uses: serde and thiserror may ship; proptest and
 # insta serve tests only. thiserror derives core::error::Error without std; serde
