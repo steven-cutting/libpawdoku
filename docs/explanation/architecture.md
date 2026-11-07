@@ -286,6 +286,51 @@ a record's version alone first, through `RecordVersion`, so that a record of a l
 shape is refused with that text and not with its format's error
 ([decision 0022](../decisions/0022-a-record-names-its-version.md)).
 
+## Play from a record
+
+`board.allium`'s `PlayingFromARecord` is built in `board/from_record.rs` as four free
+functions: `open` from givens, `play` one `Operation` on a record, `read` a record's
+view, and `reading_after` one of its moves. A caller that holds no board hands each call
+a record and keeps the record it is handed back; nothing is kept between calls. TypeScript
+and Python offer both ways of driving a board, a held `Board` and these functions, and
+both bindings reach them here.
+
+**It composes the held board's own operations.** `play` reopens the record with
+`Board::reopen`, makes the operation with the board's own method, under its own guards,
+and writes the board again with `Board::write`. `read` and `reading_after` reopen and
+read. So the two ways give the same records, views, readings and refusals by
+construction, and `tests/from_record.rs` holds it for every scripted game and by
+property (`TheSameBoardFromEitherWay`). A refusal is a `FromRecordError`: the record's
+`ReopenError` first, then the board's `PlayError`, each with its own text, or an index
+that names no move. The record handed over is borrowed and never changed.
+
+**It costs a reopening per call.** Every call puts the givens to the solver again and
+replays every move, so a call grows with the game. That is cheap enough for a call per
+move, which S12 measured, and not for a call per frame; a caller that scrubs through a
+game holds a board instead.
+
+**Why it lives in the core.** The bindings crates depend on the engine and never on one
+another, so the core is the one place both can reach. Two copies, one per binding, would
+drift from each other and from the surface.
+
+**What a call hands out is plain values, in one wire shape.** `Played` is the record
+after a call, a `BoardView` of the board after it and, after a check only, the `Check`
+it added. `BoardView` is everything `Playing` exposes but the readings after the moves,
+which `ReadingAfter` gives one move at a time, because all of a long game's readings
+are many times the size of its view. `BoardView::of` and `ReadingAfter::of` give the
+same values of a held board, as associated functions, so `Board` keeps its nineteen
+methods. Under the `serde` feature each of these serialises, with the values inside them
+and `SearchResult`, field names snake_case and the specification's, enum values
+PascalCase, an absent digit `null`, a cell's note absent while not shown, and no value
+flattened. `Operation` and `Record` also deserialise; nothing else is read back.
+
+`generation::generate_from_seed` and `generate_from_stream` give the generator's side
+the same treatment: a `GenerationResult` holding the tier, the seed when there is one,
+the stream's index at the start, the draws taken, both versions and the givens, which is
+what replays the puzzle, and never the solution. A refusal is a `GenerationRefused`
+with the tier and the draws taken beside the `GenerateError`. `generate` is unchanged,
+and both are built on it.
+
 ## The generator
 
 `generation` is the basic way of `generation.allium` in Rust: a published method, taken
@@ -351,6 +396,10 @@ its puzzle's solution, and a record does not. A consumer that wants a game kept 
 visits writes the board, serialises the record through the `serde` feature in a format
 of its choosing, keeps it where it likes, and reopens it. Whatever comes back is
 checked at reopening, not at deserialising.
+
+What a binding hands out of a game, a search or a generation crosses in one wire shape,
+the core's `Serialize` under the `serde` feature, so both bindings show the same values
+for either way of driving a board ([Play from a record](#play-from-a-record)).
 
 ## What is not here
 

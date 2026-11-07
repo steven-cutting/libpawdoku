@@ -81,8 +81,8 @@ use removal::{Limits, remove};
 /// The name of this module's way of making a puzzle.
 ///
 /// It equals the specification's default `config.generation_version`. A consumer that
-/// records it beside [`RANDOM_VERSION`], a tier and a
-/// seed can have the same puzzle again.
+/// records it beside [`RANDOM_VERSION`], a tier and a seed can have the same puzzle
+/// again.
 ///
 /// The name changes whenever the same draws would give other givens or a generation
 /// would take a different number of draws. That can happen with nothing in this module
@@ -265,9 +265,9 @@ pub enum GenerateError {
     /// The stream had no draw to give, at whichever draw that happened.
     ///
     /// The library's [`SeededStream`] never does this; the
-    /// [`ReplayStream`](crate::random::ReplayStream) fake does when its script ends.
-    /// This is the boundary's own refusal, carried as it is. It is not a failed grid
-    /// attempt, and the draws given before it stay taken.
+    /// [`ReplayStream`](crate::random::ReplayStream) fake does when its script ends. This
+    /// is the boundary's own refusal, carried as it is. It is not a failed grid attempt,
+    /// and the draws given before it stay taken.
     #[error(transparent)]
     Stream(#[from] RandomError),
     /// Every grid attempt failed, so there is no solution grid and nothing to show.
@@ -303,11 +303,10 @@ fn draw_bound(tier: Tier, stream: &mut dyn RandomStream) -> Result<usize, Random
 ///
 /// `generate` draws from wherever the stream stands. A stream a caller has already
 /// drawn from gives other draws than a fresh one from the same seed, and so, but for
-/// a stream that repeats itself, another puzzle. So what a
-/// caller records to have a puzzle again is the tier, [`GENERATION_VERSION`],
-/// [`RANDOM_VERSION`], the seed, and the index the
-/// stream stood at before the call ([`RandomStream::index`]); or the caller simply
-/// begins a fresh stream for each puzzle, and the index is zero.
+/// a stream that repeats itself, another puzzle. So what a caller records to have a
+/// puzzle again is the tier, [`GENERATION_VERSION`], [`RANDOM_VERSION`], the seed, and
+/// the index the stream stood at before the call ([`RandomStream::index`]); or the
+/// caller simply begins a fresh stream for each puzzle, and the index is zero.
 ///
 /// The draws are taken in this order and no others are taken. For each grid attempt,
 /// two for each seeded given, 22 in all, or `2k + 1` for an attempt that stops short
@@ -315,8 +314,8 @@ fn draw_bound(tier: Tier, stream: &mut dyn RandomStream) -> Result<usize, Random
 /// alone, one for each of the 81 visits. A first attempt that finds its grid takes 23
 /// draws in tiers 3 to 5 and 104 in tiers 1 and 2, whatever removal does. How many a
 /// call took is the stream's index after it less its index before, as
-/// `after.wrapping_sub(before)`: a [`SeededStream`]'s
-/// index wraps past `u64::MAX`, so a plain subtraction can overflow.
+/// `after.wrapping_sub(before)`: a [`SeededStream`]'s index wraps past `u64::MAX`, so a
+/// plain subtraction can overflow.
 ///
 /// # Errors
 ///
@@ -402,6 +401,13 @@ pub struct GenerationResult {
 
 impl GenerationResult {
     /// The tier the puzzle was made in, as it was asked for.
+    ///
+    /// ```
+    /// use pawdoku::generation::{Tier, generate_from_seed};
+    ///
+    /// assert_eq!(generate_from_seed(Tier::Two, 7)?.tier(), Tier::Two);
+    /// # Ok::<(), pawdoku::generation::GenerationRefused>(())
+    /// ```
     #[must_use]
     pub const fn tier(&self) -> Tier {
         self.tier
@@ -409,12 +415,34 @@ impl GenerationResult {
 
     /// The seed the stream began from, for [`generate_from_seed`]; nothing for
     /// [`generate_from_stream`], since a stream does not know its seed.
+    ///
+    /// ```
+    /// use pawdoku::generation::{Tier, generate_from_seed, generate_from_stream};
+    /// use pawdoku::random::SeededStream;
+    ///
+    /// assert_eq!(generate_from_seed(Tier::Two, 7)?.seed(), Some(7));
+    /// let mut stream = SeededStream::new(7);
+    /// assert_eq!(generate_from_stream(Tier::Two, &mut stream)?.seed(), None);
+    /// # Ok::<(), pawdoku::generation::GenerationRefused>(())
+    /// ```
     #[must_use]
     pub const fn seed(&self) -> Option<u64> {
         self.seed
     }
 
     /// The stream's index before the first draw: zero from a seed.
+    ///
+    /// ```
+    /// use pawdoku::generation::{Tier, generate_from_stream};
+    /// use pawdoku::random::SeededStream;
+    ///
+    /// let mut stream = SeededStream::new(7);
+    /// let first = generate_from_stream(Tier::Four, &mut stream)?;
+    /// assert_eq!(first.start_index(), 0);
+    /// let second = generate_from_stream(Tier::Four, &mut stream)?;
+    /// assert_eq!(second.start_index(), first.draws_taken());
+    /// # Ok::<(), pawdoku::generation::GenerationRefused>(())
+    /// ```
     #[must_use]
     pub const fn start_index(&self) -> u64 {
         self.start_index
@@ -422,24 +450,61 @@ impl GenerationResult {
 
     /// How many draws the generation took: the stream's index after it,
     /// `wrapping_sub` the index before.
+    ///
+    /// ```
+    /// use pawdoku::generation::{Tier, generate, generate_from_seed};
+    /// use pawdoku::random::{RandomStream, SeededStream};
+    ///
+    /// let result = generate_from_seed(Tier::Four, 7)?;
+    /// let mut stream = SeededStream::new(7);
+    /// generate(Tier::Four, &mut stream)?;
+    /// assert_eq!(result.draws_taken(), stream.index());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub const fn draws_taken(&self) -> u64 {
         self.draws_taken
     }
 
     /// [`GENERATION_VERSION`], under which the givens follow from the draws.
+    ///
+    /// ```
+    /// use pawdoku::generation::{GENERATION_VERSION, Tier, generate_from_seed};
+    ///
+    /// let result = generate_from_seed(Tier::One, 7)?;
+    /// assert_eq!(result.generation_version(), GENERATION_VERSION);
+    /// # Ok::<(), pawdoku::generation::GenerationRefused>(())
+    /// ```
     #[must_use]
     pub const fn generation_version(&self) -> &'static str {
         self.generation_version
     }
 
     /// [`RANDOM_VERSION`], under which a seed gives its draws.
+    ///
+    /// ```
+    /// use pawdoku::generation::{Tier, generate_from_seed};
+    /// use pawdoku::random::RANDOM_VERSION;
+    ///
+    /// let result = generate_from_seed(Tier::One, 7)?;
+    /// assert_eq!(result.random_version(), RANDOM_VERSION);
+    /// # Ok::<(), pawdoku::generation::GenerationRefused>(())
+    /// ```
     #[must_use]
     pub const fn random_version(&self) -> &'static str {
         self.random_version
     }
 
     /// The givens the generation left, which have exactly one solution.
+    ///
+    /// ```
+    /// use pawdoku::generation::{Tier, generate_from_seed};
+    ///
+    /// let result = generate_from_seed(Tier::Five, 7)?;
+    /// let count = result.givens().len();
+    /// assert!((Tier::Five.fewest_givens()..=Tier::Five.most_givens()).contains(&count));
+    /// # Ok::<(), pawdoku::generation::GenerationRefused>(())
+    /// ```
     #[must_use]
     pub const fn givens(&self) -> &BTreeSet<Given> {
         &self.givens
@@ -484,6 +549,16 @@ pub enum GenerationRefused {
 
 impl GenerationRefused {
     /// The tier asked for.
+    ///
+    /// ```
+    /// use pawdoku::generation::{Tier, generate_from_stream};
+    /// use pawdoku::random::ReplayStream;
+    ///
+    /// let mut stream = ReplayStream::new(vec![0.0; 3])?;
+    /// let refused = generate_from_stream(Tier::Three, &mut stream).unwrap_err();
+    /// assert_eq!(refused.tier(), Tier::Three);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub const fn tier(&self) -> Tier {
         let Self::Refused { tier, .. } = self;
@@ -491,6 +566,16 @@ impl GenerationRefused {
     }
 
     /// How many draws were taken before the refusal.
+    ///
+    /// ```
+    /// use pawdoku::generation::{Tier, generate_from_stream};
+    /// use pawdoku::random::ReplayStream;
+    ///
+    /// let mut stream = ReplayStream::new(vec![0.0; 3])?;
+    /// let refused = generate_from_stream(Tier::Three, &mut stream).unwrap_err();
+    /// assert_eq!(refused.draws_taken(), 3);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub const fn draws_taken(&self) -> u64 {
         let Self::Refused { draws_taken, .. } = self;

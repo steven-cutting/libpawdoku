@@ -62,6 +62,25 @@ pub struct BoardView {
 
 impl BoardView {
     /// The view of `board` as it stands now. Reading it changes nothing.
+    ///
+    /// ```
+    /// use pawdoku::board::{Board, BoardView};
+    /// use pawdoku::sudoku::{Given, Position};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let mut board = Board::open(givens)?;
+    /// board.write_mark(Position::new(1, 3), 4)?;
+    ///
+    /// let view = BoardView::of(&board);
+    /// assert_eq!(view.cells()[2].note().map(|note| note.len()), Some(1));
+    /// assert_eq!(BoardView::of(&board), view);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub fn of(board: &Board) -> Self {
         Self {
@@ -77,48 +96,180 @@ impl BoardView {
     }
 
     /// [`Board::status`] when the view was made.
+    ///
+    /// ```
+    /// use pawdoku::board::{Board, BoardView};
+    /// use pawdoku::sudoku::{Given, Position, Status};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let board = Board::open(givens)?;
+    /// assert_eq!(BoardView::of(&board).status(), Status::Unsolved);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub const fn status(&self) -> Status {
         self.status
     }
 
     /// [`Board::is_full`] when the view was made.
+    ///
+    /// ```
+    /// use pawdoku::board::{Board, BoardView};
+    /// use pawdoku::sudoku::{Given, Position};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let board = Board::open(givens)?;
+    /// assert!(!BoardView::of(&board).is_full());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub const fn is_full(&self) -> bool {
         self.is_full
     }
 
     /// [`Board::is_consistent`] when the view was made.
+    ///
+    /// ```
+    /// use pawdoku::board::{Board, BoardView};
+    /// use pawdoku::sudoku::{Given, Position};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let mut board = Board::open(givens)?;
+    /// // A second 5 in row 1.
+    /// board.place(Position::new(1, 3), 5)?;
+    /// assert!(!BoardView::of(&board).is_consistent());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub const fn is_consistent(&self) -> bool {
         self.is_consistent
     }
 
     /// [`Board::can_undo`] when the view was made.
+    ///
+    /// ```
+    /// use pawdoku::board::{Board, BoardView};
+    /// use pawdoku::sudoku::{Given, Position};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let mut board = Board::open(givens)?;
+    /// assert!(!BoardView::of(&board).can_undo());
+    /// board.place(Position::new(1, 3), 4)?;
+    /// assert!(BoardView::of(&board).can_undo());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub const fn can_undo(&self) -> bool {
         self.can_undo
     }
 
     /// [`Board::can_redo`] when the view was made.
+    ///
+    /// ```
+    /// use pawdoku::board::{Board, BoardView};
+    /// use pawdoku::sudoku::{Given, Position};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let mut board = Board::open(givens)?;
+    /// board.place(Position::new(1, 3), 4)?;
+    /// board.undo()?;
+    /// assert!(BoardView::of(&board).can_redo());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub const fn can_redo(&self) -> bool {
         self.can_redo
     }
 
     /// [`Board::cells`] when the view was made: 81 cells, a row at a time from the top.
+    ///
+    /// ```
+    /// use pawdoku::board::{Board, BoardView};
+    /// use pawdoku::sudoku::{Given, Position};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let board = Board::open(givens)?;
+    /// let view = BoardView::of(&board);
+    /// assert_eq!(view.cells().len(), 81);
+    /// assert_eq!(view.cells()[0].digit(), Some(5));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub fn cells(&self) -> &[BoardCell] {
         &self.cells
     }
 
     /// [`Board::moves`] when the view was made, in the order made.
+    ///
+    /// ```
+    /// use pawdoku::board::{Board, BoardView};
+    /// use pawdoku::sudoku::{Given, Position};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let mut board = Board::open(givens)?;
+    /// board.place(Position::new(1, 3), 4)?;
+    /// let view = BoardView::of(&board);
+    /// assert_eq!(view.moves()[0].target(), Position::new(1, 3));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub fn moves(&self) -> &[Move] {
         &self.moves
     }
 
     /// [`Board::checks`] when the view was made, in the order asked.
+    ///
+    /// ```
+    /// use pawdoku::board::{Board, BoardView};
+    /// use pawdoku::sudoku::{Given, Position};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let mut board = Board::open(givens)?;
+    /// board.place(Position::new(1, 3), 4)?;
+    /// board.check(Position::new(1, 3))?;
+    /// assert!(BoardView::of(&board).checks()[0].is_right());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub fn checks(&self) -> &[Check] {
         &self.checks
@@ -164,18 +315,72 @@ pub struct CellReading {
 
 impl CellReading {
     /// Where the cell is.
+    ///
+    /// ```
+    /// use pawdoku::board::{Board, ReadingAfter};
+    /// use pawdoku::sudoku::{Given, Position};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let mut board = Board::open(givens)?;
+    /// board.write_mark(Position::new(1, 3), 2)?;
+    /// board.place(Position::new(1, 3), 4)?;
+    /// let cell = ReadingAfter::of(&board, 2)?.cells()[2];
+    /// assert_eq!(cell.position(), Position::new(1, 3));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub const fn position(self) -> Position {
         self.position
     }
 
     /// The cell's row, from 1 to 9.
+    ///
+    /// ```
+    /// use pawdoku::board::{Board, ReadingAfter};
+    /// use pawdoku::sudoku::{Given, Position};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let mut board = Board::open(givens)?;
+    /// board.write_mark(Position::new(1, 3), 2)?;
+    /// board.place(Position::new(1, 3), 4)?;
+    /// let cell = ReadingAfter::of(&board, 2)?.cells()[2];
+    /// assert_eq!(cell.row(), 1);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub const fn row(self) -> u8 {
         self.position.row()
     }
 
     /// The cell's column, from 1 to 9.
+    ///
+    /// ```
+    /// use pawdoku::board::{Board, ReadingAfter};
+    /// use pawdoku::sudoku::{Given, Position};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let mut board = Board::open(givens)?;
+    /// board.write_mark(Position::new(1, 3), 2)?;
+    /// board.place(Position::new(1, 3), 4)?;
+    /// let cell = ReadingAfter::of(&board, 2)?.cells()[2];
+    /// assert_eq!(cell.column(), 3);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub const fn column(self) -> u8 {
         self.position.column()
@@ -183,12 +388,49 @@ impl CellReading {
 
     /// The digit the cell held, the setter's or the player's, or nothing where it was
     /// empty.
+    ///
+    /// ```
+    /// use pawdoku::board::{Board, ReadingAfter};
+    /// use pawdoku::sudoku::{Given, Position};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let mut board = Board::open(givens)?;
+    /// board.write_mark(Position::new(1, 3), 2)?;
+    /// board.place(Position::new(1, 3), 4)?;
+    /// let cell = ReadingAfter::of(&board, 2)?.cells()[2];
+    /// assert_eq!(cell.digit(), Some(4));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub const fn digit(self) -> Option<u8> {
         self.digit
     }
 
     /// The note the cell kept, shown or waiting beneath a digit.
+    ///
+    /// ```
+    /// use pawdoku::board::{Board, ReadingAfter};
+    /// use pawdoku::sudoku::{Given, Position};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let mut board = Board::open(givens)?;
+    /// board.write_mark(Position::new(1, 3), 2)?;
+    /// board.place(Position::new(1, 3), 4)?;
+    /// let cell = ReadingAfter::of(&board, 2)?.cells()[2];
+    /// // The mark waits beneath the digit.
+    /// assert_eq!(cell.note().digits().collect::<Vec<_>>(), [2]);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub const fn note(self) -> Note {
         self.note
@@ -260,6 +502,27 @@ impl ReadingAfter {
     ///
     /// [`FromRecordError::NoSuchMove`] when no move of `board` has that index: 0, or
     /// anything past the last move.
+    ///
+    /// ```
+    /// use pawdoku::board::{Board, FromRecordError, ReadingAfter};
+    /// use pawdoku::sudoku::{Given, Position};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let mut board = Board::open(givens)?;
+    /// board.place(Position::new(1, 3), 4)?;
+    /// board.erase(Position::new(1, 3))?;
+    ///
+    /// assert_eq!(ReadingAfter::of(&board, 1)?.cells()[2].digit(), Some(4));
+    /// assert_eq!(ReadingAfter::of(&board, 2)?.cells()[2].digit(), None);
+    /// let refusal = FromRecordError::NoSuchMove { move_index: 0 };
+    /// assert_eq!(ReadingAfter::of(&board, 0), Err(refusal));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn of(board: &Board, move_index: usize) -> Result<Self, FromRecordError> {
         let made = board.moves().find(|made| made.index() == move_index);
         let made = made.ok_or(FromRecordError::NoSuchMove { move_index })?;
@@ -275,12 +538,46 @@ impl ReadingAfter {
     }
 
     /// The index of the move read after, from 1.
+    ///
+    /// ```
+    /// use pawdoku::board::{Board, ReadingAfter};
+    /// use pawdoku::sudoku::{Given, Position};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let mut board = Board::open(givens)?;
+    /// board.place(Position::new(1, 3), 4)?;
+    /// assert_eq!(ReadingAfter::of(&board, 1)?.move_index(), 1);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub const fn move_index(&self) -> usize {
         self.move_index
     }
 
     /// Every cell as the move left it, a row at a time from the top.
+    ///
+    /// ```
+    /// use pawdoku::board::{Board, ReadingAfter};
+    /// use pawdoku::sudoku::{Given, Position};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let mut board = Board::open(givens)?;
+    /// board.place(Position::new(1, 3), 4)?;
+    /// let reading = ReadingAfter::of(&board, 1)?;
+    /// assert_eq!(reading.cells().len(), 81);
+    /// assert_eq!(reading.cells()[80].position(), Position::new(9, 9));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub fn cells(&self) -> &[CellReading] {
         &self.cells

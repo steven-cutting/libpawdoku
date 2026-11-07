@@ -139,12 +139,45 @@ pub struct Played {
 impl Played {
     /// The record [`Board::write`] gives of the board after the call. The caller keeps
     /// it and hands it to the next call.
+    ///
+    /// ```
+    /// use pawdoku::board::{Board, open};
+    /// use pawdoku::sudoku::{Given, Position};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let opened = open(givens)?;
+    /// let board = Board::reopen(opened.record())?;
+    /// assert_eq!(board.moves().count(), 0);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub const fn record(&self) -> &Record {
         &self.record
     }
 
     /// The board after the call, as `Playing` exposes it.
+    ///
+    /// ```
+    /// use pawdoku::board::{Operation, open, play};
+    /// use pawdoku::sudoku::{Given, Position};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let opened = open(givens)?;
+    /// let here = Position::new(1, 3);
+    /// let placed = play(opened.record(), Operation::Place { position: here, digit: 4 })?;
+    /// assert_eq!(placed.view().cells()[2].digit(), Some(4));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub const fn view(&self) -> &BoardView {
         &self.view
@@ -152,6 +185,25 @@ impl Played {
 
     /// The check the call added, when the operation was [`Operation::CheckCell`]: the
     /// last of the view's checks. Nothing otherwise.
+    ///
+    /// ```
+    /// use pawdoku::board::{Operation, open, play};
+    /// use pawdoku::sudoku::{Given, Position};
+    ///
+    /// // `givens` are the thirty givens of the example in the module's documentation.
+    /// # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+    /// #     .bytes()
+    /// #     .zip(0_u8..)
+    /// #     .filter(|(cell, _)| cell.is_ascii_digit())
+    /// #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+    /// let opened = open(givens)?;
+    /// let here = Position::new(1, 3);
+    /// let placed = play(opened.record(), Operation::Place { position: here, digit: 9 })?;
+    /// let checked = play(placed.record(), Operation::CheckCell { position: here })?;
+    /// assert!(checked.check().is_some_and(|check| !check.is_right()));
+    /// assert_eq!(placed.check(), None);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     #[must_use]
     pub const fn check(&self) -> Option<&Check> {
         self.check.as_ref()

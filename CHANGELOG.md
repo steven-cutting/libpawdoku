@@ -9,6 +9,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Play from a record, `pawdoku::board::{open, play, read, reading_after}`, from
+  `board.allium`'s `PlayingFromARecord`: a caller that holds no board hands each call a
+  record and one `Operation`, and is handed back a `Played`, the record after it, a
+  `BoardView` of the board and, after a check, the `Check` it added; or a
+  `FromRecordError`. Each call is the held board's own operations composed, so both ways
+  give the same values, and nothing is kept between calls. `BoardView::of` and
+  `ReadingAfter::of` give the same values of a held board; `Board` gains no method.
+  Under the `serde` feature every value `Playing`, `SearchResult` and the generation
+  result expose serialises in one wire shape (snake_case fields, PascalCase enum
+  values, an absent digit `null`), and `Operation` also deserialises, tagged by `kind`.
+  `generation::generate_from_seed` and `generate_from_stream` give a
+  `GenerationResult`, what replays a puzzle and never its solution, or a
+  `GenerationRefused`. `Record`'s wire shape is unchanged.
 - The release machinery (decision 0019). cargo-release, pinned in `tools.txt`, cuts a
   release on the maintainer's machine through `[workspace.metadata.release]` and
   `pawdoku`'s `[package.metadata.release]`, which moves this file's unreleased entries

@@ -393,6 +393,18 @@ Step 7, `tests/from_record.rs` and the wire shape:
 - T22 (2) `NothingIsKeptBetweenCalls`: the same call twice, with other calls between,
   hands back equal values.
 
+Revisited in segment 2, as built in `tests/from_record.rs`: T17 is
+`every_scripted_game_is_the_same_game_either_way`, over four games restated as
+operations (`THE_SCRIPTED_GAME`, `every_kind_of_move`, `in_play` and the whole game);
+T18 is three tests, the guard's refusals on a fresh and a solved board, the index, and,
+under `serde`, a record that does not reopen; T19 is
+`a_view_shows_no_digit_the_player_has_not_placed`, with the serialised digits held to
+the board's in T21; T20 is `any_script_is_the_same_either_way`, 128 cases; T21 split
+into seven tests, one per value, after clippy's cognitive-complexity limit refused one;
+T22 is `nothing_is_kept_between_calls`. Added in the loop: a solved board in T18 and
+the property's prefill of 48 to 51 cells, because `Operation` has no "place the right
+digit" step and a script would otherwise never reach a solved board.
+
 ### What was verified, and how
 
 Step 1: `.pixi/` and `.tools/bin` were present, so neither install ran. `just check` at
@@ -407,6 +419,54 @@ reason given there; two expected counts in the tests were corrected (the scripte
 The wire shapes were printed once through `serde_json` in a scratch crate under
 `ai_tmp/t41/wire`, outside the workspace, and read against S12's amendments; the
 tests that assert them are T21, in segment 2.
+
+Segment 2, steps 7 to 10. The tests of step 7 arrived green, since segment 1's code
+was built first; three were shown to bite by breaking the code on purpose: `play`
+dropping a wrong check (three tests failed, the scripted games, the property and the
+view's) and the cell's wire name `is_conflicting` renamed (the view's wire test
+failed). The `proptest-regressions` file the break left was deleted. The wire shape is
+read through a test-only capturing serializer and a deserializer over the same values,
+in `tests/from_record.rs`; no format crate and no dependency was added. The
+deserializer goes through `MapAccessDeserializer` for an externally tagged move of
+`Record`, which `MapDeserializer` would refuse.
+
+Step 8: nine JSON snapshots under the `serde` feature, accepted with
+`just snapshots-accept` and each read: the view of `THE_SCRIPTED_GAME` (all four kinds
+of move, an undone one, a shown note, a note waiting, an empty cell, a conflict, a check
+each way), the reading after its sixth move, what a check on it hands back, the seven
+operations, a search of each verdict, and the generation result from seed 0 in tier 3
+and from a stream. One, the stream's, begins:
+
+```text
+{
+  "tier": "Three",
+  "seed": null,
+  "start_index": 23,
+  "draws_taken": 23,
+  "generation_version": "generation-1",
+  "random_version": "seeded-stream-1",
+  "givens": [
+```
+
+Step 9: `tests/api_bounds.rs` takes the eight new types in both bound tests, a
+`Serialize` bound for every wire value and `Serialize + DeserializeOwned` for
+`Operation`; the `Board` and `Puzzle` test is unchanged. Each new accessor has a
+doctest, as every older one does (29 of them). `lib.rs` gains a sentence and a doc
+example of play from a record; `architecture.md` "Play from a record" and a paragraph in
+"What crosses each boundary"; `testing.md` the file, the unit tests and the snapshots;
+the CHANGELOG an entry under Added. Short doc lines segment 1 left in `generation.rs`
+were reflowed.
+
+Step 10, each closing line: `just fmt-check` `cargo fmt --all --check` with no diff;
+`just clippy` `Finished`; `just metrics` `Quality score: 100.0% (887 functions
+analyzed)`; `just test` `360 tests run: 360 passed, 0 skipped`, doctests `168 passed`;
+`just snapshots-check` `no snapshots to review`, `no unreferenced snapshots found`;
+`cargo test -p pawdoku --features serde --test from_record --locked` `16 passed`.
+`rg -n 'pub fn'` lists `open`, `play`, `read`, `reading_after` and the two `of`
+functions with the slice accessors; `rg -c 'fn ' board.rs` counts 24 lines, private
+functions included, and `Board` keeps nineteen methods. `just check` closed with
+`All checks passed and the worktree is unchanged.`, coverage 99.79% of lines (99.33%
+at the start, 98.21% at the R1 checkpoint).
 
 ### Deviations, and why
 
@@ -433,6 +493,13 @@ tests that assert them are T21, in segment 2.
   `Operation` and `Record` are the values that deserialise.
 - **The generation result's entries are named `generate_from_seed` and
   `generate_from_stream`**; neither the ticket nor S12 named them.
+- **The scripts are restated in `tests/from_record.rs`**, each naming its source, since
+  an integration test file cannot reach another's helpers and `tests/common/` is not in
+  Files touched.
+- **A record that does not reopen is made by deserialising, in the integration tests**,
+  so that test is under `serde`; outside the crate there is no other way to make one.
+- **More snapshots than step 8 lists**, as S12's amendment asks: the seven operations,
+  a search of each verdict and a generation result from a stream.
 
 ### Names T42 and T17 need
 

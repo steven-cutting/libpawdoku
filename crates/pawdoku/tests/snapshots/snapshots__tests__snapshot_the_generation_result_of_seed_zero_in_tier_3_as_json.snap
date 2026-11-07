@@ -1,0 +1,259 @@
+---
+source: crates/pawdoku/tests/snapshots.rs
+expression: "generate_from_seed(Tier::Three, 0).unwrap()"
+---
+{
+  "tier": "Three",
+  "seed": 0,
+  "start_index": 0,
+  "draws_taken": 23,
+  "generation_version": "generation-1",
+  "random_version": "seeded-stream-1",
+  "givens": [
+    {
+      "position": {
+        "row": 1,
+        "column": 4
+      },
+      "digit": 7
+    },
+    {
+      "position": {
+        "row": 1,
+        "column": 6
+      },
+      "digit": 8
+    },
+    {
+      "position": {
+        "row": 1,
+        "column": 8
+      },
+      "digit": 5
+    },
+    {
+      "position": {
+        "row": 2,
+        "column": 1
+      },
+      "digit": 3
+    },
+    {
+      "position": {
+        "row": 2,
+        "column": 3
+      },
+      "digit": 7
+    },
+    {
+      "position": {
+        "row": 2,
+        "column": 5
+      },
+      "digit": 4
+    },
+    {
+      "position": {
+        "row": 3,
+        "column": 6
+      },
+      "digit": 2
+    },
+    {
+      "position": {
+        "row": 3,
+        "column": 8
+      },
+      "digit": 6
+    },
+    {
+      "position": {
+        "row": 3,
+        "column": 9
+      },
+      "digit": 3
+    },
+    {
+      "position": {
+        "row": 4,
+        "column": 1
+      },
+      "digit": 8
+    },
+    {
+      "position": {
+        "row": 4,
+        "column": 3
+      },
+      "digit": 1
+    },
+    {
+      "position": {
+        "row": 4,
+        "column": 5
+      },
+      "digit": 2
+    },
+    {
+      "position": {
+        "row": 4,
+        "column": 7
+      },
+      "digit": 9
+    },
+    {
+      "position": {
+        "row": 5,
+        "column": 2
+      },
+      "digit": 7
+    },
+    {
+      "position": {
+        "row": 5,
+        "column": 4
+      },
+      "digit": 1
+    },
+    {
+      "position": {
+        "row": 5,
+        "column": 6
+      },
+      "digit": 9
+    },
+    {
+      "position": {
+        "row": 5,
+        "column": 8
+      },
+      "digit": 4
+    },
+    {
+      "position": {
+        "row": 6,
+        "column": 1
+      },
+      "digit": 5
+    },
+    {
+      "position": {
+        "row": 6,
+        "column": 3
+      },
+      "digit": 3
+    },
+    {
+      "position": {
+        "row": 6,
+        "column": 5
+      },
+      "digit": 6
+    },
+    {
+      "position": {
+        "row": 6,
+        "column": 7
+      },
+      "digit": 1
+    },
+    {
+      "position": {
+        "row": 6,
+        "column": 9
+      },
+      "digit": 2
+    },
+    {
+      "position": {
+        "row": 7,
+        "column": 2
+      },
+      "digit": 3
+    },
+    {
+      "position": {
+        "row": 7,
+        "column": 4
+      },
+      "digit": 8
+    },
+    {
+      "position": {
+        "row": 7,
+        "column": 6
+      },
+      "digit": 4
+    },
+    {
+      "position": {
+        "row": 7,
+        "column": 8
+      },
+      "digit": 9
+    },
+    {
+      "position": {
+        "row": 8,
+        "column": 1
+      },
+      "digit": 9
+    },
+    {
+      "position": {
+        "row": 8,
+        "column": 3
+      },
+      "digit": 5
+    },
+    {
+      "position": {
+        "row": 8,
+        "column": 5
+      },
+      "digit": 7
+    },
+    {
+      "position": {
+        "row": 8,
+        "column": 7
+      },
+      "digit": 6
+    },
+    {
+      "position": {
+        "row": 8,
+        "column": 9
+      },
+      "digit": 4
+    },
+    {
+      "position": {
+        "row": 9,
+        "column": 2
+      },
+      "digit": 2
+    },
+    {
+      "position": {
+        "row": 9,
+        "column": 4
+      },
+      "digit": 6
+    },
+    {
+      "position": {
+        "row": 9,
+        "column": 6
+      },
+      "digit": 3
+    },
+    {
+      "position": {
+        "row": 9,
+        "column": 8
+      },
+      "digit": 1
+    }
+  ]
+}

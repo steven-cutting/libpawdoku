@@ -464,6 +464,113 @@ mod tests {
         insta::assert_snapshot!(picture);
     }
 
+    // Play from a record: the wire shape ------------------------------------------
+    //
+    // What a binding hands out, as JSON: the shape T42's live comparison and its
+    // declarations are read against. Each picture shows a value; the fields are
+    // asserted in `tests/from_record.rs`.
+
+    /// The view of the board `THE_SCRIPTED_GAME` leaves: all four kinds of move, an
+    /// undone move, a cell whose note is shown and one whose note waits, an empty cell,
+    /// a conflict and a check answered each way.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn snapshot_the_view_of_the_scripted_game_as_json() {
+        use pawdoku::board::BoardView;
+
+        insta::assert_json_snapshot!(BoardView::of(&played(&THE_SCRIPTED_GAME)));
+    }
+
+    /// The board after the sixth move of `THE_SCRIPTED_GAME`, the 4 placed at row 1,
+    /// column 3 over the mark 2, which waits beneath it.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn snapshot_the_reading_after_a_move_as_json() {
+        use pawdoku::board::reading_after;
+
+        let record = played(&THE_SCRIPTED_GAME).write();
+        insta::assert_json_snapshot!(reading_after(&record, 6).unwrap());
+    }
+
+    /// What `play` hands back for a check, the one operation whose hand-back carries
+    /// `check`: the record after it, the view after it and the check it added.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn snapshot_what_a_check_hands_back_as_json() {
+        use pawdoku::board::{Operation, play};
+
+        let record = played(&THE_SCRIPTED_GAME).write();
+        let check = Operation::CheckCell { position: FREE };
+        insta::assert_json_snapshot!(play(&record, check).unwrap());
+    }
+
+    /// Each of the seven operations as a caller hands it over.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn snapshot_the_seven_operations_as_json() {
+        use pawdoku::board::Operation;
+
+        let operations = [
+            Operation::Place {
+                position: FREE,
+                digit: 4,
+            },
+            Operation::Erase { position: FREE },
+            Operation::WriteMark {
+                position: FREE,
+                digit: 2,
+            },
+            Operation::StrikeMark {
+                position: FREE,
+                digit: 2,
+            },
+            Operation::CheckCell { position: FREE },
+            Operation::Undo,
+            Operation::Redo,
+        ];
+        insta::assert_json_snapshot!(operations);
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn snapshot_a_search_with_one_solution_as_json() {
+        insta::assert_json_snapshot!(search(givens(FIXTURE)));
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn snapshot_a_search_with_two_solutions_as_json() {
+        insta::assert_json_snapshot!(search(givens(TWO_SOLUTIONS)));
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn snapshot_a_search_with_no_solution_as_json() {
+        insta::assert_json_snapshot!(search([Given::new(Position::new(0, 10), 3)]));
+    }
+
+    /// What generating from seed 0 in tier 3 hands back: what replays the puzzle, and
+    /// the givens, without the solution.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn snapshot_the_generation_result_of_seed_zero_in_tier_3_as_json() {
+        use pawdoku::generation::generate_from_seed;
+
+        insta::assert_json_snapshot!(generate_from_seed(Tier::Three, 0).unwrap());
+    }
+
+    /// The second puzzle generated from one stream begun at seed 0, in tier 3: no
+    /// seed, and the index the first left the stream at.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn snapshot_a_generation_result_from_a_stream_as_json() {
+        use pawdoku::generation::generate_from_stream;
+
+        let mut stream = SeededStream::new(0);
+        generate_from_stream(Tier::Three, &mut stream).unwrap();
+        insta::assert_json_snapshot!(generate_from_stream(Tier::Three, &mut stream).unwrap());
+    }
+
     // The basic generator --------------------------------------------------------
 
     /// The puzzle seed zero gives in a tier: its givens, its solution and the count
