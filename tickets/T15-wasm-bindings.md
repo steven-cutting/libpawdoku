@@ -678,12 +678,6 @@ notes, closed with `All checks passed and the worktree is unchanged.`, exit 0.
   tag is pushed. Until then `release-npm.yml`'s preflight refuses the tag (R2 round 2);
   its read of the environment with a token holding `actions: read` and `contents: read`
   is unproved until a tag run, and a refusal there fails closed.
-- **For a T13 follow-up, outside this ticket's Files touched:**
-  `docs/decisions/0019-releases.md`, lines 103 to 105, says that until the environment
-  and the ruleset exist "`release.yml` waits on an environment nobody has made". GitHub
-  creates the environment unprotected instead; `release.yml` stops only because no
-  trusted publisher is configured. T13's own notes reach the right conclusion for
-  crates.io on the same premise. The sentence wants correcting.
 - **The release workflow's three jobs are unproved in CI.** Locally, `just lint`
   (actionlint among its hooks) passed on the workflow, and the preflight's script, taken
   from the file, ran against a stub `gh` with seven fixtures: a missing environment, one

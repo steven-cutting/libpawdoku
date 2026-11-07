@@ -561,6 +561,10 @@ both in files Files touched gives to the second pull request: `README.md:97` and
   pattern): six refusals, exit 1, and step 6's configuration, exit 0; before the
   change the harness found no preflight. Decision 0019's sentence that `release.yml`
   waits on a missing environment is corrected.
+- **`release.yml` now has three jobs** (`preflight`, `build`, `publish`), by the
+  maintainer's answer of 2026-11-07 below: `build` takes the setup action, the guards
+  and a dry run, and `publish` keeps only the checkout, rustup's cargo, the existence
+  check, the auth action and the publish.
 - **Two pages outside Files touched are stale**: `docs/how-to/maintain-dependencies.md`
   line 98 says `rust-version` moves with the toolchain, and
   `docs/how-to/deploy-to-github-pages.md` line 11 says the library publishes one thing.
@@ -605,13 +609,33 @@ both in files Files touched gives to the second pull request: `README.md:97` and
   now say `id-token` is job-wide, that ordering does not narrow it, and which control
   stops which tag. `just lint` green. Decision 0019's Consequences say the same. The
   negative test Codex suggested, an off-main tag reaching no OIDC-enabled job, needs a
-  live tag push and was not run.
+  live tag push and was not run. On 2026-11-07 the maintainer's answer adopted the
+  restructuring this finding proposed (Open points settled); the reasoning above for
+  not taking it stands as the record of round 1.
 
 R2 was not run (Handed back).
 
 ### Open points settled
 
-None in this segment; the three questions of 2026-10-31 are in the Context.
+- **Split `release.yml`** (maintainer, 2026-11-07), superseding the 2026-10-31 answer
+  "the full setup in the privileged job" in the Context. In the shape of
+  `release-npm.yml`: `preflight` unchanged; `build`, read-only and needing `preflight`,
+  runs the setup action, `just check-toolchain`, the guards and `cargo publish --dry-run
+  --locked -p pawdoku`; `publish`, needing both, alone holds `id-token: write` in the
+  `release` environment and runs the checkout, `rustup toolchain install`, the existence
+  check, `rust-lang/crates-io-auth-action` and `cargo publish --locked`, with no setup
+  action, `just`, pixi or `tools.txt` binary. The pinned SHAs and the existence check
+  are unchanged. Decision 0019 records the answer and its two costs: dependency build
+  scripts and proc macros still compile beside the token, and the publish job's
+  toolchain comes from rustup, not the `just` path. Proof, local only: a structural check
+  over the workflow (`ai_tmp/t13/preflight/split.rb`, gitignored like the rest of the
+  harness, so the proof is this record, not a committed test) refused the old file with
+  five findings (no `build` job; `publish` used the setup action, the guards action and
+  `just`, and did not need `build`) and passes the new one: only `publish` holds
+  `id-token`, it uses no local action, `just`, pixi or `.tools` binary, `build` holds no
+  write scope and runs the setup action, the guards and the dry run, and every job
+  naming `release` needs the preflight. The preflight harness on the new file: six
+  fixtures exit 1, step 6's exit 0. The CI run is not proved until a tag (Handed back).
 
 ## Open points
 

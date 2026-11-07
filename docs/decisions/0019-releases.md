@@ -28,6 +28,8 @@ Spike S04 then designed one release workflow per registry for the binding crates
 share the `release` environment and the guards, so this record decides what they share.
 The maintainer settled three further questions on 2026-10-31: one changelog per binding
 crate, 0.1.0 soon after the machinery merges, and the full setup in the privileged job.
+On 2026-11-07 they superseded the last: the job that holds the token runs none of the
+repository's tooling, as `release-npm.yml`'s publish job already did not.
 
 ## Decision
 
@@ -41,11 +43,15 @@ pushes. cargo-release is pinned in `tools.txt`.
 `check`. The maintainer tags the merge commit and pushes the tag by hand.
 
 **CI publishes through trusted publishing.** `.github/workflows/release.yml` runs on a
-`pawdoku-v*` tag. Its one job, `publish`, holds `contents: read` and `id-token: write`,
-runs in the `release` environment, and runs the guards, then
-`rust-lang/crates-io-auth-action` for the token, then `cargo publish -p pawdoku
---locked`, skipped when the version is already on crates.io. The first version is
-published by the maintainer's token, and every later one by the workflow.
+`pawdoku-v*` tag, in three jobs. `preflight` refuses the tag unless the `release`
+environment and the tag ruleset are in place. `build`, with a read-only token, runs the
+setup action, the guards and `cargo publish --dry-run --locked -p pawdoku`, so the
+package is verified with the tested toolchain before any token exists. `publish` alone
+holds `contents: read` and `id-token: write`, runs in the `release` environment, and
+runs the checkout, rustup's cargo, `rust-lang/crates-io-auth-action` for the token, then
+`cargo publish -p pawdoku --locked`, skipped when the version is already on crates.io.
+The first version is published by the maintainer's token, and every later one by the
+workflow.
 
 **Versions are independent per crate**, and each is tagged `<crate>-v<version>`:
 `pawdoku-v0.1.0`, later `pawdoku-wasm-v0.1.0`.
@@ -66,10 +72,14 @@ longer follows `rust-toolchain.toml`, and rises only on purpose, in a minor rele
 repository's, and `pawdoku`'s replacements rewrite it. Each binding crate keeps its own
 `crates/<crate>/CHANGELOG.md`, rewritten by its own table.
 
-**The full setup in the privileged job.** The `publish` job runs the composite setup
-action before the guards and the publish, rather than crates.io's leaner checkout,
-auth and publish: it is the one tested path to `just` and the pinned toolchain, and the
-guards need `cargo metadata --locked`.
+**No repository tooling beside the token.** The `publish` job runs no setup action, no
+`just`, no pixi environment and no `tools.txt` binary, which cargo-binstall fetches
+with no checksum; only the checkout and crates.io's auth and publish, with the cargo
+rustup installs from `rust-toolchain.toml`. The setup action, `just check-toolchain` and the guards,
+which need `cargo metadata --locked`, run in `build` on the same commit, and `publish`
+needs it. This supersedes the 2026-10-31 answer, the full setup in the privileged job,
+which kept `just` and the pinned toolchain on their one tested path at the price of
+running the repository's tooling beside the token.
 
 **API breaks are reported, not gated.** A `semver` job in `ci.yml` runs
 cargo-semver-checks against the last `pawdoku-v*` tag. Before 1.0 a break is allowed
@@ -94,12 +104,15 @@ The ones that hurt.
   upstream release archive as published, the same standing as cargo-hack.
 - **A changelog per binding crate.** Four files to keep where one would read better,
   because the two replacements rewrite one `[Unreleased]`.
-- **More code beside the token than a lean job would run.** GitHub grants
-  `id-token: write` to the whole job, so every step of `publish` could request an OIDC
-  token from its first: the setup action, and the `Justfile` and composite actions of
-  the tagged commit. Ordering the steps orders the mint, not the capability. What stops
+- **Dependency code still compiles beside the token.** GitHub grants `id-token: write`
+  to the whole job, and `cargo publish` verifies the package by building it, so the
+  build scripts and proc macros of `pawdoku`'s dependencies run in `publish`. What stops
   a malicious tag is the tag ruleset and the environment's reviewer; the guards stop a
-  mistaken tag by the maintainer, before the auth step mints the token.
+  mistaken tag by the maintainer, in `build`, before `publish` starts.
+- **The publish job's toolchain comes from rustup, not the `just` path.** It runs
+  `rustup toolchain install`, which reads the same `rust-toolchain.toml`, but neither
+  `just install-toolchain` nor `just check-toolchain`; `build` proves that path on the
+  same commit, and `publish` trusts the runner image's rustup.
 - **Two settings live outside the repository.** The `release` environment and the tag
   ruleset are not in any file, so no gate reads them. A workflow that names a missing
   environment does not wait: GitHub creates it with no protection rules. So a

@@ -85,9 +85,10 @@ independent per crate and tagged `<crate>-v<version>`.
    `release.yml`, environment `release`), require trusted publishing for new versions,
    and revoke the token.
 4. **Publish.** `git push origin pawdoku-v<version>`. `release.yml` refuses the tag
-   in its preflight unless the `release` environment and the tag ruleset are in place,
-   then waits for the environment's reviewer. Once approved, the guards refuse a tag off `main`
-   or one that disagrees with the manifest, the auth step exchanges the run's identity
+   in its preflight unless the `release` environment and the tag ruleset are in place.
+   Its `build` job's guards refuse a tag off `main` or one that disagrees with the
+   manifest, and a dry run packages the crate; then `publish` waits for the
+   environment's reviewer. Once approved, the auth step exchanges the run's identity
    token for a crates.io token, and `cargo publish` runs unless the version is already
    on crates.io.
 5. **Watch.** docs.rs builds the version for the targets in

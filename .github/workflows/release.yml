@@ -8,6 +8,14 @@ name: Release to crates.io
 # preflight job has found that environment and the tag ruleset in place. The
 # pattern needs `v` straight after `pawdoku-`, so `pawdoku-wasm-v0.1.0` does
 # not match it; each binding crate has a workflow of its own.
+#
+# Three jobs, as release-npm.yml has, so that the id-token never meets the
+# repository's tooling (the maintainer's answer of 2026-11-07). `preflight`
+# refuses unless the environment and the tag ruleset are in place; `build`
+# runs the setup action, the guards and a packaging dry run with a read-only
+# token; `publish` alone holds `id-token: write`, and runs no setup action,
+# no `just`, no pixi and no tools.txt binary, only rustup's cargo, crates.io's
+# auth action and the publish.
 
 on:
   push:
@@ -78,42 +86,64 @@ jobs:
           printf 'release: refused %s: no active tag ruleset restricts creating, updating and deleting %s\n' "$GITHUB_REF_NAME" "$pattern" >&2
           exit 1
 
-  publish:
-    name: publish
+  # Everything that runs the repository's code, with the read-only token: the
+  # setup action, whose install step hands cargo-binstall that token and
+  # fetches the tools.txt binaries, the guards and the packaging dry run. A
+  # tag off main, or one that disagrees with the manifest, stops here, before
+  # the publish job starts and before any token exists.
+  build:
+    name: build
     needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # The environment's required reviewer approves each run, and its
-    # deployment policies admit the four release tag patterns alone.
-    environment: release
-    # id-token mints the OIDC token crates.io exchanges for a publish token.
-    # GitHub grants it to the whole job, so every step below, the setup and
-    # the guards included, could request one; ordering the steps does not
-    # narrow it. What stops a malicious tag is the tag ruleset and this
-    # environment's reviewer; the guards stop a mistaken one (decision 0019).
-    # Nothing here writes to the repository.
-    permissions:
-      contents: read
-      id-token: write
     steps:
       # The full history, which the guards' merge-base needs.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
-      # The full setup, not crates.io's leaner checkout, auth and publish: it
-      # is the one tested path to `just` and the pinned toolchain, and every
-      # step of it runs before the auth step mints the token. A tag run
+      # The one tested path to `just` and the pinned toolchain. A tag run
       # restores caches main saved and saves none of its own.
       - uses: ./.github/actions/setup
         with:
           cache-key: release
       - run: just check-toolchain
-      # Before the auth step: a tag off main, or one that disagrees with the
-      # manifest, stops here and no token is minted.
       - uses: ./.github/actions/release-guards
         with:
           package: pawdoku
+      # Packages and verifies the crate with the tested toolchain, so a crate
+      # that would not build is refused here, with no token in the job.
+      - run: cargo publish --dry-run --locked -p pawdoku
+
+  publish:
+    name: publish
+    needs: [preflight, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # The environment's required reviewer approves each run, and its
+    # deployment policies admit the four release tag patterns alone.
+    environment: release
+    # id-token mints the OIDC token crates.io exchanges for a publish token.
+    # GitHub grants it to the whole job, so this job runs as little as a
+    # publish needs: the checkout, rustup's cargo, crates.io's auth action and
+    # cargo itself. No setup action, no `just`, no pixi and no tools.txt
+    # binary. The guards ran in `build`, on the same commit (both check out
+    # GITHUB_SHA), and the existence check below rests on them. cargo publish
+    # still compiles the crate to verify it, so its dependencies' build
+    # scripts and proc macros run here (decision 0019). What stops a
+    # malicious tag is the tag ruleset and this environment's reviewer.
+    # Nothing here writes to the repository.
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      # A shallow checkout: nothing here reads history.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The runner image's rustup reads rust-toolchain.toml, so cargo is the
+      # pinned release, as `just install-toolchain` installs it in `build`.
+      - run: rustup toolchain install
       # Exchanges the run's OIDC token for a crates.io token that lives thirty
       # minutes at most; the action's post step revokes it when the job ends.
       # It runs on every tag, a re-run included, so every tag proves the
@@ -122,8 +152,8 @@ jobs:
         uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
       # The first version is published by the maintainer's token before trusted
       # publishing can be configured, and a re-run must not fail on a version
-      # that is already there. The guards proved the tag is `pawdoku-v` and the
-      # manifest's version, so the suffix is that version.
+      # that is already there. The guards in `build` proved the tag is `pawdoku-v`
+      # and the manifest's version, so the suffix is that version.
       - id: published
         name: Is this version already on crates.io
         run: |

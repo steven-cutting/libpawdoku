@@ -72,14 +72,17 @@ used where unpredictability matters.
   is the second, in a file of its own rather than widening `ci.yml`. Its `publish` job
   holds `id-token: write` and runs in the `release` environment, whose
   required reviewer approves each run and whose deployment policies admit the four
-  release tag patterns alone; a tag ruleset restricts who may create those tags. Unlike
-  Pages' deploy job, it checks out the tagged commit and runs its setup action and
-  `Justfile`, and GitHub grants the identity token to every step of the job, not to the
-  auth step alone. So the ruleset and the reviewer are what stop a malicious tag; the
-  guards, which refuse a tag off `main` or one that disagrees with the manifest, stop a
-  mistaken one before the token is minted. Before it, a `preflight` job with no
-  `id-token` refuses the tag unless the environment and the ruleset are in place, the
-  same check `release-npm.yml` makes below
+  release tag patterns alone; a tag ruleset restricts who may create those tags. It runs
+  no setup action, no `Justfile`, no pixi and no `tools.txt` binary: a `build` job with a
+  read-only token runs those, the guards, which refuse a tag off `main` or one that
+  disagrees with the manifest, and a packaging dry run, and `publish` needs it. Unlike
+  Pages' deploy job, `publish` checks out the tagged commit and builds it, so its
+  dependencies' build scripts and proc macros run beside the identity token, which
+  GitHub grants to every step of the job, not to the auth step alone. So the ruleset
+  and the reviewer are what stop a malicious tag; the guards stop a mistaken one before
+  the token exists. Before both, a `preflight` job with no `id-token` refuses the tag
+  unless the environment and the ruleset are in place, the same check `release-npm.yml`
+  makes below
   ([decision 0019](../decisions/0019-releases.md)). `release-npm.yml` is the third, in
   three jobs. `preflight` reads the `release` environment and the tag rulesets and
   fails closed unless the environment has a required reviewer and an active tag ruleset
