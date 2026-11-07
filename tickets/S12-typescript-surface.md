@@ -254,15 +254,656 @@ Expected: the two files; the hand-back sections below, filled.
 
 ### What was verified, and how
 
+Run on 2026-11-06 and 2026-11-07 on the branch `implement-typescript-surface-fullsend`,
+from `3ce08de52677812198c7edaae851841193bb72d9`, on an Apple M5 Pro under macOS. Every
+timing below is that one machine in Node, so it is an upper-end desktop figure; no phone
+was measured. The probes were throwaway crates in a scratch directory, each with the
+workspace's three lint tables, `rust-toolchain.toml` and an empty `[workspace]`, one
+depending on `crates/pawdoku` by path with `features = ["serde"]`; nothing in the core
+changed. T40, T41, T43 and T15 have not landed, so the plain values are small structs in
+the probe, the record carries no version, and `RandomStream` is the probe's own. The
+figures for the plain values therefore stand in for T41's, and T41's are what T42 measures.
+
+**Versions, each read on 2026-11-06.** One has moved since the tickets were written.
+
+| Tool | Ticket's | On the day | Source |
+| --- | --- | --- | --- |
+| `wasm-bindgen`, `wasm-bindgen-cli` | 0.2.130 | 0.2.130 | `crates.io/api/v1/crates/<name>`; `pixi search` for conda-forge, `linux-64` and `osx-arm64` |
+| `js-sys` | 0.3.107 | 0.3.107 | crates.io |
+| `wasm-bindgen-test` | 0.3.80 | 0.3.80 | crates.io |
+| `serde-wasm-bindgen` | 0.6.5 | 0.6.5, last released 2024-02-27 | crates.io |
+| `wasm-pack` | 0.15.1 | 0.15.1, on crates.io and on conda-forge for both platforms | crates.io; `pixi search` |
+| `binaryen` | 121 | 121, both platforms | `pixi search` |
+| `typescript` | 6.0.2 | 6.0.2, both platforms | `pixi search` |
+| `nodejs` | 26.12.1 (T15) | **26.13.0**, both platforms; the probes used it | `pixi search` |
+| `tsify` | 0.5.8 | 0.5.8; `tsify-next` still 0.5.6 | crates.io |
+
+Rust was 1.98.1 by rustup, with `wasm32-unknown-unknown` and `wasm32v1-none` installed.
+Tools ran through `pixi exec` at those versions, with `brotli` 1.2.1 for the sizes, outside
+the repository's environment.
+
+**The probe built as the ticket asks.** `wasm-pack build --target web --mode no-install`
+wrote the `.d.ts` and `.js` quoted below. It exports `Board` with all seven operations,
+`open`, `reopen`, `view`, `cells`, `readingAfter` and `write`; four stateless functions;
+`search`; `generate(tier, stream)` and `generateFromSeed(tier, seed)`; and `RandomStream`.
+
+#### 1. Typing plain values
+
+The same strict consumer (open, place, undo, read the cells, write the record) under
+`tsc --noEmit --strict --target es2022 --lib esnext,dom --module esnext --moduleResolution bundler`:
+
+| Way | `tsc` | What it costs |
+| --- | --- | --- |
+| (a) `typescript_custom_section` with `unchecked_return_type` and `unchecked_param_type` | clean, no output | Interfaces written by hand; held equal below |
+| (b) tsify 0.5.8 over the core's `Record` | `pawdoku_wasm.d.ts(83,27): error TS2314: Generic type 'Record' requires 2 type argument(s).` | A new dependency, and the wire values have to be declared twice, or the core has to take it on |
+| (c) a class per value | clean, no output | 81 `free()` calls per read, and a value nothing can store |
+
+(a) also refuses misuse. A second module, each line meant to fail:
+
+```text
+a-wrong.ts(4,14): error TS2322: Type 'number | null' is not assignable to type 'number'.
+a-wrong.ts(5,26): error TS2551: Property 'isGiven' does not exist on type 'BoardCell'. Did you mean 'is_given'?
+a-wrong.ts(6,13): error TS2345: Argument of type '{ row: number; }' is not assignable to parameter of type 'Position'.
+a-wrong.ts(7,36): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+a-wrong.ts(8,18): error TS2345: Argument of type '"Six"' is not assignable to parameter of type 'Tier'.
+a-wrong.ts(9,32): error TS2322: Type '"Fly"' is not assignable to type '"Place" | "Erase" | "WriteMark" | "StrikeMark" | "CheckCell" | "Undo" | "Redo"'.
+a-wrong.ts(10,30): error TS2345: Argument of type '{ kind: "Place"; position: { row: number; column: number; }; }' is not assignable to parameter of type 'Operation'.
+```
+
+**Holding (a)'s interfaces equal to the serde shape, run rather than proposed.** Two links,
+which together put the interface and the live value on the same text:
+
+1. **The interface against the snapshot.** A small script strips the insta header from
+   `snapshots__tests__snapshot_the_record_of_the_scripted_game_as_json.snap` and writes
+   `export const record = <the JSON> satisfies BoardRecord;`. `satisfies` on a literal does
+   the excess-property check, so drift shows both ways. As written it is clean. With the
+   interface's `undone` renamed:
+
+   ```text
+   record-drift1.ts(315,3): error TS2353: Object literal may only specify known properties, and '"undone"' does not exist in type 'BoardRecord'.
+   ```
+
+   With a `version` field added to the JSON, which is what T43 will do:
+
+   ```text
+   record-drift2.ts(3,3): error TS2353: Object literal may only specify known properties, and '"version"' does not exist in type 'BoardRecord'.
+   ```
+
+2. **The live value against the snapshot.** In Node, `JSON.stringify(Board.reopen(snap).write())
+   === JSON.stringify(snap)` printed `true`, key order included, for the snapshot's 11 moves,
+   1 undone and 2 checks. That holds `serde_wasm_bindgen`'s shape equal to `serde_json`'s,
+   given the serialiser setting question 4 fixes.
+
+A snapshot holds `seed: 0` as a number where the interface says `bigint`, so the generation
+value goes through a mapped type, also run:
+
+```ts
+type Wire<T> = { [K in keyof T]: T[K] extends bigint ? number : T[K] extends bigint | null ? number | null : T[K] };
+```
+
+```text
+gen-snapshot.ts(4,162): error TS2353: Object literal may only specify known properties, and 'solution' does not exist in type 'Wire<GenerationOutcome>'.
+```
+
+That line is the planted `solution` field; the same literal without it is clean. **The
+remaining gap:** the guard sees only what a snapshot shows, so an optional field or a union
+member no snapshot exercises is not held. T41's step 8 therefore has to show every member
+(the amendments say how).
+
+**(b) tsify's record since 2024.** `madonoharu/tsify`, `MIT OR Apache-2.0`, not archived, 515
+stars, 33 open issues, last pushed 2026-11-01 (`gh api repos/madonoharu/tsify`). Commits by
+month through `gh api`, from the newest 100, show gaps in 2024-12 to 2025-01, 2025-06 to
+2025-09, 2025-11 to 2025-12 and 2026-03 to 2026-07, and 31 in 2026-08; releases 0.5.5
+(2025-04-13), 0.5.6 (2025-10-14), 0.5.7 (2026-08-20) and 0.5.8 (2026-08-23). It is
+maintained in bursts. Three things decide against it:
+
+- **It reads the tokens of its own item, and the values are the core's.** Wrapping the core's
+  type wrote `export type BoardRecord = Record;`, the `TS2314` above. Through the wrapper it
+  now recommends, `tsify::Ts<Record>` fails to compile:
+  `` error[E0277]: the trait bound `Record: Tsify` is not satisfied ``.
+- **The core cannot derive it.** A `no_std` crate with `tsify` 0.5.8 (`default-features =
+  false, features = ["js"]`) on `wasm32v1-none` fails with
+  `` error[E0463]: can't find crate for `std` `` in `slab` and `futures-core`, which is
+  invariant 5. So the wire values would be declared a second time in the wasm crate and again
+  for Python, which is the drift T41 exists to prevent, and those copies would need a guard of
+  their own.
+- **The obvious attributes are deprecated in the version in hand.** `#[tsify(into_wasm_abi)]`
+  warns `into_wasm_abi/from_wasm_abi are deprecated as they cause memory leaks
+  (https://github.com/madonoharu/tsify/issues/65). Consider using tsify::Ts instead.`; `-D
+  warnings` would stop on it. Issue 65 is open, last updated 2026-08-21.
+
+It does work with `serde-wasm-bindgen` where it can see the type: its `js` feature uses that
+crate, and the `.d.ts` it wrote for a value of its own was correct, with `digit: number |
+undefined` and, under `large_number_types_as_bigints`, `seed: bigint | undefined` and
+`moves: bigint` for a `usize`. Only the declarations were read; values from it were not run.
+
+**(c) a class per value.** Reading the 81 cells and every field, median of 2001 reads on the
+`opt-level = 3` release build: plain values 0.0205 ms, classes 0.0224 ms with each freed. So
+speed does not decide it. Ownership does: 20000 reads whose cells were not freed grew the
+module's memory by 65,273,856 bytes, and `JSON.stringify` of a class value gives
+`{"__wbg_ptr":1116800}`, a pointer, which is not a record a game can keep. Plain values also
+cannot be classes for the stateless way, whose whole point is values in and out.
+
+**The record's name.** A module that imports an interface named `Record` and writes
+`Record<string, number>` gets `error TS2315: Type 'Record' is not generic.`
+
+#### 2. Errors
+
+Caught and quoted from the probe, for `PlayError::Solved`:
+
+| | `name` | `message` | `instanceof Error` | `String(e)` |
+| --- | --- | --- | --- | --- |
+| `JsError::new` | `Error` | `the puzzle is solved, and solved is final` | `true` | `Error: the puzzle is solved, and solved is final` |
+| `js_sys::Error` with `set_name` | `PlayError` | the same | `true` | `PlayError: the puzzle is solved, and solved is final` |
+
+Both have `Error.prototype` as their prototype and a `stack`. `set_name` sets an own property
+on an `Error`, not a subclass, so a consumer branches on `e.name` and there is no
+`instanceof PlayError`. The named shape, every refusal from the release build:
+
+```text
+PlayError | the cell at row 1, column 1 holds a given | true
+SolveError | the givens have more than one solution | true
+ReopenError | the record's undone count, 2, exceeds its move count, 0 | true
+Error | missing field `moves` | true
+PlayError | the cell at row 1, column 1 holds a given | true
+GenerateError | the replay stream is exhausted at draw 5 | true
+RandomError | draw 0 of the replay script is 1.5, outside [0, 1) | true
+```
+
+The fourth line is a value of the wrong shape, read by serde, not a refusal of the engine's.
+With names the two can be told apart; with `JsError` they cannot. The fifth is
+`applyToRecord`, whose probe names the stage that refused.
+
+**The cost of `js-sys` is one manifest line.** `cargo tree -i js-sys` shows it already built
+for `serde-wasm-bindgen`. The `.wasm` with names is smaller: 336,697 bytes and 96,039 gzipped
+against 338,194 and 96,296 with `JsError` (both `opt-level = 3`, `wasm-opt` off).
+
+**What the declarations can say:** nothing of their own. A `@throws` line in a Rust doc
+comment passes through as written (question 9 quotes it), and `tsc` checks none of it.
+
+#### 3. Seeds and draws
+
+```text
+seed round trip 2^63+5                       true
+seed MAX_SAFE+2                              9007199254740993n
+RandomStream.seeded(2^63+5).index type       bigint
+draws by seed 0..9 tier One                  104 104 104 104 104 104 104 104 104 104
+draws by seed 0..9 tier Two                  104 104 104 104 104 104 104 104 104 104
+draws by seed 0..9 tier Three                23 23 23 23 23 23 23 23 23 23
+draws by seed 0..9 tier Four                 23 23 23 23 23 23 23 23 23 23
+draws by seed 0..9 tier Five                 23 23 23 23 23 23 23 23 23 23
+class path: start_index,taken,seed           3 23 null
+class path: replay same givens               true
+fromSeed equals stream at 0                  true
+exhausted                                    the replay stream is exhausted at draw 5
+index after exhausted                        5n
+```
+
+So `&mut` advances the JavaScript object's stream, which stays usable; `index` after minus
+before equalled `draws_taken` in all fifty; and a stream advanced three draws, replayed from
+the same seed by drawing `start_index` times and generating, gave the same givens, which is
+`generation.allium`'s Replay at an index other than zero. A seed outside `u64` wraps silently
+(`2n ** 64n` reads `0n`, `-1n` reads `18446744073709551615n`), as wasm-bindgen does for a
+`u64`; the result carries the wrapped seed, so replay still holds. A `number` for a seed
+throws `expected a bigint argument, found number`.
+
+#### 4. Casing, and what the serialiser has to be
+
+Under either casing the interfaces are hand-written, so the declarations say whatever the
+serde shape is: `is_given: boolean`, `after_move: number` and `draws_taken: bigint` under
+snake_case, `isGiven`, `afterMove` and `drawsTaken` under `rename_all = "camelCase"`. The
+mixture reads `board.writeMark(here, 4)` beside `cell.is_given`; a slip is a `tsc` error that
+names the field (`Did you mean 'is_given'?`). The game's `eslint.config.js` at `add73be` has
+no `camelcase` or `naming-convention` rule to object.
+
+**`serde_wasm_bindgen`'s defaults break the "one wire shape"; this was not in the ticket.**
+Measured from the probe:
+
+```text
+default            digit in obj:true digit:undefined small:number moves:number
+default JSON       {"small":7,"moves":7}
+default u64::MAX   18446744073709551615 can't be represented as a JavaScript number
+null, numbers      digit:null small:number moves:number
+null, bigints      digit:null small:bigint moves:bigint
+flatten, default            [object Map]
+flatten, maps as objects    [object Object] {"row":1,"column":2,"digit":null}
+JSON.stringify(result)      TypeError: Do not know how to serialize a BigInt
+```
+
+Four facts follow. `Option::None` is `undefined` by default where `serde_json` writes `null`.
+A `u64` above 2^53 **throws** by default. The bigint setting also turns every `usize` into a
+`bigint`, because serde writes a `usize` as a `u64`: that would make `undone`, `index` and
+`after_move` bigints, and `JSON.stringify(board.write())` would throw. And `#[serde(flatten)]`
+yields a JavaScript `Map`. So one serialiser cannot serve both the board's values and the
+generator's.
+
+With `serialize_missing_as_null` and `serialize_maps_as_objects` for the board's values, and
+with `serialize_large_number_types_as_bigints` as well for the generation value alone,
+`JSON.stringify` of a record parses back to a board that shows the same view (`true`), and a
+seed of `2n ** 63n + 5n` arrives as `bigint`. Only `u64` fields are bigints, and only the
+generation value holds them.
+
+**A number parameter wraps, and that makes the two ways disagree; nor was this in the
+ticket.** A `u8` or `usize` parameter of an export takes whatever JavaScript number it is
+given:
+
+```text
+demoU8(265)    9        demoSerdeU8(265)   invalid value: integer `265`, expected u8
+demoU8(-247)   9        demoSerdeU8(-1)    invalid type: floating point `-1.0`, expected u8
+demoU8(9.9)    9        demoSerdeU8(9.9)   invalid type: floating point `9.9`, expected u8
+demoUsize(1.5) 1        demoSerdeUsize(1.5) invalid type: floating point `1.5`, expected usize
+demoUsize(4294967297) 1 demoSerdeUsize(4294967297) invalid value: integer `4294967297`, expected usize
+```
+
+The first build's `place(position, digit: u8)` **put a 4 in the cell when handed 260**, while
+`applyToRecord` with the same digit refused. Read through serde, with `unchecked_param_type =
+"number"` keeping the declaration as `digit: number`, both refuse with the same text:
+
+```text
+board.place(FREE,260)     invalid value: integer `260`, expected u8
+applyToRecord digit 260   invalid value: integer `260`, expected u8
+board.place digit 0       the digit 0 is outside 1 to 9
+applyToRecord digit 0     the digit 0 is outside 1 to 9
+```
+
+Other findings for the operation value: `#[serde(tag = "kind")]` round-trips
+(`{"kind":"Undo"}`, `{"kind":"Place","position":{"row":1,"column":3},"digit":4}`) and compiles
+under `no_std` with `serde`'s `alloc` feature on `wasm32v1-none` (`Finished`), so it is open to
+the core. An unknown kind says `` unknown variant `Fly`, expected one of `Place`, `Erase`,
+`WriteMark`, `StrikeMark`, `CheckCell`, `Undo`, `Redo` ``. An extra key in a value is ignored,
+a missing one refused.
+
+#### 5. Where tests run
+
+A Node module imported `pkg/pawdoku_wasm.js`, called `initSync({ module: bytes })` and exercised
+every export: the runs quoted throughout this section are that. The glue's signature is
+`export function initSync(module: { module: SyncInitInput } | SyncInitInput): InitOutput;`. The
+default `init()` in Node throws, as the ticket supposed:
+
+```text
+await init()  TypeError: fetch failed
+init() cause: not implemented... yet...
+```
+
+The glue's line is `module_or_path = new URL('pawdoku_wasm_bg.wasm', import.meta.url);`. Once, by
+hand and not as a gate, the same package was loaded in headless Chrome 156 from a local server;
+`init()` succeeded there, `generateFromSeed('Three', 2n ** 63n)` gave a `bigint` seed, and a board
+opened with 81 cells. So the default path was seen to work once, on this date.
+
+What only a browser proves is that fetch path, and the path the game actually ships is the one
+Vite rewrites, which no browser job in this repository would exercise. On conda-forge on
+2026-11-06: `chromedriver` has no package on either platform, `chromium` none, and
+`python-chromedriver-binary` 159.0.8147 (11.86 MiB, `linux-64`) brings no browser; `geckodriver`
+0.37.1 (1.79 MiB) is on both and `firefox` 159.0.1 on both (104.67 MiB `linux-64`, 170.63 MiB
+`osx-arm64`). A gate is therefore over 100 MiB per fresh environment, two more pins and a CI job;
+its run time was not measured. The Node route costs: `tsc` over the consumer 1 s, the Node check
+under 0.1 s, `typescript` 3.13 MiB.
+
+#### 6. Size and speed
+
+The probe's `.wasm`, `lto = "fat"`, `codegen-units = 1`, with named errors. The optimised rows are
+`wasm-opt` 121 with `--all-features`:
+
+| `opt-level` | `wasm-opt` | Bytes | gzip -9 | brotli -q 11 |
+| --- | --- | --- | --- | --- |
+| 3 | off | 336,697 | 96,039 | 75,503 |
+| 3 | `-O3` | 230,141 | 83,814 | 66,644 |
+| 3 | `-Oz` | 227,931 | 83,952 | 66,573 |
+| `s` | off | 310,585 | 85,602 | 69,927 |
+| `s` | `-O3` | 191,608 | 71,991 | 60,104 |
+| `s` | `-Oz` | 189,806 | 72,170 | 60,148 |
+| `z` | off | 328,520 | 84,038 | 68,968 |
+| `z` | `-O3` | 169,558 | 67,137 | 56,788 |
+| `z` | `-Oz` | 166,124 | 67,623 | 57,219 |
+
+Through wasm-pack itself, `wasm-opt = ['-O3']` with no extra flag wrote 229,788 bytes, 83,657 gzip,
+66,383 brotli, so binaryen 121 reads this toolchain's output without a feature flag. The glue is
+28,225 bytes, 6,102 gzipped. **A trap:** with the metadata on and no `wasm-opt` on `PATH`, `--mode
+no-install` does not fail:
+
+```text
+[INFO]: Skipping wasm-opt as no downloading was requested
+[INFO]: ✨   Done in 0.44s
+```
+
+Time per call, median of 101 unless said, in Node:
+
+| Build | Generate, tier 1 / tier 3, ten seeds | `applyToRecord`, fixture, 200 moves | `Board.reopen`, slowest puzzle, 200 moves |
+| --- | --- | --- | --- |
+| 3, off | 0.85 / 1.24 ms | 0.83 ms | 1.28 ms |
+| 3, `-O3` | 0.69 / 0.97 ms | 0.80 ms | 1.36 ms |
+| 3, `-Oz` | 0.73 / 1.22 ms | 0.83 ms | 1.37 ms |
+| `s`, `-O3` | 0.83 / 1.35 ms | 1.51 ms | 1.95 ms |
+| `z`, `-O3` | 1.22 / 1.87 ms | 1.64 ms | 2.63 ms |
+| `z`, `-Oz` | 0.98 / 1.38 ms | 1.40 ms | 1.87 ms |
+
+Differences of a tenth of a millisecond between the `opt-level = 3` rows are noise. The `s` and `z`
+rows are 1.4 to 2 times slower on replay. The stateless cost itself, on `opt-level = 3`, `-O3`:
+
+| Record | Moves | `Board.open` | `Board.reopen` | `applyToRecord` (one stateless call), median and p95 | Held: two moves, a view, two undos |
+| --- | --- | --- | --- | --- | --- |
+| Fixture, no guess | 0 | 0.032 ms | 0.036 ms | 0.077, 0.117 ms | 0.026 ms |
+| | 50 | | 0.197 ms | 0.259, 0.320 ms | 0.043 ms |
+| | 200 | | 0.682 ms | 0.771, 0.851 ms | 0.090 ms |
+| `NEEDS_A_GUESS`, 50 guesses | 0 | 0.914 ms | 0.925 ms | 0.938, 1.006 ms | 0.020 ms |
+| | 50 | | 1.007 ms | 1.070, 1.181 ms | 0.038 ms |
+| | 200 | | 1.321 ms | 1.470, 1.674 ms | 0.090 ms |
+| Tier 5, seed 0, 3 guesses | 0 | 0.097 ms | 0.102 ms | 0.133, 0.144 ms | 0.024 ms |
+| | 200 | | 0.668 ms | 0.798, 0.842 ms | 0.090 ms |
+
+That table is one run of the build, so its figures differ from the row above by the noise between runs.
+`NEEDS_A_GUESS` is the 17-given puzzle of `crates/pawdoku/tests/solver.rs` and the slowest measured. Tier 5
+seeds 0 to 9 took 3, 0, 0, 0, 0, 0, 3, 1, 0 and 0 guesses, so a generated puzzle costs about what the fixture
+does. A cold start: `initSync` 2.03 ms, the first `Board.open` 1.64 ms, the first `applyToRecord`
+2.10 ms, the first generation 1.46 ms. A record of 200 moves is 10,765 bytes of JSON.
+
+#### 7. Lifetime
+
+Quoted from the 0.2.130 glue, built with no flag:
+
+```text
+const BoardFinalization = (typeof FinalizationRegistry === 'undefined')
+    : new FinalizationRegistry(ptr => wasm.__wbg_board_free(ptr, 1));
+if (Symbol.dispose) Board.prototype[Symbol.dispose] = Board.prototype.free;
+```
+
+(The first line's other arm, the fallback, is elided.) The `.d.ts` declares `[Symbol.dispose](): void;`
+on each class. `using held = Board.open(givens)` type-checks under the flags above and frees the board
+when its block ends: read after it, the board throws. Under `--target es2020 --lib es2020,dom` the
+declarations themselves fail, `error TS2318: Cannot find global type 'Disposable'.`, so a consumer's
+`lib` needs `esnext` or `esnext.disposable`, and with no `dom` the file fails on `Response`, `URL` and
+`WebAssembly`.
+
+```text
+use after free                     Attempt to use a moved value
+free twice                         null pointer passed to rust
+memory: start, after 20000 open+free   1245184 1245184
+memory: 2000 held, then freed          2621440 2621440
+approx bytes per open board        688
+bytes per 200-move board           5767
+never freed, 100000 opened: memory MB  68.3
+never freed, 200000 opened: memory MB  135.4
+never freed, 300000 opened: memory MB  202.5
+```
+
+Freed memory is reused and the module's memory never shrinks. The last three lines ran in one
+synchronous loop, in which a `FinalizationRegistry` callback has no chance to run, so they show what
+a board costs unfreed and not that the registry fails. A registry promises no timing in any case.
+
+#### 8. The readings after a move
+
+Carrying the 81 cells inside every move, against reading one on asking, on the fixture at 200 moves:
+
+| | JSON bytes | Time |
+| --- | --- | --- |
+| The view, with no readings | 24,099 | 0.087 ms |
+| One reading | 3,502 | 0.019 ms held; 0.660 ms by `readRecordAfter` |
+| The 200 readings, if carried | 700,193 | 3.758 ms for the view and all of them, held |
+| The 200 readings, one call each by record | | 137.7 ms |
+
+The probe's reading, read from a game: `{"row":1,"column":4,"digit":null,"note":[4]}`. A given reads
+`{"row":1,"column":1,"digit":5,"note":[]}`, an undone move is still readable, and index 4 of 3 moves
+is refused. A move's index counts from 1 (`crates/pawdoku/src/board/moves.rs`).
+`Move::note_after` gives the note "whether it was shown then or waited beneath a digit", and
+`Playing` exposes `move.note_after(cell)` with no `when`, where a cell's own note is exposed only
+`when cell.shows_note`. So a reading's note is an array in every cell, and a view's is absent while
+a digit stands: both are as `board.allium` states them.
+
+#### 9. What the declarations say
+
+Quoted from the probe's `pawdoku_wasm.d.ts`, the `Board` class in part, one stateless function, one
+plain value:
+
+```ts
+/** A cell as `Playing` exposes it. */
+export interface BoardCell {
+    row: number;
+    column: number;
+    digit: number | null;
+    is_given: boolean;
+    is_conflicting: boolean;
+    /** Its note's digits while the note is shown. */
+    note?: number[];
+}
+
+export class Board {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    /**
+     * The 81 cells as they stand.
+     */
+    cells(): BoardCell[];
+    /**
+     * Checks the player's digit against the solution.
+     */
+    check(position: Position): BoardCheck;
+    /**
+     * Opens a board on `givens`.
+     *
+     * @throws {Error} `SolveError`, its message the solver's refusal, when the givens
+     * do not have exactly one solution.
+     * @param givens - The puzzle's givens.
+     */
+    static open(givens: Given[]): Board;
+}
+
+/**
+ * Puts one operation to a record: it reopens the record, makes the operation and writes
+ * the board down again. Nothing is held between calls.
+ *
+ * @throws {Error} When the record does not reopen or the operation is refused.
+ * @param record - The record, unchanged.
+ * @param operation - One of the seven.
+ * @returns The record after it and the view of the board after it.
+ */
+export function applyToRecord(record: BoardRecord, operation: Operation): Played;
+```
+
+No exported signature says `any`. The same file's `InitOutput`, wasm-bindgen's description of the raw
+exports, does, on 15 lines (`readonly applyToRecord: (a: any, b: any) => [number, number, number];`),
+and T42's Verification grep matches them; every match lies at or after line 227, where `InitOutput`
+begins, and none before. Under the workspace's lints, `cargo clippy --target wasm32-unknown-unknown
+-- -D warnings` over the probe gives 22 of `# Errors` missing on exports returning `Result`, 2 of
+`could be a const fn` and 1 of `more than 3 bools in a struct`, the view.
+
 ### The recommendations
+
+1. **Typing: (a), wasm-bindgen's own attributes, with no new dependency.** The interfaces are held by
+   the two-link guard above. tsify is not recommended, because the values are the core's and it cannot
+   see them. Nothing goes to T02 for it. The record's TypeScript name is **`BoardRecord`, confirmed**:
+   `TS2315` is what `Record` does. Every other value keeps the core's Rust name; `BoardMove` and `BoardCheck` above are the probe's stand-ins.
+2. **Errors: `js_sys::Error` named for the Rust type**, message always `error.to_string()`. The game can
+   tell a refusal from a value of the wrong shape, and which refusal, without reading a message; the cost
+   is one manifest line for a crate already built. Declarations say it only in `@throws`. **T17 mirrors it
+   with one exception class per error type**, under one base class, each carrying the text.
+3. **Seeds and draws: the writer's list is confirmed, with `seed` null on the class path.** Tier, seed,
+   start index, `draws_taken`, both versions and the givens, never the solution. A seedless path exists
+   because a `SeededStream` holds its state and not its seed. No `status` field: a refusal is thrown,
+   which is what `SearchResult` already does with its status, and a result exists only once finished.
+   **`Draw` records are needed by nothing built today.** Nothing further is handed to the specification.
+4. **Casing: snake_case fields and camelCase methods, confirmed**, with one addition the writer did not
+   state: enum values stay PascalCase, serde's default, because `Record`'s moves and `Tier` already are
+   and a change would move the record's snapshot for no consumer. **And two serialiser settings**,
+   question 4's, which are what make one wire shape true.
+5. **Tests: Node here, the browser on the game's side.** `initSync` in Node tests the published package
+   with no browser. The one thing a browser adds is the fetch path that Vite rewrites in the game, which a
+   job here would not exercise; the G ticket's built preview does. **No browser gate is recommended.**
+6. **Size and speed: `wasm-opt` on at `-O3`, `opt-level` left at the default.** It saves 12.9% gzipped
+   (96,039 to 83,657) and 12.1% with brotli for no measured loss, and `-Oz` is within 150 bytes of it once compressed.
+   `opt-level = "s"` or `"z"` would save 12 to 17 KB more gzipped at 1.4 to 2 times the replay, and because
+   `[profile.release]` is shared with the crates T16 and T17 will add, it would need a profile of its own, which was
+   not tried; not worth it. **The stateless cost is acceptable for a call
+   per move**: at most 1.7 ms at p95 at 200 moves on the slowest puzzle measured, on this machine, and well
+   under a frame's 16 ms. It is not for a call per frame, and a phone was not measured. T42 pins
+   `binaryen = "==121"` and guards it, because of the silent skip.
+7. **Lifetime: hold one `Board` for the life of a puzzle in play and call `free()` once when it is left.**
+   The registry is a safety net with no timing and `using` suits a short scope such as a test or a worker
+   call. Neither may be combined with a second `free()`, which throws.
+8. **Readings: a separate `reading_after(move_index)`, confirmed**, in both ways: `readingAfter(index)` on
+   the class and a stateless function taking a record and an index. Each gives the 81 cells in row order,
+   flat, with `digit` and `note`. No batch: a caller that scrubs through a game holds a board, 3.8 ms against
+   137.7 ms for all 200. **It is a spec change for T40 on the stateless side**, below.
+9. **Declarations: good enough to use with no hand-written wrapper.** Every parameter and return is named,
+   doc comments and `@param`, `@returns`, `@throws` come through, and misuse is a `tsc` error. A consumer's
+   `lib` needs `esnext` and `dom`.
 
 ### Amendments to T41 and T42
 
+**T41, "What S12 decides first"** (Context). All three are settled: casing as recommendation 4, readings as 8,
+the generation result as 3.
+
+**T41, step 3, the wire shape:**
+
+- Field names are the specifications', snake_case, and enum values serde's default PascalCase: `"Unsolved"`,
+  `"OneSolution"`, `"WriteMark"`. `Record`'s shape does not change for casing, so the Non-goal stands.
+- An absent digit is `null`, so `Option<u8>` carries no `skip_serializing_if`: `digit: Option<u8>` on a cell, a
+  move and a reading. A cell's `note` alone is absent while not shown, with `skip_serializing_if =
+  "Option::is_none"`; an empty note that is shown is `[]`.
+- **No `#[serde(flatten)]` in any wire value.** It gives a `Map` under `serde-wasm-bindgen`'s defaults, and it
+  would change how every binding has to read it. The flat cell is written with its own `row` and `column`.
+- The reading is `{ move_index, cells: [{ row, column, digit, note }] }`, 81 cells in row order. `note` is always
+  an array and includes a note waiting beneath a digit, as `Move::note_after` gives it. `move_index` counts from 1,
+  and an undone move still has a reading; 0 and anything past the last are the refusal.
+- `#[expect(clippy::struct_excessive_bools, reason = "...")]` on the view, which holds what `Playing` exposes: the
+  lint fires on its four bools.
+
+**T41, step 4, the operation and the error:**
+
+- The operation is `#[serde(tag = "kind")]` with variants named as `Playing`'s, `Place`, `Erase`, `WriteMark`,
+  `StrikeMark`, `CheckCell`, `Undo`, `Redo`, and fields `position` and `digit`. So on the wire `{ "kind": "Undo" }`
+  and `{ "kind": "Place", "position": { ... }, "digit": 4 }`, which gives TypeScript a discriminated union.
+- What a call hands back is `{ record, view, check }` with `check` absent unless the operation was `CheckCell`.
+- The two wrapping variants of the error are `#[error(transparent)]`, so a refusal's text is the same whichever way
+  the board is driven. Step 4 leaves that open, and T42 step 7's comparison of the two ways reads it.
+
+**T41, step 6, the generation result.** The fields and wire names are `tier`, `seed: Option<u64>`, `start_index: u64`,
+`draws_taken: u64`, `generation_version`, `random_version`, `givens`, in that order. `seed` is `None` from a stream, because
+neither stream knows one. `draws_taken` is `index` after `wrapping_sub` `index` before, as the index wraps. There is no
+`status`: `Err` is the refusal.
+
+**T41, step 8, the snapshots**, because T42's guard sees only what they show. The view's snapshot must show all four move
+kinds, an undone move, a cell with a note, a cell without one, an absent digit and a check. Add a snapshot of the JSON of all
+seven operations, and of a generation result from a stream (where `seed` is `null`) beside the one from a seed. Show a search
+result of each verdict.
+
+**T41, Open points.** "Where the readings after a move live on the wire": settled as above, with T40 stating the stateless
+form first.
+
+**T42, Context, "What S12 decided"**: (a) wasm-bindgen's attributes; named errors, needing `js-sys`; `BoardRecord`; the package
+test and the `tsc` check, both yes; `wasm-opt` on at `-O3`; a board freed once when its puzzle is left.
+
+**T42, step 2 and Files touched.** `js-sys = "0.3.107"` is needed, re-checked on the day. `typescript = "==6.0.2"` and
+`binaryen = "==121"` are both added to `pyproject.toml`. `nodejs` is whatever T15 pinned, which should be 26.13.0.
+
+**T42, step 3, errors and types:**
+
+- `src/error.rs` builds a `js_sys::Error`, `set_name` to the Rust type's name, for `PlayError`, `ReopenError`, `SolveError`,
+  `GenerateError` and `RandomError`. T41's error takes the name of the stage that refused: `ReopenError` from its reopening
+  variant and `PlayError` from its playing one, with its own type's name for the index that names no move and for any variant
+  added later. So a game branches the same way on either way of driving the board.
+- `src/types.rs` also exports `type EngineErrorName`, the union of those names, so a branch on `e.name` is checked.
+- **Two serialisers**, in one helper each. Board values and the search use `Serializer::new().serialize_missing_as_null(true)
+  .serialize_maps_as_objects(true)`. The generation result adds `.serialize_large_number_types_as_bigints(true)`, and nothing
+  else may, because it turns a `usize` into a `bigint` and `JSON.stringify(board.write())` would then throw. The default `to_value`
+  is used nowhere.
+- A TypeScript name is the core's Rust name, except `Record`, which is `BoardRecord`. Its interface is written out in full and not
+  left opaque, so that the guard of step 8 has something to hold; `version: string`, not a literal, because a record of another
+  version is the case the refusal exists for.
+- Interfaces for `u64` fields say `bigint`, and for `Option` say `| null`. A cell's `note` is `note?: number[]`.
+
+**T42, step 4, the class.** `digit` and `index` parameters are `JsValue`, read through `serde_wasm_bindgen::from_value` to `u8`
+and `usize`, with `unchecked_param_type = "number"`, and **never** a Rust `u8` or `usize` parameter, which wraps: `place(here, 260)`
+put a 4 on the board in the probe. Each export returning `Result` needs its `# Errors` section, for clippy.
+
+**T42, step 5.** The operation's type is the discriminated union on `kind`. T41's reading after a move crosses as an export taking
+a record and an index, with the index read through serde as in step 4.
+
+**T42, step 6.** `generate` and generation from a seed use the bigint serialiser. The README states that a seed reduces modulo
+2^64 silently.
+
+**T42, step 7, added tests:**
+
+- `place(here, 260)`, `writeMark(here, 260)`, `readingAfter(1.5)` and `readingAfter(2 ** 32 + 1)` each throw and leave the board as
+  it was, and play from a record throws the same text for the same digit.
+- A refusal's `name`: each error type's, `ReopenError` and `PlayError` from play from a record, and `Error` for a wrong shape.
+- A record through `JSON.stringify` and `JSON.parse` reopens and shows the same view, which fails if a `bigint` reaches it.
+- A generation result's `seed`, `start_index` and `draws_taken` are `bigint`, `seed` null from a stream, and its `index`
+  replay holds: a stream advanced by `start_index` draws from the same seed gives the same givens.
+- `typeof` for a view's `index`, `after_move` and the record's `undone` is `number`.
+
+A comparison of generation results "as JavaScript values" needs a replacer, because `JSON.stringify` throws on a `bigint`.
+
+**T42, step 8, the package test, recommended.** Its contents, in addition to the Node module and the strict consumer:
+
+- `crates/pawdoku-wasm/tests/package/` also holds a script that strips each wire-shape snapshot T41 accepted of its insta header and
+  writes a scratch `.ts` of `export const value = <JSON> satisfies <Interface>;`, one per snapshot, with `Wire<T>` (question 1) for the
+  generation result; and the Node module checks each snapshot's live value against that JSON, by `JSON.stringify` for the board's values
+  and through a replacer for the generation's. Files touched gains the script.
+- `tsc` runs with `--target es2022 --lib esnext,dom --module esnext --moduleResolution bundler`, in the `tsconfig.json`.
+- `[package.metadata.wasm-pack.profile.release] wasm-opt = ['-O3']`, replacing T15's `false`. No feature flag is needed.
+- **`wasm-build`'s guard gains `wasm-opt --version`**, which must say `wasm-opt version 121`, because wasm-pack in `--mode no-install`
+  skips the step and succeeds when the tool is absent. It stands beside T15's `wasm-bindgen --version` guard.
+- Quote the `.wasm` before and after; this probe's were 336,697 and 229,788 bytes, T41's values will differ.
+
+**T42, step 9, the README** says also: a generation result holds `bigint`s, so `JSON.stringify` throws on it, and a game stores
+`String(seed)` and reads back with `BigInt(...)`; `using` needs `esnext` in `lib`; `free()` once, a second throws
+`null pointer passed to rust`; a thrown `name` of `Error` means a value of the wrong shape, whose text is serde's and not stable.
+
+**T42, Verification.** `rg -n ': any\b|=> any\b' crates/pawdoku-wasm/pkg/pawdoku_wasm.d.ts` matches `InitOutput` always (15 lines in the
+probe), so it cannot be expected empty. Replace it with `sed '/export interface InitOutput/,$d' crates/pawdoku-wasm/pkg/pawdoku_wasm.d.ts
+| rg -n ': any\b|=> any\b'`, which the probe leaves empty.
+
+**T42, Acceptance criteria.** "Every refusal throws with the core's `Display` text" stands for the engine's refusals. Add: a value of the
+wrong shape throws too, with `name` `Error` and serde's text, and leaves everything unchanged.
+
+**T42, the G ticket, Part B.** Keeping a game: wrap `Board.reopen(JSON.parse(stored))` as one `try`, because a record that does not reopen
+can throw `ReopenError` or `Error`. A new puzzle: the seed is kept as `String(seed)`, as question 4 shows. The adapter calls `free()` exactly
+once when the puzzle is left. The vitest and preview proofs stand, and the preview is what proves the fetch path Vite rewrites.
+
 ### Handed back
+
+- **To T40, which must carry this in `board.allium`.** Question 8's shape adds two things the contract as T40 drafts it does not state.
+  Regrouping the readings on a held board adds nothing, because `Playing` exposes them already; the stateless side is what is new.
+  1. **What a call hands back excludes the readings.** T40 step 3 says a call gives "what `Playing` exposes", which read literally includes
+     `move.digit_after` and `move.note_after` for every move and cell: 700,193 bytes at 200 moves. The signatures should say that what comes
+     back is what `Playing` exposes of the board, its cells, moves and checks, without the readings after its moves, and that those are given
+     on asking.
+  2. **A fourth signature, with a third refusal.** It takes a record and a move's index and gives, for every cell of the board, `digit_after`
+     and `note_after` as that move holds them. T40's refusal invariant names two refusals; this adds a third, an index that names no move, and
+     nothing is handed back then either. The index is `move.index`, counted from 1, and a move undone is still one of the record's moves. T40's
+     text "its three signatures and four invariants" under Acceptance criteria becomes four signatures, with a deviation recorded; T41 step 5
+     already builds this fourth function, and without the clause it would be behaviour no specification states. The module's other invariants
+     cover it as they stand: `TheSolutionIsNeverShown` because a reading holds no solution digit a player's board did not hold, and "nothing kept
+     between calls". Nothing else in `Playing` changes, and no `open question` is touched.
+- **To T15.** `nodejs` moved to 26.13.0 on conda-forge (both platforms; T15 Context's table and step 6 say 26.12.1), to be pinned and noted under
+  this run's rule. The `wasm-opt = false` metadata stays until T42 changes it.
+- **To T00 follow-ups, carried by T42.** `typescript = "==6.0.2"`, `binaryen = "==121"`, the `wasm-package-test` recipe and `wasm-build`'s guard.
+- **To T02.** Nothing new. `serde-wasm-bindgen` and `js-sys` are already T42's step 2, each with its decision-0007 note, and tsify is not added.
+- **To T17.** One exception class per error type under one base, with the `Display` text. The same core values in snake_case. A `dict` has no
+  bigint problem, since Python's `int` is exact, but T17 should still read a `u8` through a checked conversion rather than a wrapping one, and a test
+  should hold that a digit of 260 is refused the same both ways.
+- **To the specifications, beyond T40.** Nothing. `generation.allium`'s `GenerationResult` exposes `status` and `draws_taken` of a refused generation,
+  and the comment above it says a refused one shows only that it was; a thrown refusal does the first, and the stream's `index` the second. That wording
+  is not a question for this spike and no change is proposed.
+
+### Deviations, and why
+
+- **One branch.** This ticket ran on `implement-typescript-surface-fullsend` as the run's brief set, not on `ticket/s12-typescript-surface`, and
+  no worktree was created. Step 1's condition is satisfied by order on this branch.
+- **`nodejs` 26.13.0**, not 26.12.1, as the version table says.
+- **Measured beyond the ticket:** `wasm-opt` at `-Os` and `-O2` were also run and said nothing further, so they are left out of the table.
 
 ### Adversarial review
 
+R1 is run by the main thread on the checkpoint commit holding these notes, and its round and triage are recorded here.
+
 ### Open points settled
+
+- **A new dependency for typing.** None: wasm-bindgen's own attributes, question 1. T42 does not wait on T02 for this.
+- **A browser gate.** None here: Node and `tsc`, question 5, with the game's preview carrying the browser.
+
+## Open points settled
 
 ## Open points
 
