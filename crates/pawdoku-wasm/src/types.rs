@@ -1,7 +1,8 @@
 //! The engine's plain values as they cross: the TypeScript declaration of each, the two
 //! serialisers, and the readers: `read` for an export that holds no borrow,
-//! `read_operation` for `play`'s operation, and `read_held` and `read_held_position`
-//! for one that does, which run none of the caller's JavaScript uncaught.
+//! `read_operation` for `play`'s operation, each field read once, and `read_held` and
+//! `read_held_position` for one that does, which run none of the caller's JavaScript
+//! uncaught.
 //!
 //! The declarations are written here by hand, in one `typescript_custom_section`, each
 //! field as the core's wire shape writes it (T41): fields in snake case, enum values in
@@ -312,22 +313,32 @@ pub(crate) fn read_held_position(value: JsValue) -> Result<Position, JsValue> {
     read(fields.into())
 }
 
-/// An operation read as `play` reads it, with its position read as a held `Board`
-/// reads one: serde would read an array `[row, column]` as a position, which no
-/// declaration allows and the held board refuses, so an array in the operation's own
-/// `position` field is refused with [`read_held_position`]'s refusal before serde reads
-/// the rest. `play` holds no borrow, so the caller's code may run here.
+/// An operation read as `play` reads it, each field once and as a held `Board` reads
+/// the same argument: its own fields are listed by a catching `Object.entries`, its
+/// `position` is read with [`read_held_position`] and its `digit` with [`read_held`],
+/// and serde reads the operation from a plain copy holding those values and its `kind`.
+/// So a position the held board reads is the one played, an array `[row, column]`,
+/// which no declaration allows, is refused as the held board refuses it, and a getter
+/// that answers differently on a second read is not read twice. Other fields are
+/// ignored, as serde ignores them. `play` holds no borrow, so the caller's code may run
+/// here.
 pub(crate) fn read_operation(value: JsValue) -> Result<Operation, JsValue> {
-    if value.is_object() {
-        for entry in own_entries(&value)?.iter() {
-            let entry: Array = entry.unchecked_into();
-            let (name, field) = (entry.get(0), entry.get(1));
-            if name.as_string().is_some_and(|name| name == "position") && Array::is_array(&field) {
-                read_held_position(field)?;
-            }
-        }
+    if !value.is_object() {
+        return read(value);
     }
-    read(value)
+    let fields = Object::new();
+    for entry in own_entries(&value)?.iter() {
+        let entry: Array = entry.unchecked_into();
+        let (name, field) = (entry.get(0), entry.get(1));
+        let field = match name.as_string().as_deref() {
+            Some("kind") => field,
+            Some("position") => board(&read_held_position(field)?)?,
+            Some("digit") => JsValue::from(read_held::<u8>(field)?),
+            _ => continue,
+        };
+        Reflect::set(&fields, &name, &field)?;
+    }
+    read(fields.into())
 }
 
 #[wasm_bindgen]

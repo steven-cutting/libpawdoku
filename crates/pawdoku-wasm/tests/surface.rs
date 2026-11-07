@@ -788,6 +788,7 @@ fn a_board_reads_a_position_as_play_does_from_its_own_fields() {
     let own = "return new (class { constructor() { this.row = 1; this.column = 3; } })();";
     let inherited = "return new (class { get row() { return 1; } get column() { return 3; } })();";
     let elsewhere = "return { row: 1, column: 3, toJSON() { return { row: 1, column: 4 }; } };";
+    let decorated = "return Object.assign([1, 4], { row: 1, column: 3 });";
     let (placed, _) = played(&[Op::Place(FREE, 4)]);
     let placed = text(&placed.write().unwrap_or_default());
     let asked = [
@@ -795,6 +796,7 @@ fn a_board_reads_a_position_as_play_does_from_its_own_fields() {
         (inherited, None),
         (elsewhere, None),
         ("return [1, 3];", None),
+        (decorated, Some(&placed)),
     ];
     for (body, answer) in asked {
         let mut board = Board::open(givens()).unwrap_or_else(|_| unreachable_fixture());
@@ -811,6 +813,25 @@ fn a_board_reads_a_position_as_play_does_from_its_own_fields() {
         assert_eq!(held, from_record, "{body}");
         let expected = answer.cloned().ok_or_else(|| String::from("Error"));
         assert_eq!(held, expected, "{body}");
+    }
+}
+
+#[wasm_bindgen_test]
+fn play_reads_each_field_of_an_operation_once() {
+    let (placed, _) = played(&[Op::Place(FREE, 4)]);
+    let placed = text(&placed.write().unwrap_or_default());
+    let changing = [
+        "let read = 0; return { kind: 'Place', digit: 4, \
+            get position() { return read++ ? [1, 4] : { row: 1, column: 3 }; } };",
+        "let read = 0; return { kind: 'Place', position: { row: 1, column: 3 }, \
+            get digit() { return read++ ? 5 : 4; } };",
+    ];
+    for body in changing {
+        let record = get(&open(givens()).unwrap_or_default(), "record");
+        let from_record = play(record, hostile(body))
+            .map(|played| text(&get(&played, "record")))
+            .map_err(|e| named(&e));
+        assert_eq!(from_record, Ok(placed.clone()), "{body}");
     }
 }
 
