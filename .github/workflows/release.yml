@@ -38,6 +38,10 @@ jobs:
     # deployment policies admit the four release tag patterns alone.
     environment: release
     # id-token mints the OIDC token crates.io exchanges for a publish token.
+    # GitHub grants it to the whole job, so every step below, the setup and
+    # the guards included, could request one; ordering the steps does not
+    # narrow it. What stops a malicious tag is the tag ruleset and this
+    # environment's reviewer; the guards stop a mistaken one (decision 0019).
     # Nothing here writes to the repository.
     permissions:
       contents: read
@@ -50,14 +54,14 @@ jobs:
           fetch-depth: 0
       # The full setup, not crates.io's leaner checkout, auth and publish: it
       # is the one tested path to `just` and the pinned toolchain, and every
-      # step of it runs before the token exists. A tag run restores caches
-      # main saved and saves none of its own.
+      # step of it runs before the auth step mints the token. A tag run
+      # restores caches main saved and saves none of its own.
       - uses: ./.github/actions/setup
         with:
           cache-key: release
       - run: just check-toolchain
-      # Before any token: a tag off main, or one that disagrees with the
-      # manifest, stops here.
+      # Before the auth step: a tag off main, or one that disagrees with the
+      # manifest, stops here and no token is minted.
       - uses: ./.github/actions/release-guards
         with:
           package: pawdoku
