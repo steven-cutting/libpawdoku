@@ -146,9 +146,12 @@ external entity Record {}
 -- names its cell by position, since a caller that holds no board holds no
 -- cell. Each kind carries what Playing's operation of that kind takes and
 -- nothing else: a cell for every kind but undo and redo, and a digit for a
--- placement, a written mark and a struck mark. An operation carrying more
--- or less than its kind takes names no operation Playing offers, and is
--- refused as one.
+-- placement, a written mark and a struck mark. So every operation is one
+-- Playing offers in form, and only Playing's guard refuses it. A value that
+-- lacks what its kind takes is no operation and never reaches a call; how
+-- a value handed over from outside is read as an operation, what it lacks
+-- and what it carries beyond its kind, comes before any call and is
+-- outside this contract, as a record's form is.
 value Operation {
     kind: OperationKind
     cell: sudoku/Position?
