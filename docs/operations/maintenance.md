@@ -112,7 +112,10 @@ Packages.
 **No `pawdoku-wasm-v*` tag is pushed until the `release` environment and the tag
 ruleset exist and read back**: `gh api repos/steven-cutting/libpawdoku/environments/release`
 lists a `required_reviewers` rule, and `gh api repos/steven-cutting/libpawdoku/rulesets`
-lists the tag ruleset. A workflow that
+lists the tag ruleset, and `gh api repos/steven-cutting/libpawdoku/rulesets/<id>` shows
+it excluding no ref, an empty `conditions.ref_name.exclude`. Both preflights refuse a
+ruleset with any exclusion, since GitHub skips a ref that any exclusion matches and the
+preflights do not evaluate patterns. A workflow that
 names a missing environment does not wait: GitHub creates the environment with no
 protection rules and runs the job. `release-npm.yml`'s preflight refuses such a tag, as
 `release.yml`'s refuses a `pawdoku-v*` one, but a refused tag is still a pushed tag, and

@@ -43,7 +43,9 @@ jobs:
   # it with no protection rules and runs the job. So before any job names
   # `release`, this one reads it and the tag rulesets, and fails closed unless
   # the environment has a required reviewer and an active tag ruleset covers
-  # `refs/tags/pawdoku-v*` and restricts creating, updating and deleting it.
+  # `refs/tags/pawdoku-v*`, excludes no ref, and restricts creating, updating
+  # and deleting it. GitHub skips a ref that any exclusion matches, and this
+  # check does not evaluate patterns, so any exclusion disqualifies a ruleset.
   # It names no environment itself, so it cannot create one, and holds no
   # id-token. It defends against a skipped or drifted setting, not against a
   # malicious tag: a tagged commit can rewrite this file, which only the
@@ -75,12 +77,15 @@ jobs:
           fi
           ids=$(gh api --paginate "repos/$GITHUB_REPOSITORY/rulesets?targets=tag" --jq '.[] | select(.target == "tag" and .enforcement == "active") | .id')
           for id in $ids; do
-            if gh api "repos/$GITHUB_REPOSITORY/rulesets/$id" | jq -e --arg p "$pattern" '
+            ruleset=$(gh api "repos/$GITHUB_REPOSITORY/rulesets/$id") || continue
+            if jq -e --arg p "$pattern" '
                 (.conditions.ref_name.include // [] | any(. == $p or . == "~ALL"))
-                and (.conditions.ref_name.exclude // [] | index($p) | not)
-                and ([.rules[]?.type] | contains(["creation", "update", "deletion"]))' > /dev/null; then
-              printf 'release: the release environment has %s required reviewer(s), and ruleset %s restricts %s\n' "$reviewers" "$id" "$pattern"
-              exit 0
+                and ([.rules[]?.type] | contains(["creation", "update", "deletion"]))' <<< "$ruleset" > /dev/null; then
+              if jq -e '.conditions.ref_name.exclude // [] | length == 0' <<< "$ruleset" > /dev/null; then
+                printf 'release: the release environment has %s required reviewer(s), and ruleset %s restricts %s\n' "$reviewers" "$id" "$pattern"
+                exit 0
+              fi
+              printf 'release: ruleset %s restricts %s but excludes refs, and an exclusion could cover a release tag, so it does not count\n' "$id" "$pattern" >&2
             fi
           done
           printf 'release: refused %s: no active tag ruleset restricts creating, updating and deleting %s\n' "$GITHUB_REF_NAME" "$pattern" >&2
