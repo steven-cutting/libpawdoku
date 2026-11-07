@@ -575,6 +575,13 @@ Final after R2, and unreleased: no `pawdoku` release carries them yet.
   states them, and the clause tests standing apart from the snapshots. Its note that
   its read-only sandbox could not run `just check` is an environment note, not a
   finding; `just check` ran here, as step 10 and step 11 say.
+- **R1, round 1, run again** by Codex after the ticket was done, on the range from the
+  start to `c0481c2`, focus what a binding would be stuck with: approved with no
+  findings. The reviewer found the public values, their serde shapes, the generation
+  refusal accessors and the integer handling as S12 and the specifications state them.
+  Nothing was valid, invalid or the maintainer's, so no commit answers it. Its note that
+  its read-only sandbox could not run `just check` is an environment note, not a
+  finding; `just check` ran here after this note's commit.
 
 ### Open points settled
 
