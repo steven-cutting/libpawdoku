@@ -84,7 +84,10 @@ used where unpredictability matters.
   `GITHUB_TOKEN` reaches npm only on the two steps that need it, the existence check and
   the publish, as an environment variable that `pkg/.npmrc` names and never holds; but
   `packages: write` is granted to the whole job, so, as with `release.yml`, the ruleset
-  and the reviewer are what stop a malicious tag
+  and the reviewer are what stop a malicious tag. Both exist only once configured: a
+  workflow that names a missing environment gets one GitHub creates without protection
+  rules, and `release-npm.yml` needs no trusted publisher, so until they are configured
+  a tag publishes unapproved
   ([decision 0020](../decisions/0020-webassembly-package.md)).
 - **Credential leakage.** `ripsecrets` scans every commit, and its output is suppressed so
   a match never copies the matched value into a log.

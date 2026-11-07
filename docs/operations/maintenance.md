@@ -105,6 +105,15 @@ guards; it then runs `just wasm-build`, points the scope at GitHub Packages in
 version is already there. Step 5 is to read the package's page under the repository's
 Packages.
 
+**No `pawdoku-wasm-v*` tag is pushed until the `release` environment and the tag
+ruleset exist and read back**: `gh api repos/steven-cutting/libpawdoku/environments/release`
+lists a `required_reviewers` rule, and `gh api repos/steven-cutting/libpawdoku/rulesets`
+lists the tag ruleset. A workflow that
+names a missing environment does not wait: GitHub creates the environment with no
+protection rules and runs the job. `release.yml` would still stop, for want of a
+trusted publisher, but `release-npm.yml` needs nothing beyond its own `GITHUB_TOKEN`,
+so in that state a tag publishes with no reviewer's approval.
+
 The package is **public**, made so after its first publish, and the game's repository
 is granted the Read role under the package's "Manage Actions access", so the game's CI
 can install it with its own run's token. Both are package settings on GitHub, outside

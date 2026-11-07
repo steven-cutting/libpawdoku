@@ -116,6 +116,10 @@ The ones that hurt.
   is what holds them true, and a wrong example is a review finding, not a red gate.
 - **A release build in the `wasm` job.** Fat LTO makes the job longer, so its timeout
   is twenty minutes.
+- **The approval fails open until the environment exists.** GitHub creates a missing
+  environment, with no protection rules, for any workflow that names it, and nothing
+  else stands between a tag and the run's own token. So the `release` environment and
+  the tag ruleset are a prerequisite of the first tag, read back before it is pushed.
 - **A token to read the package.** GitHub Packages asks for one to install even a
   public package, so the game's CI needs the repository granted read access.
 
