@@ -732,6 +732,30 @@ notes, closed with `All checks passed and the worktree is unchanged.`, exit 0.
 
   The reviewer's note that its read-only sandbox blocked the full checks is an
   environment note, not a finding.
+- **R2, round 2**, on the range from the start (`c0481c2`) to `cb8a10c`, same focus:
+  needs attention, one finding, model `gpt-6-astra`.
+  - [high] Require verified release protection before granting publishing authority
+    (`.github/workflows/release-npm.yml`, lines 36 to 45). Valid. Round 1's fix stated
+    the prerequisite but enforced nothing, and the reviewer's second point held: the
+    one job's `packages: write` reached the setup action, whose install step passes
+    `github.token` to `just install-tools`, before the guards ran, so the comments
+    saying the guards came "before ... any step sees the token" were wrong. Round 1's
+    reason for leaving a fail-closed check to the maintainer, that steps before it
+    would still hold the write scope, held only for one job, and is superseded. Fixed
+    in `9f2af82`: three jobs. `preflight` names no environment, so cannot create one,
+    and fails unless `release` has a required reviewer and an active tag ruleset
+    restricts creating, updating and deleting `refs/tags/pawdoku-wasm-v*`; `build` runs
+    the setup action, the guards and `wasm-build` read-only and uploads `pkg/`;
+    `publish` alone holds `packages: write`, in the environment, with no checkout, no
+    setup action and no `just`. As the reviewer says, a check inside a tag-controlled
+    workflow cannot stop someone who can replace the workflow, so the preflight stops
+    a skipped or drifted setting and the ruleset and the reviewer still stop a malicious
+    tag; the pages say so, and configuring both stays the maintainer's. The three
+    configurations the reviewer asks for were run against the preflight's script with a
+    stub `gh`, and four more besides (Handed back); the CI run is not.
+
+  The reviewer's note that its read-only sandbox blocked `just check` is an environment
+  note, not a finding.
 
 ### Open points settled
 
