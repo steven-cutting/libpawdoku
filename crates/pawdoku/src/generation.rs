@@ -6,8 +6,11 @@
 //! [`random`](crate::random). The method is that of "Sudoku Puzzles Generating: from
 //! Easy to Evil", the paper the specification cites, which calls it digging holes.
 //!
-//! There is one entry, [`generate`]. It is given a [`Tier`] and a stream of draws, and
-//! gives the proof a puzzle is set from, or a [`GenerateError`].
+//! The entry is [`generate`]. It is given a [`Tier`] and a stream of draws, and gives
+//! the proof a puzzle is set from, or a [`GenerateError`]. Two more are built on it for
+//! a caller across a binding: [`generate_from_seed`] and [`generate_from_stream`] give a
+//! [`GenerationResult`], what was made and what replays it, without the solution, or a
+//! [`GenerationRefused`].
 //!
 //! # How a puzzle is made
 //!
@@ -40,7 +43,7 @@
 //!
 //! The tier and the draws, and nothing else: no clock and no hidden source of chance.
 //! The same tier and the same draws give the same puzzle, for [`GENERATION_VERSION`]
-//! and [`RANDOM_VERSION`](crate::random::RANDOM_VERSION).
+//! and [`RANDOM_VERSION`].
 //!
 //! **Not final.** This is a draft: it may change as implementation continues.
 //!
@@ -65,9 +68,10 @@ mod grid;
 mod order;
 mod removal;
 
-use crate::random::{RandomError, RandomStream};
+use crate::random::{RANDOM_VERSION, RandomError, RandomStream, SeededStream};
 use crate::solver::{SolveError, solve};
-use crate::sudoku::WellPosed;
+use crate::sudoku::{Given, WellPosed};
+use alloc::collections::BTreeSet;
 use choice::index_among;
 use core::ops::RangeInclusive;
 use grid::{GRID_ATTEMPT_LIMIT, draw_grid};
@@ -77,7 +81,7 @@ use removal::{Limits, remove};
 /// The name of this module's way of making a puzzle.
 ///
 /// It equals the specification's default `config.generation_version`. A consumer that
-/// records it beside [`RANDOM_VERSION`](crate::random::RANDOM_VERSION), a tier and a
+/// records it beside [`RANDOM_VERSION`], a tier and a
 /// seed can have the same puzzle again.
 ///
 /// The name changes whenever the same draws would give other givens or a generation
@@ -260,7 +264,7 @@ impl Setting {
 pub enum GenerateError {
     /// The stream had no draw to give, at whichever draw that happened.
     ///
-    /// The library's [`SeededStream`](crate::random::SeededStream) never does this; the
+    /// The library's [`SeededStream`] never does this; the
     /// [`ReplayStream`](crate::random::ReplayStream) fake does when its script ends.
     /// This is the boundary's own refusal, carried as it is. It is not a failed grid
     /// attempt, and the draws given before it stay taken.
@@ -301,7 +305,7 @@ fn draw_bound(tier: Tier, stream: &mut dyn RandomStream) -> Result<usize, Random
 /// drawn from gives other draws than a fresh one from the same seed, and so, but for
 /// a stream that repeats itself, another puzzle. So what a
 /// caller records to have a puzzle again is the tier, [`GENERATION_VERSION`],
-/// [`RANDOM_VERSION`](crate::random::RANDOM_VERSION), the seed, and the index the
+/// [`RANDOM_VERSION`], the seed, and the index the
 /// stream stood at before the call ([`RandomStream::index`]); or the caller simply
 /// begins a fresh stream for each puzzle, and the index is zero.
 ///
@@ -311,7 +315,7 @@ fn draw_bound(tier: Tier, stream: &mut dyn RandomStream) -> Result<usize, Random
 /// alone, one for each of the 81 visits. A first attempt that finds its grid takes 23
 /// draws in tiers 3 to 5 and 104 in tiers 1 and 2, whatever removal does. How many a
 /// call took is the stream's index after it less its index before, as
-/// `after.wrapping_sub(before)`: a [`SeededStream`](crate::random::SeededStream)'s
+/// `after.wrapping_sub(before)`: a [`SeededStream`]'s
 /// index wraps past `u64::MAX`, so a plain subtraction can overflow.
 ///
 /// # Errors
@@ -356,15 +360,234 @@ pub fn generate(tier: Tier, stream: &mut dyn RandomStream) -> Result<WellPosed, 
     Ok(solve(givens)?)
 }
 
+/// `generation.allium`'s `GenerationResult`, finished: what a generation made and what
+/// replays it, and never the solution.
+///
+/// It holds the tier asked for, the seed when there is one, the stream's index at the
+/// start, how many draws the generation took, [`GENERATION_VERSION`] and
+/// [`RANDOM_VERSION`], and the givens. The same tier, a stream giving the same draws
+/// from `start_index`, and the same two versions give the same givens, so a seed and a
+/// start index stand for the puzzle. The solution grid is not in it, though
+/// [`generate`]'s proof holds one: a result is made to be handed to a player's side.
+///
+/// Under the `serde` feature it serialises with its fields in that order. It does not
+/// deserialise: a result is made here, never read back.
+///
+/// ```
+/// use pawdoku::generation::{GENERATION_VERSION, Tier, generate, generate_from_seed};
+/// use pawdoku::random::SeededStream;
+///
+/// let result = generate_from_seed(Tier::Three, 2024)?;
+/// assert_eq!((result.seed(), result.start_index()), (Some(2024), 0));
+/// assert_eq!(result.generation_version(), GENERATION_VERSION);
+///
+/// // The seed replays it: generate gives the same givens from the same draws.
+/// let proof = generate(Tier::Three, &mut SeededStream::new(2024))?;
+/// assert_eq!(result.givens(), proof.givens());
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[non_exhaustive]
+pub struct GenerationResult {
+    // Derived: the field names are the wire names, in the order S12 settled.
+    tier: Tier,
+    seed: Option<u64>,
+    start_index: u64,
+    draws_taken: u64,
+    generation_version: &'static str,
+    random_version: &'static str,
+    givens: BTreeSet<Given>,
+}
+
+impl GenerationResult {
+    /// The tier the puzzle was made in, as it was asked for.
+    #[must_use]
+    pub const fn tier(&self) -> Tier {
+        self.tier
+    }
+
+    /// The seed the stream began from, for [`generate_from_seed`]; nothing for
+    /// [`generate_from_stream`], since a stream does not know its seed.
+    #[must_use]
+    pub const fn seed(&self) -> Option<u64> {
+        self.seed
+    }
+
+    /// The stream's index before the first draw: zero from a seed.
+    #[must_use]
+    pub const fn start_index(&self) -> u64 {
+        self.start_index
+    }
+
+    /// How many draws the generation took: the stream's index after it,
+    /// `wrapping_sub` the index before.
+    #[must_use]
+    pub const fn draws_taken(&self) -> u64 {
+        self.draws_taken
+    }
+
+    /// [`GENERATION_VERSION`], under which the givens follow from the draws.
+    #[must_use]
+    pub const fn generation_version(&self) -> &'static str {
+        self.generation_version
+    }
+
+    /// [`RANDOM_VERSION`], under which a seed gives its draws.
+    #[must_use]
+    pub const fn random_version(&self) -> &'static str {
+        self.random_version
+    }
+
+    /// The givens the generation left, which have exactly one solution.
+    #[must_use]
+    pub const fn givens(&self) -> &BTreeSet<Given> {
+        &self.givens
+    }
+}
+
+/// Why [`generate_from_seed`] or [`generate_from_stream`] made no puzzle: the
+/// [`GenerateError`] [`generate`] refused with, with the tier asked for and how many
+/// draws were taken before the refusal, which `GenerationResult` exposes whether or not
+/// it finished.
+///
+/// Its `Display` text is the [`GenerateError`]'s, unchanged. The tier and the count
+/// are read through [`tier`](Self::tier) and [`draws_taken`](Self::draws_taken), so no
+/// binding has to match the enum to read them.
+///
+/// ```
+/// use pawdoku::generation::{Tier, generate_from_stream};
+/// use pawdoku::random::ReplayStream;
+///
+/// // Five draws run out while the solution grid is still being drawn.
+/// let mut stream = ReplayStream::new(vec![0.0; 5])?;
+/// let refused = generate_from_stream(Tier::Two, &mut stream).unwrap_err();
+/// assert_eq!((refused.tier(), refused.draws_taken()), (Tier::Two, 5));
+/// assert_eq!(refused.to_string(), "the replay stream is exhausted at draw 5");
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
+#[non_exhaustive]
+pub enum GenerationRefused {
+    /// [`generate`] refused. The text is the refusal's own.
+    #[error("{error}")]
+    Refused {
+        /// The tier asked for.
+        tier: Tier,
+        /// How many draws were taken before the refusal, counted as
+        /// [`GenerationResult::draws_taken`] counts them.
+        draws_taken: u64,
+        /// What [`generate`] refused with.
+        error: GenerateError,
+    },
+}
+
+impl GenerationRefused {
+    /// The tier asked for.
+    #[must_use]
+    pub const fn tier(&self) -> Tier {
+        let Self::Refused { tier, .. } = self;
+        *tier
+    }
+
+    /// How many draws were taken before the refusal.
+    #[must_use]
+    pub const fn draws_taken(&self) -> u64 {
+        let Self::Refused { draws_taken, .. } = self;
+        *draws_taken
+    }
+}
+
+/// [`generate`] from `seed`, on a [`SeededStream`] begun at index zero: the stateless
+/// way, which a binding offers to a caller that holds no stream.
+///
+/// # Errors
+///
+/// A [`GenerationRefused`] carrying what [`generate`] refused with. No seed is known
+/// to be refused.
+///
+/// ```
+/// use pawdoku::generation::{Tier, generate_from_seed};
+///
+/// let result = generate_from_seed(Tier::Five, 7)?;
+/// assert!(result.givens().len() >= Tier::Five.fewest_givens());
+/// assert_eq!(generate_from_seed(Tier::Five, 7)?, result);
+/// # Ok::<(), pawdoku::generation::GenerationRefused>(())
+/// ```
+pub fn generate_from_seed(tier: Tier, seed: u64) -> Result<GenerationResult, GenerationRefused> {
+    generate_recorded(tier, Some(seed), &mut SeededStream::new(seed))
+}
+
+/// [`generate`] from `stream`, wherever it stands: the way a caller that holds a
+/// stream takes, reading the stream's index before and after. The seed is not known,
+/// so the result names none.
+///
+/// # Errors
+///
+/// A [`GenerationRefused`] carrying what [`generate`] refused with, and the draws taken
+/// before it.
+///
+/// ```
+/// use pawdoku::generation::{Tier, generate_from_stream};
+/// use pawdoku::random::{RandomStream, SeededStream};
+///
+/// let mut stream = SeededStream::new(2024);
+/// let first = generate_from_stream(Tier::Four, &mut stream)?;
+/// let second = generate_from_stream(Tier::Four, &mut stream)?;
+/// assert_eq!(second.start_index(), first.draws_taken());
+/// assert_eq!(second.seed(), None);
+/// assert_eq!(stream.index(), first.draws_taken() + second.draws_taken());
+/// # Ok::<(), pawdoku::generation::GenerationRefused>(())
+/// ```
+pub fn generate_from_stream(
+    tier: Tier,
+    stream: &mut dyn RandomStream,
+) -> Result<GenerationResult, GenerationRefused> {
+    generate_recorded(tier, None, stream)
+}
+
+/// The one way both entries take: [`generate`] on `stream`, with the index read before
+/// and after, on a refusal as on a result.
+fn generate_recorded(
+    tier: Tier,
+    seed: Option<u64>,
+    stream: &mut dyn RandomStream,
+) -> Result<GenerationResult, GenerationRefused> {
+    let start_index = stream.index();
+    let generated = generate(tier, stream);
+    let draws_taken = stream.index().wrapping_sub(start_index);
+    match generated {
+        Ok(proof) => Ok(GenerationResult {
+            tier,
+            seed,
+            start_index,
+            draws_taken,
+            generation_version: GENERATION_VERSION,
+            random_version: RANDOM_VERSION,
+            givens: proof.givens().clone(),
+        }),
+        Err(error) => Err(GenerationRefused::Refused {
+            tier,
+            draws_taken,
+            error,
+        }),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::order::Order;
-    use super::{GENERATION_VERSION, GenerateError, Tier, draw_bound};
-    use crate::random::{RandomError, RandomStream, ReplayStream};
+    use super::{
+        GENERATION_VERSION, GenerateError, GenerationRefused, Tier, draw_bound, generate,
+        generate_from_seed, generate_from_stream,
+    };
+    use crate::random::{RANDOM_VERSION, RandomError, RandomStream, ReplayStream, SeededStream};
     use crate::solver::SolveError;
     use crate::sudoku::WellPosedError;
+    use alloc::format;
     use alloc::string::ToString;
     use alloc::vec;
+    use alloc::vec::Vec;
 
     const TIERS: [Tier; 5] = [Tier::One, Tier::Two, Tier::Three, Tier::Four, Tier::Five];
 
@@ -459,5 +682,128 @@ mod tests {
         let refusal = GenerateError::from(error.clone());
         assert_eq!(refusal, GenerateError::Stream(error.clone()));
         assert_eq!(refusal.to_string(), error.to_string());
+    }
+
+    /// A draw that picks index `index` among `n`: the middle of its share of `[0, 1)`.
+    fn pick(index: u8, n: u8) -> f64 {
+        (f64::from(index) + 0.5) / f64::from(n)
+    }
+
+    /// The draws of a grid attempt that ends short after nine givens, as
+    /// `generation/grid.rs` writes them: nineteen draws.
+    fn a_short_seeding() -> Vec<f64> {
+        let mut script = vec![0.0; 16];
+        script.extend([pick(9, 73), pick(6, 7), 0.0]);
+        script
+    }
+
+    /// The draws of a full grid attempt with no solution, as `generation/grid.rs` writes
+    /// them: twenty-two draws.
+    fn a_seeding_with_no_solution() -> Vec<f64> {
+        let mut script = vec![0.0; 16];
+        script.extend([pick(9, 73), pick(6, 7)]);
+        script.extend([pick(1, 72), 0.0, pick(1, 71), 0.0]);
+        script
+    }
+
+    fn replaying(draws: Vec<f64>) -> ReplayStream {
+        ReplayStream::new(draws).unwrap()
+    }
+
+    #[test]
+    fn from_a_seed_is_generate_with_a_seeded_stream() {
+        for (seed, tier) in [(0, Tier::Three), (7, Tier::Five), (u64::MAX, Tier::One)] {
+            let mut stream = SeededStream::new(seed);
+            let proof = generate(tier, &mut stream).unwrap();
+            let result = generate_from_seed(tier, seed).unwrap();
+            assert_eq!(result.givens(), proof.givens());
+            assert_eq!(result.tier(), tier);
+            assert_eq!(result.seed(), Some(seed));
+            assert_eq!(result.start_index(), 0);
+            assert_eq!(result.draws_taken(), stream.index());
+            assert_eq!(result.generation_version(), GENERATION_VERSION);
+            assert_eq!(result.random_version(), RANDOM_VERSION);
+        }
+    }
+
+    #[test]
+    fn a_grid_found_at_once_takes_23_draws_or_104_where_the_order_is_drawn() {
+        for (tier, draws) in TIERS.into_iter().zip([104, 104, 23, 23, 23]) {
+            let result = generate_from_stream(tier, &mut replaying(vec![0.0; draws])).unwrap();
+            assert_eq!(result.draws_taken(), u64::try_from(draws).unwrap());
+        }
+    }
+
+    #[test]
+    fn from_a_stream_records_where_it_began_and_only_its_own_draws() {
+        let mut stream = replaying(vec![0.0; 7 + 23]);
+        for _ in 0..7 {
+            stream.next_draw().unwrap();
+        }
+        let result = generate_from_stream(Tier::Three, &mut stream).unwrap();
+        assert_eq!(result.seed(), None);
+        assert_eq!((result.start_index(), result.draws_taken()), (7, 23));
+        assert_eq!(
+            result.givens(),
+            generate(Tier::Three, &mut replaying(vec![0.0; 23]))
+                .unwrap()
+                .givens()
+        );
+
+        // Five zeros run out in the grid, and every draw taken is counted.
+        let refused = generate_from_stream(Tier::Four, &mut replaying(vec![0.0; 5]));
+        let refused = refused.unwrap_err();
+        assert_eq!(refused.draws_taken(), 5);
+        assert_eq!(
+            refused.to_string(),
+            "the replay stream is exhausted at draw 5"
+        );
+
+        // A stream drawn three times first counts only its own two.
+        let mut stream = replaying(vec![0.0; 5]);
+        for _ in 0..3 {
+            stream.next_draw().unwrap();
+        }
+        let refused = generate_from_stream(Tier::Four, &mut stream).unwrap_err();
+        assert_eq!((refused.draws_taken(), stream.index()), (2, 5));
+    }
+
+    #[test]
+    fn a_hundred_failed_attempts_are_refused_with_every_draw_counted() {
+        let spent = GenerateError::GridAttemptsSpent { attempts: 100 };
+        for (seeding, draws) in [
+            (a_short_seeding(), 1900),
+            (a_seeding_with_no_solution(), 2200),
+        ] {
+            let hundred: Vec<f64> = (0..100).flat_map(|_| seeding.clone()).collect();
+            let refused = generate_from_stream(Tier::Two, &mut replaying(hundred)).unwrap_err();
+            assert_eq!(refused.draws_taken(), draws);
+            assert_eq!(refused.to_string(), spent.to_string());
+            let GenerationRefused::Refused { error, .. } = refused;
+            assert_eq!(error, spent);
+        }
+    }
+
+    #[test]
+    fn each_tier_comes_back_as_asked() {
+        for tier in TIERS {
+            assert_eq!(generate_from_seed(tier, 0).unwrap().tier(), tier);
+            let refused = generate_from_stream(tier, &mut replaying(vec![])).unwrap_err();
+            assert_eq!((refused.tier(), refused.draws_taken()), (tier, 0));
+        }
+    }
+
+    /// The result holds the givens and what replays them, and not the solution: no row
+    /// of the solution grid is in what it prints.
+    #[test]
+    fn the_result_holds_no_solution() {
+        let mut stream = SeededStream::new(0);
+        let proof = generate(Tier::Five, &mut stream).unwrap();
+        let printed = format!("{:?}", generate_from_seed(Tier::Five, 0).unwrap());
+        let printed: alloc::string::String = printed.split_whitespace().collect();
+        for row in proof.solution() {
+            assert!(!printed.contains(&format!("{row:?}").replace(' ', "")));
+        }
+        assert!(!printed.contains("solution"));
     }
 }

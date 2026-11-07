@@ -32,6 +32,16 @@
 //! The five operations on a cell take a [`Position`]; undo and redo take nothing. Each
 //! refuses with a [`PlayError`], and a refused operation changes nothing.
 //!
+//! # Play from a record
+//!
+//! A caller that holds no board plays from records instead: [`open`] opens one from
+//! givens, [`play`] reopens a record, makes one [`Operation`] and writes the board
+//! again, [`read`] gives a record's [`BoardView`], and [`reading_after`] gives the
+//! [`ReadingAfter`] one of its moves. Nothing is kept between calls, and each call is
+//! the held board's own operations composed, so the two ways give the same records,
+//! views, readings and refusals. [`BoardView::of`] and [`ReadingAfter::of`] give the
+//! same values of a held board.
+//!
 //! # A board and its puzzle
 //!
 //! A board opens from givens, in one call, or reopens from a record, in one call, and
@@ -76,20 +86,24 @@
 mod cell;
 mod check;
 mod error;
+mod from_record;
 mod journal;
 mod moves;
 mod note;
 mod reading;
 mod record;
+mod view;
 
 pub use cell::BoardCell;
 pub use check::Check;
 pub use error::PlayError;
+pub use from_record::{FromRecordError, Operation, Played, open, play, read, reading_after};
 pub use moves::{Move, MoveKind};
 pub use note::Note;
 #[cfg(feature = "serde")]
 pub use record::RecordVersion;
 pub use record::{RECORD_VERSION, Record, ReopenError};
+pub use view::{BoardView, CellReading, ReadingAfter};
 
 use crate::solver::{SolveError, solve};
 use crate::sudoku::{Given, MoveError, Position, Puzzle, Status, in_range};

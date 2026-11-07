@@ -280,13 +280,167 @@ is unchanged.`; only paths in Files touched.
 
 ### Decisions fixed by S12 and T40
 
+Written before any code, from S12's "Amendments to T41 and T42" and T40's "Names T41
+needs".
+
+- **The four functions are T40's**: `open`, `play`, `read` and `reading_after`, free
+  functions in `board/from_record.rs`, re-exported from `pawdoku::board`. `play` takes one
+  operation value, not one function per operation (this ticket's Open point, settled for
+  one entry).
+- **The operation** is `Operation`, one variant per `OperationKind`: `Place`, `Erase`,
+  `WriteMark`, `StrikeMark`, `CheckCell`, `Undo`, `Redo`, serde's default PascalCase,
+  `#[serde(tag = "kind")]`, with fields `position` and `digit` (S12). T40's value names
+  the cell `cell`; the Rust field is `position`, as every `Board` method and S12's wire
+  name it.
+- **What a call hands back** is `Played { record, view, check }`, `check` present only
+  after `CheckCell` and absent from the wire otherwise (S12). `open` hands back the same
+  value with no check. `read` hands back the view alone.
+- **The view** is `BoardView`, made by `BoardView::of(&Board)`: `status`, `is_full`,
+  `is_consistent`, `can_undo`, `can_redo`, `cells`, `moves`, `checks`, in that order,
+  with `#[expect(clippy::struct_excessive_bools)]` (S12).
+- **The reading** is `ReadingAfter { move_index, cells }`, made by
+  `ReadingAfter::of(&Board, move_index)`, 81 `CellReading { row, column, digit, note }`
+  in row order (S12). `CellReading` is T40's `value Reading`; the name differs because
+  `board/reading.rs` already holds the private `Reading` the moves read through.
+  `move_index` counts from 1; 0 and anything past the last move are refused.
+- **The error** is `FromRecordError`: `Reopen(ReopenError)` and `Play(PlayError)`, both
+  `#[error(transparent)]` (S12), and `NoSuchMove { move_index }`. `open` refuses with
+  `SolveError` and `read` with `ReopenError`, each the stage's own type, since neither
+  has a second stage.
+- **The wire shape** (S12): snake_case fields, PascalCase enum values; an absent digit is
+  `null`; a cell's `note` is absent while not shown and `[]` when shown and empty; a
+  reading's `note` is always a list; no `#[serde(flatten)]` anywhere. A move never
+  carries its reading. Every `Serialize` sits under `cfg_attr(feature = "serde", ...)`.
+- **The generation result** is `GenerationResult { tier, seed, start_index, draws_taken,
+  generation_version, random_version, givens }`, in that order; `seed` is `None` from a
+  stream; `draws_taken` is the index after `wrapping_sub` the index before; no status.
+  The refusal is `GenerationRefused::Refused { tier, draws_taken, error }`, `Display`
+  `"{error}"`, with `const fn` accessors `tier` and `draws_taken` (S12). The two entries
+  are `generate_from_seed(tier, seed)` and `generate_from_stream(tier, stream)`, both
+  built on one private function that reads the index on `Err` as on `Ok`. `generate` is
+  unchanged.
+- **The record is versioned** (T43): every function takes and hands back the record
+  `Board::write` writes, and a record of another version is refused by `Board::reopen`
+  inside `FromRecordError::Reopen`.
+
 ### The test list
+
+Written before the first test, from `just plan-spec board` (89 obligations; T40's
+contract and surface invariants do not appear in its output, so they are taken from
+the specification's text) and from the ticket's steps. Each line names the test and
+the clause it proves; T1 to T22 are its labels. Segment 1 builds those marked (1),
+segment 2 the rest.
+
+The view and the reading, `board/view.rs`:
+
+- T1 (1) `a_view_holds_what_playing_exposes`: status, the four flags, 81 cells, the moves
+  and the checks equal what `Board` hands out (`WhatIsShownIsWhatPlayingShows`).
+- T2 (1) `the_reading_after_a_move_is_digit_after_and_note_after`: 81 cells in row order,
+  each equal to `Move::digit_after` and `Move::note_after`, a note beneath a digit
+  included (`reading_after`, T40's `Reading`).
+- T3 (1) `an_undone_move_still_has_a_reading` (`reading_after`: "a move undone is still
+  one of the record's moves").
+- T4 (1) `an_index_that_names_no_move_is_refused`: 0, one past the last, `usize::MAX`
+  (`ARefusalHandsBackNothingElse`).
+
+The functions, `board/from_record.rs`:
+
+- T5 (1) `each_refusal_says_what_was_refused`: `NoSuchMove`'s text pinned, and the two
+  wrapping variants' text equal to the wrapped refusal's (invariant 3, S12).
+- T6 (1) `open_hands_back_the_record_and_view_of_the_board_opened`, and refuses givens as
+  `Board::open` does (`PlayingFromARecordIsHoldingTheBoard` for `open`).
+- T7 (1) `play_makes_each_operation_as_a_held_board_does`: all seven kinds, equal record
+  and view, a check only after `CheckCell` (`PlayingFromARecordIsHoldingTheBoard`).
+- T8 (1) `a_record_that_does_not_reopen_is_refused_first`: before the guard and before
+  the index, the record handed over unchanged (`ARefusalHandsBackNothingElse`).
+- T9 (1) `an_operation_the_guard_refuses_is_refused_with_its_play_error`, the record
+  unchanged.
+- T10 (1) `read_gives_the_view_of_the_board_reopened`, and the reopen refusal alone.
+- T11 (1) `reading_after_reads_the_board_reopened`: equal to `ReadingAfter::of` on the
+  held board (`TheSameBoardFromEitherWay`, the readings).
+
+The generation result, `generation.rs`:
+
+- T12 (1) `from_a_seed_is_generate_with_a_seeded_stream`: the same givens, `seed` named,
+  `start_index` 0, `draws_taken` the stream's index after; 23 for tier 3 to 5 and 104
+  for tiers 1 and 2 at seed 0 when the first grid attempt succeeds.
+- T13 (1) `from_a_stream_records_where_it_began_and_only_its_own_draws`: `seed` `None`;
+  five zeros refused with `draws_taken` 5; a script of five drawn three times first,
+  2 and `start_index` 3.
+- T14 (1) `a_hundred_failed_attempts_are_refused_with_every_draw_counted`: a hundred short
+  seedings 1900, a hundred seedings with no solution 2200, each with the core's text.
+- T15 (1) `each_tier_comes_back_as_asked`, on the result and on the refusal.
+- T16 (1) `the_result_holds_no_solution`: its `Debug` prints no row of the solution
+  (`TheSolutionIsNeverShown` for the generation result).
+
+Step 7, `tests/from_record.rs` and the wire shape:
+
+- T17 (2) Every scripted game of `tests/board.rs` and `tests/snapshots.rs`, played from
+  records and on a held board: equal records, views and readings at every step
+  (`RecordsKeepStepWithAHeldBoard`, `TheSameBoardFromEitherWay`).
+- T18 (2) Each refusal through the public API, the record unchanged after each.
+- T19 (2) The view holds no digit at an empty cell; a check's answer only through the
+  checks (`TheSolutionIsNeverShown`, `ACheckNeverTellsTheDigit`).
+- T20 (2) Proptest: random operations from the fixture, the two ways equal after each,
+  any refusal refused by both (`TheSameBoardFromEitherWay`).
+- T21 (2) Under `serde`: `Operation` and `Record` round-trip; every value serialises to
+  exactly the fields above, read through a test-only capturing `Serializer` (no format
+  crate is added, so serialised output is read field by field in the test).
+- T22 (2) `NothingIsKeptBetweenCalls`: the same call twice, with other calls between,
+  hands back equal values.
 
 ### What was verified, and how
 
+Step 1: `.pixi/` and `.tools/bin` were present, so neither install ran. `just check` at
+the start (`e0a814c`) closed with `All checks passed and the worktree is unchanged.`,
+coverage 99.33% of lines. Step 2: `just plan-spec board` lists 89 obligations.
+
+Steps 3 to 6 were built test-first, a seam at a time, each test seen to fail (the build
+refused the missing names) before its code was written: the view and the reading
+(T1 to T4), the functions and the error (T5 to T11), the generation result and its
+refusal (T12 to T16). The test list needed no addition in these loops; two expected
+counts in the tests were corrected (the scripted moves number 7 and 6, not 8 and 7).
+The wire shapes were printed once through `serde_json` in a scratch crate under
+`ai_tmp/t41/wire`, outside the workspace, and read against S12's amendments; the
+tests that assert them are T21, in segment 2.
+
 ### Deviations, and why
 
+- **One branch.** The work is on `implement-typescript-surface-fullsend`, after S12, T40,
+  T43 and T13; step 1's worktree and the merge condition are met by order on that
+  branch.
+- **`Operation`'s field is `position`, not T40's `cell`.** S12's amendment names the
+  wire field `position`, and every `Board` method names the parameter so; the spec's
+  value types it as `sudoku/Position`, which this is.
+- **`CellReading`, not T40's `Reading`.** `board/reading.rs` holds the private
+  `Reading` every move reads back through; a public value of the same name would shadow
+  it in `board.rs`. T40's `cell: Position` is written flat as `row` and `column` on the
+  wire (S12), and the value also offers `position()`.
+- **A reading comes wrapped**, as `ReadingAfter { move_index, cells }` (S12), where T40's
+  signature returns `List<Reading>`. The cells are that list, in row order.
+- **`open` refuses with `SolveError` and `read` with `ReopenError`**, not with
+  `FromRecordError`, since each has one stage only; `play` and `reading_after` have two
+  and take `FromRecordError`.
+- **`ReadingAfter::of` on a held board refuses with `FromRecordError::NoSuchMove`**, so
+  the index's refusal is one value and one text whichever way the board is driven,
+  which T42's class needs (S12, T42 step 3). Its text names the board: "no move of the
+  board has the index N".
+- **`Status`, `Verdict` and `MoveKind` gain `Serialize` only.** Nothing reads them back;
+  `Operation` and `Record` are the values that deserialise.
+- **The generation result's entries are named `generate_from_seed` and
+  `generate_from_stream`**; neither the ticket nor S12 named them.
+
 ### Names T42 and T17 need
+
+Unreleased, as of segment 1 of T41 (R1 may change them):
+
+- `pawdoku::board::{open, play, read, reading_after}`; `Operation` (tagged by `kind`,
+  fields `position`, `digit`); `Played { record, view, check? }`; `BoardView`;
+  `ReadingAfter { move_index, cells }`; `CellReading { row, column, digit, note }`;
+  `FromRecordError::{Reopen, Play, NoSuchMove { move_index }}`.
+- `BoardView::of(&Board)` and `ReadingAfter::of(&Board, usize)` for the class path.
+- `pawdoku::generation::{GenerationResult, GenerationRefused, generate_from_seed,
+  generate_from_stream}`; `GenerationRefused::tier()` and `draws_taken()`.
 
 ### Handed back
 

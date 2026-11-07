@@ -327,3 +327,29 @@ impl BoardCell {
         self.cell.digit().is_none()
     }
 }
+
+/// A cell serialises flat, as `row`, `column`, `digit` (`null` for none), `is_given`,
+/// `is_conflicting` and, while it is shown, `note`, the list of its digits; a note that
+/// is not shown is left out. Written by hand, because the fields it holds are the
+/// puzzle's cell and the kept note, and neither reaches the wire under its own name,
+/// and because no wire value uses `#[serde(flatten)]`.
+#[cfg(feature = "serde")]
+impl serde::Serialize for BoardCell {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+
+        let note = self.note();
+        let fields = if note.is_some() { 6 } else { 5 };
+        let mut cell = serializer.serialize_struct("BoardCell", fields)?;
+        cell.serialize_field("row", &self.row())?;
+        cell.serialize_field("column", &self.column())?;
+        cell.serialize_field("digit", &self.digit())?;
+        cell.serialize_field("is_given", &self.is_given())?;
+        cell.serialize_field("is_conflicting", &self.is_conflicting())?;
+        match note {
+            Some(note) => cell.serialize_field("note", &note)?,
+            None => cell.skip_field("note")?,
+        }
+        cell.end()
+    }
+}
