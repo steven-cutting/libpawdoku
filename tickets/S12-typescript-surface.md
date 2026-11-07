@@ -519,20 +519,25 @@ takes 22 draws or, stopping short after k givens, 2k + 1 (`DrawsInOrder`). Three
 No seed was found that refuses. Tier 3, seeds 0 to 99,999: no refusal, the first grid attempt failed
 for 617 and the most draws taken was 67. So the seed path's refusal has not been seen, and at that
 rate it is out of practical reach (an inference from one rate, not a proof). The clause is the
-clause all the same, so a second probe carried the figure on the refusal: a stand-in holding
-`draws_taken` and the `GenerateError`, built by the helper both exports share, and thrown with the
-figure as an own property of the `Error`:
+clause all the same, and it exposes `generation.tier` with no `when` either, so a second probe carried
+both on the refusal: a stand-in for T41's `#[non_exhaustive]` `thiserror` enum, in a `no_std` crate of its
+own so that `non_exhaustive` binds, built by the helper both exports share, and thrown with the two as own
+properties of the `Error`:
 
 ```text
-spent, 1900             | GenerateError | no solution grid was found in 100 grid attempts | draws_taken 1900n bigint | index 1900n
-exhausted, 5 zeros      | GenerateError | the replay stream is exhausted at draw 5 | draws_taken 5n bigint | index 5n
-exhausted, from index 3 | GenerateError | the replay stream is exhausted at draw 5 | draws_taken 2n bigint | index 5n
-JSON.stringify(e), by Reflect.set            TypeError: Do not know how to serialize a BigInt
-JSON.stringify(e), by Object.defineProperty  {"name":"GenerateError"}
+spent, 1900             | GenerateError | no solution grid was found in 100 grid attempts | tier Three | draws_taken 1900n bigint | index 1900n
+spent, tier 1           | GenerateError | no solution grid was found in 100 grid attempts | tier One | draws_taken 1900n bigint | index 1900n
+exhausted, 5 zeros      | GenerateError | the replay stream is exhausted at draw 5 | tier Five | draws_taken 5n bigint | index 5n
+exhausted, from index 3 | GenerateError | the replay stream is exhausted at draw 5 | tier Two | draws_taken 2n bigint | index 5n
+JSON.stringify(e), by Reflect.set, draws_taken alone  TypeError: Do not know how to serialize a BigInt
+JSON.stringify(e), by Object.defineProperty           {"name":"GenerateError"}
 ```
 
 `JsValue::from(u64)` crosses as a `bigint` with no serialiser. The text is the core's unchanged, and
-the `.wasm` grew 826 bytes (336,697 to 337,523, `opt-level = 3`, `wasm-opt` off).
+the `.wasm` grew 1,159 bytes (336,697 to 337,856, `opt-level = 3`, `wasm-opt` off). The enum's crate is
+clean under `cargo clippy -- -D warnings` with the workspace's lint tables, builds for `wasm32v1-none`, and
+satisfies the bounds of invariant 3. Matched from another crate with no wildcard arm, it fails:
+`` error[E0004]: non-exhaustive patterns: `&_` not covered ``.
 
 #### 4. Casing, and what the serialiser has to be
 
@@ -809,8 +814,8 @@ begins, and none before. Under the workspace's lints, `cargo clippy --target was
    start index, `draws_taken`, both versions and the givens, never the solution. A seedless path exists
    because a `SeededStream` holds its state and not its seed. No `status` field: a refusal is thrown,
    which is what `SearchResult` already does with its status, and a result exists only once finished.
-   **A refusal carries `draws_taken`**, on both paths, because `GenerationResult` exposes it with no
-   `when` and generation from a seed has no stream left to read. That is a core change for T41, and no
+   **A refusal carries `tier` and `draws_taken`**, on both paths, because `GenerationResult` exposes both with no
+   `when`, and generation from a seed has no stream left to read. That is a core change for T41, and no
    change to the specification. **`Draw` records are needed by nothing built today.**
 4. **Casing: snake_case fields and camelCase methods, confirmed**, with one addition the writer did not
    state: enum values stay PascalCase, serde's default, because `Record`'s moves and `Tier` already are
@@ -872,12 +877,14 @@ the generation result as 3.
 neither stream knows one. `draws_taken` is `index` after `wrapping_sub` `index` before, as the index wraps. There is no
 `status`: `Err` is the refusal.
 
-That `Err` is a new public `#[non_exhaustive]` value, on both paths, so a refusal has one shape: `{ draws_taken: u64, error:
-GenerateError }`, its `Display` by `#[error("{error}")]`, since `#[error(transparent)]` takes one field, so the text stays the
-core's. Both paths are built on one function that takes a stream and reads the index on `Err` as on `Ok`. `generate` is unchanged.
-No seed is known to reach the refusal (question 3), so it is tested through that function with a script, and step 7 gains: a hundred short
-seedings give `draws_taken` 1900; a hundred full seedings with no solution, 2200, with the same text; five zeros, 5; and a stream
-drawn three times first counts only its own, 2 of a script of five. `tests/api_bounds.rs` takes the new type under step 9.
+That `Err` is a new public `#[non_exhaustive]` `thiserror` enum, on both paths, so a refusal has one shape, as invariant 3 requires of an
+error: `GenerationRefused`, with the one variant `Refused { tier: Tier, draws_taken: u64, error: GenerateError }`. The variant's `Display` is
+`#[error("{error}")]`, since `#[error(transparent)]` takes one field, so the text stays the core's. Both paths are built on one function that
+takes a tier and a stream and reads the index on `Err` as on `Ok`. `generate` is unchanged.
+No seed is known to reach the refusal (question 3), so it is tested through that function with a script, and the seed path's preservation is
+held by sharing it, not by a test of its own. Step 7 gains: a hundred short seedings give `draws_taken` 1900; a hundred full seedings with no
+solution, 2200, with the same text; five zeros, 5; a stream drawn three times first counts only its own, 2 of a script of five; and each of the
+five tiers comes back as the tier asked for. `tests/api_bounds.rs` takes the new type under step 9.
 
 **T41, step 8, the snapshots**, because T42's live comparison and `satisfies` see only what they show, and neither of those
 catches a widened declaration, which is T42 step 8's declaration module. The view's snapshot must show all four move
@@ -901,10 +908,13 @@ test and the `tsc` check, both yes; `wasm-opt` on at `-O3`; a board freed once w
   variant and `PlayError` from its playing one, with its own type's name for the index that names no move and for any variant
   added later. So a game branches the same way on either way of driving the board.
 - `src/types.rs` also exports `type EngineErrorName`, the union of those names, so a branch on `e.name` is checked.
-- A generation's refusal is named `GenerateError`, with T41's `draws_taken` an own property of the `Error`, a `bigint` by
-  `JsValue::from(u64)`, set with `Object.defineProperty` and so not enumerable: set with `Reflect.set`, `JSON.stringify(e)` throws
-  on it. `src/types.rs` exports `interface GenerationRefused extends Error { name: "GenerateError"; draws_taken: bigint }`, and the
-  `@throws` lines of both generation exports name it. `tsc` checks neither, as question 2 says of every throw.
+- A generation's refusal is named `GenerateError`, with `tier` and `draws_taken` from T41's `Refused` variant own properties of the
+  `Error`: `tier` a string through the board's serialiser, `draws_taken` a `bigint` by `JsValue::from(u64)`, both set with
+  `Object.defineProperty` and so not enumerable: set with `Reflect.set`, `JSON.stringify(e)` throws on the `bigint`. The enum is
+  `#[non_exhaustive]`, so the match needs a wildcard arm; it throws the `Display` text named `GenerationRefused`, its own type's name, as for
+  T41's error above, and that name joins `EngineErrorName`. `src/types.rs` exports `interface GenerationRefused extends Error { name:
+  "GenerateError"; tier: Tier; draws_taken: bigint }`, and the `@throws` lines of both generation exports name it. `tsc` checks neither, as
+  question 2 says of every throw.
 - **Two serialisers**, in one helper each. Board values and the search use `Serializer::new().serialize_missing_as_null(true)
   .serialize_maps_as_objects(true)`. The generation result adds `.serialize_large_number_types_as_bigints(true)`, and nothing
   else may, because it turns a `usize` into a `bigint` and `JSON.stringify(board.write())` would then throw. The default `to_value`
@@ -935,8 +945,8 @@ README states that a seed reduces modulo 2^64 silently.
 - `typeof` for a view's `index`, `after_move` and the record's `undone` is `number`.
 - A refused `generate`: `RandomStream.replay` of five zeros throws with `draws_taken` `5n` and `index` `5n`; of a hundred short
   seedings (the script of `generation/grid.rs`'s `a_hundred_failed_attempts_are_a_refusal`), with `name` `GenerateError`, the core's
-  text, `draws_taken` `1900n` and `index` `1900n`; a stream drawn three times first gives `draws_taken` `2n` and `index` `5n`.
-  `JSON.stringify` of each refusal does not throw. No test throws from generation from a seed, because no seed is known to refuse;
+  text, `draws_taken` `1900n` and `index` `1900n`; a stream drawn three times first gives `draws_taken` `2n` and `index` `5n`. Each
+  has `tier` equal to the tier asked for, run under more than one tier. `JSON.stringify` of each refusal does not throw. No test throws from generation from a seed, because no seed is known to refuse;
   T41 tests the function the two share.
 
 A comparison of generation results "as JavaScript values" needs a replacer, because `JSON.stringify` throws on a `bigint`.
@@ -961,7 +971,7 @@ A comparison of generation results "as JavaScript values" needs a replacer, beca
 - Quote the `.wasm` before and after; this probe's were 336,697 and 229,788 bytes, T41's values will differ.
 
 **T42, step 9, the README** says also: a generation result holds `bigint`s, so `JSON.stringify` throws on it, and a game stores
-`String(seed)` and reads back with `BigInt(...)`; a refused generation has `e.draws_taken` on either path; `using` needs `esnext` in `lib`; `free()` once, a second throws
+`String(seed)` and reads back with `BigInt(...)`; a refused generation has `e.tier` and `e.draws_taken` on either path; `using` needs `esnext` in `lib`; `free()` once, a second throws
 `null pointer passed to rust`; a thrown `name` of `Error` means a value of the wrong shape, whose text is serde's and not stable.
 
 **T42, Verification.** `rg -n ': any\b|=> any\b' crates/pawdoku-wasm/pkg/pawdoku_wasm.d.ts` matches `InitOutput` always (15 lines in the
@@ -994,17 +1004,17 @@ once when the puzzle is left. The vitest and preview proofs stand, and the previ
   this run's rule. The `wasm-opt = false` metadata stays until T42 changes it.
 - **To T00 follow-ups, carried by T42.** `typescript = "==6.0.2"`, `binaryen = "==121"`, the `wasm-package-test` recipe and `wasm-build`'s guard.
 - **To T02.** Nothing new. `serde-wasm-bindgen` and `js-sys` are already T42's step 2, each with its decision-0007 note, and tsify is not added.
-- **To T17.** One exception class per error type under one base, with the `Display` text, and `draws_taken` an attribute of the
+- **To T17.** One exception class per error type under one base, with the `Display` text, and `tier` and `draws_taken` attributes of the
   generation refusal's. The same core values in snake_case. A `dict` has no
   bigint problem, since Python's `int` is exact, but T17 should still read a `u8` through a checked conversion rather than a wrapping one, and a test
   should hold that a digit of 260 is refused the same both ways.
-- **To T41, a core change the specification already asks for.** `generation.allium`'s `GenerationResult` exposes `status` and `draws_taken` with no `when`,
-  a thrown refusal gives the first, and the stream's `index` gives the second only to a caller who holds the stream. T41 step 6 above closes that on the seed
-  path. Context says a need here is a spec change and a core change, handed back; this one needs the core change alone.
+- **To T41, a core change the specification already asks for.** `generation.allium`'s `GenerationResult` exposes `tier`, `status` and `draws_taken` with no `when`.
+  A thrown refusal gives the status, the stream's `index` gives the draws only to a caller who holds the stream, and the tier is only what the caller remembers
+  of its own call. T41 step 6 above closes that on both paths. Context says a need here is a spec change and a core change, handed back; this one needs the core change alone.
 - **To the specifications, beyond T40: a wording, and no behaviour.** The comment above `GenerationResult` says "A refused generation shows nothing but that it
   was refused", which reads tighter than the `exposes` beneath it. T41 follows `exposes`, which is the clause, and takes the comment to mean no givens and no grid.
   This spike changes no specification, so the comment stays until whoever next edits that module, or the maintainer, says which is meant; if it is the comment,
-  T41's new value goes and `draws_taken` leaves the surface's refused case. No `open question` is touched.
+  T41's new value goes and `tier` and `draws_taken` leave the surface's refused case. No `open question` is touched.
 
 ### Deviations, and why
 
