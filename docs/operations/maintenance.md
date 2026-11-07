@@ -84,8 +84,9 @@ independent per crate and tagged `<crate>-v<version>`.
    then configure the trusted publisher on crates.io (`steven-cutting`, `libpawdoku`,
    `release.yml`, environment `release`), require trusted publishing for new versions,
    and revoke the token.
-4. **Publish.** `git push origin pawdoku-v<version>`. `release.yml` waits for the
-   `release` environment's reviewer. Once approved, the guards refuse a tag off `main`
+4. **Publish.** `git push origin pawdoku-v<version>`. `release.yml` refuses the tag
+   in its preflight unless the `release` environment and the tag ruleset are in place,
+   then waits for the environment's reviewer. Once approved, the guards refuse a tag off `main`
    or one that disagrees with the manifest, the auth step exchanges the run's identity
    token for a crates.io token, and `cargo publish` runs unless the version is already
    on crates.io.
@@ -112,10 +113,9 @@ ruleset exist and read back**: `gh api repos/steven-cutting/libpawdoku/environme
 lists a `required_reviewers` rule, and `gh api repos/steven-cutting/libpawdoku/rulesets`
 lists the tag ruleset. A workflow that
 names a missing environment does not wait: GitHub creates the environment with no
-protection rules and runs the job. `release.yml` would still stop, for want of a
-trusted publisher, and `release-npm.yml`'s preflight refuses such a tag, but a refused
-tag is still a pushed tag, and the preflight is in a file the tagged commit could
-change.
+protection rules and runs the job. `release-npm.yml`'s preflight refuses such a tag, as
+`release.yml`'s refuses a `pawdoku-v*` one, but a refused tag is still a pushed tag, and
+the preflight is in a file the tagged commit could change.
 
 The package is **public**, made so after its first publish, and the game's repository
 is granted the Read role under the package's "Manage Actions access", so the game's CI

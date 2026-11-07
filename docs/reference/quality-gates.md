@@ -170,8 +170,9 @@ deployment that fails blocks no merge. [Deploy to GitHub Pages](../how-to/deploy
 has the procedure.
 
 `.github/workflows/release.yml` runs on a `pawdoku-v*` tag and publishes `pawdoku` to
-crates.io through trusted publishing. Its one job, `publish`, waits for the `release`
-environment's approval, runs `check-toolchain` after the same setup action, then the
+crates.io through trusted publishing. A `preflight` job refuses the tag unless the
+`release` environment has a required reviewer and an active tag ruleset restricts the
+`pawdoku-v*` tags; then `publish` waits for the environment's approval, runs `check-toolchain` after the same setup action, then the
 release guards, the composite action under `.github/actions/release-guards`, which
 refuse a tag whose commit is not on `main` or that is not `pawdoku-v` and the manifest's
 version; then it exchanges the run's identity token for a crates.io token and runs

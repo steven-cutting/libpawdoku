@@ -69,15 +69,17 @@ used where unpredictability matters.
   else. `pages.yml` holds more, `pages: write` and `id-token: write`, on its deploy job
   alone, which checks nothing out and runs no code from the repository
   ([decision 0016](../decisions/0016-api-reference-on-github-pages.md)). `release.yml`
-  is the second, in a file of its own rather than widening `ci.yml`. Its one job,
-  `publish`, holds `id-token: write` and runs in the `release` environment, whose
+  is the second, in a file of its own rather than widening `ci.yml`. Its `publish` job
+  holds `id-token: write` and runs in the `release` environment, whose
   required reviewer approves each run and whose deployment policies admit the four
   release tag patterns alone; a tag ruleset restricts who may create those tags. Unlike
   Pages' deploy job, it checks out the tagged commit and runs its setup action and
   `Justfile`, and GitHub grants the identity token to every step of the job, not to the
   auth step alone. So the ruleset and the reviewer are what stop a malicious tag; the
   guards, which refuse a tag off `main` or one that disagrees with the manifest, stop a
-  mistaken one before the token is minted
+  mistaken one before the token is minted. Before it, a `preflight` job with no
+  `id-token` refuses the tag unless the environment and the ruleset are in place, the
+  same check `release-npm.yml` makes below
   ([decision 0019](../decisions/0019-releases.md)). `release-npm.yml` is the third, in
   three jobs. `preflight` reads the `release` environment and the tag rulesets and
   fails closed unless the environment has a required reviewer and an active tag ruleset

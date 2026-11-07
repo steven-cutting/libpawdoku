@@ -101,8 +101,13 @@ The ones that hurt.
   a malicious tag is the tag ruleset and the environment's reviewer; the guards stop a
   mistaken tag by the maintainer, before the auth step mints the token.
 - **Two settings live outside the repository.** The `release` environment and the tag
-  ruleset are not in any file, so no gate reads them, and until they exist
-  `release.yml` waits on an environment nobody has made.
+  ruleset are not in any file, so no gate reads them. A workflow that names a missing
+  environment does not wait: GitHub creates it with no protection rules. So a
+  `preflight` job, holding no `id-token` and naming no environment, reads both and
+  refuses the tag until the environment has a required reviewer and an active tag
+  ruleset restricts creating, updating and deleting `pawdoku-v*` tags; `publish` needs
+  it. It stops a skipped or drifted setting, not a malicious tag, since a tagged commit
+  can rewrite the workflow.
 - **Each release is three separately authorised acts**: the release pull request's
   merge, the tag push, and the deployment approval.
 - **A red `semver` job blocks nothing before 1.0**, so a break is easy to miss.

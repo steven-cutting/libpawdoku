@@ -550,6 +550,17 @@ both in files Files touched gives to the second pull request: `README.md:97` and
 - **`README.md` and `docs/reference/api.md` still name S02.** The acceptance criteria say
   no page names S02 as a decision still to come after the first pull request, while
   Files touched gives both files to the second. The per-file rows were followed.
+- **`release.yml` has two jobs, not step 4's one.** The final code review found that it
+  had no fail-closed preflight: a workflow naming a missing `release` environment gets
+  one GitHub creates unprotected, so a skipped or drifted setting would let a tag
+  publish with no reviewer. A `preflight` job, copied from `release-npm.yml` with the
+  pattern `refs/tags/pawdoku-v*`, holds no `id-token`, names no environment, and
+  `publish` needs it; `publish`'s steps, setup action and job-wide `id-token` are
+  unchanged ("The full setup in the privileged job"). Its script, taken from the file,
+  ran against T15's stub `gh` with the seven fixtures (two re-pointed at the core's
+  pattern): six refusals, exit 1, and step 6's configuration, exit 0; before the
+  change the harness found no preflight. Decision 0019's sentence that `release.yml`
+  waits on a missing environment is corrected.
 - **Two pages outside Files touched are stale**: `docs/how-to/maintain-dependencies.md`
   line 98 says `rust-version` moves with the toolchain, and
   `docs/how-to/deploy-to-github-pages.md` line 11 says the library publishes one thing.
@@ -564,8 +575,8 @@ both in files Files touched gives to the second pull request: `README.md:97` and
   second pull request's pages, `docs/reference/api.md`, `SECURITY.md` and `README.md`);
   every push, pull request, tag, token and setting. `status:` stays `open` and the index
   row is unchanged.
-- **Until step 6 is done**, `release.yml` names an environment that does not exist, and
-  no trusted publisher is configured, so no tag can publish.
+- **Until step 6 is done**, `release.yml`'s preflight refuses every `pawdoku-v*` tag,
+  and no trusted publisher is configured, so no tag can publish.
 - **R2**, before step 10, falls after the first pull request merges and was not run.
 - **T15** may start once the first pull request has merged; on this branch it follows.
 - **Two stale how-to sentences** for a later ticket: `maintain-dependencies.md` line 98

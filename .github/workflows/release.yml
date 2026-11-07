@@ -4,7 +4,8 @@ name: Release to crates.io
 # (decision 0019). cargo-release prepares the version on the maintainer's
 # machine and the release commit reaches main through a pull request; the
 # maintainer tags the merge commit and pushes the tag, and this workflow
-# publishes it once the `release` environment's reviewer approves. The
+# publishes it once the `release` environment's reviewer approves, after a
+# preflight job has found that environment and the tag ruleset in place. The
 # pattern needs `v` straight after `pawdoku-`, so `pawdoku-wasm-v0.1.0` does
 # not match it; each binding crate has a workflow of its own.
 
@@ -30,8 +31,56 @@ env:
   RUST_BACKTRACE: '1'
 
 jobs:
+  # A workflow that names a missing environment does not wait: GitHub creates
+  # it with no protection rules and runs the job. So before any job names
+  # `release`, this one reads it and the tag rulesets, and fails closed unless
+  # the environment has a required reviewer and an active tag ruleset covers
+  # `refs/tags/pawdoku-v*` and restricts creating, updating and deleting it.
+  # It names no environment itself, so it cannot create one, and holds no
+  # id-token. It defends against a skipped or drifted setting, not against a
+  # malicious tag: a tagged commit can rewrite this file, which only the
+  # ruleset and the reviewer stop. The same check as release-npm.yml's.
+  preflight:
+    name: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # actions: read for the environment; the rulesets need metadata alone.
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      # gh and jq are on GitHub's Ubuntu runner image; nothing is checked out.
+      - name: The release environment and the tag ruleset are in place
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          pattern='refs/tags/pawdoku-v*'
+          if ! environment=$(gh api "repos/$GITHUB_REPOSITORY/environments/release"); then
+            printf 'release: refused %s: the release environment cannot be read, and GitHub would create a missing one without protection\n' "$GITHUB_REF_NAME" >&2
+            exit 1
+          fi
+          reviewers=$(jq '[.protection_rules[]? | select(.type == "required_reviewers") | .reviewers[]?] | length' <<< "$environment")
+          if [ "$reviewers" -eq 0 ]; then
+            printf 'release: refused %s: the release environment has no required reviewer\n' "$GITHUB_REF_NAME" >&2
+            exit 1
+          fi
+          ids=$(gh api --paginate "repos/$GITHUB_REPOSITORY/rulesets?targets=tag" --jq '.[] | select(.target == "tag" and .enforcement == "active") | .id')
+          for id in $ids; do
+            if gh api "repos/$GITHUB_REPOSITORY/rulesets/$id" | jq -e --arg p "$pattern" '
+                (.conditions.ref_name.include // [] | any(. == $p or . == "~ALL"))
+                and (.conditions.ref_name.exclude // [] | index($p) | not)
+                and ([.rules[]?.type] | contains(["creation", "update", "deletion"]))' > /dev/null; then
+              printf 'release: the release environment has %s required reviewer(s), and ruleset %s restricts %s\n' "$reviewers" "$id" "$pattern"
+              exit 0
+            fi
+          done
+          printf 'release: refused %s: no active tag ruleset restricts creating, updating and deleting %s\n' "$GITHUB_REF_NAME" "$pattern" >&2
+          exit 1
+
   publish:
     name: publish
+    needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # The environment's required reviewer approves each run, and its
