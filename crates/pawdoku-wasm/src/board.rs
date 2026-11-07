@@ -18,22 +18,15 @@ use wasm_bindgen::prelude::wasm_bindgen;
 use crate::error::thrown;
 use crate::types;
 
-/// A record read from JavaScript: its version first, through the core's
-/// [`RecordVersion`], so that a record of another version, or of a later shape, is
-/// refused with the version's text and not with serde's; then the rest of it.
-pub(crate) enum Unread {
-    /// The value is not the shape of a record: serde's `Error`.
-    Shape(JsValue),
-    /// The record names another version, or none.
-    Version(pawdoku::board::ReopenError),
-}
-
-/// Reads `value` as a record, version first. This crate writes no reading of a
-/// version of its own: [`RecordVersion::readable`] is the core's.
-pub(crate) fn record(value: JsValue) -> Result<Record, Unread> {
-    let version: RecordVersion = types::read(value.clone()).map_err(Unread::Shape)?;
-    version.readable().map_err(Unread::Version)?;
-    types::read(value).map_err(Unread::Shape)
+/// Reads `value` as a record, version first, through the core's [`RecordVersion`], so
+/// that a record of another version, or of a later shape, is refused with the
+/// version's `ReopenError` and not with serde's `Error`; then the rest of it. This
+/// crate writes no reading of a version of its own: [`RecordVersion::readable`] is the
+/// core's.
+pub(crate) fn record(value: JsValue) -> Result<Record, JsValue> {
+    let version: RecordVersion = types::read(value.clone())?;
+    version.readable().map_err(|refusal| thrown(&refusal))?;
+    types::read(value)
 }
 
 /// Reads `value` as the givens of a puzzle.
@@ -102,10 +95,7 @@ impl Board {
     pub fn reopen(
         #[wasm_bindgen(unchecked_param_type = "BoardRecord")] record: JsValue,
     ) -> Result<Self, JsValue> {
-        let record = self::record(record).map_err(|unread| match unread {
-            Unread::Shape(error) => error,
-            Unread::Version(refusal) => thrown(&refusal),
-        })?;
+        let record = self::record(record)?;
         let board = CoreBoard::reopen(&record).map_err(|refusal| thrown(&refusal))?;
         Ok(Self { board })
     }

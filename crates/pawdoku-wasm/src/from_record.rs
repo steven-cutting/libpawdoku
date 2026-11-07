@@ -6,24 +6,16 @@
 //! give.
 //!
 //! Every record is read version first, as [`Board::reopen`](crate::Board::reopen)
-//! reads it, and a version's refusal is wrapped in `FromRecordError`'s reopening
-//! variant, so the message is that error's text whichever reading refused.
+//! reads it, and a version's refusal throws the `ReopenError` that `Board.reopen`
+//! throws, with the same name and text.
 
-use pawdoku::board::{FromRecordError, RECORD_VERSION, Record};
+use pawdoku::board::RECORD_VERSION;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::board::{Unread, givens, record};
+use crate::board::{givens, record};
 use crate::error::thrown;
 use crate::types;
-
-/// Reads `value` as a record for a function that refuses with `FromRecordError`.
-fn reopened(value: JsValue) -> Result<Record, JsValue> {
-    record(value).map_err(|unread| match unread {
-        Unread::Shape(error) => error,
-        Unread::Version(refusal) => thrown(&FromRecordError::from(refusal)),
-    })
-}
 
 /// Opens a board on `givens` and hands back its record and its view; nothing is held.
 ///
@@ -62,7 +54,7 @@ pub fn play(
     #[wasm_bindgen(unchecked_param_type = "BoardRecord")] record: JsValue,
     #[wasm_bindgen(unchecked_param_type = "Operation")] operation: JsValue,
 ) -> Result<JsValue, JsValue> {
-    let record = reopened(record)?;
+    let record = self::record(record)?;
     let operation = types::read_operation(operation)?;
     let played = pawdoku::board::play(&record, operation).map_err(|refusal| thrown(&refusal))?;
     types::board(&played)
@@ -82,10 +74,7 @@ pub fn play(
 pub fn read(
     #[wasm_bindgen(unchecked_param_type = "BoardRecord")] record: JsValue,
 ) -> Result<JsValue, JsValue> {
-    let record = self::record(record).map_err(|unread| match unread {
-        Unread::Shape(error) => error,
-        Unread::Version(refusal) => thrown(&refusal),
-    })?;
+    let record = self::record(record)?;
     let view = pawdoku::board::read(&record).map_err(|refusal| thrown(&refusal))?;
     types::board(&view)
 }
@@ -105,7 +94,7 @@ pub fn reading_after(
     #[wasm_bindgen(unchecked_param_type = "BoardRecord")] record: JsValue,
     #[wasm_bindgen(js_name = moveIndex, unchecked_param_type = "number")] move_index: JsValue,
 ) -> Result<JsValue, JsValue> {
-    let record = reopened(record)?;
+    let record = self::record(record)?;
     let move_index: usize = types::read(move_index)?;
     let reading =
         pawdoku::board::reading_after(&record, move_index).map_err(|refusal| thrown(&refusal))?;

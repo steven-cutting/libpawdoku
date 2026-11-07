@@ -629,6 +629,12 @@ worktree is unchanged.`, exit 0; the commit that quotes it changed this ticket a
   an array in the operation's own `position` field with `read_held_position`'s refusal;
   tested red first as a fourth case of
   `a_board_reads_a_position_as_play_does_from_its_own_fields`.
+- **A record's refusals are mapped once, in `board::record`.** The final code review
+  found the same mapping of an unread record written three times, in `Board.reopen`,
+  `read` and a `reopened` helper that wrapped a version's refusal in `FromRecordError`
+  with no difference a caller sees; `board::record` now throws the `ReopenError` itself,
+  and `a_record_of_another_version_is_refused_naming_both_either_way` holds the same
+  name and text at all four sites, unchanged.
 - **R2 is not run.** Its range is what the pull request merged, and nothing has merged.
 
 ### Handed back
