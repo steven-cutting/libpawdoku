@@ -69,7 +69,7 @@ none is picked up before T11.
 | S09 | Spike: code-quality metrics as a gate, module boundaries, complexity, coupling and cohesion | `S09-code-quality-metrics.md` | T11 | done |
 | S10 | Spike: prose pages, diagrams and raw HTML inside rustdoc | `S10-pages-and-diagrams-in-rustdoc.md` | T11 | done |
 | S11 | Spike: the chain techniques, ranks 23 to 27: what a chain is, what is listed and what capacity hides | `S11-chain-techniques.md` | S06 | open |
-| S12 | Spike: the engine's TypeScript surface, typed plain values, errors, tests, size and lifetime | `S12-typescript-surface.md` | S04 | open |
+| S12 | Spike: the engine's TypeScript surface, typed plain values, errors, tests, size and lifetime | `S12-typescript-surface.md` | S04 | done |
 
 Centralisation recommendations. Each is written to be picked up on its own and touches
 another repository, so every step in it is separately authorised.

@@ -1,7 +1,7 @@
 ---
 id: S12
 title: "Spike: the engine's TypeScript surface, typed plain values, errors, tests, size and lifetime"
-status: open
+status: done
 depends_on: [S04]
 parallel_with: [T13, T15, T40, T43]
 branch: ticket/s12-typescript-surface
@@ -539,6 +539,12 @@ clean under `cargo clippy -- -D warnings` with the workspace's lint tables, buil
 satisfies the bounds of invariant 3. Matched from another crate with no wildcard arm, it fails:
 `` error[E0004]: non-exhaustive patterns: `&_` not covered ``.
 
+A wildcard arm has no `tier` or `draws_taken` to give, so a throw through it could not meet the interface
+declared for the refusal. So the enum answers through `tier()` and `draws_taken()`, `const fn`s that match inside
+its own crate, and the binding reads them with no match at all: the four refusals above came back line for line
+through that shape, at the same 337,856 bytes, and the crate stayed clean under clippy and on `wasm32v1-none`. A
+later variant then fails to compile in the core until it answers both, which is where that question belongs.
+
 #### 4. Casing, and what the serialiser has to be
 
 Under either casing the interfaces are hand-written, so the declarations say whatever the
@@ -799,6 +805,23 @@ begins, and none before. Under the workspace's lints, `cargo clippy --target was
 -- -D warnings` over the probe gives 22 of `# Errors` missing on exports returning `Result`, 2 of
 `could be a const fn` and 1 of `more than 3 bools in a struct`, the view.
 
+**The ticket's Verification block**, run before the final commit:
+
+```text
+$ git status --porcelain
+ M tickets/README.md
+ M tickets/S12-typescript-surface.md
+$ rg -n '^### ' tickets/S12-typescript-surface.md
+X
+X
+X
+X
+X
+X
+X
+X
+```
+
 ### The recommendations
 
 1. **Typing: (a), wasm-bindgen's own attributes, with no new dependency.** The interfaces are held by
@@ -880,7 +903,9 @@ neither stream knows one. `draws_taken` is `index` after `wrapping_sub` `index` 
 That `Err` is a new public `#[non_exhaustive]` `thiserror` enum, on both paths, so a refusal has one shape, as invariant 3 requires of an
 error: `GenerationRefused`, with the one variant `Refused { tier: Tier, draws_taken: u64, error: GenerateError }`. The variant's `Display` is
 `#[error("{error}")]`, since `#[error(transparent)]` takes one field, so the text stays the core's. Both paths are built on one function that
-takes a tier and a stream and reads the index on `Err` as on `Ok`. `generate` is unchanged.
+takes a tier and a stream and reads the index on `Err` as on `Ok`. `generate` is unchanged. The enum has two public `#[must_use] const fn`
+accessors, `tier(&self) -> Tier` and `draws_taken(&self) -> u64`, each matching inside the crate, so that no binding has to match a
+`#[non_exhaustive]` enum to read them and a later variant cannot be added without answering both.
 No seed is known to reach the refusal (question 3), so it is tested through that function with a script, and the seed path's preservation is
 held by sharing it, not by a test of its own. Step 7 gains: a hundred short seedings give `draws_taken` 1900; a hundred full seedings with no
 solution, 2200, with the same text; five zeros, 5; a stream drawn three times first counts only its own, 2 of a script of five; and each of the
@@ -908,13 +933,13 @@ test and the `tsc` check, both yes; `wasm-opt` on at `-O3`; a board freed once w
   variant and `PlayError` from its playing one, with its own type's name for the index that names no move and for any variant
   added later. So a game branches the same way on either way of driving the board.
 - `src/types.rs` also exports `type EngineErrorName`, the union of those names, so a branch on `e.name` is checked.
-- A generation's refusal is named `GenerateError`, with `tier` and `draws_taken` from T41's `Refused` variant own properties of the
-  `Error`: `tier` a string through the board's serialiser, `draws_taken` a `bigint` by `JsValue::from(u64)`, both set with
-  `Object.defineProperty` and so not enumerable: set with `Reflect.set`, `JSON.stringify(e)` throws on the `bigint`. The enum is
-  `#[non_exhaustive]`, so the match needs a wildcard arm; it throws the `Display` text named `GenerationRefused`, its own type's name, as for
-  T41's error above, and that name joins `EngineErrorName`. `src/types.rs` exports `interface GenerationRefused extends Error { name:
-  "GenerateError"; tier: Tier; draws_taken: bigint }`, and the `@throws` lines of both generation exports name it. `tsc` checks neither, as
-  question 2 says of every throw.
+- Every refusal of T41's `GenerationRefused` is thrown one way, with no `match` and so no wildcard arm: `Display` text as the message,
+  `name` always `GenerateError`, and `tier` and `draws_taken` from T41's accessors as own properties of the `Error`, `tier` a string
+  through the board's serialiser and `draws_taken` a `bigint` by `JsValue::from(u64)`. Both are set with `Object.defineProperty` and so
+  are not enumerable: set with `Reflect.set`, `JSON.stringify(e)` throws on the `bigint`. No other name is thrown for it and
+  `EngineErrorName` gains none. `src/types.rs` exports `interface GenerationRefused extends Error { name: "GenerateError"; tier: Tier;
+  draws_taken: bigint }`, which then holds of every such throw, and the `@throws` lines of both generation exports name it. `tsc` checks
+  neither, as question 2 says of every throw.
 - **Two serialisers**, in one helper each. Board values and the search use `Serializer::new().serialize_missing_as_null(true)
   .serialize_maps_as_objects(true)`. The generation result adds `.serialize_large_number_types_as_bigints(true)`, and nothing
   else may, because it turns a `usize` into a `bigint` and `JSON.stringify(board.write())` would then throw. The default `to_value`
@@ -987,19 +1012,27 @@ once when the puzzle is left. The vitest and preview proofs stand, and the previ
 
 ### Handed back
 
-- **To T40, which must carry this in `board.allium`.** Question 8's shape adds two things the contract as T40 drafts it does not state.
-  Regrouping the readings on a held board adds nothing, because `Playing` exposes them already; the stateless side is what is new.
+- **To T40, which must carry this in `board.allium`.** Question 8's shape adds to the contract as T40 drafts it. Regrouping the readings on a held
+  board adds nothing, because `Playing` exposes them already; the stateless side is what is new. The whole of it:
   1. **What a call hands back excludes the readings.** T40 step 3 says a call gives "what `Playing` exposes", which read literally includes
-     `move.digit_after` and `move.note_after` for every move and cell: 700,193 bytes at 200 moves. The signatures should say that what comes
-     back is what `Playing` exposes of the board, its cells, moves and checks, without the readings after its moves, and that those are given
-     on asking.
-  2. **A fourth signature, with a third refusal.** It takes a record and a move's index and gives, for every cell of the board, `digit_after`
-     and `note_after` as that move holds them. T40's refusal invariant names two refusals; this adds a third, an index that names no move, and
-     nothing is handed back then either. The index is `move.index`, counted from 1, and a move undone is still one of the record's moves. T40's
-     text "its three signatures and four invariants" under Acceptance criteria becomes four signatures, with a deviation recorded; T41 step 5
-     already builds this fourth function, and without the clause it would be behaviour no specification states. The module's other invariants
-     cover it as they stand: `TheSolutionIsNeverShown` because a reading holds no solution digit a player's board did not hold, and "nothing kept
-     between calls". Nothing else in `Playing` changes, and no `open question` is touched.
+     `move.digit_after` and `move.note_after` for every move and cell: 700,193 bytes at 200 moves. The signatures, and the Scope's Includes bullet,
+     say that what comes back is what `Playing` exposes of the board, its status, cells, moves and checks, without the readings after its moves,
+     and that those are given on asking. The third signature, reading a record, says the same.
+  2. **A fourth signature.** It takes a record and a move's index and gives, for every cell of the board, `digit_after` and `note_after` as that
+     move holds them. The index is `move.index`, counted from 1, and a move undone is still one of the record's moves. `note_after` is a note shown
+     or waiting beneath a digit, as `Playing` already exposes it with no `when`, where a cell's own note carries `when cell.shows_note`.
+  3. **A third refusal.** T40's refusal invariant names two; this adds an index that names no move, and nothing is handed back then either. A
+     record that does not reopen is refused first, since there is no board to ask until it has.
+  4. **The surface's guarantee and the other invariants reach it.** "The same readings" in the surface `PlayingFromARecord` is the fourth signature
+     against `Move`'s reading on a held board. "What is shown" and "nothing kept between calls" cover it as they stand, and `TheSolutionIsNeverShown`
+     holds, since a reading holds no solution digit a player's board did not hold.
+  5. **T40's own text.** "Its three signatures and four invariants" under Acceptance criteria, and "with three signatures" in step 3, become four
+     signatures, with a deviation recorded; decision 0021's Decision says the readings are given on asking. T41 step 5 already builds this fourth
+     function, and without the clause it would be behaviour no specification states.
+
+  Nothing else in `Playing` changes, and no `open question` is touched. **The generation refusal the rounds added is not T40's:** it is T41's core
+  change to what `GenerationResult` already exposes, and T40's Non-goals exclude `generation.allium`. Nor is anything here about the record's version,
+  which is T43's.
 - **To T15.** `nodejs` moved to 26.13.0 on conda-forge (both platforms; T15 Context's table and step 6 say 26.12.1), to be pinned and noted under
   this run's rule. The `wasm-opt = false` metadata stays until T42 changes it.
 - **To T00 follow-ups, carried by T42.** `typescript = "==6.0.2"`, `binaryen = "==121"`, the `wasm-package-test` recipe and `wasm-build`'s guard.
@@ -1035,12 +1068,12 @@ once when the puzzle is left. The vitest and preview proofs stand, and the previ
 1. **Preserve the tier on refused generation results. Valid.** `GenerationResult` exposes `generation.tier` with no `when`, as it does `draws_taken`, and the refusal as amended left it out. The caller named the tier in its call, but the clause does not rest on that, and round 1's argument was the clause. Recommendation 3, T41 step 6, T42 steps 3, 7 and 9, T17 and the hand-backs now carry it, probed through the stream path under four tier settings. The finding's "both generation paths" stands in the contract; a test of the seed path's refusal does not, because no seed is known to refuse, so the two share one function and T41 tests that.
 2. **Specify the new public error as a thiserror enum. Valid.** Invariant 3 says errors are `thiserror` enums, every error in `crates/pawdoku/src` is one, and the amendment's value was a struct. T41 step 6 now names `GenerationRefused`, a `#[non_exhaustive]` enum whose one variant `Refused` holds the fields and the `Display` attribute. The probe moved to it, in a crate of its own so that `non_exhaustive` binds: clippy clean under the workspace's lints, built for `wasm32v1-none`, and the wildcard arm T42 step 3 now states is required.
 
+**After the rounds.** The last triage reported one gap: T42 step 3's wildcard arm threw `name` `GenerationRefused` with no `tier` or `draws_taken`, while its interface declared `name` `GenerateError` and both properties. That wildcard is gone: T41's enum answers through two accessors and T42 step 3 throws one shape, probed in question 3. Round 2's sentence above records the state of that round.
+
 ### Open points settled
 
 - **A new dependency for typing.** None: wasm-bindgen's own attributes, question 1. T42 does not wait on T02 for this.
 - **A browser gate.** None here: Node and `tsc`, question 5, with the game's preview carrying the browser.
-
-## Open points settled
 
 ## Open points
 
