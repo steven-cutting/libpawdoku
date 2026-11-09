@@ -228,15 +228,21 @@ wasm-guard:
 # before the build and without --locked, would rewrite a stale Cargo.lock, and
 # `-- --locked` would then reach cargo with a lock already made to agree. The
 # crate's metadata turns wasm-opt on, which --mode no-install skips with success
-# when wasm-opt is missing, so the pinned binaryen is required first. Then the
-# specification modules and the crate's changelog go into the package, and
-# package.json gains files and exports.
+# when wasm-opt is missing, so the binaryen that pyproject.toml pins is required
+# first, its version read from that one pin as wasm-guard reads its own from
+# Cargo.lock. Then the specification modules and the crate's changelog go into
+# the package, and package.json gains files and exports.
 wasm-build: wasm-guard lock-check
     #!/bin/sh
     set -eu
+    want=$(sed -n 's/^binaryen = "==\(.*\)"$/\1/p' pyproject.toml)
+    if [ -z "$want" ]; then
+        printf '%s\n' 'wasm-build: no `binaryen = "==<version>"` pin in pyproject.toml' >&2
+        exit 1
+    fi
     have=$(wasm-opt --version 2>/dev/null || true)
-    if [ "$have" != "wasm-opt version 121" ]; then
-        printf 'wasm-build: wasm-opt says "%s"; want "wasm-opt version 121", the binaryen pyproject.toml pins\n' "${have:-missing}" >&2
+    if [ "$have" != "wasm-opt version $want" ]; then
+        printf 'wasm-build: wasm-opt says "%s"; want "wasm-opt version %s", the binaryen pyproject.toml pins\n' "${have:-missing}" "$want" >&2
         exit 1
     fi
     wasm-pack build crates/pawdoku-wasm --mode no-install --target web --scope steven-cutting --release -- --locked
@@ -312,12 +318,6 @@ semver:
     base=$(git describe --tags --match 'pawdoku-v*' --abbrev=0 2>/dev/null) || { printf '%s\n' 'semver: no pawdoku-v* tag yet, nothing to compare'; exit 0; }
     cargo semver-checks -p pawdoku --baseline-rev "$base"
 
-# --------------------------------------------------------------- documents ---
-
-check-docs:
-    prek run --all-files markdownlint-cli2 typos lychee
-    bg-validate-docs
-
 # Packages pawdoku as cargo publish would and verifies that the package builds,
 # without publishing. Not a gate and outside `just check`: it reaches the
 # network for the registry index, and release.yml's build job runs it, with a
@@ -325,6 +325,12 @@ check-docs:
 # no `just` by design and calls cargo publish itself (decision 0019).
 release-dry-run:
     cargo publish --dry-run --locked -p pawdoku
+
+# --------------------------------------------------------------- documents ---
+
+check-docs:
+    prek run --all-files markdownlint-cli2 typos lychee
+    bg-validate-docs
 
 check-agents:
     bg-validate-agents
