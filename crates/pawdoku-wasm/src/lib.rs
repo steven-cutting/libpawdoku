@@ -75,12 +75,17 @@ impl Stream {
         }
     }
 
+    /// The stream as the engine's trait, borrowed shared, for what reads and draws nothing.
+    fn as_dyn_ref(&self) -> &dyn CoreStream {
+        match self {
+            Self::Seeded(stream) => stream,
+            Self::Replay(stream) => stream,
+        }
+    }
+
     /// The index the next draw will carry, read without a mutable borrow.
     fn index(&self) -> u64 {
-        match self {
-            Self::Seeded(stream) => stream.index(),
-            Self::Replay(stream) => stream.index(),
-        }
+        self.as_dyn_ref().index()
     }
 }
 
