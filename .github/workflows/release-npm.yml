@@ -37,14 +37,15 @@ env:
 jobs:
   # A workflow that names a missing environment does not wait: GitHub creates
   # it with no protection rules and runs the job. So before any job names
-  # `release`, this one reads it and the tag rulesets, and fails closed unless
-  # the environment has a required reviewer and an active tag ruleset covers
-  # `refs/tags/pawdoku-wasm-v*`, excludes no ref, and restricts creating,
-  # updating and deleting it. GitHub skips a ref that any exclusion matches, and
-  # this check does not evaluate patterns, so any exclusion disqualifies a
-  # ruleset. It names no environment itself, so it cannot create one. It defends
+  # `release`, this one runs the composite action under
+  # .github/actions/release-preflight, the same check release.yml runs with
+  # its own pattern, which fails closed unless the environment has a required
+  # reviewer and an active tag ruleset covers `refs/tags/pawdoku-wasm-v*`,
+  # excludes no ref, and restricts creating, updating and deleting it. This
+  # job names no environment itself, so it cannot create one. It defends
   # against a skipped or drifted setting, not against a malicious tag: a tagged
-  # commit can rewrite this file, which only the ruleset and the reviewer stop.
+  # commit can rewrite this file and the action, which only the ruleset and the
+  # reviewer stop.
   preflight:
     name: preflight
     runs-on: ubuntu-latest
@@ -54,37 +55,15 @@ jobs:
       actions: read
       contents: read
     steps:
-      # gh and jq are on GitHub's Ubuntu runner image; nothing is checked out.
-      - name: The release environment and the tag ruleset are in place
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          pattern='refs/tags/pawdoku-wasm-v*'
-          if ! environment=$(gh api "repos/$GITHUB_REPOSITORY/environments/release"); then
-            printf 'release-npm: refused %s: the release environment cannot be read, and GitHub would create a missing one without protection\n' "$GITHUB_REF_NAME" >&2
-            exit 1
-          fi
-          reviewers=$(jq '[.protection_rules[]? | select(.type == "required_reviewers") | .reviewers[]?] | length' <<< "$environment")
-          if [ "$reviewers" -eq 0 ]; then
-            printf 'release-npm: refused %s: the release environment has no required reviewer\n' "$GITHUB_REF_NAME" >&2
-            exit 1
-          fi
-          ids=$(gh api --paginate "repos/$GITHUB_REPOSITORY/rulesets?targets=tag" --jq '.[] | select(.target == "tag" and .enforcement == "active") | .id')
-          for id in $ids; do
-            ruleset=$(gh api "repos/$GITHUB_REPOSITORY/rulesets/$id") || continue
-            if jq -e --arg p "$pattern" '
-                (.conditions.ref_name.include // [] | any(. == $p or . == "~ALL"))
-                and ([.rules[]?.type] | contains(["creation", "update", "deletion"]))' <<< "$ruleset" > /dev/null; then
-              if jq -e '.conditions.ref_name.exclude // [] | length == 0' <<< "$ruleset" > /dev/null; then
-                printf 'release-npm: the release environment has %s required reviewer(s), and ruleset %s restricts %s\n' "$reviewers" "$id" "$pattern"
-                exit 0
-              fi
-              printf 'release-npm: ruleset %s restricts %s but excludes refs, and an exclusion could cover a release tag, so it does not count\n' "$id" "$pattern" >&2
-            fi
-          done
-          printf 'release-npm: refused %s: no active tag ruleset restricts creating, updating and deleting %s\n' "$GITHUB_REF_NAME" "$pattern" >&2
-          exit 1
+      # A shallow checkout, which reaches the composite action and nothing
+      # else: the check reads the repository's settings, not its code.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/release-preflight
+        with:
+          pattern: 'refs/tags/pawdoku-wasm-v*'
+          label: release-npm
 
   # Everything that runs the repository's code, with the read-only token: the
   # setup action, whose install step hands cargo-binstall that token, the

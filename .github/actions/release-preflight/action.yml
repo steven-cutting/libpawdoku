@@ -1,0 +1,66 @@
+name: Release preflight
+description: >-
+  The check every release workflow runs before any job names the `release`
+  environment: that environment has a required reviewer, and an active tag
+  ruleset includes the release tag pattern, excludes no ref, and restricts
+  creating, updating and deleting it. A workflow that names a missing
+  environment does not wait: GitHub creates it with no protection rules and
+  runs the job. This action names no environment itself, so it cannot create
+  one, and needs no token beyond the run's own with `actions: read`. It
+  defends against a skipped or drifted setting, not against a malicious tag:
+  a tagged commit can rewrite the workflow and this file, which only the
+  ruleset and the reviewer stop (decisions 0019 and 0020). It reads the
+  repository's settings alone and nothing of its code, so the checkout that
+  reaches it may be shallow.
+
+inputs:
+  pattern:
+    description: >-
+      The tag pattern the ruleset must include, as GitHub writes it, such as
+      `refs/tags/pawdoku-v*`. GitHub skips a ref that any exclusion matches,
+      and this check does not evaluate patterns, so any exclusion disqualifies
+      a ruleset.
+    required: true
+  label:
+    description: >-
+      The prefix of every line the check prints, naming the workflow it runs
+      in, such as `release` or `release-npm`.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # gh and jq are on GitHub's Ubuntu runner image. The token is the run's
+    # own, handed to gh for the two reads.
+    - name: The release environment and the tag ruleset are in place
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        PATTERN: ${{ inputs.pattern }}
+        LABEL: ${{ inputs.label }}
+      run: |
+        set -euo pipefail
+        if ! environment=$(gh api "repos/$GITHUB_REPOSITORY/environments/release"); then
+          printf '%s: refused %s: the release environment cannot be read, and GitHub would create a missing one without protection\n' "$LABEL" "$GITHUB_REF_NAME" >&2
+          exit 1
+        fi
+        reviewers=$(jq '[.protection_rules[]? | select(.type == "required_reviewers") | .reviewers[]?] | length' <<< "$environment")
+        if [ "$reviewers" -eq 0 ]; then
+          printf '%s: refused %s: the release environment has no required reviewer\n' "$LABEL" "$GITHUB_REF_NAME" >&2
+          exit 1
+        fi
+        ids=$(gh api --paginate "repos/$GITHUB_REPOSITORY/rulesets?targets=tag" --jq '.[] | select(.target == "tag" and .enforcement == "active") | .id')
+        for id in $ids; do
+          ruleset=$(gh api "repos/$GITHUB_REPOSITORY/rulesets/$id") || continue
+          if jq -e --arg p "$PATTERN" '
+              (.conditions.ref_name.include // [] | any(. == $p or . == "~ALL"))
+              and ([.rules[]?.type] | contains(["creation", "update", "deletion"]))' <<< "$ruleset" > /dev/null; then
+            if jq -e '.conditions.ref_name.exclude // [] | length == 0' <<< "$ruleset" > /dev/null; then
+              printf '%s: the release environment has %s required reviewer(s), and ruleset %s restricts %s\n' "$LABEL" "$reviewers" "$id" "$PATTERN"
+              exit 0
+            fi
+            printf '%s: ruleset %s restricts %s but excludes refs, and an exclusion could cover a release tag, so it does not count\n' "$LABEL" "$id" "$PATTERN" >&2
+          fi
+        done
+        printf '%s: refused %s: no active tag ruleset restricts creating, updating and deleting %s\n' "$LABEL" "$GITHUB_REF_NAME" "$PATTERN" >&2
+        exit 1
