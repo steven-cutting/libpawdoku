@@ -836,6 +836,24 @@ fn play_reads_each_field_of_an_operation_once() {
 }
 
 #[wasm_bindgen_test]
+fn play_leaves_a_field_its_kind_does_not_take_unread_as_a_held_board_does() {
+    let erase = "return { kind: 'Erase', position: { row: 1, column: 3 }, digit: null };";
+    let undo = "return { kind: 'Undo', position: null, digit: null };";
+    for (body, op) in [(erase, Op::Erase(FREE)), (undo, Op::Undo)] {
+        let (mut board, record) = played(&[Op::Place(FREE, 4)]);
+        let held = op
+            .ask(&mut board)
+            .map(|_| text(&board.write().unwrap_or_default()))
+            .map_err(|e| named(&e));
+        let from_record = play(record, hostile(body))
+            .map(|played| text(&get(&played, "record")))
+            .map_err(|e| named(&e));
+        assert_eq!(from_record, held, "{body}");
+        assert!(held.is_ok(), "{body}");
+    }
+}
+
+#[wasm_bindgen_test]
 fn a_tier_that_is_not_a_string_is_refused_unread_and_the_stream_stays_usable() {
     let mut stream = RandomStream::seeded(2024);
     let getter = hostile("return { get Three() { throw new RangeError('tier'); } };");
