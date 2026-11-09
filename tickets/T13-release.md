@@ -630,12 +630,51 @@ workflows). Needs attention, one finding, shared with T15.
   preflight says so on stderr; it does not evaluate patterns (fnmatch, `~ALL`), so it
   fails closed rather than reimplement GitHub's matching. A harmless exclusion belongs
   in a separate ruleset, since any one qualifying ruleset passes. The two preflights
-  remain the same script apart from the pattern and the log prefix. Green: both new
+  remained the same script apart from the pattern and the log prefix, until the code
+  review below made them one. Green: both new
   fixtures and the six earlier refusals exit 1 and `protected` exits 0 on both
   workflows; `split.rb` passes on `release.yml`; `just lint` and `just check-docs`
   green. The maintenance page's readback now names the empty exclusion list. Not yet
   reviewed by Codex. The reviewer's note that its read-only sandbox blocked `just
   check` is an environment note, not a finding.
+
+**Code review** (Claude Code's `/code-review high`, over the branch against `main`,
+2026-11-07; answered in the working tree and not yet committed, so no commit is named).
+Two findings on the release workflows, shared with T15.
+
+- **[low] The preflight script was duplicated** (`release.yml` and `release-npm.yml`,
+  thirty lines apart from the pattern and the log prefix, which `a95f181` had to patch
+  twice). Valid. Fixed: the composite action `.github/actions/release-preflight`, with
+  inputs `pattern` and `label` passed through `env:` as `release-guards` passes its
+  `package`; each preflight job is a shallow `actions/checkout` at the SHA the workflows
+  already pin, with `persist-credentials: false`, then the action. The checkout changes
+  no stated property: decision 0019 and the maintenance page already say the preflight
+  stops drift, not malice, because a tagged commit can rewrite the workflow, and the
+  action is in the same commit. A reusable workflow would need no checkout but would be a
+  fourth workflow file beside `AGENTS.md`'s "there are three". Proof, local only: the
+  preflight harness gained `run-action.sh` (`ai_tmp/t13/preflight/`, gitignored), which
+  reads the pattern and the label from the workflow's `with:` and the script from the
+  action, and runs the nine fixtures with the stub `gh`: eight exit 1 and `protected`
+  exits 0, for both workflows, with each line prefixed `release` or `release-npm`.
+  `split.rb` now requires the preflight action in `publish`'s `needs`, and passes.
+  actionlint's hook is scoped to `.github/workflows/`, so it checks the `with:` inputs
+  against the action's `inputs:` and not the action's shell, as it did not check
+  `release-guards`'s; the gate's shellcheck hook selects shell files by type and reaches
+  no YAML. So the gate's own shellcheck binary was run by hand, as bash, over the script
+  the harness extracts from the action: clean. The other hooks ran over the new file by
+  path (`prek run --files`), since the gate skips an untracked file: all passed. The CI
+  run is not proved until a tag (Handed back). The repository map lists the action.
+- **[low] `cargo publish --dry-run` ran ad hoc in `build`** (`release.yml`), against
+  `AGENTS.md`'s "never invent a command" and "Just is the only supported interface to the
+  checks". Valid. Fixed: a `release-dry-run` recipe beside `semver`, outside `just check`
+  because it reaches the network for the registry index; `build` runs
+  `just release-dry-run`, and `publish` keeps its raw `cargo publish`, since it runs no
+  `just` by design. `docs/reference/commands.md` gains the row and lists the recipe among
+  those outside `just check`; `docs/reference/quality-gates.md` names the recipe.
+  Decision 0019 and the "Open points settled" entry above keep the raw command as the
+  record of what was decided. `split.rb` reads the recipe's body from the `Justfile` for
+  the dry run and `--locked`. `just -n release-dry-run` prints the command; the recipe
+  was not run here, because it reaches crates.io.
 
 ### Open points settled
 

@@ -766,6 +766,16 @@ notes, closed with `All checks passed and the worktree is unchanged.`, exit 0.
 
   The reviewer's note that its read-only sandbox blocked `just check` is an environment
   note, not a finding.
+- **Code review** (Claude Code's `/code-review high`, over the branch against `main`,
+  2026-11-07; answered in the working tree and not yet committed). One finding on this
+  workflow, shared with T13, whose notes carry the detail.
+  - [low] The preflight script was the same in `release-npm.yml` and `release.yml` apart
+    from the pattern and the log prefix. Valid. Both preflight jobs now check out the
+    tagged commit shallowly and run the composite action
+    `.github/actions/release-preflight` with `pattern: 'refs/tags/pawdoku-wasm-v*'` and
+    `label: release-npm` here. The nine fixtures of T13's harness pass against the
+    action for this workflow's pattern. The checkout changes no stated property: the
+    preflight already stopped drift, not malice, and the pages say so.
 
 ### Open points settled
 

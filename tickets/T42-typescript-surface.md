@@ -759,11 +759,45 @@ Part A is the draft under Steps, unchanged. Part B, as built:
     `read_held_position` and its `digit` through `read_held`, and serde reads a plain
     copy of `kind`, `position` and `digit`. Left: a `digit` or `position` the operation's
     kind does not take, which serde ignored, is now read and may be refused; no
-    declared `Operation` carries one.
+    declared `Operation` carries one. Closed by the code review below.
   - The reviewer's note that its read-only sandbox blocked the recipes is an environment
     note, not a finding; `just wasm-test`, `just wasm-build` and `just wasm-package-test`
     ran here.
 - **R2** is not run (Deviations).
+- **Code review** (Claude Code's `/code-review high`, over the branch against `main`,
+  2026-11-07; the findings on this ticket's files, answered in the working tree and not
+  yet committed, so no commit is named).
+  - [medium] `play` refuses an operation that a held `Board` accepts
+    (`crates/pawdoku-wasm/src/types.rs`, `read_operation`). Valid, and the item round 3
+    left: `{ kind: "Erase", position, digit: null }` and `{ kind: "Undo", position: null }`
+    were refused with serde's `Error`, while `board.erase(position)` ignores an extra
+    argument and the core's `Operation`, internally tagged without `deny_unknown_fields`,
+    ignores the extra field, against `lib.rs`'s "same values, same refusals, both ways".
+    Fixed: `read_operation` lists the own fields once, reads `kind` from that list, and
+    pre-reads `position` only for `Place`, `Erase`, `WriteMark`, `StrikeMark` and
+    `CheckCell` and `digit` only for `Place`, `WriteMark` and `StrikeMark`; a `kind`
+    that is missing or not a string is forwarded alone for serde to refuse. Tested red
+    first in `tests/surface.rs` (`play_leaves_a_field_its_kind_does_not_take_unread_as_a_held_board_does`,
+    which against the old code was refused with `invalid type: unit value, expected u8`,
+    the `null` digit read as a `u8`), green with the fix.
+  - [low] `wasm-build` pinned `wasm-opt version 121` beside `pyproject.toml`'s
+    `binaryen = "==121"`. Valid. The recipe now reads the pin from `pyproject.toml`, as
+    `wasm-guard` reads its own from `Cargo.lock`, and refuses when the pin is missing.
+    Both refusals were exercised: the missing pin through `just wasm-build` with
+    `pyproject.toml` edited to a range and restored; the wrong version and a missing
+    `wasm-opt` by running the recipe's own lines, taken from `just --show wasm-build`,
+    in `sh` with a stub `wasm-opt` answering `wasm-opt version 120` and with none on
+    `PATH`, because editing the pin to `==120` stales `pixi.lock` so `lock-check`
+    refuses first, and pixi's `just` shim puts the environment's `wasm-opt` ahead of a
+    stub. Each refused, naming both versions, and the real `wasm-opt` passed.
+    The `just wasm-build` row of `docs/reference/commands.md` names the pin, not 121.
+  - [low] Two boards in `tests/package/play.mjs`'s `live` table were never freed.
+    Valid; a `freeing(board, use)` helper frees each in `finally`.
+  - [low] `Stream::index` in `src/lib.rs` repeated `as_dyn`'s match. Valid; a shared
+    `as_dyn_ref` borrows the trait object and `index` calls it.
+  - Left alone: `BoardView::of` clones a `Reading` per move (`crates/pawdoku/src/board/view.rs`),
+    a stated trade so a view's moves can read back; replacing `Vec<Move>` with a wire-only
+    summary changes the core's public surface, so it is the maintainer's call.
 
 ### Open points settled
 
