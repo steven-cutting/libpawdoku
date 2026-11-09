@@ -318,6 +318,14 @@ check-docs:
     prek run --all-files markdownlint-cli2 typos lychee
     bg-validate-docs
 
+# Packages pawdoku as cargo publish would and verifies that the package builds,
+# without publishing. Not a gate and outside `just check`: it reaches the
+# network for the registry index, and release.yml's build job runs it, with a
+# read-only token, before the publish job holds any token. The publish job runs
+# no `just` by design and calls cargo publish itself (decision 0019).
+release-dry-run:
+    cargo publish --dry-run --locked -p pawdoku
+
 check-agents:
     bg-validate-agents
 

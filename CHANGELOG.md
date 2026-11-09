@@ -47,6 +47,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `pawdoku` to crates.io through trusted publishing on a `pawdoku-v*` tag, in the
   `release` environment, after the release guards, a composite action every release
   workflow shares, refuse a tag off `main` or one that disagrees with the manifest. A
+  second shared action, the release preflight, refuses the tag before any job names the
+  environment unless it has a required reviewer and an active tag ruleset restricts the
+  tags. The `build` job runs `just release-dry-run`, which packages the crate and
+  verifies that it builds without publishing, before the `publish` job holds a token. A
   `semver` job in CI runs `just semver`, cargo-semver-checks against the last
   `pawdoku-v*` tag, pinned in `pyproject.toml`; it reports and never blocks before 1.0.
   The crate ships `LICENSE`. "Cut a release" in the maintenance page has the procedure.

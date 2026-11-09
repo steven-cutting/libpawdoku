@@ -175,7 +175,7 @@ crates.io through trusted publishing. A `preflight` job refuses the tag unless t
 `pawdoku-v*` tags. Then `build`, with a read-only token, runs `check-toolchain` after
 the same setup action, the release guards, the composite action under
 `.github/actions/release-guards`, which refuse a tag whose commit is not on `main` or
-that is not `pawdoku-v` and the manifest's version, and `cargo publish --dry-run`.
+that is not `pawdoku-v` and the manifest's version, and `release-dry-run`.
 Then `publish` waits for the environment's approval and, with no setup action and no
 `just`, installs rustup's pinned toolchain, exchanges the run's identity token for a
 crates.io token and runs `cargo publish` unless the version is already there. Like `pages.yml`, it is not a gate

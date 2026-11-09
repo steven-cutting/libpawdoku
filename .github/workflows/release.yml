@@ -96,7 +96,7 @@ jobs:
           package: pawdoku
       # Packages and verifies the crate with the tested toolchain, so a crate
       # that would not build is refused here, with no token in the job.
-      - run: cargo publish --dry-run --locked -p pawdoku
+      - run: just release-dry-run
 
   publish:
     name: publish

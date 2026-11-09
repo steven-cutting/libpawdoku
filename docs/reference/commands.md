@@ -20,8 +20,8 @@ checkout), and is the one command a fresh clone needs the network for. Nothing i
 `deny` then answer from that cache, and `lint` finds every hook environment already
 prepared, because `install-hooks` prepared it. On a cold Cargo cache, `lock-check` fails
 rather than fetching the index. `build`, `test`, `site`, `wasm-build`,
-`audit`, `semver` and `check-links-online` are outside `just check`, and so is every recipe that
-writes.
+`audit`, `semver`, `release-dry-run` and `check-links-online` are outside `just check`, and so is
+every recipe that writes.
 
 ## Setup
 
@@ -77,6 +77,7 @@ writes.
 | `just audit` | cargo-deny's advisory check against the RustSec database. Over the network, so outside `just check`; CI runs it weekly in its own workflow. |
 | `just deps-unused` | cargo-shear: a dependency a crate declares and never uses. Gate 14. |
 | `just semver` | cargo-semver-checks: API breaks in `pawdoku` against the last `pawdoku-v*` tag, or a line saying there is no tag yet and nothing to compare. Outside `just check`; CI's `semver` job runs it and reports without blocking until 1.0. |
+| `just release-dry-run` | `cargo publish --dry-run --locked -p pawdoku`: packages the crate as a publish would and verifies that the package builds, publishing nothing. Reaches the network for the registry index. Outside `just check`; `release.yml`'s `build` job runs it with a read-only token, before its `publish` job, which runs no `just`, holds any token. |
 | `just snapshots-check` | Check both locks, then run every unit and integration test with every feature through cargo-insta and nextest offline. Fails mismatches without writing snapshots or pending files, and rejects unreferenced `.snap` files. Gate 19. |
 
 ## Documents
