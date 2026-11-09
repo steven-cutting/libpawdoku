@@ -83,12 +83,21 @@ step("a game held and from records is the same game", () => {
   deepStrictEqual(thrown(() => board.free()), ["Error", "null pointer passed to rust"]);
 });
 
+/** What `use` gives for `board`, which is freed once `use` has run or thrown. */
+function freeing(board, use) {
+  try {
+    return use(board);
+  } finally {
+    board.free();
+  }
+}
+
 /** Each snapshot's live value, from the package. */
 const snapshots = Object.fromEntries(Object.entries(readSnapshots()).map(([name, text]) => [name, JSON.parse(text)]));
 const scripted = snapshots.the_record_of_the_scripted_game;
 const live = {
-  the_record_of_the_scripted_game: () => Board.reopen(scripted).write(),
-  the_view_of_the_scripted_game: () => Board.reopen(scripted).view(),
+  the_record_of_the_scripted_game: () => freeing(Board.reopen(scripted), (board) => board.write()),
+  the_view_of_the_scripted_game: () => freeing(Board.reopen(scripted), (board) => board.view()),
   the_reading_after_a_move: () => readingAfter(scripted, 6),
   what_a_check_hands_back: () => play(scripted, operations.CheckCell),
   the_seven_operations: () => Object.values(operations),
