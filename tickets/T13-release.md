@@ -367,6 +367,12 @@ approving each `release.yml` deployment in the `release` environment, which is t
 publish itself and a separate decision from the tag push (`AGENTS.md`, "Safety and
 authority").
 
+**Adversarial review**, by the procedure in `tickets/README.md`, "Adversarial
+review":
+
+- **R1**, after step 5 and before step 6, which is also before the first pull request: the guards and `release.yml`. Focus: the token, the tag and the trust boundary.
+- **R2**, before step 10: the same focus over what the first pull request merged.
+
 ## Acceptance criteria
 
 - First pull request: `just check` green; `tools.txt`, `pyproject.toml` and `pixi.lock`
@@ -414,11 +420,283 @@ unchanged.`; only paths in Files touched.
 
 ### What was verified, and how
 
+Run on 2026-11-07 on the branch `implement-typescript-surface-fullsend`, from
+`8949b4fa69f8b6ea4468f1f852909e92713cd1a1`, in two segments: steps 1 to 5 to the R1
+checkpoint, then steps 7 to 9 after R1. This records the first pull request's work.
+
+**Step 1.** `just check` before any edit: "All checks passed and the worktree is
+unchanged." The Context's table, re-checked on the day; no row moved:
+
+- crates.io API with a User-Agent: `pawdoku`, `pawdoku-wasm`, `pawdoku-cli` and
+  `pawdoku-py` each answer "crate `<name>` does not exist".
+- cargo-release 1.1.7 (2026-10-21T14:00:01Z, `rust_version` 1.97). `pixi search -p
+  linux-64` and `-p osx-arm64 cargo-release`: "No packages found matching
+  'cargo-release'".
+- cargo-semver-checks 0.51.0 (2026-10-03, `rust_version` 1.93) on crates.io; on
+  conda-forge as `0.51.0-hf19af3b_0` (linux-64) and `0.51.0-hc2d82ec_0` (osx-arm64).
+- `rust-lang/crates-io-auth-action`: latest v1.0.6, published 2026-10-21T16:28:32Z;
+  `git/ref/tags/v1.0.6` is of type `commit`, sha
+  `3268eb413133e2960fa4ae0e963ca76380c54cd9`.
+- `actions/checkout`: latest v7.0.1, the tag a commit,
+  `3d3c42e5aac5ba805825da76410c181273ba90b1`.
+- Environments: `copilot` (policy null) and `github-pages` (`custom_branch_policies:
+  true`, `protected_branches: false`); rulesets: `[]`.
+- The record's number: 0019, as the run's brief fixes it; 0021 and 0022 are present and
+  the "next decision" sentence stays at 0023.
+
+**Step 2, the pins.** `tools.txt` gains `cargo-release@1.1.7`, its header dated
+2026-11-07, its comment saying cargo-binstall verifies no checksum for either line.
+`pyproject.toml` gains `cargo-semver-checks = "==0.51.0"`. The relocked `pixi.lock` adds
+only cargo-semver-checks 0.51.0, `hc2d82ec_0` for osx-arm64 and `hf19af3b_0` for
+linux-64, so both platforms solved. pixi 0.81.0 says "lock file would not change" and
+0.84.1's `pixi lock --check --offline --dry-run` says "Lock-file was already up-to-date".
+`just install-tools`: "cargo-release v1.1.7 (aarch64-apple-darwin) has been downloaded
+from github.com"; `cargo release --version`: `cargo-release 1.1.7`; `cargo semver-checks
+--version`: `cargo-semver-checks 0.51.0`.
+
+**Step 3, the configuration.** `[workspace.metadata.release]` in the root `Cargo.toml`
+and `[package.metadata.release]` in `crates/pawdoku/Cargo.toml` as the step writes them;
+`publish.workspace = true` deleted from the crate; `crates/pawdoku/LICENSE` a symlink to
+`../../LICENSE`. `just toml-check` green. `cargo package -p pawdoku --list --locked`:
+exit 0, sixty-four entries, `LICENSE` among them. The dry run `cargo release -p pawdoku`
+on this branch refuses it: "error: cannot release from branch
+`implement-typescript-surface-fullsend` as it doesn't match `main`, `release/*`", which
+shows `allow-branch` working. With `--allow-branch` naming this branch it shows the
+CHANGELOG diff (`## [0.1.0] - 2026-11-07`, `[Unreleased]:
+.../compare/pawdoku-v0.1.0...HEAD`, `[0.1.0]: .../releases/tag/pawdoku-v0.1.0`),
+"Publishing pawdoku", and "warning: aborting release due to dry run; re-run with
+`--execute`", exit 0. Its `-vv` trace names only `git commit -am Release pawdoku 0.1.0`
+and `git tag pawdoku-v0.1.0 -a -m Release pawdoku 0.1.0`; no `cargo publish` and no `git
+push`. "Publishing pawdoku" is a label: `cargo release config` in the crate reads
+`publish = false`, `push = false`. `git status --porcelain` after both runs: empty.
+
+**Step 4, the guards and the workflow.** The auth action's `action.yml` at `3268eb4`:
+one input, `url`, optional, defaulting to `https://crates.io`; one output, `token`;
+`runs` on node24 with a `post` step, which its README says "automatically revokes the
+token when the job completes". The guards were run locally from their scripts,
+shellcheck clean, the test list below:
+
+1. A tag on a commit of `main` (`49cde45`): exit 0, "pawdoku-v0.1.0 names 49cde45...,
+   which is on main".
+2. A tag on a commit off `main` (`a43a0e3`): exit 1, "refused tag pawdoku-v0.1.0: commit
+   a43a0e3... is not on main".
+3. A ref that is not a tag: exit 1.
+4. `pawdoku-v0.1.0` against the manifest's 0.1.0: exit 0, "pawdoku-v0.1.0 is pawdoku
+   0.1.0".
+5. `pawdoku-v0.1.1`: exit 1, "the manifest of pawdoku says 0.1.0, so the tag must be
+   pawdoku-v0.1.0".
+6. `pawdoku-v0.1.0-rc`: exit 1, the same message.
+7. Package `pawdoku-wasm`: exit 1, "no package named pawdoku-wasm in the workspace".
+8. The existence check: pawdoku 0.1.0 gives "not on crates.io yet" and `exists=false`;
+   with the URL pointed at serde 1.0.228, `exists=true`. crates.io answers 404 for an
+   unknown API path too, so a wrong URL fails toward publishing, where `cargo publish`
+   refuses a version that exists.
+
+`just lint`: "Lint GitHub Actions workflow files....Passed". actionlint reads the
+composite `action.yml` for the `uses:` inputs and does not lint it on its own.
+
+**Step 5, the semver job.** `cargo semver-checks --help` (0.51.0) lists no `--locked`,
+`--offline` or `--frozen` and passes nothing through, so the recipe carries none and its
+comment says so. `just semver`: "semver: no pawdoku-v* tag yet, nothing to compare",
+exit 0. A probe that is not a gate, `cargo semver-checks -p pawdoku --baseline-rev
+49cde45`: "202 checks: 201 pass, 1 fail", `enum_no_repr_variant_discriminant_changed` on
+`ReopenError`, whose new first variant `Version` (T43) shifts the others; exit 100. So
+the job turns red on such a change and blocks nothing. The `semver` job in `ci.yml` is
+not in `check`'s `needs`.
+
+**The R1 checkpoint.** `just check` at `7aef24a`: "All checks passed and the worktree is
+unchanged."
+
+**Step 6 was not run** (Handed back): no `gh api` read of a `release` environment or a
+tag ruleset is quoted, because neither exists.
+
+**Step 7, the record.** `docs/decisions/0019-releases.md`, with its row in
+`docs/decisions/README.md` and its entry in `docs/manifest.yml`, in one commit. The
+index's held numbers now read 0017, 0018 and 0020; the next decision stays 0023.
+
+**Step 8, the prose.** `AGENTS.md` names two publishing workflows; `just check-agents`:
+"Validated AGENTS.md, 2 adapters, and 14 skills." `docs/operations/maintenance.md` gains
+"Cut a release" (steps 10 to 14 as a procedure, the UTC date, the 1.0 trigger), and
+"Per toolchain release" and "Secrets" are rewritten. The security model, quality gates,
+commands, configuration and repository map pages, decision 0007, `rust-toolchain.toml`'s
+comment and the CHANGELOG follow.
+
+**Step 9.** `just check-docs`: "Validated 47 pages and 48 canonical topics." `just
+check` after the commit `c5aa796`: "All checks passed and the worktree is unchanged.".
+
+`rg -n 'S02|later decision' AGENTS.md docs README.md SECURITY.md` still finds two lines,
+both in files Files touched gives to the second pull request: `README.md:97` and
+`docs/reference/api.md:57`.
+
 ### Deviations, and why
+
+- **One branch, no worktree.** Everything is on `implement-typescript-surface-fullsend`
+  (the run's brief); `branch: ticket/t13-release` is not used, and "after the first pull
+  request merges" is read as order on this branch.
+- **The frozen files.** Leave to edit the `Justfile`, `tools.txt`,
+  `rust-toolchain.toml` and `docs/manifest.yml` came with the run's brief, not from a
+  question asked in session. Each edit is a T00 follow-up carried here.
+- **pixi on the day was 0.84.1**, not the 0.83.0 the table names, for `pixi search`.
+- **`pixi.lock` was relocked with pixi 0.81.0.** 0.84.1's `pixi lock` rewrote
+  `__unix=0=0` to `__unix=0` in two places, and pixi 0.81.0, which CI's setup-pixi pins
+  with `locked: true`, refused that lock ("lock file not up-to-date with the
+  workspace"). So the lock was regenerated from HEAD's with `pixi exec --spec
+  'pixi==0.81.0' -- pixi lock`, which adds only cargo-semver-checks, and both versions
+  accept it.
+- **The dry run needed `--allow-branch`**, because this branch is neither `main` nor
+  `release/*`; the bare refusal is quoted above.
+- **The first guard also refuses a ref that is not a tag**, beyond the step's text: a
+  cheap belt for a run not started by a tag.
+- **`README.md` and `docs/reference/api.md` still name S02.** The acceptance criteria say
+  no page names S02 as a decision still to come after the first pull request, while
+  Files touched gives both files to the second. The per-file rows were followed.
+- **`release.yml` has two jobs, not step 4's one.** The final code review found that it
+  had no fail-closed preflight: a workflow naming a missing `release` environment gets
+  one GitHub creates unprotected, so a skipped or drifted setting would let a tag
+  publish with no reviewer. A `preflight` job, copied from `release-npm.yml` with the
+  pattern `refs/tags/pawdoku-v*`, holds no `id-token`, names no environment, and
+  `publish` needs it; `publish`'s steps, setup action and job-wide `id-token` are
+  unchanged ("The full setup in the privileged job"). Its script, taken from the file,
+  ran against T15's stub `gh` with the seven fixtures (two re-pointed at the core's
+  pattern): six refusals, exit 1, and step 6's configuration, exit 0; before the
+  change the harness found no preflight. Decision 0019's sentence that `release.yml`
+  waits on a missing environment is corrected.
+- **`release.yml` now has three jobs** (`preflight`, `build`, `publish`), by the
+  maintainer's answer of 2026-11-07 below: `build` takes the setup action, the guards
+  and a dry run, and `publish` keeps only the checkout, rustup's cargo, the existence
+  check, the auth action and the publish.
+- **Two pages outside Files touched are stale**: `docs/how-to/maintain-dependencies.md`
+  line 98 says `rust-version` moves with the toolchain, and
+  `docs/how-to/deploy-to-github-pages.md` line 11 says the library publishes one thing.
+  Neither was edited, so the change touches only Files touched paths (Handed back).
 
 ### Handed back
 
+- **Left for the maintainer**, none of it authorised in this run: step 6 (the `release`
+  environment with its reviewer and four tag policies, and the tag ruleset, read back
+  with `gh api`); steps 10 to 14 (the 0.1.0 release pull request, the tag, the token
+  publish, the trusted publisher, revoking the token, pushing the tag, docs.rs, and the
+  second pull request's pages, `docs/reference/api.md`, `SECURITY.md` and `README.md`);
+  every push, pull request, tag, token and setting. `status:` stays `open` and the index
+  row is unchanged.
+- **Until step 6 is done**, `release.yml`'s preflight refuses every `pawdoku-v*` tag,
+  and no trusted publisher is configured, so no tag can publish.
+- **R2**, before step 10, falls after the first pull request merges and was not run.
+- **T15** may start once the first pull request has merged; on this branch it follows.
+- **Two stale how-to sentences** for a later ticket: `maintain-dependencies.md` line 98
+  and `deploy-to-github-pages.md` line 11, above.
+- **A T00 follow-up**: CI pins pixi 0.81.0 with `locked: true`, and a newer pixi writes a
+  lock it refuses; relock with `pixi exec --spec 'pixi==0.81.0' -- pixi lock`.
+- **The semver job** turns red once a `pawdoku-v*` tag exists and the API breaks, as
+  T43's `ReopenError` change would; designed to report and not block before 1.0.
+
+### Adversarial review
+
+**R1 round 1** (Codex adversarial review, over `8949b4f..7aef24a`; the guards and
+`release.yml`, focus the token, the tag and the trust boundary). One finding.
+
+- **[high] OIDC authority is available before the release guards run**
+  (`release.yml` lines 42 to 55). Fact accepted: `id-token: write` is granted to the
+  whole `publish` job, so every step, the setup action and the guards included, could
+  request an identity token; ordering the steps orders the mint, not the capability.
+  The proposed restructuring, a read-only validation job and then a lean OIDC job, was
+  not taken: it reopens "The full setup in the privileged job", which the maintainer
+  settled on 2026-10-31, and it would not close the hole, because a tag push runs the
+  workflow file of the tagged commit, so an off-main tag can carry a `release.yml` with
+  no validation job at all. What stops a malicious tag is step 6, the tag ruleset and
+  the environment's required reviewer; the guards stop a mistaken tag. Fixed in
+  `d0428e1`: the workflow's comments, which read the step order as a security property,
+  now say `id-token` is job-wide, that ordering does not narrow it, and which control
+  stops which tag. `just lint` green. Decision 0019's Consequences say the same. The
+  negative test Codex suggested, an off-main tag reaching no OIDC-enabled job, needs a
+  live tag push and was not run. On 2026-11-07 the maintainer's answer adopted the
+  restructuring this finding proposed (Open points settled); the reasoning above for
+  not taking it stands as the record of round 1.
+
+R2 was not run (Handed back).
+
+**R1 round 3** (Codex adversarial review over the branch against `main`, model
+`gpt-6-astra`, thread `01a1b791-f60d-7751-a679-7a239ef109c5`; focus the release
+workflows). Needs attention, one finding, shared with T15.
+
+- **[high] Ruleset exclusions can bypass both release preflights** (`release.yml`
+  lines 78 to 81, and `release-npm.yml` line 75). Valid. The check refused only an
+  exclusion equal to `refs/tags/pawdoku-v*`, so a ruleset including that pattern and
+  excluding `refs/tags/pawdoku-v0.1.0` or `refs/tags/pawdoku-*` passed while GitHub,
+  which skips a ref any exclusion matches (the REST rulesets reference the reviewer
+  cites), left the tag unprotected. Reproduced red on the preflight harness: two new
+  fixtures, an exact-tag exclusion and an overlapping wildcard, exited 0 on both
+  workflows. Fixed in `a95f181`: a ruleset with any exclusion no longer counts, and the
+  preflight says so on stderr; it does not evaluate patterns (fnmatch, `~ALL`), so it
+  fails closed rather than reimplement GitHub's matching. A harmless exclusion belongs
+  in a separate ruleset, since any one qualifying ruleset passes. The two preflights
+  remained the same script apart from the pattern and the log prefix, until the code
+  review below made them one. Green: both new
+  fixtures and the six earlier refusals exit 1 and `protected` exits 0 on both
+  workflows; `split.rb` passes on `release.yml`; `just lint` and `just check-docs`
+  green. The maintenance page's readback now names the empty exclusion list. Not yet
+  reviewed by Codex. The reviewer's note that its read-only sandbox blocked `just
+  check` is an environment note, not a finding.
+
+**Code review** (Claude Code's `/code-review high`, over the branch against `main`,
+2026-11-07; answered in the working tree and not yet committed, so no commit is named).
+Two findings on the release workflows, shared with T15.
+
+- **[low] The preflight script was duplicated** (`release.yml` and `release-npm.yml`,
+  thirty lines apart from the pattern and the log prefix, which `a95f181` had to patch
+  twice). Valid. Fixed: the composite action `.github/actions/release-preflight`, with
+  inputs `pattern` and `label` passed through `env:` as `release-guards` passes its
+  `package`; each preflight job is a shallow `actions/checkout` at the SHA the workflows
+  already pin, with `persist-credentials: false`, then the action. The checkout changes
+  no stated property: decision 0019 and the maintenance page already say the preflight
+  stops drift, not malice, because a tagged commit can rewrite the workflow, and the
+  action is in the same commit. A reusable workflow would need no checkout but would be a
+  fourth workflow file beside `AGENTS.md`'s "there are three". Proof, local only: the
+  preflight harness gained `run-action.sh` (`ai_tmp/t13/preflight/`, gitignored), which
+  reads the pattern and the label from the workflow's `with:` and the script from the
+  action, and runs the nine fixtures with the stub `gh`: eight exit 1 and `protected`
+  exits 0, for both workflows, with each line prefixed `release` or `release-npm`.
+  `split.rb` now requires the preflight action in `publish`'s `needs`, and passes.
+  actionlint's hook is scoped to `.github/workflows/`, so it checks the `with:` inputs
+  against the action's `inputs:` and not the action's shell, as it did not check
+  `release-guards`'s; the gate's shellcheck hook selects shell files by type and reaches
+  no YAML. So the gate's own shellcheck binary was run by hand, as bash, over the script
+  the harness extracts from the action: clean. The other hooks ran over the new file by
+  path (`prek run --files`), since the gate skips an untracked file: all passed. The CI
+  run is not proved until a tag (Handed back). The repository map lists the action.
+- **[low] `cargo publish --dry-run` ran ad hoc in `build`** (`release.yml`), against
+  `AGENTS.md`'s "never invent a command" and "Just is the only supported interface to the
+  checks". Valid. Fixed: a `release-dry-run` recipe beside `semver`, outside `just check`
+  because it reaches the network for the registry index; `build` runs
+  `just release-dry-run`, and `publish` keeps its raw `cargo publish`, since it runs no
+  `just` by design. `docs/reference/commands.md` gains the row and lists the recipe among
+  those outside `just check`; `docs/reference/quality-gates.md` names the recipe.
+  Decision 0019 and the "Open points settled" entry above keep the raw command as the
+  record of what was decided. `split.rb` reads the recipe's body from the `Justfile` for
+  the dry run and `--locked`. `just -n release-dry-run` prints the command; the recipe
+  was not run here, because it reaches crates.io.
+
 ### Open points settled
+
+- **Split `release.yml`** (maintainer, 2026-11-07), superseding the 2026-10-31 answer
+  "the full setup in the privileged job" in the Context. In the shape of
+  `release-npm.yml`: `preflight` unchanged; `build`, read-only and needing `preflight`,
+  runs the setup action, `just check-toolchain`, the guards and `cargo publish --dry-run
+  --locked -p pawdoku`; `publish`, needing both, alone holds `id-token: write` in the
+  `release` environment and runs the checkout, `rustup toolchain install`, the existence
+  check, `rust-lang/crates-io-auth-action` and `cargo publish --locked`, with no setup
+  action, `just`, pixi or `tools.txt` binary. The pinned SHAs and the existence check
+  are unchanged. Decision 0019 records the answer and its two costs: dependency build
+  scripts and proc macros still compile beside the token, and the publish job's
+  toolchain comes from rustup, not the `just` path. Proof, local only: a structural check
+  over the workflow (`ai_tmp/t13/preflight/split.rb`, gitignored like the rest of the
+  harness, so the proof is this record, not a committed test) refused the old file with
+  five findings (no `build` job; `publish` used the setup action, the guards action and
+  `just`, and did not need `build`) and passes the new one: only `publish` holds
+  `id-token`, it uses no local action, `just`, pixi or `.tools` binary, `build` holds no
+  write scope and runs the setup action, the guards and the dry run, and every job
+  naming `release` needs the preflight. The preflight harness on the new file: six
+  fixtures exit 1, step 6's exit 0. The CI run is not proved until a tag (Handed back).
 
 ## Open points
 

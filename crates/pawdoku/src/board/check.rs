@@ -35,8 +35,10 @@ use crate::sudoku::Position;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[non_exhaustive]
 pub struct Check {
+    // Derived: the field names are the wire names, each the specification's.
     index: usize,
     after_move: usize,
     target: Position,

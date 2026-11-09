@@ -1,0 +1,172 @@
+name: Release to GitHub Packages
+
+# Publishes @steven-cutting/pawdoku-wasm to GitHub Packages on a
+# `pawdoku-wasm-v*` tag (decision 0020). cargo-release prepares the version on
+# the maintainer's machine and the release commit reaches main through a pull
+# request; the maintainer tags the merge commit and pushes the tag, and this
+# workflow publishes it once the `release` environment's reviewer approves, as
+# release.yml does for the core (decision 0019).
+#
+# Three jobs, so that the write token never meets the repository's own code.
+# `preflight` refuses unless the environment and the tag ruleset are in place;
+# `build` runs the setup action, the guards and the build with a read-only
+# token; `publish` alone holds `packages: write`, and runs no checkout, no
+# setup action and no `just`, only npm on the package `build` uploaded.
+
+on:
+  push:
+    # Quoted for the reason ci.yml gives.
+    tags: ['pawdoku-wasm-v*']
+
+# Read-only unless a job says otherwise; the publish job adds packages alone.
+permissions:
+  contents: read
+
+# One run per tag, and never cancel one: a publish stopped half way through is
+# worse than a second run waiting for the first.
+concurrency:
+  group: release-npm-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: '0'
+  CARGO_NET_RETRY: '10'
+  RUST_BACKTRACE: '1'
+
+jobs:
+  # A workflow that names a missing environment does not wait: GitHub creates
+  # it with no protection rules and runs the job. So before any job names
+  # `release`, this one runs the composite action under
+  # .github/actions/release-preflight, the same check release.yml runs with
+  # its own pattern, which fails closed unless the environment has a required
+  # reviewer and an active tag ruleset covers `refs/tags/pawdoku-wasm-v*`,
+  # excludes no ref, and restricts creating, updating and deleting it. This
+  # job names no environment itself, so it cannot create one. It defends
+  # against a skipped or drifted setting, not against a malicious tag: a tagged
+  # commit can rewrite this file and the action, which only the ruleset and the
+  # reviewer stop.
+  preflight:
+    name: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # actions: read for the environment; the rulesets need metadata alone.
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      # A shallow checkout, which reaches the composite action and nothing
+      # else: the check reads the repository's settings, not its code.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/release-preflight
+        with:
+          pattern: 'refs/tags/pawdoku-wasm-v*'
+          label: release-npm
+
+  # Everything that runs the repository's code, with the read-only token: the
+  # setup action, whose install step hands cargo-binstall that token, the
+  # guards and the build.
+  build:
+    name: build
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      # The full history, which the guards' merge-base needs.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      # The pixi environment holds the pinned wasm-pack and wasm-bindgen.
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: release-npm
+      - run: just check-toolchain
+      # A tag off main, or one that disagrees with the manifest, stops here,
+      # before anything is built and before the publish job starts.
+      - uses: ./.github/actions/release-guards
+        with:
+          package: pawdoku-wasm
+      - run: just wasm-build
+      # The package exactly as built; publish downloads it. Its package.json
+      # lists its files, so wasm-pack's hidden .gitignore, which the upload
+      # leaves out, changes nothing that is packed.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pawdoku-wasm-pkg
+          path: crates/pawdoku-wasm/pkg/
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: publish
+    needs: [preflight, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # The environment's required reviewer approves each run, and its
+    # deployment policies admit the four release tag patterns alone.
+    environment: release
+    # packages: write lets the run's own GITHUB_TOKEN publish to and read from
+    # this repository's packages; nothing else is stored or minted. No
+    # id-token: npm provenance is undocumented for GitHub Packages. Nothing
+    # here writes to the repository, and nothing here is the repository's
+    # code: no checkout, no setup action, no `just`. npm is the runner image's
+    # own, not the pixi environment's pinned Node, because reaching that would
+    # mean running the setup action with this job's token (decision 0020).
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: pawdoku-wasm-pkg
+          path: pkg
+      # npm reads a project .npmrc only at the root of the project it runs in,
+      # the nearest directory up holding a package.json, so the file goes in
+      # pkg/ and both npm steps run there; elsewhere the scope would resolve
+      # to registry.npmjs.org. The token is written as a literal
+      # `${NODE_AUTH_TOKEN}` for npm to expand, never as its value. npm pack
+      # never includes an .npmrc.
+      - name: Point the scope at GitHub Packages
+        working-directory: pkg
+        run: printf '%s\n' '@steven-cutting:registry=https://npm.pkg.github.com' "//npm.pkg.github.com/:_authToken=\${NODE_AUTH_TOKEN}" > .npmrc
+      # A re-run must not fail on a version that is already there. GitHub
+      # Packages needs a token to read a package as well as to publish one. The
+      # guards proved the tag is `pawdoku-wasm-v` and the manifest's version, so
+      # the suffix is that version. Only npm's E404, which it gives both for a
+      # package never published and for a version it lacks, lets the publish
+      # run; a refused token or no network fails the job.
+      - id: published
+        name: Is this version already on GitHub Packages
+        working-directory: pkg
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          version=${GITHUB_REF_NAME#pawdoku-wasm-v}
+          # Outside pkg/, so nothing of this step can be packed.
+          err="$RUNNER_TEMP/npm-view.err"
+          status=0
+          found=$(npm view "@steven-cutting/pawdoku-wasm@$version" version 2> "$err") || status=$?
+          if [ "$status" -eq 0 ] && [ "$found" = "$version" ]; then
+            printf '%s\n' "@steven-cutting/pawdoku-wasm $version is already on GitHub Packages; nothing to publish"
+            echo 'exists=true' >> "$GITHUB_OUTPUT"
+          elif [ "$status" -ne 0 ] && grep -q 'E404' "$err"; then
+            printf '%s\n' "@steven-cutting/pawdoku-wasm $version is not on GitHub Packages yet"
+            echo 'exists=false' >> "$GITHUB_OUTPUT"
+          else
+            cat "$err" >&2
+            printf 'npm view exited %s and printed "%s" for @steven-cutting/pawdoku-wasm %s; refusing to guess\n' "$status" "$found" "$version" >&2
+            exit 1
+          fi
+      # Lifecycle scripts are ignored: the package has none, and a publish runs
+      # nothing it was not built with. NODE_AUTH_TOKEN is on this step and the one
+      # above alone.
+      - if: steps.published.outputs.exists == 'false'
+        name: Publish
+        working-directory: pkg
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm publish --ignore-scripts

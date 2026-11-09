@@ -9,6 +9,51 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- The WebAssembly crate's place in the repository (decision 0020); the crate and the
+  npm package keep their own changelog, `crates/pawdoku-wasm/CHANGELOG.md`.
+  `just wasm-build` packs `@steven-cutting/pawdoku-wasm` with wasm-pack in
+  `--mode no-install` once `just lock-check` has passed, because wasm-pack would
+  otherwise rewrite a stale `Cargo.lock`; then `scripts/wasm_pkg.py` adds the
+  specification modules under `specs/`, the crate's changelog and an `exports` map.
+  `just wasm-test`, gate 20, runs the crate's tests in Node; both first run
+  `just wasm-guard`, which stops unless the wasm-bindgen CLI is the version `Cargo.lock`
+  resolves. `pyproject.toml` pins wasm-pack, wasm-bindgen-cli and Node. CI's `wasm` job
+  runs both recipes and keeps the package as an artifact, and `release-npm.yml`
+  publishes it to GitHub Packages on a `pawdoku-wasm-v*` tag, after the release guards.
+  `just coverage` now measures `pawdoku` alone, which is what its floor is over.
+- `just wasm-package-test`, which checks the package `just wasm-build` wrote as a
+  consumer meets it: the core's JSON snapshots, a strict consumer and a declaration
+  module type-checked by `tsc` against its declarations, and a game played in Node.
+  CI's `wasm` job runs it after `wasm-build`. `just wasm-build` now runs `wasm-opt` at
+  `-O3` and first requires the pinned binaryen. `pyproject.toml` pins `binaryen` and
+  `typescript`.
+- Play from a record, `pawdoku::board::{open, play, read, reading_after}`, from
+  `board.allium`'s `PlayingFromARecord`: a caller that holds no board hands each call a
+  record and one `Operation`, and is handed back a `Played`, the record after it, a
+  `BoardView` of the board and, after a check, the `Check` it added; or a
+  `FromRecordError`. Each call is the held board's own operations composed, so both ways
+  give the same values, and nothing is kept between calls. `BoardView::of` and
+  `ReadingAfter::of` give the same values of a held board; `Board` gains no method.
+  Under the `serde` feature every value `Playing`, `SearchResult` and the generation
+  result expose serialises in one wire shape (snake_case fields, PascalCase enum
+  values, an absent digit `null`), and `Operation` also deserialises, tagged by `kind`.
+  `generation::generate_from_seed` and `generate_from_stream` give a
+  `GenerationResult`, what replays a puzzle and never its solution, or a
+  `GenerationRefused`. `Record`'s wire shape is unchanged.
+- The release machinery (decision 0019). cargo-release, pinned in `tools.txt`, cuts a
+  release on the maintainer's machine through `[workspace.metadata.release]` and
+  `pawdoku`'s `[package.metadata.release]`, which moves this file's unreleased entries
+  under the new version; it never publishes and never pushes. `release.yml` publishes
+  `pawdoku` to crates.io through trusted publishing on a `pawdoku-v*` tag, in the
+  `release` environment, after the release guards, a composite action every release
+  workflow shares, refuse a tag off `main` or one that disagrees with the manifest. A
+  second shared action, the release preflight, refuses the tag before any job names the
+  environment unless it has a required reviewer and an active tag ruleset restricts the
+  tags. The `build` job runs `just release-dry-run`, which packages the crate and
+  verifies that it builds without publishing, before the `publish` job holds a token. A
+  `semver` job in CI runs `just semver`, cargo-semver-checks against the last
+  `pawdoku-v*` tag, pinned in `pyproject.toml`; it reports and never blocks before 1.0.
+  The crate ships `LICENSE`. "Cut a release" in the maintenance page has the procedure.
 - The API reference hosted on GitHub Pages at
   <https://steven-cutting.github.io/libpawdoku/>, republished from `main` on every push
   by a workflow of its own. `just site` builds what is served: `just doc`, and a root
@@ -71,8 +116,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   they cite, and an eighth, `board.allium`, for a puzzle as it is being played.
 - A handbook of twenty-five pages under `docs/`, held to the documentation contract and
   reachable from its map.
-- Sixteen architecture decision records, from the engine as a library of its own to the
-  API reference on GitHub Pages.
+- Eighteen architecture decision records, from the engine as a library of its own to a
+  record that names its format version.
 - A `metrics` gate, seventh in `just check`: rustqual, built from source from its pin in
   `tools-source.txt`, holds thresholds for complexity, cohesion and coupling and the
   module boundaries of the layering table, with a probe that proves the boundary rules
@@ -84,5 +129,25 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Comment sentences changed in `board.allium`, `sudoku.allium` and `solver.allium`: why
   the solver is imported, the proof a puzzle may be set with, undo and redo no longer
   said to run no rule, and a search's status, read from being handed the search.
+
+### Changed
+
+- `pawdoku` is publishable: its manifest no longer inherits the workspace's
+  `publish = false`, which stays for every crate that writes `publish.workspace = true`.
+  `rust-version` no longer follows the toolchain pin; it rises only on purpose, in a
+  minor release (decision 0019).
+- `board.allium` states play from a record, the contract and surface
+  `PlayingFromARecord`: a board opened from givens, an operation put to a record, a
+  record read, and the board as it stood after one move of a record, each in a call that
+  keeps nothing and hands back the record with what `Playing` shows, the readings after
+  a move on asking. It adds no rule: each call is reopening, one of `Playing`'s
+  operations and writing, composed (decision 0021).
+- Every record names its format version, `pawdoku::board::RECORD_VERSION`, `"record-1"`,
+  and `Board::reopen` refuses a record of another version, or of none, with
+  `ReopenError::Version`, before any other refusal; no compatibility across versions is
+  promised. A record's serialised shape gains a first field, `version`. Under the
+  `serde` feature, `RecordVersion` reads a record's version alone, for the bindings
+  (decision 0022). `board.allium`'s `config` gains `record_version`, and `Recording`
+  the invariant `ARecordNamesItsVersion`.
 
 [Unreleased]: https://github.com/steven-cutting/libpawdoku/commits/main/

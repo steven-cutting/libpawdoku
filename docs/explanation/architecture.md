@@ -10,8 +10,8 @@ requires: []
 
 This library is a library and nothing else. It has no process of its own: no `main`, no
 I/O, no clock, and nothing it can do until a consumer calls it. The game consumes it
-through WebAssembly later; a command-line tool and Python bindings consume it later
-still, as sibling crates in the same workspace.
+through WebAssembly, the sibling crate `crates/pawdoku-wasm`; a command-line tool and
+Python bindings consume it later, as sibling crates in the same workspace.
 
 That constraint is not a limitation waiting for a runtime to be added — it is the
 architecture. See [Decision 0001](../decisions/0001-engine-as-a-library.md) for why the
@@ -24,8 +24,8 @@ The root `Cargo.toml` is a virtual manifest: it names the members, the package f
 every crate inherits, the dependency table every crate draws from, and the
 `[workspace.lints]` table every crate opts into. `Cargo.lock` beside it is the pin.
 
-`crates/pawdoku` is the engine and today the only member. `src/lib.rs` is the crate
-root, `src/random.rs` is the randomness boundary, `src/sudoku.rs` with the files under
+`crates/pawdoku` is the engine, and `crates/pawdoku-wasm` its first binding. In the
+engine, `src/lib.rs` is the crate root, `src/random.rs` is the randomness boundary, `src/sudoku.rs` with the files under
 `src/sudoku/` is the rules, `src/solver.rs` with the files under `src/solver/` is the
 solver, `src/board.rs` with the files under `src/board/` is the board, and `tests/`
 holds the integration tests. Behaviour arrives
@@ -33,10 +33,15 @@ as one Rust module per specification module, and a module may use only what its
 specification imports, in the direction
 [Layering and dependency direction](layering.md) describes.
 
-Three siblings join when ticket S04 opens them: `crates/pawdoku-cli`,
-`crates/pawdoku-py` (pyo3, built with maturin) and `crates/pawdoku-wasm`
-(wasm-bindgen). None exists yet. Every decision below is taken so that each stays a thin
-wrapper when it arrives.
+`crates/pawdoku-wasm` is the WebAssembly binding, built with wasm-bindgen and packed by
+wasm-pack as the npm package `@steven-cutting/pawdoku-wasm`, which also ships the
+specification modules under `specs/`
+([decision 0020](../decisions/0020-webassembly-package.md)). It exports the engine two
+ways, a `Board` class held for a puzzle's life and the stateless functions of play from
+a record, beside `search`, generation from a seed or a `RandomStream`, and the three
+versions. Two
+siblings join later: `crates/pawdoku-cli` and `crates/pawdoku-py` (pyo3, built with
+maturin). Every decision below is taken so that each binding stays a thin wrapper.
 
 ## The core is `no_std`
 
@@ -240,7 +245,7 @@ record is a plain value the caller is handed and keeps wherever it likes. The en
 no storage effect, no format and no format crate; under the `serde` feature a `Record`
 serialises through whatever format a consumer brings.
 
-**A record is minimal.** It holds the givens; the moves in the order made, each with
+**A record is minimal.** Beside its format version, it holds the givens; the moves in the order made, each with
 its kind, its target and its digit; how many of them are undone; and each check's count
 of moves, target and digit. It holds nothing that can be worked out from those: no
 cell's digit, no note, nothing a move displaced or upkeep struck, no check's answer.
@@ -260,8 +265,8 @@ first time, which is what makes the reopened board exact
 **Deserialising checks nothing; reopening checks everything.** A record's fields are
 private, but a deserialised record is whatever its source held, so `Board::reopen` is
 where a record is judged. It returns a `Result` and never panics. A record that does
-not read back is refused with a `ReopenError` that says why, in a fixed order: more
-moves undone than moves, or checks and no move; givens the solver refuses; a move the
+not read back is refused with a `ReopenError` that says why, in a fixed order: a format
+version other than this engine's, or none; more moves undone than moves, or checks and no move; givens the solver refuses; a move the
 board refuses, or one that follows the move that solved the puzzle; moves undone on a
 solved puzzle; and a check no board answers. The two counts are asked before the search, so a
 record that fails them costs no search.
@@ -274,8 +279,62 @@ a move, and its digit is not the right one for a puzzle with a single cell to pl
 which would have solved the puzzle before anything could be asked. Its digit is not
 compared with any move, and its count of moves may exceed
 the moves the record holds. Its answer is never stored, so a record cannot lie about
-it. `Record`'s documentation says the same, and that no promise is made yet that a
-record written by one version of the engine reopens in another.
+it. `Record`'s documentation says the same.
+
+**A record names its format version.** Every record names `RECORD_VERSION`,
+`"record-1"`, the board's `config.record_version`, and under the `serde` feature that is
+its first field, `version`. The name is raised whenever what a record holds changes, or
+what reopening reads from it. `Board::reopen` refuses a record that names another
+version, or none, before it reads anything else, and the refusal names both versions;
+no promise is made that a later engine reads a record of an earlier one. A binding reads
+a record's version alone first, through `RecordVersion`, so that a record of a later
+shape is refused with that text and not with its format's error
+([decision 0022](../decisions/0022-a-record-names-its-version.md)).
+
+## Play from a record
+
+`board.allium`'s `PlayingFromARecord` is built in `board/from_record.rs` as four free
+functions: `open` from givens, `play` one `Operation` on a record, `read` a record's
+view, and `reading_after` one of its moves. A caller that holds no board hands each call
+a record and keeps the record it is handed back; nothing is kept between calls. TypeScript
+and Python offer both ways of driving a board, a held `Board` and these functions, and
+both bindings reach them here.
+
+**It composes the held board's own operations.** `play` reopens the record with
+`Board::reopen`, makes the operation with the board's own method, under its own guards,
+and writes the board again with `Board::write`. `read` and `reading_after` reopen and
+read. So the two ways give the same records, views, readings and refusals by
+construction, and `tests/from_record.rs` holds it for every scripted game and by
+property (`TheSameBoardFromEitherWay`). A refusal is a `FromRecordError`: the record's
+`ReopenError` first, then the board's `PlayError`, each with its own text, or an index
+that names no move. The record handed over is borrowed and never changed.
+
+**It costs a reopening per call.** Every call puts the givens to the solver again and
+replays every move, so a call grows with the game. That is cheap enough for a call per
+move, which S12 measured, and not for a call per frame; a caller that scrubs through a
+game holds a board instead.
+
+**Why it lives in the core.** The bindings crates depend on the engine and never on one
+another, so the core is the one place both can reach. Two copies, one per binding, would
+drift from each other and from the surface.
+
+**What a call hands out is plain values, in one wire shape.** `Played` is the record
+after a call, a `BoardView` of the board after it and, after a check only, the `Check`
+it added. `BoardView` is everything `Playing` exposes but the readings after the moves,
+which `ReadingAfter` gives one move at a time, because all of a long game's readings
+are many times the size of its view. `BoardView::of` and `ReadingAfter::of` give the
+same values of a held board, as associated functions, so `Board` keeps its nineteen
+methods. Under the `serde` feature each of these serialises, with the values inside them
+and `SearchResult`, field names snake_case and the specification's, enum values
+PascalCase, an absent digit `null`, a cell's note absent while not shown, and no value
+flattened. `Operation` and `Record` also deserialise; nothing else is read back.
+
+`generation::generate_from_seed` and `generate_from_stream` give the generator's side
+the same treatment: a `GenerationResult` holding the tier, the seed when there is one,
+the stream's index at the start, the draws taken, both versions and the givens, which is
+what replays the puzzle, and never the solution. A refusal is a `GenerationRefused`
+with the tier and the draws taken beside the `GenerateError`. `generate` is unchanged,
+and both are built on it.
 
 ## The generator
 
@@ -324,7 +383,7 @@ above it; `Tier::most_givens` says which.
 
 | Consumer | Crosses | Through |
 | --- | --- | --- |
-| WebAssembly | Values and the seed | wasm-bindgen |
+| WebAssembly | Both ways of playing, a held `Board` and play from a record; plain values in the core's wire shape, each with a TypeScript interface, the record as `BoardRecord`; a seed and a generation result's counts as `bigint`s; errors as an `Error` named for the engine's error type, its message the `Display` text | wasm-bindgen and serde-wasm-bindgen, in `pawdoku-wasm` |
 | Python | Values and the seed; errors as exceptions | pyo3 |
 | Command line | Values, and the one source of entropy | `pawdoku-cli` |
 
@@ -342,6 +401,10 @@ its puzzle's solution, and a record does not. A consumer that wants a game kept 
 visits writes the board, serialises the record through the `serde` feature in a format
 of its choosing, keeps it where it likes, and reopens it. Whatever comes back is
 checked at reopening, not at deserialising.
+
+What a binding hands out of a game, a search or a generation crosses in one wire shape,
+the core's `Serialize` under the `serde` feature, so both bindings show the same values
+for either way of driving a board ([Play from a record](#play-from-a-record)).
 
 ## What is not here
 

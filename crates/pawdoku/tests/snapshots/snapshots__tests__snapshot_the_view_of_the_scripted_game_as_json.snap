@@ -1,0 +1,767 @@
+---
+source: crates/pawdoku/tests/snapshots.rs
+expression: "BoardView::of(&played(&THE_SCRIPTED_GAME))"
+---
+{
+  "status": "Unsolved",
+  "is_full": false,
+  "is_consistent": false,
+  "can_undo": true,
+  "can_redo": true,
+  "cells": [
+    {
+      "row": 1,
+      "column": 1,
+      "digit": 5,
+      "is_given": true,
+      "is_conflicting": true
+    },
+    {
+      "row": 1,
+      "column": 2,
+      "digit": 3,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 1,
+      "column": 3,
+      "digit": 4,
+      "is_given": false,
+      "is_conflicting": false
+    },
+    {
+      "row": 1,
+      "column": 4,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": [
+        6
+      ]
+    },
+    {
+      "row": 1,
+      "column": 5,
+      "digit": 7,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 1,
+      "column": 6,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 1,
+      "column": 7,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 1,
+      "column": 8,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 1,
+      "column": 9,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 2,
+      "column": 1,
+      "digit": 6,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 2,
+      "column": 2,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": [
+        1
+      ]
+    },
+    {
+      "row": 2,
+      "column": 3,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 2,
+      "column": 4,
+      "digit": 1,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 2,
+      "column": 5,
+      "digit": 9,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 2,
+      "column": 6,
+      "digit": 5,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 2,
+      "column": 7,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 2,
+      "column": 8,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 2,
+      "column": 9,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 3,
+      "column": 1,
+      "digit": 5,
+      "is_given": false,
+      "is_conflicting": true
+    },
+    {
+      "row": 3,
+      "column": 2,
+      "digit": 9,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 3,
+      "column": 3,
+      "digit": 8,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 3,
+      "column": 4,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 3,
+      "column": 5,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 3,
+      "column": 6,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 3,
+      "column": 7,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 3,
+      "column": 8,
+      "digit": 6,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 3,
+      "column": 9,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 4,
+      "column": 1,
+      "digit": 8,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 4,
+      "column": 2,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 4,
+      "column": 3,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 4,
+      "column": 4,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 4,
+      "column": 5,
+      "digit": 6,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 4,
+      "column": 6,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 4,
+      "column": 7,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 4,
+      "column": 8,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 4,
+      "column": 9,
+      "digit": 3,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 5,
+      "column": 1,
+      "digit": 4,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 5,
+      "column": 2,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 5,
+      "column": 3,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 5,
+      "column": 4,
+      "digit": 8,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 5,
+      "column": 5,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 5,
+      "column": 6,
+      "digit": 3,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 5,
+      "column": 7,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 5,
+      "column": 8,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 5,
+      "column": 9,
+      "digit": 1,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 6,
+      "column": 1,
+      "digit": 7,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 6,
+      "column": 2,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 6,
+      "column": 3,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 6,
+      "column": 4,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 6,
+      "column": 5,
+      "digit": 2,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 6,
+      "column": 6,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 6,
+      "column": 7,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 6,
+      "column": 8,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 6,
+      "column": 9,
+      "digit": 6,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 7,
+      "column": 1,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 7,
+      "column": 2,
+      "digit": 6,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 7,
+      "column": 3,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 7,
+      "column": 4,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 7,
+      "column": 5,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 7,
+      "column": 6,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 7,
+      "column": 7,
+      "digit": 2,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 7,
+      "column": 8,
+      "digit": 8,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 7,
+      "column": 9,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 8,
+      "column": 1,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 8,
+      "column": 2,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 8,
+      "column": 3,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 8,
+      "column": 4,
+      "digit": 4,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 8,
+      "column": 5,
+      "digit": 1,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 8,
+      "column": 6,
+      "digit": 9,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 8,
+      "column": 7,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 8,
+      "column": 8,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 8,
+      "column": 9,
+      "digit": 5,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 9,
+      "column": 1,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 9,
+      "column": 2,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 9,
+      "column": 3,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 9,
+      "column": 4,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 9,
+      "column": 5,
+      "digit": 8,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 9,
+      "column": 6,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 9,
+      "column": 7,
+      "digit": null,
+      "is_given": false,
+      "is_conflicting": false,
+      "note": []
+    },
+    {
+      "row": 9,
+      "column": 8,
+      "digit": 7,
+      "is_given": true,
+      "is_conflicting": false
+    },
+    {
+      "row": 9,
+      "column": 9,
+      "digit": 9,
+      "is_given": true,
+      "is_conflicting": false
+    }
+  ],
+  "moves": [
+    {
+      "index": 1,
+      "kind": "WriteMark",
+      "target": {
+        "row": 1,
+        "column": 4
+      },
+      "digit": 4,
+      "is_undone": false
+    },
+    {
+      "index": 2,
+      "kind": "WriteMark",
+      "target": {
+        "row": 1,
+        "column": 4
+      },
+      "digit": 6,
+      "is_undone": false
+    },
+    {
+      "index": 3,
+      "kind": "WriteMark",
+      "target": {
+        "row": 1,
+        "column": 4
+      },
+      "digit": 9,
+      "is_undone": false
+    },
+    {
+      "index": 4,
+      "kind": "StrikeMark",
+      "target": {
+        "row": 1,
+        "column": 4
+      },
+      "digit": 9,
+      "is_undone": false
+    },
+    {
+      "index": 5,
+      "kind": "WriteMark",
+      "target": {
+        "row": 1,
+        "column": 3
+      },
+      "digit": 2,
+      "is_undone": false
+    },
+    {
+      "index": 6,
+      "kind": "Place",
+      "target": {
+        "row": 1,
+        "column": 3
+      },
+      "digit": 4,
+      "is_undone": false
+    },
+    {
+      "index": 7,
+      "kind": "Place",
+      "target": {
+        "row": 2,
+        "column": 2
+      },
+      "digit": 3,
+      "is_undone": false
+    },
+    {
+      "index": 8,
+      "kind": "Erase",
+      "target": {
+        "row": 2,
+        "column": 2
+      },
+      "digit": null,
+      "is_undone": false
+    },
+    {
+      "index": 9,
+      "kind": "Place",
+      "target": {
+        "row": 3,
+        "column": 1
+      },
+      "digit": 5,
+      "is_undone": false
+    },
+    {
+      "index": 10,
+      "kind": "WriteMark",
+      "target": {
+        "row": 2,
+        "column": 2
+      },
+      "digit": 1,
+      "is_undone": false
+    },
+    {
+      "index": 11,
+      "kind": "Place",
+      "target": {
+        "row": 2,
+        "column": 2
+      },
+      "digit": 7,
+      "is_undone": true
+    }
+  ],
+  "checks": [
+    {
+      "index": 1,
+      "after_move": 6,
+      "target": {
+        "row": 1,
+        "column": 3
+      },
+      "digit": 4,
+      "is_right": true
+    },
+    {
+      "index": 2,
+      "after_move": 7,
+      "target": {
+        "row": 2,
+        "column": 2
+      },
+      "digit": 3,
+      "is_right": false
+    }
+  ]
+}

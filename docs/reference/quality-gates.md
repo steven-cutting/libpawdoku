@@ -23,9 +23,9 @@ is ignored.
 | 6 | `clippy` | Every lint in the workspace table is clean over every crate target and feature, for the host platform, with warnings as errors. |
 | 7 | `metrics` | Every function is within the complexity, length, nesting and parameter thresholds and none that holds logic calls itself, every struct within the cohesion and size thresholds, every file within the length threshold, every module within the coupling thresholds, and no module names one the layering table forbids it by a `crate::` path (relative paths, an alias of the crate and re-exports through `lib.rs` are out of the rules' sight, as [Layering](../explanation/layering.md) records); and the probe below proves the boundary rules are live. |
 | 8 | `features` | Every feature combination compiles. |
-| 9 | `wasm-check` | The core compiles for `wasm32-unknown-unknown`, the target wasm-bindgen uses, and for `wasm32v1-none`, which has no standard library: the proof that the core is `no_std`. |
+| 9 | `wasm-check` | The core compiles for `wasm32-unknown-unknown`, the target wasm-bindgen uses, and for `wasm32v1-none`, which has no standard library: the proof that the core is `no_std`. `pawdoku-wasm` compiles for the first; wasm-bindgen needs the standard library, so the second is the core's alone. |
 | 10 | `test-doc` | Every doc example compiles and passes. |
-| 11 | `coverage` | Every unit and integration test passes, and line coverage is at or above the floor. Doctests are gate 10's. |
+| 11 | `coverage` | Every unit and integration test of `pawdoku` passes, and line coverage of `crates/pawdoku/src/**` is at or above the floor. Doctests are gate 10's; the WebAssembly crate's tests are gate 20's. |
 | 12 | `doc` | rustdoc is warning-free under `--cfg docsrs`, intra-doc links and missing docs included. |
 | 13 | `deny` | Every dependency that ships has an allowed licence, no banned crate is in that graph, and every source is crates.io. Development dependencies are outside the graph. |
 | 14 | `deps-unused` | No crate declares a dependency it does not use. |
@@ -34,7 +34,8 @@ is ignored.
 | 17 | `check-specs` | Every specification reports an empty `diagnostics` array. |
 | 18 | `analyse-specs` | Every specification reports an empty `findings` array too. |
 | 19 | `snapshots-check` | Every snapshot matches, and no `.snap` file is unreferenced. Runs all tests through cargo-insta and nextest, with every feature, without writing snapshots or pending files. |
-| 20 | `check-clean` | The run changed nothing. |
+| 20 | `wasm-test` | The WebAssembly crate's tests pass in Node: `crates/pawdoku-wasm/tests/web.rs` and `tests/surface.rs`, compiled for `wasm32-unknown-unknown` and run by `wasm-bindgen-test-runner`, after the guard that the CLI is the version `Cargo.lock` resolves for `wasm-bindgen`. |
+| 21 | `check-clean` | The run changed nothing. |
 
 Gates 4 and 5 also run inside `lint`, as two of its hooks. The duplication is deliberate:
 a regression names itself in the list of gates rather than being one line inside `lint`.
@@ -137,7 +138,7 @@ environments.
 | --- | --- |
 | `rust` | `check-toolchain`, `lock-check`, `fmt-check`, `toml-check`, `clippy`, `metrics`, `features`, `test`, `snapshots-check`, `doc`, `deps-unused` |
 | `coverage` | `coverage`, then uploads `lcov.info` as an artifact kept for seven days |
-| `wasm` | `wasm-check` |
+| `wasm` | `wasm-check`, `wasm-test`, then `wasm-build` and `wasm-package-test`, and uploads the package in `crates/pawdoku-wasm/pkg/` as an artifact kept for seven days |
 | `deny` | `deny` |
 | `documents` | `install-allium`, `lint`, `check-docs`, `check-agents`, `check-specs`, `analyse-specs` |
 
@@ -150,6 +151,13 @@ The mapping is not one to one. `rust` runs `test`, where the gate runs `test-doc
 runs its recipes directly rather than through `just check`. Past the composite setup action,
 nothing in CI runs a command that does not exist in the `Justfile`.
 
+A seventh job, `semver`, runs `just semver`: cargo-semver-checks reports API breaks in
+`pawdoku` against the last `pawdoku-v*` tag, and says there is nothing to compare while
+there is none. It is not a gate and not among `check`'s `needs`, because before 1.0 a
+break is allowed with a minor bump; it reports and never blocks. The pull request that
+prepares 1.0 adds it to `check`'s `needs`
+([Maintenance](../operations/maintenance.md#cut-a-release)).
+
 `.github/workflows/audit.yml` runs `just audit` on every pull request, weekly, and by
 hand. It is never a required check: a fetch of the advisory database can fail for reasons
 that have nothing to do with the diff.
@@ -160,6 +168,19 @@ its `deploy` job publishes that to GitHub Pages, and only from `main`. It is not
 neither job is among `check`'s `needs`, so it is never a required check, and a
 deployment that fails blocks no merge. [Deploy to GitHub Pages](../how-to/deploy-to-github-pages.md)
 has the procedure.
+
+`.github/workflows/release.yml` runs on a `pawdoku-v*` tag and publishes `pawdoku` to
+crates.io through trusted publishing. A `preflight` job refuses the tag unless the
+`release` environment has a required reviewer and an active tag ruleset restricts the
+`pawdoku-v*` tags. Then `build`, with a read-only token, runs `check-toolchain` after
+the same setup action, the release guards, the composite action under
+`.github/actions/release-guards`, which refuse a tag whose commit is not on `main` or
+that is not `pawdoku-v` and the manifest's version, and `release-dry-run`.
+Then `publish` waits for the environment's approval and, with no setup action and no
+`just`, installs rustup's pinned toolchain, exchanges the run's identity token for a
+crates.io token and runs `cargo publish` unless the version is already there. Like `pages.yml`, it is not a gate
+and never a required check. [Maintenance](../operations/maintenance.md#cut-a-release)
+has the procedure, and [decision 0019](../decisions/0019-releases.md) the reasons.
 
 ## On `main`
 

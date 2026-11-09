@@ -18,7 +18,10 @@
 //! cell and every move made, takes the latest move back and re-takes it, reads back
 //! the board as it stood after any move, and answers a check of one cell yes or no. It
 //! is written down as a [`board::Record`], a plain value the caller keeps, and reopened
-//! from one as the same board. [`generation`] is the fourth, from the basic way of
+//! from one as the same board. A caller that holds no board plays from records instead:
+//! [`board::play`] reopens a record, makes one [`board::Operation`] and hands back the
+//! record after it with a [`board::BoardView`] of the board, the same values a held
+//! board gives. [`generation`] is the fourth, from the basic way of
 //! `docs/specs/generation.allium`: [`generation::generate`] makes a puzzle from a
 //! [`generation::Tier`] and a stream of draws, by a published method that draws a full
 //! grid and takes givens away while the solver's verdict stays one.
@@ -42,6 +45,29 @@
 //! // The third cell of the first row is empty, and its digit is 4.
 //! board.place(Position::new(1, 3), 4)?;
 //! assert!(board.check(Position::new(1, 3))?.is_right());
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
+//! The same game played from records, with nothing held between calls:
+//!
+//! ```
+//! use pawdoku::board::{Operation, open, play};
+//! use pawdoku::sudoku::{Given, Position};
+//!
+//! // `givens` are the thirty givens of the example above.
+//! # let givens = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"
+//! #     .bytes()
+//! #     .zip(0_u8..)
+//! #     .filter(|(cell, _)| cell.is_ascii_digit())
+//! #     .map(|(cell, at)| Given::new(Position::new(at / 9 + 1, at % 9 + 1), cell - b'0'));
+//! let here = Position::new(1, 3);
+//! let opened = open(givens)?;
+//!
+//! // Each call takes the record the last one handed back.
+//! let placed = play(opened.record(), Operation::Place { position: here, digit: 4 })?;
+//! let checked = play(placed.record(), Operation::CheckCell { position: here })?;
+//! assert!(checked.check().is_some_and(|check| check.is_right()));
+//! assert_eq!(checked.view().moves().len(), 1);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!

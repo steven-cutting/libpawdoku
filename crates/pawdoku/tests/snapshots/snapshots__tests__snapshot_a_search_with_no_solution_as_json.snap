@@ -1,0 +1,9 @@
+---
+source: crates/pawdoku/tests/snapshots.rs
+expression: "search([Given::new(Position::new(0, 10), 3)])"
+---
+{
+  "verdict": "NoSolution",
+  "guesses": 0,
+  "solutions": []
+}

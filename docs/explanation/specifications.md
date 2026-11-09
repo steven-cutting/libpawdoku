@@ -36,8 +36,10 @@ cell, the four moves a player makes and their exact undo and redo, the board as 
 after any move, the check of one cell against the solution, and the record a board is
 written to and had again from. It imports the rules and the solver: every placement and
 erasure still goes to the rules' own moves, and the check reads the one solution the
-solver finds. It states a `contract`, as `human-solving.allium` does, which names what
-writing a record and reopening it must satisfy and no form for either.
+solver finds. It states two `contract`s, as `human-solving.allium` states one: what
+writing a record and reopening it must satisfy, and play from a record, a board's
+operations put to a record a caller hands over in calls that keep nothing. Neither
+names a form.
 `solver.allium` states what `sudoku.allium` leaves a black box: the search that gives a
 set of givens its verdict — no solution, one or many — and the work that search may be
 seen to do, and nothing about how it is stored or made fast. It imports the rules and is
@@ -84,9 +86,14 @@ each removal only while the solver's verdict stays one
 
 The game's root module, `pawdoku.allium`, stays in the game. Allium has no
 cross-repository import, so the game restates the clauses it needs and holds them equal
-to this repository's text by a test on its own side. Until the WebAssembly package ships
-the modules inside it, that text is shared truth across two repositories and can drift
-silently: a change to a module here is a change the game has to see.
+to this repository's text by a test on its own side. The WebAssembly package,
+`@steven-cutting/pawdoku-wasm`, ships every module here under `specs/`, and its
+`exports` map makes each one reachable as
+`@steven-cutting/pawdoku-wasm/specs/<module>.allium`
+([decision 0020](../decisions/0020-webassembly-package.md)). The game's test can
+therefore read the text of the version it installed and hold its restatements to it, so
+a change to a module here is one the game sees when it takes the new version, not one
+that drifts silently.
 
 ## Open questions are a feature
 

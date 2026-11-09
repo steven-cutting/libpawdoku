@@ -84,7 +84,8 @@ jobs:
   wasm:
     name: wasm
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Twenty, not ten: wasm-build is a release build with fat LTO.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -93,6 +94,22 @@ jobs:
         with:
           cache-key: wasm
       - run: just wasm-check
+      - run: just wasm-test
+      # The package release-npm.yml would publish, built the same way; never
+      # published from here.
+      - run: just wasm-build
+      # The package as a consumer meets it: the declarations type-checked against
+      # the core's snapshots, a strict consumer and a declaration module, then a
+      # game played in Node through initSync.
+      - run: just wasm-package-test
+      # For a reviewer to read package.json, specs/ and LICENSE before a
+      # release; nothing downstream consumes it.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pawdoku-wasm-pkg
+          path: crates/pawdoku-wasm/pkg/
+          if-no-files-found: error
+          retention-days: 7
 
   deny:
     name: deny
@@ -137,6 +154,26 @@ jobs:
       # reason.
       - run: just check-specs
       - run: just analyse-specs
+
+  # API breaks in pawdoku against the last pawdoku-v* tag. Not in check's
+  # `needs`: before 1.0 a break is allowed with a minor bump, so this job
+  # reports one and never blocks a merge. It joins `needs` at 1.0, and the
+  # 1.0 release carries that change (docs/operations/maintenance.md, "Cut a
+  # release"). The full history, because the recipe finds the tag with
+  # `git describe` and builds the baseline from it.
+  semver:
+    name: semver
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: semver
+      - run: just semver
 
   # The one required check (CONVENTIONS.md §10). It needs every gate job and
   # fails if any of them failed, was cancelled or was skipped, so protection

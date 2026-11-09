@@ -1,7 +1,7 @@
 ---
 id: T43
 title: "A record names its format version: the clause in board.allium, then the field, the refusal and the decision"
-status: open
+status: done
 depends_on: [T40]
 parallel_with: [T13, T15, S12]
 branch: ticket/t43-record-version
@@ -103,8 +103,10 @@ spec-change record.
 `board.allium` states that a record names the format version it was written under and
 that reopening refuses a record naming another, with both versions in the refusal, and
 says no promise is made that a later engine reads an earlier version. The core builds
-it: `pawdoku::board::RECORD_VERSION`, a version field in every record written, and a
-refusal with stable `Display` text that `Board::reopen` reports before any other. Both
+it: `pawdoku::board::RECORD_VERSION`, a version field in every record written, a
+refusal with stable `Display` text that `Board::reopen` reports before any other, and,
+under the `serde` feature, a small value that reads a record's version alone, so that
+every binding shares that reading. Both
 specification gates are clean with no waiver, `just check` is green, and a decision
 record says why.
 
@@ -115,7 +117,8 @@ record says why.
 - A format, or anything about where a record is kept: still the caller's.
 - Any other change to what a record holds or to what reopening checks.
 - The bindings: T41 builds play from a record on this record, T42 exports
-  `RECORD_VERSION` to TypeScript and T17 to Python.
+  `RECORD_VERSION` to TypeScript and T17 to Python, and each reads a record's version
+  through the value step 3 adds, which is this ticket's and not theirs.
 - Any change to `sudoku.allium`, `solver.allium` or `generation.allium`.
 
 ## Files touched
@@ -123,10 +126,10 @@ record says why.
 | Path | Class | Change |
 | --- | --- | --- |
 | `docs/specs/board.allium` | specification | `config` gains `record_version`; `contract Recording` states the version (step 2); three comments gain the version as their one exception: `external entity Record`'s, `Recording`'s preamble, and the Scope's "The record" bullet |
-| `crates/pawdoku/src/board/record.rs` | core | `RECORD_VERSION`; the private version field; `ReopenError::Version`; the check; "# Across versions" and the doctests rewritten; unit tests (steps 3 to 5) |
-| `crates/pawdoku/src/board.rs` | core | The re-export of `RECORD_VERSION`; `Board::reopen`'s list of refusals gains the version, first; the module documentation's paragraph on the record |
+| `crates/pawdoku/src/board/record.rs` | core | `RECORD_VERSION`; the private version field; `ReopenError::Version`; the check; the version-only value under `serde`; "# Across versions" and the doctests rewritten; unit tests (steps 3 to 5) |
+| `crates/pawdoku/src/board.rs` | core | The re-exports of `RECORD_VERSION` and the version-only value; `Board::reopen`'s list of refusals gains the version, first; the module documentation's paragraph on the record |
 | `crates/pawdoku/tests/board.rs` | core tests | A record of another version is refused through the public API (step 4) |
-| `crates/pawdoku/tests/api_bounds.rs` | core tests | Only if the version brings a new public type: its bounds |
+| `crates/pawdoku/tests/api_bounds.rs` | core tests | The version-only value's bounds, under the `serde` feature |
 | `crates/pawdoku/tests/snapshots.rs` | core tests | `snapshot_the_reopening_refusals` gains the version refusal (step 6) |
 | `crates/pawdoku/tests/snapshots/*.snap` | snapshots | The record's two snapshots and the refusals', re-accepted (step 6) |
 | `docs/explanation/architecture.md` | explanation | "The record": the version, the refusal, and no promise across versions (step 7) |
@@ -147,10 +150,9 @@ record says why.
    `just install-allium` if `.tools/bin/allium` is absent; each uses the network and this
    ticket authorises it. Run `just check`, `just check-specs`, `just analyse-specs` and
    `just plan-spec board`, and quote their closing lines and the count of obligations.
-   Confirm with the maintainer that `docs/manifest.yml` may be edited here, for the
-   record's entry in the same commit as the record; without it, stop. Put the first
-   three Open points to the maintainer, each with its proposal, and record each answer,
-   dated, under "Open points settled" before writing a clause.
+   The maintainer has confirmed that `docs/manifest.yml` may be edited here, for the
+   record's entry in the same commit as the record, and has answered the first three
+   Open points; the answers are under "Open points settled".
 
 2. **The clause**, written with the `tend` skill in the module's voice:
 
@@ -207,6 +209,15 @@ record says why.
    - `Board::reopen` checks the version first, before the counts, because nothing else
      in a record of another version can be trusted to mean what this engine reads. Its
      list of refusals in order gains the version at the head.
+   - **Reading the version alone.** Under the `serde` feature, a public
+     `#[non_exhaustive]` value in `record.rs`, re-exported from `pawdoku::board`, proposed
+     `RecordVersion`, that deserialises a record's `version` field and ignores every
+     other, and that gives the same `ReopenError::Version` refusal `Board::reopen` gives
+     when the version it read is not `RECORD_VERSION`. It takes a record that names none,
+     and a record of a later shape whose other fields it could not read. T42 and T17 read
+     through it before the rest of a record, so that a record of another shape is refused
+     by the version refusal's text and not by the format's error. It is a reading, not a
+     second check: `Board::reopen` still checks the record it is handed.
    - The "# Across versions" paragraph of `Record`'s documentation is rewritten: a
      record names its format version, `RECORD_VERSION`; reopening refuses a record that
      names another or none; no promise is made that a later engine reads an earlier
@@ -226,6 +237,9 @@ record says why.
      crate, because the sequence form cannot leave out a first field;
    - under `serde`, a record's serialised form with another version deserialises and is
      refused naming that version;
+   - under `serde`, the version-only value reads a record's serialised form with its
+     other fields renamed or missing, and gives the version refusal naming what it read,
+     or no version; given a record of this engine's version it gives no refusal;
    - every record `write` gives names `RECORD_VERSION`, and the round trip through
      `write` and `reopen`, and through the serialised form, still holds:
      `ReopeningIsExact` and `WritingChangesNothing` stand;
@@ -293,6 +307,12 @@ record says why.
    `just check-docs`, then `just check`, quoted. Set `status: done` and the index row.
    Commit, and ask before pushing.
 
+**Adversarial review**, by the procedure in `tickets/README.md`, "Adversarial
+review":
+
+- **R1**, after step 2 and before step 3: the clause, before any Rust. Focus: the refusal's order and what a record must name.
+- **R2**, after step 8 and before step 9: the Rust, before `status: done`. Focus: the refusal's order and the wire shape.
+
 ## Acceptance criteria
 
 - `just check-specs` and `just analyse-specs` report no diagnostics and no findings for
@@ -303,6 +323,9 @@ record says why.
 - `pawdoku::board::RECORD_VERSION` exists with a doctest; every record written names
   it; `Board::reopen` refuses a record of another version, or of none, with
   `ReopenError::Version` before any other refusal, and never panics.
+- Under the `serde` feature, the version-only value is public, re-exported from
+  `pawdoku::board`, meets invariant 3 with a doctest, and gives the same refusal as
+  `Board::reopen`.
 - Each test of step 4 passes; each `Display` text is pinned; the coverage floor holds.
 - The three snapshots are re-accepted, and the notes quote the JSON one.
 - The decision record is in the manifest and the index.
@@ -315,7 +338,7 @@ just check-specs
 just analyse-specs
 just plan-spec board
 rg -n 'record_version|ARecordNamesItsVersion' docs/specs/board.allium
-rg -n 'RECORD_VERSION|Version \{' crates/pawdoku/src/board/record.rs crates/pawdoku/src/board.rs
+rg -n 'RECORD_VERSION|RecordVersion|Version \{' crates/pawdoku/src/board/record.rs crates/pawdoku/src/board.rs
 cargo test -p pawdoku --features serde --locked record
 just snapshots-check
 git diff --stat main -- docs/specs crates/pawdoku/tests/snapshots
@@ -334,13 +357,244 @@ only paths in Files touched.
 
 ### What was verified, and how
 
+Run on 2026-11-07 on the branch `implement-typescript-surface-fullsend`, from
+`a3cb5db6baee0a456cec93bbd6d59a1dbc8df6b3`, with allium 3.6.1 from `.tools/bin`.
+
+- **Before any clause.** `just check`: "All checks passed and the worktree is
+  unchanged." `just check-specs`: "allium check: 9 specifications, no diagnostics and
+  no findings." `just analyse-specs`: "allium analyse: 9 specifications, no diagnostics
+  and no findings." `just plan-spec board`: 88 obligations.
+- **After the clause.** Both specification gates read as before, every module clean,
+  with no waiver; each was run after the config line, after `Recording`, and after the
+  three comments. `just plan-spec board`: 89 obligations. The one added is
+  `config-default.record_version`. `allium plan` derives nothing from a prose
+  `@invariant`, so `ARecordNamesItsVersion` reaches the test list from its text.
+- `external entity Record` is still `{}`; no rule, top-level invariant, surface or
+  `use` line changed, and `contract PlayingFromARecord` is untouched.
+
 ### The test list
+
+Written before any Rust, from the clause and the obligations; revisited after every
+red-green loop.
+
+1. `config-default.record_version`: `RECORD_VERSION` is `"record-1"` (a doctest).
+2. `ARecordNamesItsVersion`, the write half: every record `write` gives names
+   `RECORD_VERSION`.
+3. `ARecordNamesItsVersion`, the refusal: a record of another version is refused through
+   `Board::reopen` with `ReopenError::Version`, naming both versions.
+4. `ARecordNamesItsVersion`, the order: that refusal comes first when the record also
+   fails in another way.
+5. Under `serde`, a record's serialised form with the version field removed, handed over
+   by name through a hand-written `MapAccess`, deserialises and is refused naming no
+   version.
+6. Under `serde`, a record's serialised form with another version deserialises and is
+   refused naming that version.
+7. Under `serde`, the version-only value reads a record's form with its other fields
+   renamed or missing and gives the version refusal naming what it read, or none; given
+   this engine's version it gives no refusal.
+8. `ReopeningIsExact` and `WritingChangesNothing` stand: the round trip through `write`
+   and `reopen`, and through the serialised form, still holds.
+9. Each `Display` text of the new variant is pinned.
+10. `ReopenError` and the version-only value are `Send + Sync + 'static`, `Clone` and
+    `Debug` (`tests/api_bounds.rs`).
+
+**The Rust, test first (steps 3 to 5).** Each item of the list above was written red
+and turned green, and the list revisited after each loop; it gained no item. Where each
+is proved:
+
+1. `RECORD_VERSION`'s doctest.
+2. `every_record_written_names_this_version` (`record.rs`): fresh, in play and solved.
+3. `a_record_of_another_version_is_refused` (`record.rs`), on a record sound in every
+   other way; `a_record_of_another_version_is_refused_first` (`tests/board.rs`, under
+   `serde`) through the public API.
+4. `refusals_come_in_a_fixed_order` (`record.rs`) now opens with a record naming none,
+   then `"record-0"`; the public-API test's record also fails its count and its givens.
+5. `a_record_with_no_version_field_deserialises_and_is_refused` (`record.rs`), through a
+   hand-written `MapAccess`, `Named`, which hands fields over by name.
+6. `a_serialised_record_of_another_version_is_refused_naming_it` (`record.rs`), with
+   the same fields naming this engine's version reaching the givens.
+7. `the_version_alone_is_read_from_any_shape` (`record.rs`): a later shape a `Record`
+   cannot be read from, a record naming none, and this engine's version; and
+   `RecordVersion`'s doctest.
+8. The existing round trips through `write` and `reopen` stand unchanged
+   (`tests/board.rs`, the record section and the exactness property). No test
+   round-trips the serialised form: that needs a format crate, which the core's tests do
+   not take, so the JSON snapshot shows it and the deserialising tests above hold the
+   by-name and positional readings.
+9. `reopening_refusal_texts_are_stable` gains both texts; `Record`'s "# Across versions"
+   doctest pins the first.
+10. `public_types_are_send_sync_and_static` and `public_types_are_clone_and_debug`
+    (`tests/api_bounds.rs`) still name `ReopenError`, green; the new
+    `the_version_reading_is_send_sync_clone_and_debug` holds `RecordVersion` to the
+    same bounds and to `DeserializeOwned`.
+
+The two existing tests the ticket names changed as it says:
+`a_record_holds_what_it_states_and_no_answer` lists `version` first among the stated
+fields; the `Fields` sequence helper hands over five fields, the version first, and
+`a_malformed_record_deserialises_and_is_refused_at_reopening` reads it twice: with
+`RECORD_VERSION`, refused for its own fault, `TooManyUndone`; with `"record-0"`, refused
+for the version.
+
+**Step 5's gates**, on 2026-11-07. `just fmt-check`: `cargo fmt --all --check`, no
+output. `just clippy`: "Finished `dev` profile [unoptimized + debuginfo] target(s)".
+`just metrics`: "::notice::Quality score: 100.0% (724 functions analyzed)", the probe
+passing. `just test`: "316 tests run: 316 passed, 0 skipped", and the doctests "124
+passed; 0 failed".
+
+**Step 6, the snapshots.** `just snapshots-accept` accepted three, and each was read
+whole. `snapshot_the_record_of_the_scripted_game` gains `version: "record-1",` as the
+first field of `Record { ... }`; `snapshot_the_reopening_refusals` gains two lines at
+its head:
+
+```text
+a record of another format version: the record is of format version "record-0", and this engine reads "record-1"
+a record that names no format version: the record names no format version, and this engine reads "record-1"
+```
+
+The JSON one, `snapshot_the_record_of_the_scripted_game_as_json`, changes in one line:
+the record's serialised shape gains a first field, `version`, and nothing else in it
+moves. Its head:
+
+```json
+{
+  "version": "record-1",
+  "givens": [
+    {
+      "position": {
+        "row": 1,
+        "column": 1
+      },
+      "digit": 5
+    },
+```
+
+and the rest, thirty givens, eleven moves, `"undone": 1` and two checks, is as it was.
+
+**Step 7.** `rg -n 'RANDOM_VERSION|GENERATION_VERSION' docs/reference/api.md` finds
+nothing on 2026-11-07, so `api.md` is unchanged. `pawdoku 0.1.0` is not published (T13
+has not run on this branch), so the changelog entry carries no 0.2.0 sentence.
+`just check-docs`: "Validated 46 pages and 47 canonical topics."
+
+**Step 8.** Decision 0022, as the brief projects it; the index row, the manifest entry
+(a T00 follow-up, confirmed), and "The next decision this repository takes is 0023."
+
+**Step 9.** `just plan-spec board`: 89 obligations, as after the clause; the Rust adds
+none, as a clause's obligations come from the specification alone. `just check-docs`:
+"Validated 46 pages and 47 canonical topics." `just check`, run after the ticket's last
+commit, is quoted in the commit range's closing report rather than here, since these notes
+are part of that commit; it was green at `4471852`: "All checks passed and the worktree is
+unchanged."
 
 ### Deviations, and why
 
+- **One branch.** The work is on `implement-typescript-surface-fullsend`, after S12 and
+  T40, not on `ticket/t43-record-version` from `main`; step 1's worktree and the merge
+  condition are met by order on that branch. `.pixi/` and `.tools/bin` were present, so
+  no install ran.
+- **The refusal in `reopen`'s comment comes first.** The version sentence opens
+  `reopen`'s comment, ahead of `SetPuzzle`, so the text reads in the order of the
+  refusals.
+- **`PlayingFromARecord`'s preamble is unchanged.** Its "It names no form, as Recording
+  names none" still holds: a version is not a form, and `Recording`'s preamble now says
+  beyond the version it names no form. Its refusal invariant already sends a record that
+  does not reopen to `reopen`'s refusal, which now begins with the version.
+
+- **The variant's fields.** `ReopenError::Version { named: Option<String>, reads:
+  &'static str }`. `named` is `None` when the record names none, so a binding tells the
+  two texts apart without parsing; an empty `version` string reads as none, which is
+  what `#[serde(default)]` gives a missing field. `reads` is always `RECORD_VERSION`.
+  The `Display` text quotes both with `{:?}`, so a hostile version string prints
+  escaped.
+- **`require` in `record.rs` is no longer a `const fn`.** `ReopenError` now holds a
+  `String`, whose destructor cannot run in a constant function.
+- **`RecordVersion`** derives `Debug`, `Clone`, `PartialEq`, `Eq` and `Deserialize`, not
+  `Serialize`: it only reads. Two methods: `named()`, the version or `None`, and
+  `readable()`, `Ok` or the same refusal `Board::reopen` gives. Both go through one
+  private function, `versioned`, so the refusal is the same code path.
+- **The public-API test is under `serde`.** A record's fields are private, so a record of
+  another version reaches `Board::reopen` from outside the crate only by deserialising.
+  Its helper, `Arriving`, is a second hand-written `MapAccess`, smaller than `Named`.
+
 ### Handed back
 
+- **To T41.** A record names `RECORD_VERSION`, and `Board::reopen` refuses another, or
+  none, with `ReopenError::Version { named, reads }` before any other refusal, so it is
+  the first refusal of `play`, `read` and `reading_after` with nothing to add.
+  `ReopenError` now holds a `String`, so a function returning it cannot be `const`.
+  `Board` keeps its method count; the new code is free and associated functions.
+- **To T42 and T17.** Read a record through `pawdoku::board::RecordVersion` (under
+  `serde`) before the rest of it: `named()` gives the version or `None`, and `readable()`
+  gives `Ok` or the same refusal `Board::reopen` gives, whose `Display` text is the one to
+  throw. By name it ignores every other field; in order it takes the first element as the
+  version and reads every later one past as `IgnoredAny`, which needs a format that says
+  what each value is. A positional format that does not is the limit decision 0022
+  records. Every later version keeps the field's name, `version`, and its type, a string.
+- **To T13.** The changelog entry under `[Unreleased]`, Changed, carries no 0.2.0
+  sentence, since `pawdoku 0.1.0` was not published when it was written; if it is by the
+  time this reaches a release, the entry gains it as step 7 says.
+
+### Adversarial review
+
+- **R1, round 1**, after step 2, on the range from the start to the checkpoint
+  `1adf64d`, focus the refusal's order and what a record must name: approved with no
+  findings. The reviewer's note that its sandbox could not run `just check` is an
+  environment note, not a finding.
+- **R2, round 1**, after step 8, on the range to the checkpoint `333dee6`, focus the
+  refusal's order and the wire shape. One finding, medium, judged valid: `RecordVersion`'s
+  derived `Deserialize` read one element of a record handed over as a sequence and left
+  the rest, so a format that refuses a sequence left part read (serde's own
+  `SeqDeserializer` does; the finding said a JSON array does too, which was not checked
+  here, as no format crate is in the workspace) refused the whole record before
+  `readable()` could give the version refusal. A red test,
+  `the_version_alone_is_read_from_a_record_handed_over_in_order`, showed one of five
+  fields read. Answered in `4471852`: `RecordVersion` gains a hand-written `Deserialize`
+  that by name defers to a private derived reading, so field names and ignored fields
+  behave as before, and in order reads the first element as the version (a missing one
+  reads as none) and every later one past as `IgnoredAny`. The test reads a full record
+  of this version through the counting `Fields` helper, all five handed over and readable,
+  and a later shape through serde's exhaustion-checking `SeqDeserializer`, refused naming
+  `"record-9"`. `RecordVersion`'s documentation and decision 0022's Consequences state the
+  limit: reading past needs a format that says what each value is, or one that hands over
+  no more than the version. `docs/reference/testing.md`'s `board/record.rs` row names the
+  in-order case. `just check` was green at `4471852`.
+- **R2, round 2**, Codex, on the range from `a3cb5db`. One finding, medium, judged
+  valid: `RecordVersion`'s `Deserialize` asked for the struct `RecordVersion`, while a
+  record is serialised under the name `Record`, so a format that checks a struct's name
+  on reading would refuse every record, of this version or a later one, before
+  `readable()` could give the version refusal. serde's value deserialisers ignore the
+  name, which is why the tests missed it. A red test,
+  `the_version_alone_is_read_from_a_format_that_checks_the_name`, reads through a
+  deserialiser that refuses any struct name but `Record`; `Record` itself read through
+  it, and `RecordVersion` was refused. Answered in `6177365`: the reading asks for
+  `Record`, and its documentation says so; the test reads a record of this version as
+  readable and a later shape refused naming `"record-9"`. `just wasm-test` stayed
+  green. The reviewer's note that its sandbox could not run `just check` is an
+  environment note, not a finding.
+- **Round 3** (2026-11-07, the maintainer's OK for a third round over fixes landed
+  after the two-round limit; here `6177365`), Codex `gpt-6-astra` (confirmed in Codex's log, thread
+  `01a1b790-d5f6-7aa2-9028-29a273c7337b`), with `--base main`, focus the core's late
+  fixes `6177365` and `64f0463`: refusal order, the version reader on every record shape,
+  and invariant 3. Approved with no findings: it found the version refused before shape
+  and content, the reading asked for under `Record`, the public types' bounds and
+  `GenerationRefused`'s `source()` as the contracts state them. Nothing was valid,
+  invalid or the maintainer's, so no commit answers it. The run was short, about 36
+  seconds, and did not report attacking each record shape one by one. Its note that its
+  read-only sandbox could not run `just check` is an environment note; `just check` ran
+  here at `79c080b`.
+
 ### Open points settled
+
+Answered by the maintainer on 2026-11-06:
+
+- **The version string, and the field's name:** `"record-1"`, and `version`, first among
+  the serialised record's fields, as proposed.
+- **Whether the refusal names the engine's crate version too:** no, format versions only,
+  as proposed.
+- **A record of a later shape may not reach `Board::reopen`:** the alternative, over the
+  proposal. The core reads the version alone: a small value under the `serde` feature,
+  shared by T42 and T17, so the bindings do not each write that reading. Files touched,
+  Non-goals, step 3, step 4 and the acceptance criteria above are amended to match, and
+  so are T42's steps 1, 4, 5 and 7.
 
 ## Open points
 

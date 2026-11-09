@@ -8,9 +8,10 @@ requires: []
 
 # Repository map
 
-The repository root is a Cargo workspace with one member today, the engine at
-`crates/pawdoku`. The command-line, Python and WebAssembly crates will sit beside it
-under `crates/` as siblings, each depending on the engine and none on another.
+The repository root is a Cargo workspace with two members: the engine at
+`crates/pawdoku`, and its WebAssembly binding at `crates/pawdoku-wasm`. The command-line
+and Python crates will sit beside them under `crates/` as siblings, each binding
+depending on the engine and none on another.
 
 ```text
 .
@@ -26,28 +27,36 @@ under `crates/` as siblings, each depending on the engine and none on another.
 ├── deny.toml               Licences, bans, sources and advisories
 ├── .config/nextest.toml    The test runner's profiles
 ├── crates/
-│   └── pawdoku/            The engine
-│       ├── src/
-│       │   ├── lib.rs      The crate root: no_std with alloc, every public item
-│       │   ├── board.rs    The board in play: opening, the moves, undo and redo, the check, writing and reopening
-│       │   ├── board/      The board's parts: the cell, the note, the move, the journal, the reading, the check, the refusal, the record
-│       │   ├── generation.rs  The basic generator: the tiers, the one entry and its refusal
-│       │   ├── generation/ The generator's parts: a choice among n, the orders, the solution grid, removal
-│       │   ├── random.rs   The randomness boundary and its fake
-│       │   ├── solver.rs   The solver's two entries, search and solve, and its refusal
-│       │   ├── solver/     The solver's parts: candidates, the branch, the search, the result
-│       │   ├── sudoku.rs   The rules: the grid's figures and the value types
-│       │   └── sudoku/     The rules' parts: the proof, the puzzle, the test fixture
-│       │       └── snapshots/  Committed .snap pictures of the puzzle and its errors
-│       └── tests/          Integration tests: the API bounds, the boundary, the rules, the solver, the board, the generator
-│           └── snapshots/  Committed .snap pictures of public values
+│   ├── pawdoku/            The engine
+│   │   ├── LICENSE         A symlink to the root LICENSE, so the package ships it
+│   │   ├── src/
+│   │   │   ├── lib.rs      The crate root: no_std with alloc, every public item
+│   │   │   ├── board.rs    The board in play: opening, the moves, undo and redo, the check, writing and reopening
+│   │   │   ├── board/      The board's parts: the cell, the note, the move, the journal, the reading, the check, the refusal, the record
+│   │   │   ├── generation.rs  The basic generator: the tiers, the one entry and its refusal
+│   │   │   ├── generation/ The generator's parts: a choice among n, the orders, the solution grid, removal
+│   │   │   ├── random.rs   The randomness boundary and its fake
+│   │   │   ├── solver.rs   The solver's two entries, search and solve, and its refusal
+│   │   │   ├── solver/     The solver's parts: candidates, the branch, the search, the result
+│   │   │   ├── sudoku.rs   The rules: the grid's figures and the value types
+│   │   │   └── sudoku/     The rules' parts: the proof, the puzzle, the test fixture
+│   │   │       └── snapshots/  Committed .snap pictures of the puzzle and its errors
+│   │   └── tests/          Integration tests: the API bounds, the boundary, the rules, the solver, the board, the generator
+│   │       └── snapshots/  Committed .snap pictures of public values
+│   └── pawdoku-wasm/       The WebAssembly binding, packed as @steven-cutting/pawdoku-wasm
+│       ├── LICENSE         A symlink to the root LICENSE, so the package ships it
+│       ├── CHANGELOG.md    The crate's and the package's own changelog
+│       ├── README.md       The package's readme, copied into it by wasm-pack
+│       ├── src/lib.rs      The exports: RandomStream, randomVersion and the panic hook
+│       ├── tests/web.rs    The tests, run in Node by wasm-bindgen-test-runner
+│       └── pkg/            What just wasm-build writes; gitignored
 ├── tests/fixtures/         The metrics probe's fixture, never compiled
 ├── docs/                   This handbook, plus specs/
 │   └── specs/              The Allium modules: behaviour is decided here
-├── scripts/                The first-run script
+├── scripts/                The first-run script, and the WebAssembly package's finishing step
 ├── .agents/skills/         Canonical agent procedures
 ├── allium-skill-reference/ Reference material the Allium skills link to
-├── .github/                CI, the audit and Pages workflows and the composite setup action
+├── .github/                CI, the audit, Pages and the two release workflows, and two composite actions: setup and the release guards
 ├── AGENTS.md               Engineering conventions and the agent working agreement
 ├── Justfile                Every supported command
 ├── pyproject.toml          The pixi manifest: every other tool, Python and prek
@@ -62,11 +71,13 @@ under `crates/` as siblings, each depending on the engine and none on another.
 | `crates/pawdoku/src/` | Pure behaviour. Given the same input it returns the same output, always; the one effect, randomness, sits behind the trait `random.rs` defines. `sudoku.rs` and `sudoku/` are the rules of `sudoku.allium`: `proof.rs` the proof a puzzle is set from, `puzzle.rs` the puzzle in play, `fixture.rs` what their tests share. `solver.rs` and `solver/` are the search of `solver.allium`: `candidates.rs` a set of digits, `branch.rs` one grid of candidates with the propagation rules and the split, `search.rs` the stack of waiting branches, `result.rs` what a search hands back. `board.rs` and `board/` are the board in play of `board.allium`: `cell.rs` a cell as the board shows it, `note.rs` a cell's marks and the grid of them, `moves.rs` a move as the board hands it out, `journal.rs` the moves as the board keeps them, `reading.rs` the board as it stood after a move, `check.rs` a check, `error.rs` the refusal, `record.rs` a board written down, reopening and its refusal. `generation.rs` and `generation/` are the basic generator of `generation.allium`: `choice.rs` how a draw chooses among `n`, `order.rs` the four orders of removal, `grid.rs` the solution grid and its grid attempts, `removal.rs` the visits and what each decides. Every public item is documented, and its example is a test. |
 | `crates/pawdoku/tests/` | Integration tests: the bounds every public type must meet, the randomness boundary through its fake, the rules with a puzzle solved and set from outside, the solver's two entries (`solver.rs`), the board's rules clause by clause (`board_rules.rs`), and a whole game, arbitrary scripts and the record written and reopened, all through the board (`board.rs`), and the generator through its one entry, with the two tests that pin what seeds give (`generation.rs`). `snapshots.rs` holds the snapshot tests of the solver, the proof, the board, the record and the generator, and no test that asserts; the randomness boundary's one snapshot stays in `random.rs`. `snapshots/` holds the committed pictures, for review and change detection. Unit tests sit in the module they test, a stated deviation recorded in decision 0009. |
 | `docs/specs/` | The Allium specifications. Behaviour is decided here, not in code. |
-| `scripts/` | `initialize.sh`, the first-run script. The two validators, the allium installer and runner, the gate runner and the ripsecrets wrapper are console scripts of `biscuit-games-tooling`, pinned in `pyproject.toml`. |
+| `crates/pawdoku-wasm/` | The WebAssembly binding: glue that exports the engine's values to JavaScript and nothing of its own. `src/lib.rs` is every export, `tests/web.rs` its tests, run in Node by `just wasm-test`. `just wasm-build` writes the npm package into `pkg/`, which Git ignores (decision 0020). |
+| `scripts/` | `initialize.sh`, the first-run script, and `wasm_pkg.py`, which `just wasm-build` runs to put the specification modules and the crate's changelog into the npm package and give it an `exports` map. The two validators, the allium installer and runner, the gate runner and the ripsecrets wrapper are console scripts of `biscuit-games-tooling`, pinned in `pyproject.toml`. |
 | `.agents/skills/` | Canonical agent procedures. The two bridge trees, `.claude/skills/` and `.codex/skills/`, point at them and add nothing. |
 | `allium-skill-reference/` | Vendored reference material for the Allium skills, kept outside `.agents/` and ignored by every linter (decision 0010). |
+| `.github/` | The workflows and the composite actions they share. `ci.yml` runs the gate jobs and `check`, `audit.yml` the advisory check, `pages.yml` deploys the API reference (decision 0016), `release.yml` publishes `pawdoku` to crates.io on a `pawdoku-v*` tag (decision 0019), and `release-npm.yml` publishes `@steven-cutting/pawdoku-wasm` to GitHub Packages on a `pawdoku-wasm-v*` tag (decision 0020). `actions/setup` installs what every job needs; `actions/release-preflight` refuses a release tag unless the `release` environment and the tag ruleset are in place, and `actions/release-guards` refuses a tag off `main` or one that disagrees with the manifest, for every release workflow. |
 | `.pixi/envs/default/bin` | Every tool `pyproject.toml` pins and the tooling package's console scripts, installed from `pixi.lock`. First on `PATH` inside every recipe, and nowhere else. |
-| `.tools/bin` | cargo-hack from `tools.txt`, rustqual from `tools-source.txt`, and the Allium checker. On `PATH` inside every recipe, after the pixi environment. |
+| `.tools/bin` | cargo-hack and cargo-release from `tools.txt`, rustqual from `tools-source.txt`, and the Allium checker. On `PATH` inside every recipe, after the pixi environment. |
 | `tests/fixtures/metrics-violation/` | A directory shaped like a crate, with no manifest, that breaks every module-boundary rule once. `just metrics` requires rustqual to fail on it; nothing compiles it. |
 | `target/` | Cargo's build output. `just coverage` writes its report under `target/llvm-cov/`. |
 

@@ -20,6 +20,7 @@ use alloc::vec::Vec;
 /// assert_eq!(search(fives).verdict(), Verdict::NoSolution);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[non_exhaustive]
 pub enum Verdict {
     /// The givens have no solution: they are malformed, they conflict, or nothing
@@ -122,5 +123,21 @@ impl SearchResult {
     #[must_use]
     pub fn solutions(&self) -> &[Grid<u8>] {
         &self.solutions
+    }
+}
+
+/// A search result serialises as `{ verdict, guesses, solutions }`, the three things
+/// `solver.allium`'s `SearchResult` exposes. Written by hand, because the verdict is
+/// read from the solutions and is not a field.
+#[cfg(feature = "serde")]
+impl serde::Serialize for SearchResult {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+
+        let mut result = serializer.serialize_struct("SearchResult", 3)?;
+        result.serialize_field("verdict", &self.verdict())?;
+        result.serialize_field("guesses", &self.guesses)?;
+        result.serialize_field("solutions", &self.solutions)?;
+        result.end()
     }
 }

@@ -11,6 +11,16 @@ homepage = "https://github.com/steven-cutting/libpawdoku"
 authors = ["Steven Cutting"]
 publish = false
 
+# cargo-release, run on the maintainer's machine (decision 0019). The local step
+# never publishes and never pushes: the release commit reaches main through a pull
+# request, the tag is pushed by hand, and release.yml publishes on the tag.
+[workspace.metadata.release]
+allow-branch = ["main", "release/*"]
+pre-release-commit-message = "Release {{crate_name}} {{version}}"
+tag-message = "Release {{crate_name}} {{version}}"
+publish = false
+push = false
+
 [workspace.dependencies]
 # The four crates the workspace uses: serde and thiserror may ship; proptest and
 # insta serve tests only. thiserror derives core::error::Error without std; serde
@@ -19,6 +29,20 @@ insta = { version = "1.48.0", default-features = false, features = ["json"] }
 proptest = "1.11.0"
 serde = { version = "1.0.228", default-features = false, features = ["derive", "alloc"] }
 thiserror = { version = "2.0.17", default-features = false }
+# The WebAssembly crate's two (decision 0020), both MIT OR Apache-2.0, which
+# deny.toml already allows. wasm-bindgen ships inside @steven-cutting/pawdoku-wasm,
+# and pyproject.toml's wasm-bindgen-cli pin must equal the version Cargo.lock
+# resolves here, which the wasm-guard recipe enforces. wasm-bindgen-test serves
+# tests only, as a wasm32-only dev-dependency of crates/pawdoku-wasm.
+wasm-bindgen = "0.2.130"
+wasm-bindgen-test = "0.3.80"
+# The engine's plain values cross through serde-wasm-bindgen (T42), MIT, which
+# deny.toml allows. It ships. One maintainer and no release since 2024-02-27 is
+# its risk; the alternative is every value built by hand as a JsValue, which
+# would restate the core's wire shape a second time. js-sys (MIT OR Apache-2.0)
+# names the errors the package throws; serde-wasm-bindgen already builds it.
+js-sys = "0.3.107"
+serde-wasm-bindgen = "0.6.5"
 
 # Every level here is `warn` so a local build never breaks mid-edit; `just clippy`
 # passes `-D warnings`, which is where a warning becomes a failure.

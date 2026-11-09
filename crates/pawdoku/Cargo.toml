@@ -11,7 +11,6 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 authors.workspace = true
-publish.workspace = true
 
 [lints]
 workspace = true
@@ -31,3 +30,12 @@ proptest = { workspace = true }
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
+
+# Moves the root CHANGELOG's unreleased entries under the new version and points
+# its links at the tag. The tag is named outright: {{tag_name}} is left unrendered
+# under --no-tag (S02 Step 4).
+[package.metadata.release]
+pre-release-replacements = [
+  { file = "../../CHANGELOG.md", search = "## \\[Unreleased\\]\n", replace = "## [Unreleased]\n\n## [{{version}}] - {{date}}\n", exactly = 1 },
+  { file = "../../CHANGELOG.md", search = "\\[Unreleased\\]: .*", replace = "[Unreleased]: {{repository}}/compare/pawdoku-v{{version}}...HEAD\n[{{version}}]: {{repository}}/releases/tag/pawdoku-v{{version}}", exactly = 1 },
+]

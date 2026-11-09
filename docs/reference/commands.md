@@ -19,9 +19,9 @@ checkout), and is the one command a fresh clone needs the network for. Nothing i
 `just check` reaches it once `just sync` has fetched the registry index: `lock-check` and
 `deny` then answer from that cache, and `lint` finds every hook environment already
 prepared, because `install-hooks` prepared it. On a cold Cargo cache, `lock-check` fails
-rather than fetching the index. `build`, `test`, `site`,
-`audit` and `check-links-online` are outside `just check`, and so is every recipe that
-writes.
+rather than fetching the index. `build`, `test`, `site`, `wasm-build`,
+`audit`, `semver`, `release-dry-run` and `check-links-online` are outside `just check`, and so is
+every recipe that writes.
 
 ## Setup
 
@@ -65,13 +65,19 @@ writes.
 | `just clippy` | Clippy over every crate target (the library, its tests, and any examples or benches) with every feature, for the host platform, with warnings as errors. The wasm targets are compiled by `wasm-check`, not linted. Gate 6. |
 | `just metrics` | rustqual against `rustqual.toml`: complexity, cohesion and coupling thresholds and the module boundaries of [Layering](../explanation/layering.md), with warnings as failures; then the probe, which requires the fixture under `tests/fixtures/metrics-violation/` to break every boundary rule. Gate 7. |
 | `just features` | Every feature combination compiles, through cargo-hack's powerset. Gate 8. |
-| `just wasm-check` | The core compiles for `wasm32-unknown-unknown` and for `wasm32v1-none`, which has no standard library, under every feature combination. Gate 9. |
-| `just coverage` | Every nextest test under instrumentation with `INSTA_UPDATE=no`, with the floor of 90 per cent of lines enforced; a snapshot mismatch fails without writing pending files. Writes `target/llvm-cov/lcov.info`. Gate 11. |
+| `just wasm-check` | The core compiles for `wasm32-unknown-unknown` and for `wasm32v1-none`, which has no standard library, under every feature combination; `pawdoku-wasm` compiles for `wasm32-unknown-unknown`. Gate 9. |
+| `just wasm-guard` | Stops, naming both versions, unless `wasm-bindgen --version` is the version `Cargo.lock` resolves for the `wasm-bindgen` crate. Read offline. The first step of `wasm-build` and `wasm-test`, which depend on it. |
+| `just wasm-build` | The npm package `@steven-cutting/pawdoku-wasm` into `crates/pawdoku-wasm/pkg/`, which Git ignores: the guard and `lock-check`, then `wasm-pack build` in `--mode no-install` for the web target with `-- --locked`, with `wasm-opt` at `-O3`, which the recipe first requires to say `wasm-opt version` and the version `pyproject.toml` pins for `binaryen`, because wasm-pack in that mode skips a missing `wasm-opt` and succeeds; then `scripts/wasm_pkg.py`, which adds the specification modules under `specs/`, the crate's changelog and the `exports` map. A release build with fat LTO. Outside `just check`; CI's `wasm` job and `release-npm.yml` run it. wasm-pack asks crates.io for its own latest version as it runs, and only warns when it cannot. |
+| `just wasm-package-test` | The package `wasm-build` wrote, as a consumer meets it: the core's JSON snapshots written as TypeScript literals into `target/wasm-package-test/`, `tsc --noEmit --strict` over them, a strict consumer and a declaration module against `pkg/pawdoku_wasm.d.ts`, then a Node module that loads `pkg/` through `initSync` and plays. Needs `just wasm-build` first and does not run it. Outside `just check`; CI's `wasm` job runs it after `wasm-build`. |
+| `just wasm-test` | The guard, then `crates/pawdoku-wasm/tests/web.rs` and `tests/surface.rs` compiled for `wasm32-unknown-unknown` and run in Node by `wasm-bindgen-test-runner`. Gate 20. |
+| `just coverage` | Every nextest test of `pawdoku` under instrumentation with `INSTA_UPDATE=no`, with the floor of 90 per cent of lines enforced; a snapshot mismatch fails without writing pending files. Writes `target/llvm-cov/lcov.info`. Gate 11. |
 | `just doc` | rustdoc over the workspace with warnings as errors and `--cfg docsrs`. Gate 12. |
 | `just site` | What GitHub Pages serves: empties `target/doc`, runs `just doc`, and writes a root `index.html` that sends a reader to the crate's page. Writes only under `target/`. Outside `just check`; the Pages workflow runs it on every push to `main`. |
 | `just deny` | cargo-deny's licence, ban and source checks over every dependency that ships, offline once `just sync` has run. Gate 13. |
 | `just audit` | cargo-deny's advisory check against the RustSec database. Over the network, so outside `just check`; CI runs it weekly in its own workflow. |
 | `just deps-unused` | cargo-shear: a dependency a crate declares and never uses. Gate 14. |
+| `just semver` | cargo-semver-checks: API breaks in `pawdoku` against the last `pawdoku-v*` tag, or a line saying there is no tag yet and nothing to compare. Outside `just check`; CI's `semver` job runs it and reports without blocking until 1.0. |
+| `just release-dry-run` | `cargo publish --dry-run --locked -p pawdoku`: packages the crate as a publish would and verifies that the package builds, publishing nothing. Reaches the network for the registry index. Outside `just check`; `release.yml`'s `build` job runs it with a read-only token, before its `publish` job, which runs no `just`, holds any token. |
 | `just snapshots-check` | Check both locks, then run every unit and integration test with every feature through cargo-insta and nextest offline. Fails mismatches without writing snapshots or pending files, and rejects unreferenced `.snap` files. Gate 19. |
 
 ## Documents
@@ -94,8 +100,8 @@ has not run `just initialize` must run `just install-allium` first.
 
 | Recipe | Purpose |
 | --- | --- |
-| `just check` | All twenty gates in order, proving the worktree is unchanged between each. |
-| `just check-clean` | Assert the worktree is clean, or matches a supplied baseline. Gate 20. |
+| `just check` | All twenty-one gates in order, proving the worktree is unchanged between each. |
+| `just check-clean` | Assert the worktree is clean, or matches a supplied baseline. Gate 21. |
 
 ## Related pages
 

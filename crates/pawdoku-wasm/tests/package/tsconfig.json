@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "target": "es2022",
+    "lib": ["esnext", "dom"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": []
+  },
+  "files": ["consumer.ts", "declarations.ts", "../../../../target/wasm-package-test/snapshots.ts"]
+}

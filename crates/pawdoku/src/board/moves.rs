@@ -33,6 +33,7 @@ use crate::sudoku::Position;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[non_exhaustive]
 pub enum MoveKind {
     /// A digit placed in a cell.
@@ -77,6 +78,7 @@ pub enum MoveKind {
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[non_exhaustive]
 pub struct Move {
     index: usize,
@@ -84,6 +86,10 @@ pub struct Move {
     target: Position,
     digit: Option<u8>,
     is_undone: bool,
+    // Derived, because the other field names are the wire names. The reading is
+    // skipped: all of a game's readings are many times its size, and `ReadingAfter`
+    // gives them one move at a time.
+    #[cfg_attr(feature = "serde", serde(skip))]
     after: Reading,
 }
 

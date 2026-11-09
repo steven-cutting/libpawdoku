@@ -1,0 +1,50 @@
+---
+source: crates/pawdoku/tests/snapshots.rs
+expression: operations
+---
+[
+  {
+    "kind": "Place",
+    "position": {
+      "row": 1,
+      "column": 3
+    },
+    "digit": 4
+  },
+  {
+    "kind": "Erase",
+    "position": {
+      "row": 1,
+      "column": 3
+    }
+  },
+  {
+    "kind": "WriteMark",
+    "position": {
+      "row": 1,
+      "column": 3
+    },
+    "digit": 2
+  },
+  {
+    "kind": "StrikeMark",
+    "position": {
+      "row": 1,
+      "column": 3
+    },
+    "digit": 2
+  },
+  {
+    "kind": "CheckCell",
+    "position": {
+      "row": 1,
+      "column": 3
+    }
+  },
+  {
+    "kind": "Undo"
+  },
+  {
+    "kind": "Redo"
+  }
+]

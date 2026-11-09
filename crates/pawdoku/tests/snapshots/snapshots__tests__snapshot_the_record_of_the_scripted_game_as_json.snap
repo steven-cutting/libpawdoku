@@ -3,6 +3,7 @@ source: crates/pawdoku/tests/snapshots.rs
 expression: played(&THE_SCRIPTED_GAME).write()
 ---
 {
+  "version": "record-1",
   "givens": [
     {
       "position": {

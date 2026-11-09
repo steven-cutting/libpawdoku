@@ -196,18 +196,87 @@ features:
     cargo hack check --workspace --feature-powerset --locked
 
 # The wasm-bindgen target, and a target with no std at all, which is what proves
-# the core is no_std rather than merely happening to compile.
+# the core is no_std rather than merely happening to compile. pawdoku-wasm is
+# checked on the wasm-bindgen target only: wasm-bindgen needs std, so the second
+# target stays the core's proof alone.
 wasm-check:
     cargo hack check -p pawdoku --feature-powerset --target wasm32-unknown-unknown --locked
     cargo hack check -p pawdoku --feature-powerset --target wasm32v1-none --locked
+    cargo hack check -p pawdoku-wasm --feature-powerset --target wasm32-unknown-unknown --locked
 
-# Runs every nextest test under instrumentation and enforces the floor. Doctests
-# are not measured (nightly-only in llvm-cov); test-doc runs them uncovered.
+# wasm-build's and wasm-test's first step, a recipe both depend on because a
+# shell function cannot outlive the recipe that defines it. The wasm-bindgen
+# CLI must be the version Cargo.lock resolves for the wasm-bindgen crate, or
+# the glue it writes disagrees with the code the macro expanded; pyproject.toml
+# pins the CLI, and this stops on a mismatch, naming both, before anything
+# builds. cargo pkgid reads the lockfile offline and never rewrites it.
+wasm-guard:
+    #!/bin/sh
+    set -eu
+    lock=$(cargo pkgid --locked --offline -p wasm-bindgen | sed 's/.*@//')
+    cli=$(wasm-bindgen --version 2>/dev/null | sed -n 's/^wasm-bindgen //p')
+    if [ "$cli" != "$lock" ]; then
+        printf 'wasm-guard: wasm-bindgen %s on PATH, Cargo.lock resolves wasm-bindgen %s; pin wasm-bindgen-cli to it in pyproject.toml\n' "${cli:-missing}" "$lock" >&2
+        exit 1
+    fi
+
+# @steven-cutting/pawdoku-wasm into crates/pawdoku-wasm/pkg/, which Git ignores.
+# Not a gate and outside `just check`: a release build with fat LTO, run by CI's
+# wasm job and by release-npm.yml. --mode no-install forbids wasm-pack to fetch
+# a wasm-bindgen of its own, so it uses the guarded one on PATH (decision 0020).
+# lock-check follows the guard because wasm-pack's own `cargo metadata`, run
+# before the build and without --locked, would rewrite a stale Cargo.lock, and
+# `-- --locked` would then reach cargo with a lock already made to agree. The
+# crate's metadata turns wasm-opt on, which --mode no-install skips with success
+# when wasm-opt is missing, so the binaryen that pyproject.toml pins is required
+# first, its version read from that one pin as wasm-guard reads its own from
+# Cargo.lock. Then the specification modules and the crate's changelog go into
+# the package, and package.json gains files and exports.
+wasm-build: wasm-guard lock-check
+    #!/bin/sh
+    set -eu
+    want=$(sed -n 's/^binaryen = "==\(.*\)"$/\1/p' pyproject.toml)
+    if [ -z "$want" ]; then
+        printf '%s\n' 'wasm-build: no `binaryen = "==<version>"` pin in pyproject.toml' >&2
+        exit 1
+    fi
+    have=$(wasm-opt --version 2>/dev/null || true)
+    if [ "$have" != "wasm-opt version $want" ]; then
+        printf 'wasm-build: wasm-opt says "%s"; want "wasm-opt version %s", the binaryen pyproject.toml pins\n' "${have:-missing}" "$want" >&2
+        exit 1
+    fi
+    wasm-pack build crates/pawdoku-wasm --mode no-install --target web --scope steven-cutting --release -- --locked
+    python -I scripts/wasm_pkg.py
+
+# The package wasm-build wrote, as a consumer meets it; not a gate and outside
+# `just check`, because it needs that release build: CI's wasm job runs it after
+# wasm-build. It does not depend on wasm-build, so CI builds once; locally, run
+# wasm-build first. snapshots.mjs writes each JSON snapshot of the core as a
+# TypeScript literal into target/, which Git ignores; tsc holds the declarations to
+# them, to a strict consumer and to a declaration module; then play.mjs loads
+# pkg/ through initSync and plays. typescript's tsc script finds itself through
+# CONDA_PREFIX, which pixi sets only inside `pixi run`.
+wasm-package-test:
+    test -f crates/pawdoku-wasm/pkg/pawdoku_wasm.d.ts || { printf '%s\n' 'wasm-package-test: no crates/pawdoku-wasm/pkg/; run just wasm-build first' >&2; exit 1; }
+    node crates/pawdoku-wasm/tests/package/snapshots.mjs
+    CONDA_PREFIX="{{justfile_directory()}}/.pixi/envs/default" tsc -p crates/pawdoku-wasm/tests/package/tsconfig.json --noEmit --strict
+    node crates/pawdoku-wasm/tests/package/play.mjs
+
+# Gate 20: crates/pawdoku-wasm/tests/web.rs, compiled for the wasm-bindgen target
+# and run in Node by wasm-bindgen-test-runner, which cargo calls as the target's
+# runner. Node and the runner are the pixi environment's.
+wasm-test: wasm-guard
+    CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER=wasm-bindgen-test-runner cargo test -p pawdoku-wasm --target wasm32-unknown-unknown --locked
+
+# Runs pawdoku's nextest tests under instrumentation and enforces the floor,
+# which is over crates/pawdoku/src/** alone; the WebAssembly crate is glue, proved
+# by wasm-test. Doctests are not measured (nightly-only in llvm-cov); test-doc
+# runs them uncovered.
 # llvm-cov does not create the lcov file's directory, so the recipe does.
 # INSTA_UPDATE=no fails a mismatch without a pending file that would trip the
 # gate's worktree check.
 coverage:
-    INSTA_UPDATE=no cargo llvm-cov nextest --workspace --all-features --locked --no-report
+    INSTA_UPDATE=no cargo llvm-cov nextest -p pawdoku --all-features --locked --no-report
     cargo llvm-cov report --fail-under-lines {{coverage_floor}}
     mkdir -p target/llvm-cov
     cargo llvm-cov report --lcov --output-path target/llvm-cov/lcov.info
@@ -237,6 +306,25 @@ audit:
 
 deps-unused:
     cargo shear
+
+# API breaks in pawdoku against the last pawdoku-v* tag, through the pinned
+# cargo-semver-checks. Not a gate: before 1.0 a break is allowed with a minor
+# bump, so CI reports it and never blocks; at 1.0 the job joins check's needs.
+# With no tag yet there is nothing to compare, and the recipe says so.
+# cargo-semver-checks 0.51.0 has no --locked and passes none through to cargo.
+semver:
+    #!/bin/sh
+    set -eu
+    base=$(git describe --tags --match 'pawdoku-v*' --abbrev=0 2>/dev/null) || { printf '%s\n' 'semver: no pawdoku-v* tag yet, nothing to compare'; exit 0; }
+    cargo semver-checks -p pawdoku --baseline-rev "$base"
+
+# Packages pawdoku as cargo publish would and verifies that the package builds,
+# without publishing. Not a gate and outside `just check`: it reaches the
+# network for the registry index, and release.yml's build job runs it, with a
+# read-only token, before the publish job holds any token. The publish job runs
+# no `just` by design and calls cargo publish itself (decision 0019).
+release-dry-run:
+    cargo publish --dry-run --locked -p pawdoku
 
 # --------------------------------------------------------------- documents ---
 

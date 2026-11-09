@@ -180,6 +180,15 @@ impl Note {
     }
 }
 
+/// A note serialises as the list of its digits, lowest first: its private bits never
+/// reach the wire.
+#[cfg(feature = "serde")]
+impl serde::Serialize for Note {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_seq(self.digits())
+    }
+}
+
 /// Shows the note as the set of its marks, lowest first.
 impl fmt::Debug for Note {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {

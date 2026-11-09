@@ -3,6 +3,7 @@ source: crates/pawdoku/tests/snapshots.rs
 expression: "format!(\"{record:#?}\\n\")"
 ---
 Record {
+    version: "record-1",
     givens: {
         Given {
             position: Position {

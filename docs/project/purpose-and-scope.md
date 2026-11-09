@@ -61,9 +61,11 @@ module states is not the engine's yet, however obvious it looks.
 
 Consumers, not players. The game reaches the engine through a WebAssembly crate; a
 command line runs it from a shell; Python reaches it through a bindings crate. Each
-decides what a player is shown, and none re-decides a rule. Today only the library
-exists; the three are sibling crates to come in this workspace
-([decision 0001](../decisions/0001-engine-as-a-library.md)).
+decides what a player is shown, and none re-decides a rule. Each is a sibling crate in
+this workspace ([decision 0001](../decisions/0001-engine-as-a-library.md)). The
+WebAssembly crate exists, packed as `@steven-cutting/pawdoku-wasm`
+([decision 0020](../decisions/0020-webassembly-package.md)); the command line and the
+Python crate are still to come.
 
 ## Related pages
 

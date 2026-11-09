@@ -1,8 +1,12 @@
 # Binaries pixi cannot own, installed by `just install-tools` into the gitignored
 # .tools/bin through cargo-binstall (itself a pixi dependency in pyproject.toml), one
-# name@version per line, verified 2026-09-24. Everything conda-forge carries is pinned
+# name@version per line, verified 2026-11-07. Everything conda-forge carries is pinned
 # in pyproject.toml and locked in pixi.lock; this file is the escape hatch for what it
-# lacks, and empties the day cargo-hack is packaged there. Tools a prek hook pins
+# lacks, and empties the day cargo-hack and cargo-release are packaged there.
+# cargo-binstall verifies no checksum for either: each is an upstream release archive
+# taken as published (decision 0019). cargo-release cuts a release on the maintainer's
+# machine (docs/operations/maintenance.md, "Cut a release"). Tools a prek hook pins
 # (typos, ripsecrets, lychee, shellcheck, actionlint, editorconfig-checker,
 # markdownlint-cli2) are not listed: one owner per pin.
 cargo-hack@0.6.45
+cargo-release@1.1.7

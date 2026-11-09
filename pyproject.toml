@@ -30,6 +30,23 @@ cargo-insta = "==1.48.0"
 # conda-forge's newest on 2026-09-24; the pin follows conda-forge, not crates.io.
 cargo-shear = "==1.13.4"
 taplo = "==0.10.0"
+# `just semver`: API breaks in pawdoku against the last pawdoku-v* tag.
+cargo-semver-checks = "==0.51.0"
+# `just wasm-build` packs crates/pawdoku-wasm with it, in --mode no-install, so it
+# never downloads a wasm-bindgen of its own and uses the one below (decision 0020).
+wasm-pack = "==0.15.1"
+# wasm-bindgen and wasm-bindgen-test-runner. Held equal to Cargo.lock's
+# wasm-bindgen, which wasm-build's and wasm-test's guard enforces: move both together.
+wasm-bindgen-cli = "==0.2.130"
+# Node runs `just wasm-test`, and its npm is the one release-npm.yml publishes with.
+nodejs = "==26.13.0"
+# `just wasm-build` optimises the .wasm with binaryen's wasm-opt at -O3. wasm-pack in
+# --mode no-install skips the step and succeeds when wasm-opt is missing, so
+# wasm-build's guard requires this version first (T42).
+binaryen = "==121"
+# `just wasm-package-test` type-checks a strict consumer and the declaration
+# module against the package's pawdoku_wasm.d.ts with tsc (T42).
+typescript = "==6.0.2"
 
 [tool.pixi.pypi-dependencies]
 biscuit-games-tooling = { git = "https://github.com/steven-cutting/biscuit_games_tooling", tag = "v0.3.0" }
@@ -57,5 +74,6 @@ recipes = [
   "check-specs",
   "analyse-specs",
   "snapshots-check",
+  "wasm-test",
 ]
 predicates = {}

@@ -1,7 +1,7 @@
 ---
 id: T41
 title: "Play from a record in Rust, and the plain values every binding hands out"
-status: open
+status: done
 depends_on: [T40, S12, T43]
 parallel_with: [T13, T15]
 branch: ticket/t41-play-from-a-record
@@ -230,8 +230,16 @@ never the solution. `just check` is green and the coverage floor holds.
 
 10. Run `just fmt-check`, `just clippy`, `just metrics`, `just test` and
     `just snapshots-check`, then `just check`, and quote each closing line, with the
-    coverage figure. Set `status: done` and the index row. Commit, and ask before
-    pushing.
+    coverage figure.
+
+11. If R2 changed anything, run step 10's recipes again and quote them. Set
+    `status: done` and the index row. Commit, and ask before pushing.
+
+**Adversarial review**, by the procedure in `tickets/README.md`, "Adversarial
+review":
+
+- **R1**, after steps 3 to 6 and before step 7's proptests: the public values and their wire shape. Focus: what a binding would be stuck with.
+- **R2**, after step 10 and before step 11: the ticket whole.
 
 ## Acceptance criteria
 
@@ -272,17 +280,333 @@ is unchanged.`; only paths in Files touched.
 
 ### Decisions fixed by S12 and T40
 
+Written before any code, from S12's "Amendments to T41 and T42" and T40's "Names T41
+needs".
+
+- **The four functions are T40's**: `open`, `play`, `read` and `reading_after`, free
+  functions in `board/from_record.rs`, re-exported from `pawdoku::board`. `play` takes one
+  operation value, not one function per operation (this ticket's Open point, settled for
+  one entry).
+- **The operation** is `Operation`, one variant per `OperationKind`: `Place`, `Erase`,
+  `WriteMark`, `StrikeMark`, `CheckCell`, `Undo`, `Redo`, serde's default PascalCase,
+  `#[serde(tag = "kind")]`, with fields `position` and `digit` (S12). T40's value names
+  the cell `cell`; the Rust field is `position`, as every `Board` method and S12's wire
+  name it.
+- **What a call hands back** is `Played { record, view, check }`, `check` present only
+  after `CheckCell` and absent from the wire otherwise (S12). `open` hands back the same
+  value with no check. `read` hands back the view alone.
+- **The view** is `BoardView`, made by `BoardView::of(&Board)`: `status`, `is_full`,
+  `is_consistent`, `can_undo`, `can_redo`, `cells`, `moves`, `checks`, in that order,
+  with `#[expect(clippy::struct_excessive_bools)]` (S12).
+- **The reading** is `ReadingAfter { move_index, cells }`, made by
+  `ReadingAfter::of(&Board, move_index)`, 81 `CellReading { row, column, digit, note }`
+  in row order (S12). `CellReading` is T40's `value Reading`; the name differs because
+  `board/reading.rs` already holds the private `Reading` the moves read through.
+  `move_index` counts from 1; 0 and anything past the last move are refused.
+- **The error** is `FromRecordError`: `Reopen(ReopenError)` and `Play(PlayError)`, both
+  `#[error(transparent)]` (S12), and `NoSuchMove { move_index }`. `open` refuses with
+  `SolveError` and `read` with `ReopenError`, each the stage's own type, since neither
+  has a second stage.
+- **The wire shape** (S12): snake_case fields, PascalCase enum values; an absent digit is
+  `null`; a cell's `note` is absent while not shown and `[]` when shown and empty; a
+  reading's `note` is always a list; no `#[serde(flatten)]` anywhere. A move never
+  carries its reading. Every `Serialize` sits under `cfg_attr(feature = "serde", ...)`.
+- **The generation result** is `GenerationResult { tier, seed, start_index, draws_taken,
+  generation_version, random_version, givens }`, in that order; `seed` is `None` from a
+  stream; `draws_taken` is the index after `wrapping_sub` the index before; no status.
+  The refusal is `GenerationRefused::Refused { tier, draws_taken, error }`, `Display`
+  `"{error}"`, with `const fn` accessors `tier` and `draws_taken` (S12). The two entries
+  are `generate_from_seed(tier, seed)` and `generate_from_stream(tier, stream)`, both
+  built on one private function that reads the index on `Err` as on `Ok`. `generate` is
+  unchanged.
+- **The record is versioned** (T43): every function takes and hands back the record
+  `Board::write` writes, and a record of another version is refused by `Board::reopen`
+  inside `FromRecordError::Reopen`.
+
 ### The test list
+
+Written before the first test, from `just plan-spec board` (89 obligations; T40's
+contract and surface invariants do not appear in its output, so they are taken from
+the specification's text) and from the ticket's steps. Each line names the test and
+the clause it proves; T1 to T22 are its labels. Segment 1 builds those marked (1),
+segment 2 the rest.
+
+The view and the reading, `board/view.rs`:
+
+- T1 (1) `a_view_holds_what_playing_exposes`: status, the four flags, 81 cells, the moves
+  and the checks equal what `Board` hands out (`WhatIsShownIsWhatPlayingShows`).
+- T2 (1) `the_reading_after_a_move_is_digit_after_and_note_after`: 81 cells in row order,
+  each equal to `Move::digit_after` and `Move::note_after`, a note beneath a digit
+  included (`reading_after`, T40's `Reading`).
+- T3 (1) `an_undone_move_still_has_a_reading` (`reading_after`: "a move undone is still
+  one of the record's moves").
+- T4 (1) `an_index_that_names_no_move_is_refused`: 0, one past the last, `usize::MAX`
+  (`ARefusalHandsBackNothingElse`).
+
+The functions, `board/from_record.rs`:
+
+- T5 (1) `each_refusal_says_what_was_refused`: `NoSuchMove`'s text pinned, and the two
+  wrapping variants' text equal to the wrapped refusal's (invariant 3, S12).
+- T6 (1) `open_hands_back_the_record_and_view_of_the_board_opened`, and refuses givens as
+  `Board::open` does (`PlayingFromARecordIsHoldingTheBoard` for `open`).
+- T7 (1) `play_makes_each_operation_as_a_held_board_does`: all seven kinds, equal record
+  and view, a check only after `CheckCell` (`PlayingFromARecordIsHoldingTheBoard`).
+- T8 (1) `a_record_that_does_not_reopen_is_refused_first`: before the guard and before
+  the index, the record handed over unchanged (`ARefusalHandsBackNothingElse`).
+- T9 (1) `an_operation_the_guard_refuses_is_refused_with_its_play_error`, the record
+  unchanged.
+- T10 (1) `read_gives_the_view_of_the_board_reopened`, and the reopen refusal alone.
+- T11 (1) `reading_after_reads_the_board_reopened`: equal to `ReadingAfter::of` on the
+  held board (`TheSameBoardFromEitherWay`, the readings).
+
+The generation result, `generation.rs`:
+
+- T12 (1) `from_a_seed_is_generate_with_a_seeded_stream`: the same givens, `seed` named,
+  `start_index` 0, `draws_taken` the stream's index after.
+- T12a (1) `a_grid_found_at_once_takes_23_draws_or_104_where_the_order_is_drawn`: from
+  a stream of zeros, whose first grid attempt succeeds, tiers 3 to 5 take 23 draws and
+  tiers 1 and 2 take 104 (`architecture.md`, "The generator"). Added in the loop: T12
+  holds `draws_taken` to the seeded stream's index, and seed 0's first attempt is not
+  known to succeed in every tier, so the figures are held from zeros.
+- T13 (1) `from_a_stream_records_where_it_began_and_only_its_own_draws`: `seed` `None`;
+  five zeros refused with `draws_taken` 5; a script of five drawn three times first,
+  2 and `start_index` 3.
+- T14 (1) `a_hundred_failed_attempts_are_refused_with_every_draw_counted`: a hundred short
+  seedings 1900, a hundred seedings with no solution 2200, each with the core's text.
+- T15 (1) `each_tier_comes_back_as_asked`, on the result and on the refusal.
+- T16 (1) `the_result_holds_no_solution`: its `Debug` prints no row of the solution
+  (`TheSolutionIsNeverShown` for the generation result).
+
+Step 7, `tests/from_record.rs` and the wire shape:
+
+- T17 (2) Every scripted game of `tests/board.rs` and `tests/snapshots.rs`, played from
+  records and on a held board: equal records, views and readings at every step
+  (`RecordsKeepStepWithAHeldBoard`, `TheSameBoardFromEitherWay`).
+- T18 (2) Each refusal through the public API, the record unchanged after each.
+- T19 (2) The view holds no digit at an empty cell; a check's answer only through the
+  checks (`TheSolutionIsNeverShown`, `ACheckNeverTellsTheDigit`).
+- T20 (2) Proptest: random operations from the fixture, the two ways equal after each,
+  any refusal refused by both (`TheSameBoardFromEitherWay`).
+- T21 (2) Under `serde`: `Operation` and `Record` round-trip; every value serialises to
+  exactly the fields above, read through a test-only capturing `Serializer` (no format
+  crate is added, so serialised output is read field by field in the test).
+- T22 (2) `NothingIsKeptBetweenCalls`: the same call twice, with other calls between,
+  hands back equal values.
+
+Revisited in segment 2, as built in `tests/from_record.rs`: T17 is
+`every_scripted_game_is_the_same_game_either_way`, over four games restated as
+operations (`THE_SCRIPTED_GAME`, `every_kind_of_move`, `in_play` and the whole game);
+T18 is three tests, the guard's refusals on a fresh and a solved board, the index, and,
+under `serde`, a record that does not reopen; T19 is
+`a_view_shows_no_digit_the_player_has_not_placed`, with the serialised digits held to
+the board's in T21; T20 is `any_script_is_the_same_either_way`, 128 cases; T21 split
+into seven tests, one per value, after clippy's cognitive-complexity limit refused one;
+T22 is `nothing_is_kept_between_calls`. Added in the loop: a solved board in T18 and
+the property's prefill of 48 to 51 cells, because `Operation` has no "place the right
+digit" step and a script would otherwise never reach a solved board.
 
 ### What was verified, and how
 
+Step 1: `.pixi/` and `.tools/bin` were present, so neither install ran. `just check` at
+the start (`e0a814c`) closed with `All checks passed and the worktree is unchanged.`,
+coverage 99.33% of lines. Step 2: `just plan-spec board` lists 89 obligations.
+
+Steps 3 to 6 were built test-first, a seam at a time, each test seen to fail (the build
+refused the missing names) before its code was written: the view and the reading
+(T1 to T4), the functions and the error (T5 to T11), the generation result and its
+refusal (T12 to T16). One test was added to the list in these loops, T12a, for the
+reason given there; two expected counts in the tests were corrected (the scripted
+moves number 7 and 6, not 8 and 7). The wire shapes were printed once through
+`serde_json` in a scratch crate outside the workspace, never committed, and read
+against S12's amendments; the
+tests that assert them are T21, in segment 2.
+
+Segment 2, steps 7 to 10. The tests of step 7 arrived green, since segment 1's code
+was built first; three were shown to bite by breaking the code on purpose: `play`
+dropping a wrong check (three tests failed, the scripted games, the property and the
+view's) and the cell's wire name `is_conflicting` renamed (the view's wire test
+failed). The `proptest-regressions` file the break left was deleted. The wire shape is
+read through a test-only capturing serializer and a deserializer over the same values,
+in `tests/from_record.rs`; no format crate and no dependency was added. The
+deserializer goes through `MapAccessDeserializer` for an externally tagged move of
+`Record`, which `MapDeserializer` would refuse.
+
+Step 8: nine JSON snapshots under the `serde` feature, accepted with
+`just snapshots-accept` and each read: the view of `THE_SCRIPTED_GAME` (all four kinds
+of move, an undone one, a shown note, a note waiting, an empty cell, a conflict, a check
+each way), the reading after its sixth move, what a check on it hands back, the seven
+operations, a search of each verdict, and the generation result from seed 0 in tier 3
+and from a stream. One, the stream's, begins:
+
+```text
+{
+  "tier": "Three",
+  "seed": null,
+  "start_index": 23,
+  "draws_taken": 23,
+  "generation_version": "generation-1",
+  "random_version": "seeded-stream-1",
+  "givens": [
+```
+
+Step 9: `tests/api_bounds.rs` takes the eight new types in both bound tests, a
+`Serialize` bound for every wire value and `Serialize + DeserializeOwned` for
+`Operation`; the `Board` and `Puzzle` test is unchanged. Each new accessor has a
+doctest, as every older one does (29 of them). `lib.rs` gains a sentence and a doc
+example of play from a record; `architecture.md` "Play from a record" and a paragraph in
+"What crosses each boundary"; `testing.md` the file, the unit tests and the snapshots;
+the CHANGELOG an entry under Added. Short doc lines segment 1 left in `generation.rs`
+were reflowed.
+
+Step 10, each closing line: `just fmt-check` `cargo fmt --all --check` with no diff;
+`just clippy` `Finished`; `just metrics` `Quality score: 100.0% (887 functions
+analyzed)`; `just test` `360 tests run: 360 passed, 0 skipped`, doctests `168 passed`;
+`just snapshots-check` `no snapshots to review`, `no unreferenced snapshots found`;
+`cargo test -p pawdoku --features serde --test from_record --locked` `16 passed`.
+`rg -n 'pub fn'` lists `open`, `play`, `read`, `reading_after` and the two `of`
+functions with the slice accessors; `rg -c 'fn ' board.rs` counts 24 lines, private
+functions included, and `Board` keeps nineteen methods. `just check` closed with
+`All checks passed and the worktree is unchanged.`, coverage 99.79% of lines (99.33%
+at the start, 98.21% at the R1 checkpoint).
+
+Step 11: R2 approved with no findings and changed nothing, so step 10's recipes were
+not run again before the closing commit; `just check` ran once more on that commit.
+Nothing was pushed.
+
 ### Deviations, and why
+
+- **One branch.** The work is on `implement-typescript-surface-fullsend`, after S12, T40,
+  T43 and T13; step 1's worktree and the merge condition are met by order on that
+  branch.
+- **`Operation`'s field is `position`, not T40's `cell`.** S12's amendment names the
+  wire field `position`, and every `Board` method names the parameter so; the spec's
+  value types it as `sudoku/Position`, which this is.
+- **`CellReading`, not T40's `Reading`.** `board/reading.rs` holds the private
+  `Reading` every move reads back through; a public value of the same name would shadow
+  it in `board.rs`. T40's `cell: Position` is written flat as `row` and `column` on the
+  wire (S12), and the value also offers `position()`.
+- **A reading comes wrapped**, as `ReadingAfter { move_index, cells }` (S12), where T40's
+  signature returns `List<Reading>`. The cells are that list, in row order.
+- **`open` refuses with `SolveError` and `read` with `ReopenError`**, not with
+  `FromRecordError`, since each has one stage only; `play` and `reading_after` have two
+  and take `FromRecordError`.
+- **`ReadingAfter::of` on a held board refuses with `FromRecordError::NoSuchMove`**, so
+  the index's refusal is one value and one text whichever way the board is driven,
+  which T42's class needs (S12, T42 step 3). Its text names the board: "no move of the
+  board has the index N".
+- **`Status`, `Verdict` and `MoveKind` gain `Serialize` only.** Nothing reads them back;
+  `Operation` and `Record` are the values that deserialise.
+- **The generation result's entries are named `generate_from_seed` and
+  `generate_from_stream`**; neither the ticket nor S12 named them.
+- **The scripts are restated in `tests/from_record.rs`**, each naming its source, since
+  an integration test file cannot reach another's helpers and `tests/common/` is not in
+  Files touched.
+- **A record that does not reopen is made by deserialising, in the integration tests**,
+  so that test is under `serde`; outside the crate there is no other way to make one.
+- **More snapshots than step 8 lists**, as S12's amendment asks: the seven operations,
+  a search of each verdict and a generation result from a stream.
+- **`GenerationRefused`'s `error` field is its `source`.** The final code review found
+  that `source()` returned `None`, cutting the chain every other wrapping error in the
+  crate keeps; the field now carries `#[source]`, and the `Display` text is unchanged.
 
 ### Names T42 and T17 need
 
+Final after R2, and unreleased: no `pawdoku` release carries them yet.
+
+- In `pawdoku::board`, re-exported from `board/from_record.rs`:
+  `open(givens: impl IntoIterator<Item = Given>) -> Result<Played, SolveError>`,
+  `play(record: &Record, operation: Operation) -> Result<Played, FromRecordError>`,
+  `read(record: &Record) -> Result<BoardView, ReopenError>` and
+  `reading_after(record: &Record, move_index: usize) -> Result<ReadingAfter,
+  FromRecordError>`.
+- `Operation`: `Place { position, digit }`, `Erase { position }`,
+  `WriteMark { position, digit }`, `StrikeMark { position, digit }`,
+  `CheckCell { position }`, `Undo`, `Redo`; `Serialize` and `Deserialize`, tagged by
+  `kind`. On the wire `position` is an object `{ "row", "column" }`, as `Position`
+  serialises everywhere.
+- `Played`, with `record()`, `view()` and `check() -> Option<&Check>`; on the wire
+  `record`, `view` and `check`, the last absent unless the operation was `CheckCell`.
+- `BoardView::of(&Board)`, with `status()`, `is_full()`, `is_consistent()`,
+  `can_undo()`, `can_redo()`, `cells() -> &[BoardCell]`, `moves() -> &[Move]` and
+  `checks() -> &[Check]`. On the wire a cell is flat (`row`, `column`, `digit`,
+  `is_given`, `is_conflicting`, `note` while shown); a move and a check name their cell
+  `target`, an object like `position`.
+- `ReadingAfter::of(&Board, move_index: usize) -> Result<ReadingAfter, FromRecordError>`,
+  with `move_index()` and `cells() -> &[CellReading]`; `CellReading` with `position()`,
+  `row()`, `column()`, `digit() -> Option<u8>` and `note() -> Note`, flat on the wire,
+  `note` always a list.
+- `FromRecordError::{Reopen(ReopenError), Play(PlayError), NoSuchMove { move_index }}`,
+  the first two transparent and each with `From`, so `FromRecordError::from(refusal)` on
+  `RecordVersion::readable()`'s refusal gives the text `ReopenError` gives. `NoSuchMove`
+  reads `no move of the board has the index {move_index}`.
+- In `pawdoku::generation`: `generate_from_seed(tier: Tier, seed: u64)` and
+  `generate_from_stream(tier: Tier, stream: &mut dyn RandomStream)`, each
+  `-> Result<GenerationResult, GenerationRefused>`. `GenerationResult` has `tier()`,
+  `seed() -> Option<u64>`, `start_index() -> u64`, `draws_taken() -> u64`,
+  `generation_version()`, `random_version()` and `givens() -> &BTreeSet<Given>`.
+  `GenerationRefused::Refused { tier, draws_taken, error: GenerateError }`, with
+  `tier()` and `draws_taken()`, and `Display` the `GenerateError`'s own text.
+- Only `Operation` and `Record` deserialise. `Played`, `BoardView`, `ReadingAfter`,
+  `CellReading`, `GenerationResult`, `Status`, `Verdict` and `MoveKind` serialise only,
+  and `GenerationRefused` does not serialise; a binding throws its text.
+
 ### Handed back
 
+- **To T42.** Three `u64` fields cross in the generation result (`seed`,
+  `start_index`, `draws_taken`), and the seed is a `u64` argument, so the binding
+  chooses how a `u64` crosses; the core does not. An operation's cell is the nested
+  `position` while the view's cells and the readings are flat: the TypeScript types
+  follow that shape as written. `read` refuses with `ReopenError` itself, not
+  `FromRecordError`; both give the same text for a reopening refusal, since the variant
+  is transparent. `Operation` is `#[non_exhaustive]`, so a binding's own `match` needs a
+  wildcard arm.
+- **To T15.** This ticket adds "Play from a record" and a paragraph in "What crosses
+  each boundary" to `architecture.md`, rows for `tests/from_record.rs`, the new unit
+  tests and the snapshots to `testing.md`, and an entry under `[Unreleased]`, Added, in
+  `CHANGELOG.md`; T15 edits the same three files after it.
+
+### Adversarial review
+
+- **R1, round 1**, after steps 3 to 6, on the range from the start to the checkpoint
+  `3afcdc3`, focus what a binding would be stuck with: the run handed back no output,
+  so it gave no verdict and no findings, and nothing was folded in. It is not counted
+  as an approval; the wire shape it was to read was read again by R2, on the whole
+  range.
+- **R2, round 1**, after step 10, on the range from the start to the checkpoint
+  `af7b83a`, the ticket whole: approved with no findings. The reviewer found the
+  record's replay, the order of the refusals and the isolation of calls as the contract
+  states them, and the clause tests standing apart from the snapshots. Its note that
+  its read-only sandbox could not run `just check` is an environment note, not a
+  finding; `just check` ran here, as step 10 and step 11 say.
+- **R1, round 1, run again** by Codex after the ticket was done, on the range from the
+  start to `c0481c2`, focus what a binding would be stuck with: approved with no
+  findings. The reviewer found the public values, their serde shapes, the generation
+  refusal accessors and the integer handling as S12 and the specifications state them.
+  Nothing was valid, invalid or the maintainer's, so no commit answers it. Its note that
+  its read-only sandbox could not run `just check` is an environment note, not a
+  finding; `just check` ran here after this note's commit.
+- **Round 3** (2026-11-07, the maintainer's OK for a third round over fixes landed
+  after the two-round limit; here `64f0463`, from the final code review), Codex `gpt-6-astra` (confirmed in Codex's log, thread
+  `01a1b790-d5f6-7aa2-9028-29a273c7337b`), with `--base main`, focus the core's late
+  fixes `6177365` and `64f0463`: refusal order, the version reader on every record shape,
+  and invariant 3. Approved with no findings: it found the version refused before shape
+  and content, the reading asked for under `Record`, the public types' bounds and
+  `GenerationRefused`'s `source()` as the contracts state them. Nothing was valid,
+  invalid or the maintainer's, so no commit answers it. The run was short, about 36
+  seconds, and did not report attacking each record shape one by one. Its note that its
+  read-only sandbox could not run `just check` is an environment note; `just check` ran
+  here at `79c080b`.
+
 ### Open points settled
+
+Settled by the implementer, each from S12's amendments or recorded above:
+
+- **Where the readings after a move live on the wire:** a separate `ReadingAfter` per
+  move index, as proposed and as S12 settled; a move never carries its reading.
+- **One function per operation, or one taking the operation value:** one, `play`,
+  taking `Operation`, as proposed. A binding may still offer one method per operation.
+- **Paths other open tickets edit:** T43 and T13 came before on the one branch; T38
+  and T39 are not on it, and T15 follows, as Handed back says.
 
 ## Open points
 

@@ -24,11 +24,23 @@
 //!   and hears yes or no. Nothing else a board hands out is read from the solution.
 //! - **The record.** [`Board::write`] writes a board down as a [`Record`], a plain value
 //!   the caller keeps, and [`Board::reopen`] makes the same board from it, moves, undone
-//!   moves and checks included. A record that does not read back is refused with a
-//!   [`ReopenError`].
+//!   moves and checks included. A record names its format version,
+//!   [`RECORD_VERSION`], and one of another version, or of none, is refused first;
+//!   no promise is made across versions. A record that does not read back is refused
+//!   with a [`ReopenError`].
 //!
 //! The five operations on a cell take a [`Position`]; undo and redo take nothing. Each
 //! refuses with a [`PlayError`], and a refused operation changes nothing.
+//!
+//! # Play from a record
+//!
+//! A caller that holds no board plays from records instead: [`open`] opens one from
+//! givens, [`play`] reopens a record, makes one [`Operation`] and writes the board
+//! again, [`read`] gives a record's [`BoardView`], and [`reading_after`] gives the
+//! [`ReadingAfter`] one of its moves: the board after it. Nothing is kept between
+//! calls, and each call is the held board's own operations composed, so the two ways
+//! give the same records, views, readings and refusals. [`BoardView::of`] and
+//! [`ReadingAfter::of`] give the same values of a held board.
 //!
 //! # A board and its puzzle
 //!
@@ -74,18 +86,24 @@
 mod cell;
 mod check;
 mod error;
+mod from_record;
 mod journal;
 mod moves;
 mod note;
 mod reading;
 mod record;
+mod view;
 
 pub use cell::BoardCell;
 pub use check::Check;
 pub use error::PlayError;
+pub use from_record::{FromRecordError, Operation, Played, open, play, read, reading_after};
 pub use moves::{Move, MoveKind};
 pub use note::Note;
-pub use record::{Record, ReopenError};
+#[cfg(feature = "serde")]
+pub use record::RecordVersion;
+pub use record::{RECORD_VERSION, Record, ReopenError};
+pub use view::{BoardView, CellReading, ReadingAfter};
 
 use crate::solver::{SolveError, solve};
 use crate::sudoku::{Given, MoveError, Position, Puzzle, Status, in_range};
@@ -788,8 +806,9 @@ impl Board {
     /// wherever it likes.
     ///
     /// A board can be written at any point, solved or not, and writing changes
-    /// nothing. The record holds the givens, the moves, how many of them are undone and
-    /// the checks, and nothing read from the solution. [`Board::reopen`] makes the same
+    /// nothing. The record names its format version, [`RECORD_VERSION`], and holds the
+    /// givens, the moves, how many of them are undone and the checks, and nothing read
+    /// from the solution. [`Board::reopen`] makes the same
     /// board from it.
     ///
     /// ```
@@ -835,6 +854,8 @@ impl Board {
     /// checked here and nowhere else: a deserialised one may hold anything. The first
     /// of these that applies, in this order:
     ///
+    /// - [`ReopenError::Version`] when the record names a format version other than
+    ///   [`RECORD_VERSION`], or none; nothing else in it is read;
     /// - [`ReopenError::TooManyUndone`] when more moves are undone than the record
     ///   holds;
     /// - [`ReopenError::ChecksWithoutMoves`] when the record holds a check and no move;

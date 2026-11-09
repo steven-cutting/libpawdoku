@@ -8,9 +8,10 @@
 )]
 
 use pawdoku::board::{
-    Board, BoardCell, Check, Move, MoveKind, Note, PlayError, Record, ReopenError,
+    Board, BoardCell, BoardView, CellReading, Check, FromRecordError, Move, MoveKind, Note,
+    Operation, PlayError, Played, ReadingAfter, Record, ReopenError,
 };
-use pawdoku::generation::{GenerateError, Tier};
+use pawdoku::generation::{GenerateError, GenerationRefused, GenerationResult, Tier};
 use pawdoku::random::{RandomError, RandomStream, ReplayStream, SeededStream};
 use pawdoku::solver::{SearchResult, SolveError, Verdict};
 use pawdoku::sudoku::{
@@ -49,6 +50,14 @@ fn public_types_are_send_sync_and_static() {
     assert_send_sync::<ReopenError>();
     assert_send_sync::<Tier>();
     assert_send_sync::<GenerateError>();
+    assert_send_sync::<BoardView>();
+    assert_send_sync::<CellReading>();
+    assert_send_sync::<ReadingAfter>();
+    assert_send_sync::<Operation>();
+    assert_send_sync::<Played>();
+    assert_send_sync::<FromRecordError>();
+    assert_send_sync::<GenerationResult>();
+    assert_send_sync::<GenerationRefused>();
 }
 
 #[test]
@@ -79,12 +88,33 @@ fn public_types_are_clone_and_debug() {
     assert_clone_debug::<ReopenError>();
     assert_clone_debug::<Tier>();
     assert_clone_debug::<GenerateError>();
+    assert_clone_debug::<BoardView>();
+    assert_clone_debug::<CellReading>();
+    assert_clone_debug::<ReadingAfter>();
+    assert_clone_debug::<Operation>();
+    assert_clone_debug::<Played>();
+    assert_clone_debug::<FromRecordError>();
+    assert_clone_debug::<GenerationResult>();
+    assert_clone_debug::<GenerationRefused>();
 }
 
 #[test]
 fn the_boundary_is_a_trait_object() {
     let mut stream = SeededStream::new(1);
     assert_dyn_compatible(&mut stream);
+}
+
+/// The version-only reading of a record meets the same bounds, and deserialises: it
+/// only reads, so it does not serialise.
+#[cfg(feature = "serde")]
+#[test]
+fn the_version_reading_is_send_sync_clone_and_debug() {
+    use pawdoku::board::RecordVersion;
+
+    fn assert_deserialise<T: serde::de::DeserializeOwned>() {}
+    assert_send_sync::<RecordVersion>();
+    assert_clone_debug::<RecordVersion>();
+    assert_deserialise::<RecordVersion>();
 }
 
 #[cfg(feature = "serde")]
@@ -97,6 +127,29 @@ fn streams_and_value_types_serialise_under_the_serde_feature() {
     assert_serde::<Given>();
     assert_serde::<Record>();
     assert_serde::<Tier>();
+}
+
+/// What play from a record, the search and the generator hand out serialises in one
+/// wire shape; of those, only the operation a caller hands over also deserialises.
+#[cfg(feature = "serde")]
+#[test]
+fn what_a_binding_hands_out_serialises_under_the_serde_feature() {
+    fn assert_serialise<T: serde::Serialize>() {}
+    fn assert_serde<T: serde::Serialize + serde::de::DeserializeOwned>() {}
+    assert_serialise::<BoardView>();
+    assert_serialise::<BoardCell>();
+    assert_serialise::<Note>();
+    assert_serialise::<Move>();
+    assert_serialise::<MoveKind>();
+    assert_serialise::<Check>();
+    assert_serialise::<CellReading>();
+    assert_serialise::<ReadingAfter>();
+    assert_serialise::<Played>();
+    assert_serialise::<Status>();
+    assert_serialise::<SearchResult>();
+    assert_serialise::<Verdict>();
+    assert_serialise::<GenerationResult>();
+    assert_serde::<Operation>();
 }
 
 /// A board and a puzzle are never serialised: a record is the one value that crosses.

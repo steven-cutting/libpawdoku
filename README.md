@@ -55,6 +55,7 @@ just check    # every gate, read-only, proving the worktree is unchanged
 
 ```text
 crates/pawdoku/      The engine; src/random.rs is its one effect boundary
+crates/pawdoku-wasm/ The WebAssembly binding, packed as @steven-cutting/pawdoku-wasm
 docs/                The handbook
 docs/specs/          Nine Allium modules — the source of truth for behaviour
 tickets/             The work that set this repository up, one ticket per branch
@@ -83,10 +84,14 @@ Engineering conventions and the agent working agreement are in [AGENTS.md](AGENT
 
 ## How the game will use it
 
-The game will consume the engine through a WebAssembly package that also ships the
-specification text, so the game can hold the clauses it restates equal to this
-repository's by test. That package, a command line and Python bindings are planned as
-sibling crates in this workspace, and spike S04 decides their shape.
+The game will consume the engine through the WebAssembly package
+`@steven-cutting/pawdoku-wasm`, built from `crates/pawdoku-wasm` and published to
+GitHub Packages. The package also ships the specification text under `specs/`, so the
+game can hold the clauses it restates equal to this repository's by test. The game
+holds one `Board` for each puzzle in play and keeps its record between visits; a caller
+that holds no board plays from the record instead, each call handed a record and giving
+back a record and a view. A command line and Python bindings are planned as sibling
+crates in this workspace.
 
 ## Boundaries
 
