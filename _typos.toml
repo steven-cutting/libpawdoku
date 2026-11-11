@@ -12,6 +12,7 @@ extend-exclude = [
   "target/",
   "ai_tmp/",
   "allium-skill-reference/",
+  "smoltest/",
 ]
 
 [default.extend-words]

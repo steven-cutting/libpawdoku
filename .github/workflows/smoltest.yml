@@ -1,0 +1,58 @@
+name: smoltest
+
+# The checks of the standalone Python project under smoltest/, which the
+# repository's own gates exclude (see .pre-commit-config.yaml, taplo.toml and
+# .markdownlint-cli2.jsonc). Path-filtered, so a change to the engine does not
+# run them, and not a `needs` of ci.yml's `check`: a job in another workflow
+# cannot be, and the required check stays the engine's.
+on:
+  pull_request:
+    paths:
+      - 'smoltest/**'
+      - '.github/workflows/smoltest.yml'
+  push:
+    # Quoted for the same reason as in ci.yml.
+    branches: ['main']
+    paths:
+      - 'smoltest/**'
+      - '.github/workflows/smoltest.yml'
+  workflow_dispatch:
+
+# Read-only: nothing here publishes, comments or writes a check of its own.
+permissions:
+  contents: read
+
+concurrency:
+  group: smoltest-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: smoltest
+
+jobs:
+  smoltest:
+    name: smoltest-py${{ matrix.python }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.13']
+    env:
+      # uv fetches this interpreter itself; the lockfile pins everything else.
+      UV_PYTHON: ${{ matrix.python }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # pipx ships on the hosted image; no third-party action, so nothing new
+      # to pin by digest. The uv version matches the one that wrote uv.lock.
+      - name: Install uv
+        run: pipx install 'uv==0.8.17'
+      - run: uv sync --locked --all-extras --group dev
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+      - run: uv run pytest -q
+      - run: uv run python benchmarks/bench_boot.py --fake --rounds 2

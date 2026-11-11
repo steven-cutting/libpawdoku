@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Every job installs from the committed lockfile; a stale uv.lock fails the job.
+  UV_LOCKED: "1"
+
+jobs:
+  lint:
+    name: ruff, format, mypy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+          enable-cache: true
+      - run: uv sync --all-extras --group dev
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+
+  unit:
+    name: unit (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+      - run: uv sync --all-extras --group dev
+      # The unit suite runs on smoltest.testing.FakeEngine (tests/conftest.py sets
+      # SMOLTEST_ENGINE); no KVM, no Docker and no cloud token are needed.
+      - run: uv run pytest -q
+      - name: benchmark script smoke test (FakeEngine)
+        run: uv run python benchmarks/bench_boot.py --fake
+
+  local_e2e:
+    name: local e2e (self-hosted KVM)
+    # Real microVMs need /dev/kvm, which GitHub-hosted runners do not expose.
+    # Register a self-hosted Linux runner with nested virtualisation, give it the
+    # label `kvm`, and replace `false` with `github.event_name == 'workflow_dispatch'`.
+    if: false
+    runs-on: [self-hosted, linux, kvm]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+      - run: uv sync --all-extras --group dev
+      - run: uv run smoltest doctor
+      - name: warm two cache variants so the xdist e2e workers restore instead of booting cold
+        run: uv run smoltest warm postgres --variants 2
+      # Includes tests/e2e/test_xdist_plugin_e2e.py, which runs its own inner `pytest -n 2`.
+      - run: uv run pytest -m local_e2e -q
+      - run: uv run python benchmarks/bench_boot.py --rounds 3
+
+  cloud_e2e:
+    name: cloud e2e (Smol Cloud)
+    # Secrets are not visible to a job-level `if`, so the job always starts on a
+    # manual run or a push to main and its steps skip when SMOL_CLOUD_TOKEN is
+    # absent. Pull requests never run it: forks cannot see the secret anyway.
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    steps:
+      - name: check whether the cloud token is configured
+        id: token
+        env:
+          SMOL_CLOUD_TOKEN: ${{ secrets.SMOL_CLOUD_TOKEN }}
+        run: |
+          if [ -n "$SMOL_CLOUD_TOKEN" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "SMOL_CLOUD_TOKEN is not set; skipping the cloud e2e suite"
+          fi
+      - if: steps.token.outputs.present == 'true'
+        uses: actions/checkout@v4
+      - if: steps.token.outputs.present == 'true'
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+          enable-cache: true
+      - if: steps.token.outputs.present == 'true'
+        run: uv sync --all-extras --group dev
+      - if: steps.token.outputs.present == 'true'
+        env:
+          SMOL_CLOUD_TOKEN: ${{ secrets.SMOL_CLOUD_TOKEN }}
+          SMOLTEST_TARGET: cloud
+        run: |
+          uv run smoltest doctor
+          uv run pytest -m cloud_e2e -q
